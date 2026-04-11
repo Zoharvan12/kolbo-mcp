@@ -41,7 +41,7 @@ Just ask Claude naturally:
 - *"Ask Claude about the latest AI news with web search on"*
 - *"Create a Visual DNA profile called 'Alex' from these images"*
 
-## Available Tools (21)
+## Available Tools (30)
 
 **Generation**
 | Tool | Description |
@@ -50,10 +50,16 @@ Just ask Claude naturally:
 | `generate_image_edit` | Existing image(s) + prompt → edited image |
 | `generate_video` | Text → video |
 | `generate_video_from_image` | Still image + motion prompt → video |
+| `generate_video_from_video` | Input video + prompt → restyled video (video-to-video) |
+| `generate_elements` | Reference images/videos + prompt → animated video |
+| `generate_first_last_frame` | First frame + last frame → interpolated video |
+| `generate_lipsync` | Source image/video + audio → lipsynced video |
 | `generate_creative_director` | One brief → N coordinated scenes (image or video) |
 | `generate_music` | Text (+ optional lyrics) → song |
 | `generate_speech` | Text + voice → spoken audio |
 | `generate_sound` | Text → sound effect |
+| `generate_3d` | Text or reference images → 3D model (GLB/FBX/OBJ/USDZ) |
+| `transcribe_audio` | Audio/video URL or file → text + SRT subtitles |
 
 Every image/video/creative-director tool accepts `visual_dna_ids` and `moodboard_id` for character/style consistency across outputs — you can compose `create_visual_dna` → `generate_image` (with the DNA applied server-side) in a single agent turn. `generate_creative_director` also accepts `moodboard_ids` plural for blending.
 
@@ -78,11 +84,18 @@ Every image/video/creative-director tool accepts `visual_dna_ids` and `moodboard
 | `list_moodboards` | Browse presets + your moodboards |
 | `get_moodboard` | Fetch one moodboard with all image URLs |
 
+**Media Library**
+| Tool | Description |
+|------|-------------|
+| `upload_media` | Upload a local file (or remote URL) → stable Kolbo CDN URL for reuse |
+| `list_media` | Browse your uploaded media with type filter and pagination |
+
 **Discovery & Account**
 | Tool | Description |
 |------|-------------|
 | `list_models` | Current model catalog with costs and capabilities |
 | `list_voices` | TTS voices (presets + cloned) |
+| `list_presets` | Generation presets across image/video/music/text-to-video catalogs |
 | `check_credits` | Check credit balance |
 | `get_generation_status` | Poll a generation by ID (fallback if a tool times out) |
 

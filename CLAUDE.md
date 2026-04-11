@@ -73,15 +73,23 @@ Parity target: every route exposed in `kolbo-api/src/modules/sdk/index.js` shoul
 bin/kolbo-mcp.js         — npx entry point
 src/index.js             — MCP server setup (registers all tool groups)
 src/client.js            — HTTP client (get, post, delete, postMultipart, X-API-Key auth)
-src/polling.js           — Poll until terminal state
-src/tools/generate.js    — Generation tools (image, video, music, speech, sound, creative-director, image-edit)
+src/polling.js           — Poll until terminal state (PollingTimeoutError carries generation_id)
+src/tools/_shared.js     — Shared URL/path resolver + SSRF guards (import from any tool file)
+src/tools/generate.js    — All generation tools (image, image-edit, video, video-from-image,
+                            video-from-video, elements, first-last-frame, lipsync,
+                            creative-director, music, speech, sound, 3d, transcribe,
+                            list_voices, get_generation_status)
 src/tools/models.js      — Discovery tools (list_models, check_credits)
 src/tools/chat.js        — Chat tools (send, list conversations, get messages)
-src/tools/visual_dna.js  — Visual DNA CRUD (create with URL/local-path upload, list, get, delete)
+src/tools/visual_dna.js  — Visual DNA CRUD (thin wrapper that imports from _shared)
 src/tools/moodboards.js  — Moodboard discovery (list, get)
+src/tools/media.js       — Media library (upload_media, list_media)
+src/tools/presets.js     — Preset discovery (list_presets — unified across catalogs)
+scripts/smoke.js         — Load-time smoke test (no network)
+scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 ```
 
-## Available Tools (21)
+## Available Tools (30)
 
 **Generation** (`src/tools/generate.js`)
 | Tool | Backend Route | Timeout | Composition args |
@@ -90,12 +98,29 @@ src/tools/moodboards.js  — Moodboard discovery (list, get)
 | `generate_image_edit` | `POST /v1/generate/image-edit` | 120s | `source_images`, `visual_dna_ids`, `moodboard_id`, `enable_web_search` |
 | `generate_video` | `POST /v1/generate/video` | 300s | `visual_dna_ids`, `reference_images` |
 | `generate_video_from_image` | `POST /v1/generate/video/from-image` | 300s | `image_url`, `visual_dna_ids`, `aspect_ratio` |
+| `generate_video_from_video` | `POST /v1/generate/video-from-video` | 600s | `source_video` (URL or local), `visual_dna_ids` |
+| `generate_elements` | `POST /v1/generate/elements` | 600s | `reference_images`, `files`, `visual_dna_ids`, `motion`, `preset_id` |
+| `generate_first_last_frame` | `POST /v1/generate/first-last-frame` | 300s | URLs OR local paths for `first_frame`/`last_frame`, `visual_dna_ids` |
+| `generate_lipsync` | `POST /v1/generate/lipsync` | 600s | `source` (URL or local), `audio` (URL or local), `bounding_box_target` |
 | `generate_creative_director` | `POST /v1/generate/creative-director` | 600s | `visual_dna_ids`, `moodboard_id`, `moodboard_ids`, `reference_images`, `scene_count`, `workflow_type` |
 | `generate_music` | `POST /v1/generate/music` | 300s | `lyrics`, `style`, `instrumental`, `vocal_gender` |
 | `generate_speech` | `POST /v1/generate/speech` | 120s | `voice` (id OR display name), `language` |
 | `generate_sound` | `POST /v1/generate/sound` | 120s | `duration` |
+| `generate_3d` | `POST /v1/generate/3d` | 900s | `reference_images`, `mode` (text/single/multi), `topology`, `enable_pbr` |
+| `transcribe_audio` | `POST /v1/transcribe` | 1800s | `source` (URL or local audio/video) |
 | `get_generation_status` | `GET /v1/generate/:id/status` | — | (fallback for polling timeouts — error message includes `generation_id`) |
 | `list_voices` | `GET /v1/voices` | — | filters: `provider`, `language`, `gender` |
+
+**Media Library** (`src/tools/media.js`)
+| Tool | Backend Route | Notes |
+|------|--------------|-------|
+| `upload_media` | `POST /v1/media/upload` (multipart) | Upload a local file (or remote URL re-host) and get a stable Kolbo CDN URL |
+| `list_media` | `GET /v1/media` | Filters: `type`, `page`, `page_size`, `search` |
+
+**Preset Discovery** (`src/tools/presets.js`)
+| Tool | Backend Route | Notes |
+|------|--------------|-------|
+| `list_presets` | `GET /v1/presets` | Unified across image/video/music/text_to_video; filter with `type` |
 
 **Chat** (`src/tools/chat.js`)
 | Tool | Backend Route | Timeout | Notes |

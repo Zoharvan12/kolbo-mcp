@@ -40,8 +40,13 @@
     "README.md"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "form-data": "^4.0.5"
+  },
+  "overrides": {
+    "hono": "^4.12.12",
+    "@hono/node-server": "^1.19.13",
+    "path-to-regexp": "^8.4.2"
   },
   "engines": {
     "node": ">=18.0.0"

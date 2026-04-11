@@ -64,6 +64,8 @@ const { registerModelTools } = require('./tools/models');
 const { registerChatTools } = require('./tools/chat');
 const { registerVisualDnaTools } = require('./tools/visual_dna');
 const { registerMoodboardTools } = require('./tools/moodboards');
+const { registerMediaTools } = require('./tools/media');
+const { registerPresetTools } = require('./tools/presets');
 
 async function main() {
   const client = new KolboClient();
@@ -79,6 +81,8 @@ async function main() {
   registerChatTools(server, client);
   registerVisualDnaTools(server, client);
   registerMoodboardTools(server, client);
+  registerMediaTools(server, client);
+  registerPresetTools(server, client);
 
   // Start the server with stdio transport
   const transport = new StdioServerTransport();

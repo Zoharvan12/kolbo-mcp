@@ -33,7 +33,7 @@ async function pollUntilDone(client, generationId, options = {}) {
   } = options;
 
   const startTime = Date.now();
-  const url = statusUrl || `/v1/generate/${generationId}/status`;
+  const url = statusUrl || `/v1/generate/${encodeURIComponent(generationId)}/status`;
 
   while (true) {
     if (Date.now() - startTime > timeout) {

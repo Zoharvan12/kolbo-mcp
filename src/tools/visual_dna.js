@@ -3,78 +3,14 @@
  * `npx @kolbo/mcp` installs in the wild will break silently. Add new tools or
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
-const fs = require('fs');
-const path = require('path');
 const FormData = require('form-data');
+const { resolveToBuffer: sharedResolveToBuffer, VISUAL_DNA_MAX_BYTES } = require('./_shared');
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MB per file
-
-function isHttpUrl(s) {
-  return typeof s === 'string' && /^https?:\/\//i.test(s);
-}
-
-function guessFilename(source, fallbackExt) {
-  if (isHttpUrl(source)) {
-    try {
-      const u = new URL(source);
-      const base = path.basename(u.pathname) || `upload${fallbackExt}`;
-      return base.includes('.') ? base : `${base}${fallbackExt}`;
-    } catch (_) {
-      return `upload${fallbackExt}`;
-    }
-  }
-  return path.basename(source);
-}
-
-function guessContentType(filename) {
-  const ext = path.extname(filename).toLowerCase();
-  const map = {
-    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
-    '.webp': 'image/webp', '.gif': 'image/gif', '.bmp': 'image/bmp',
-    '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm',
-    '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4'
-  };
-  return map[ext] || 'application/octet-stream';
-}
-
-async function resolveToBuffer(source, kind) {
-  // kind: 'image' | 'video' | 'audio' — used for default filename extension only.
-  const defaultExt = kind === 'image' ? '.png' : kind === 'video' ? '.mp4' : '.mp3';
-
-  if (isHttpUrl(source)) {
-    const res = await fetch(source);
-    if (!res.ok) throw new Error(`Failed to fetch ${source}: ${res.status}`);
-    const contentLen = parseInt(res.headers.get('content-length') || '0', 10);
-    if (contentLen && contentLen > MAX_FILE_BYTES) {
-      throw new Error(`File at ${source} exceeds 25MB limit`);
-    }
-    const arrayBuf = await res.arrayBuffer();
-    const buffer = Buffer.from(arrayBuf);
-    if (buffer.length > MAX_FILE_BYTES) {
-      throw new Error(`File at ${source} exceeds 25MB limit`);
-    }
-    return {
-      buffer,
-      filename: guessFilename(source, defaultExt),
-      contentType: res.headers.get('content-type') || guessContentType(guessFilename(source, defaultExt))
-    };
-  }
-
-  // Local path
-  if (!path.isAbsolute(source)) {
-    throw new Error(`Local file paths must be absolute: ${source}`);
-  }
-  const stat = fs.statSync(source);
-  if (stat.size > MAX_FILE_BYTES) {
-    throw new Error(`File ${source} (${stat.size} bytes) exceeds 25MB limit`);
-  }
-  const buffer = fs.readFileSync(source);
-  const filename = path.basename(source);
-  return {
-    buffer,
-    filename,
-    contentType: guessContentType(filename)
-  };
+// Visual DNA caps reference media at 25MB per file (stricter than the
+// default _shared.resolveToBuffer cap — DNA profiles only need enough
+// source signal to extract features, not full-quality media).
+function resolveToBuffer(source, kind) {
+  return sharedResolveToBuffer(source, kind, { maxBytes: VISUAL_DNA_MAX_BYTES });
 }
 
 function registerVisualDnaTools(server, client) {
