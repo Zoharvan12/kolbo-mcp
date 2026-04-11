@@ -3,6 +3,7 @@
  * `npx @kolbo/mcp` installs in the wild will break silently. Add new tools or
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
+const { z } = require('zod');
 const { pollUntilDone } = require('../polling');
 
 function registerChatTools(server, client) {
@@ -11,13 +12,13 @@ function registerChatTools(server, client) {
     'chat_send_message',
     'Send a chat message to Kolbo AI. Starts a new conversation (omit session_id) or continues an existing one. Returns the assistant response when complete. Supports web search and deep think modes.',
     {
-      message: { type: 'string', description: 'The user message to send' },
-      model: { type: 'string', description: 'Model identifier (e.g. "gpt-4o", "claude-sonnet-4-5"). Omit for Smart Select (auto).' },
-      session_id: { type: 'string', description: 'Existing chat session ID to continue. Omit to start a new conversation.' },
-      system_prompt: { type: 'string', description: 'System prompt for the conversation. Only applied when creating a new session.' },
-      web_search: { type: 'boolean', description: 'Enable web search for this message. Default: false' },
-      deep_think: { type: 'boolean', description: 'Enable deep think (extended reasoning). Default: false' },
-      enhance_prompt: { type: 'boolean', description: 'Enhance the prompt. Default: true' }
+      message: z.string().describe('The user message to send'),
+      model: z.string().optional().describe('Model identifier (e.g. "gpt-4o", "claude-sonnet-4-5"). Omit for Smart Select (auto).'),
+      session_id: z.string().optional().describe('Existing chat session ID to continue. Omit to start a new conversation.'),
+      system_prompt: z.string().optional().describe('System prompt for the conversation. Only applied when creating a new session.'),
+      web_search: z.boolean().optional().describe('Enable web search for this message. Default: false'),
+      deep_think: z.boolean().optional().describe('Enable deep think (extended reasoning). Default: false'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true')
     },
     async ({ message, model, session_id, system_prompt, web_search, deep_think, enhance_prompt }) => {
       const gen = await client.post('/v1/chat', {
@@ -65,8 +66,8 @@ function registerChatTools(server, client) {
     'chat_list_conversations',
     'List your SDK chat conversations, most-recent first. Returns session_id, name, and activity timestamps.',
     {
-      page: { type: 'number', description: 'Page number, 1-indexed. Default: 1' },
-      limit: { type: 'number', description: 'Results per page, max 50. Default: 20' }
+      page: z.number().optional().describe('Page number, 1-indexed. Default: 1'),
+      limit: z.number().optional().describe('Results per page, max 50. Default: 20')
     },
     async ({ page, limit }) => {
       const params = new URLSearchParams();
@@ -93,9 +94,9 @@ function registerChatTools(server, client) {
     'chat_get_messages',
     'Fetch messages in a chat conversation. Returns role, content, model, and any media URLs attached to each message.',
     {
-      session_id: { type: 'string', description: 'The chat session ID' },
-      page: { type: 'number', description: 'Page number, 1-indexed. Default: 1' },
-      limit: { type: 'number', description: 'Messages per page, max 100. Default: 50' }
+      session_id: z.string().describe('The chat session ID'),
+      page: z.number().optional().describe('Page number, 1-indexed. Default: 1'),
+      limit: z.number().optional().describe('Messages per page, max 100. Default: 50')
     },
     async ({ session_id, page, limit }) => {
       const params = new URLSearchParams();

@@ -3,6 +3,8 @@
  * `npx @kolbo/mcp` installs in the wild will break silently. Add new tools or
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
+const { z } = require('zod');
+
 function registerMoodboardTools(server, client) {
   // ─── list_moodboards ───────────────────────────────────────
   server.tool(
@@ -28,7 +30,7 @@ function registerMoodboardTools(server, client) {
     'get_moodboard',
     'Fetch a single moodboard by ID. Returns the full moodboard including master_prompt, style_guide, and all image URLs.',
     {
-      moodboard_id: { type: 'string', description: 'The moodboard ID' }
+      moodboard_id: z.string().describe('The moodboard ID')
     },
     async ({ moodboard_id }) => {
       const result = await client.get(`/v1/moodboards/${encodeURIComponent(moodboard_id)}`);

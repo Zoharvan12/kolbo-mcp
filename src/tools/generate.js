@@ -3,6 +3,7 @@
  * `npx @kolbo/mcp` installs in the wild will break silently. Add new tools or
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
+const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone } = require('../polling');
 const { resolveToBuffer } = require('./_shared');
@@ -13,15 +14,15 @@ function registerGenerateTools(server, client) {
     'generate_image',
     'Generate image(s) from a text prompt using Kolbo AI. Supports Visual DNA profiles (for character/style/product consistency), moodboards (for style direction), reference images (for composition guidance), batch generation (num_images), and web-search grounding. For EDITING an existing image, use generate_image_edit instead. For a coordinated multi-scene set (storyboard, ad campaign), use generate_creative_director. Returns the final image URL(s) when complete.',
     {
-      prompt: { type: 'string', description: 'Text description of the image to generate' },
-      model: { type: 'string', description: 'Model identifier. Use list_models type="image" to see options. Omit for Smart Select.' },
-      aspect_ratio: { type: 'string', description: 'Aspect ratio (e.g., "1:1", "16:9", "9:16"). Default: "1:1"' },
-      enhance_prompt: { type: 'boolean', description: 'Enhance the prompt for better results. Default: true' },
-      num_images: { type: 'number', description: 'Number of images to generate in one call. Default: 1' },
-      reference_images: { type: 'array', description: 'Array of image URLs used as composition/style references (NOT as source images for editing — use generate_image_edit for that).' },
-      visual_dna_ids: { type: 'array', description: 'Array of Visual DNA profile IDs (from create_visual_dna / list_visual_dnas) to apply for character / style / product / scene consistency. Pass the `id` field of each profile. Use this when the user wants to keep the same character or style across multiple images.' },
-      moodboard_id: { type: 'string', description: 'Moodboard ID (from list_moodboards / get_moodboard) whose master_prompt and style_guide should be applied to this generation.' },
-      enable_web_search: { type: 'boolean', description: 'Enable web-search grounding for the prompt (useful for current events, brand references, real-world accuracy). Default: false' }
+      prompt: z.string().describe('Text description of the image to generate'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="image" to see options. Omit for Smart Select.'),
+      aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "1:1", "16:9", "9:16"). Default: "1:1"'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: true'),
+      num_images: z.number().optional().describe('Number of images to generate in one call. Default: 1'),
+      reference_images: z.array(z.string()).optional().describe('Array of image URLs used as composition/style references (NOT as source images for editing — use generate_image_edit for that).'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs (from create_visual_dna / list_visual_dnas) to apply for character / style / product / scene consistency. Pass the `id` field of each profile. Use this when the user wants to keep the same character or style across multiple images.'),
+      moodboard_id: z.string().optional().describe('Moodboard ID (from list_moodboards / get_moodboard) whose master_prompt and style_guide should be applied to this generation.'),
+      enable_web_search: z.boolean().optional().describe('Enable web-search grounding for the prompt (useful for current events, brand references, real-world accuracy). Default: false')
     },
     async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search }) => {
       const gen = await client.post('/v1/generate/image', {
@@ -52,15 +53,15 @@ function registerGenerateTools(server, client) {
     'generate_image_edit',
     'Edit or transform an existing image using AI. Provide the source image URL(s) in `source_images` and describe the edit in `prompt` (e.g., "remove the background", "change the car color to red", "add sunglasses to the person"). Supports Visual DNA profiles and moodboards for style-consistent edits. For creating a brand new image from scratch, use generate_image. Returns the edited image URL(s) when complete.',
     {
-      prompt: { type: 'string', description: 'Description of the edit to apply (e.g., "remove the background", "change the sky to sunset")' },
-      model: { type: 'string', description: 'Model identifier. Use list_models type="image_edit" to see options. Omit for Smart Select.' },
-      source_images: { type: 'array', description: 'Array of source image URLs to edit. Typically one, but some models accept multiple for compositing.' },
-      aspect_ratio: { type: 'string', description: 'Output aspect ratio (e.g., "1:1", "16:9", "9:16"). Default: "1:1"' },
-      enhance_prompt: { type: 'boolean', description: 'Enhance the prompt for better results. Default: true' },
-      num_images: { type: 'number', description: 'Number of output images. Default: 1' },
-      visual_dna_ids: { type: 'array', description: 'Array of Visual DNA profile IDs to apply for consistency with an existing character / style / product.' },
-      moodboard_id: { type: 'string', description: 'Moodboard ID whose master_prompt and style_guide should be applied.' },
-      enable_web_search: { type: 'boolean', description: 'Enable web-search grounding. Default: false' }
+      prompt: z.string().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset")'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="image_edit" to see options. Omit for Smart Select.'),
+      source_images: z.array(z.string()).describe('Array of source image URLs to edit. Typically one, but some models accept multiple for compositing.'),
+      aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "1:1", "16:9", "9:16"). Default: "1:1"'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: true'),
+      num_images: z.number().optional().describe('Number of output images. Default: 1'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for consistency with an existing character / style / product.'),
+      moodboard_id: z.string().optional().describe('Moodboard ID whose master_prompt and style_guide should be applied.'),
+      enable_web_search: z.boolean().optional().describe('Enable web-search grounding. Default: false')
     },
     async ({ prompt, model, source_images, aspect_ratio, enhance_prompt, num_images, visual_dna_ids, moodboard_id, enable_web_search }) => {
       const gen = await client.post('/v1/generate/image-edit', {
@@ -91,17 +92,17 @@ function registerGenerateTools(server, client) {
     'generate_creative_director',
     'Generate a multi-scene coordinated set from ONE creative brief. Use this INSTEAD of calling generate_image/generate_video multiple times when the user wants a storyboard, multi-scene ad, product showcase, or any set of related outputs that should share visual language. Produces 1–8 scenes in a single request with consistent style. Supports image mode and video mode (`workflow_type`). Visual DNA and moodboard references keep character/style consistent across every scene.',
     {
-      prompt: { type: 'string', description: 'Creative brief or concept describing the full set of scenes to generate' },
-      scene_count: { type: 'number', description: 'Number of scenes to generate, 1–8. Default: 4' },
-      model: { type: 'string', description: 'Model identifier applied to every scene. Omit for Smart Select.' },
-      aspect_ratio: { type: 'string', description: 'Aspect ratio applied to every scene (e.g., "1:1", "16:9", "9:16"). Default: "1:1"' },
-      workflow_type: { type: 'string', description: '"image" (default) or "video"' },
-      duration: { type: 'number', description: 'Duration in seconds per scene (video mode only). E.g., 5 or 10.' },
-      enhance_prompt: { type: 'boolean', description: 'Enhance prompts per scene. Default: true' },
-      reference_images: { type: 'array', description: 'Array of reference image URLs to guide style/composition of every scene.' },
-      visual_dna_ids: { type: 'array', description: 'Array of Visual DNA profile IDs to apply consistently across every scene. This is the ideal way to keep a character or product looking the same in all scenes of a campaign.' },
-      moodboard_id: { type: 'string', description: 'A single moodboard ID whose master_prompt and style_guide should shape every scene.' },
-      moodboard_ids: { type: 'array', description: 'Multiple moodboard IDs when blending styles. Prefer `moodboard_id` for single moodboards.' }
+      prompt: z.string().describe('Creative brief or concept describing the full set of scenes to generate'),
+      scene_count: z.number().optional().describe('Number of scenes to generate, 1–8. Default: 4'),
+      model: z.string().optional().describe('Model identifier applied to every scene. Omit for Smart Select.'),
+      aspect_ratio: z.string().optional().describe('Aspect ratio applied to every scene (e.g., "1:1", "16:9", "9:16"). Default: "1:1"'),
+      workflow_type: z.string().optional().describe('"image" (default) or "video"'),
+      duration: z.number().optional().describe('Duration in seconds per scene (video mode only). E.g., 5 or 10.'),
+      enhance_prompt: z.boolean().optional().describe('Enhance prompts per scene. Default: true'),
+      reference_images: z.array(z.string()).optional().describe('Array of reference image URLs to guide style/composition of every scene.'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply consistently across every scene. This is the ideal way to keep a character or product looking the same in all scenes of a campaign.'),
+      moodboard_id: z.string().optional().describe('A single moodboard ID whose master_prompt and style_guide should shape every scene.'),
+      moodboard_ids: z.array(z.string()).optional().describe('Multiple moodboard IDs when blending styles. Prefer `moodboard_id` for single moodboards.')
     },
     async ({ prompt, scene_count, model, aspect_ratio, workflow_type, duration, enhance_prompt, reference_images, visual_dna_ids, moodboard_id, moodboard_ids }) => {
       const gen = await client.post('/v1/generate/creative-director', {
@@ -142,13 +143,13 @@ function registerGenerateTools(server, client) {
     'generate_video',
     'Generate a video from a text prompt using Kolbo AI. For animating an existing still image into motion, use generate_video_from_image instead. For a coordinated multi-scene video campaign, use generate_creative_director with workflow_type="video". Supports Visual DNA profiles (for character consistency) and reference images (for style guidance). Returns the final video URL when complete.',
     {
-      prompt: { type: 'string', description: 'Text description of the video to generate' },
-      model: { type: 'string', description: 'Model identifier. Use list_models type="video" to see options. Check supported_durations and supported_aspect_ratios.' },
-      aspect_ratio: { type: 'string', description: 'Aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"' },
-      duration: { type: 'number', description: 'Duration in seconds. Must be a value the chosen model supports — check supported_durations from list_models. Default: 5' },
-      enhance_prompt: { type: 'boolean', description: 'Enhance the prompt. Default: true' },
-      reference_images: { type: 'array', description: 'Array of image URLs used as visual references (style / composition / subject).' },
-      visual_dna_ids: { type: 'array', description: 'Array of Visual DNA profile IDs to keep a character / style consistent with prior generations.' }
+      prompt: z.string().describe('Text description of the video to generate'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="video" to see options. Check supported_durations and supported_aspect_ratios.'),
+      aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"'),
+      duration: z.number().optional().describe('Duration in seconds. Must be a value the chosen model supports — check supported_durations from list_models. Default: 5'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
+      reference_images: z.array(z.string()).optional().describe('Array of image URLs used as visual references (style / composition / subject).'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to keep a character / style consistent with prior generations.')
     },
     async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, visual_dna_ids }) => {
       const gen = await client.post('/v1/generate/video', {
@@ -180,13 +181,13 @@ function registerGenerateTools(server, client) {
     'generate_video_from_image',
     'Animate an existing still image into a video using Kolbo AI. The image comes from `image_url`; `prompt` describes the motion (not the subject — the subject is already in the image). For generating a video from scratch, use generate_video. Returns the final video URL when complete.',
     {
-      image_url: { type: 'string', description: 'URL of the source image to animate' },
-      prompt: { type: 'string', description: 'Text description of the desired MOTION (e.g., "camera slowly pans right while the character walks forward")' },
-      model: { type: 'string', description: 'Model identifier. Use list_models type="video_from_image" to see options.' },
-      aspect_ratio: { type: 'string', description: 'Output aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"' },
-      duration: { type: 'number', description: 'Duration in seconds. Must be a value the chosen model supports. Default: 5' },
-      enhance_prompt: { type: 'boolean', description: 'Enhance the motion prompt. Default: true' },
-      visual_dna_ids: { type: 'array', description: 'Array of Visual DNA profile IDs to maintain consistency with prior characters / styles.' }
+      image_url: z.string().describe('URL of the source image to animate'),
+      prompt: z.string().describe('Text description of the desired MOTION (e.g., "camera slowly pans right while the character walks forward")'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="video_from_image" to see options.'),
+      aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"'),
+      duration: z.number().optional().describe('Duration in seconds. Must be a value the chosen model supports. Default: 5'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the motion prompt. Default: true'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to maintain consistency with prior characters / styles.')
     },
     async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids }) => {
       const gen = await client.post('/v1/generate/video/from-image', {
@@ -217,13 +218,13 @@ function registerGenerateTools(server, client) {
     'generate_music',
     'Generate music from a text description using Kolbo AI. Supports instrumental mode, custom lyrics, style direction, and vocal gender. Default model is Suno. Returns the final audio URL when complete.',
     {
-      prompt: { type: 'string', description: 'Text description of the music to generate (e.g., "upbeat electronic dance track with synthesizers")' },
-      model: { type: 'string', description: 'Model identifier. Use list_models type="music" to see options. Omit for Suno (default).' },
-      style: { type: 'string', description: 'Music style / genre (e.g., "pop", "rock", "lo-fi", "electronic", "jazz")' },
-      instrumental: { type: 'boolean', description: 'Generate instrumental only, no vocals. Default: false' },
-      lyrics: { type: 'string', description: 'Custom lyrics for the song. If omitted, lyrics are generated automatically from the prompt unless instrumental is true.' },
-      vocal_gender: { type: 'string', description: 'Preferred vocal gender: "male" or "female". Only applies when instrumental is false.' },
-      enhance_prompt: { type: 'boolean', description: 'Enhance the prompt. Default: true' }
+      prompt: z.string().describe('Text description of the music to generate (e.g., "upbeat electronic dance track with synthesizers")'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="music" to see options. Omit for Suno (default).'),
+      style: z.string().optional().describe('Music style / genre (e.g., "pop", "rock", "lo-fi", "electronic", "jazz")'),
+      instrumental: z.boolean().optional().describe('Generate instrumental only, no vocals. Default: false'),
+      lyrics: z.string().optional().describe('Custom lyrics for the song. If omitted, lyrics are generated automatically from the prompt unless instrumental is true.'),
+      vocal_gender: z.string().optional().describe('Preferred vocal gender: "male" or "female". Only applies when instrumental is false.'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true')
     },
     async ({ prompt, model, style, instrumental, lyrics, vocal_gender, enhance_prompt }) => {
       const gen = await client.post('/v1/generate/music', {
@@ -254,10 +255,10 @@ function registerGenerateTools(server, client) {
     'generate_speech',
     'Convert text to speech using Kolbo AI. Default provider is ElevenLabs. To pick a specific voice by language/gender, call list_voices first and pass the returned voice_id (or a voice display name — both work). Returns the final audio URL when complete.',
     {
-      text: { type: 'string', description: 'The text to convert to speech' },
-      voice: { type: 'string', description: 'Voice ID (from list_voices) or voice display name (e.g., "Rachel", "Adam"). Default: "Rachel"' },
-      model: { type: 'string', description: 'Model identifier. Use list_models type="speech" to see options. Default: eleven_v3' },
-      language: { type: 'string', description: 'Language code (e.g., "en-US", "he-IL", "es-ES"). Default: "en-US"' }
+      text: z.string().describe('The text to convert to speech'),
+      voice: z.string().optional().describe('Voice ID (from list_voices) or voice display name (e.g., "Rachel", "Adam"). Default: "Rachel"'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="speech" to see options. Default: eleven_v3'),
+      language: z.string().optional().describe('Language code (e.g., "en-US", "he-IL", "es-ES"). Default: "en-US"')
     },
     async ({ text, voice, model, language }) => {
       const gen = await client.post('/v1/generate/speech', {
@@ -287,9 +288,9 @@ function registerGenerateTools(server, client) {
     'generate_sound',
     'Generate sound effects (not music, not speech) from a text description using Kolbo AI. Use this for ambient sounds, foley, impacts, atmospheres, UI sounds, etc. For music use generate_music; for voice use generate_speech. Returns the final audio URL when complete.',
     {
-      prompt: { type: 'string', description: 'Text description of the sound effect (e.g., "thunder clap with rain", "door creaking open", "futuristic UI beep")' },
-      model: { type: 'string', description: 'Model identifier. Use list_models type="sound" to see options. Default: elevenlabs-sound-effects-v1' },
-      duration: { type: 'number', description: 'Duration in seconds. Omit for automatic duration.' }
+      prompt: z.string().describe('Text description of the sound effect (e.g., "thunder clap with rain", "door creaking open", "futuristic UI beep")'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="sound" to see options. Default: elevenlabs-sound-effects-v1'),
+      duration: z.number().optional().describe('Duration in seconds. Omit for automatic duration.')
     },
     async ({ prompt, model, duration }) => {
       const gen = await client.post('/v1/generate/sound', {
@@ -318,9 +319,9 @@ function registerGenerateTools(server, client) {
     'list_voices',
     'List available TTS voices for generate_speech. Returns preset voices and the user\'s own cloned/designed voices. Filter by provider, language, or gender to find the right voice. Use the returned `voice_id` as the `voice` parameter in generate_speech.',
     {
-      provider: { type: 'string', description: 'Filter by provider (e.g., "elevenLabs", "google")' },
-      language: { type: 'string', description: 'Filter by language name or code (e.g., "English", "en-US")' },
-      gender: { type: 'string', description: 'Filter by gender (e.g., "Female", "Male")' }
+      provider: z.string().optional().describe('Filter by provider (e.g., "elevenLabs", "google")'),
+      language: z.string().optional().describe('Filter by language name or code (e.g., "English", "en-US")'),
+      gender: z.string().optional().describe('Filter by gender (e.g., "Female", "Male")')
     },
     async ({ provider, language, gender }) => {
       const params = new URLSearchParams();
@@ -355,7 +356,7 @@ function registerGenerateTools(server, client) {
     'get_generation_status',
     'Check the status of a generation. Use this as a FALLBACK when a generation tool returned a timeout error — the generation is probably still running on the server. Pass the generation_id from the timeout error (or from any prior generation response).',
     {
-      generation_id: { type: 'string', description: 'The generation ID to check' }
+      generation_id: z.string().describe('The generation ID to check')
     },
     async ({ generation_id }) => {
       const result = await client.get(`/v1/generate/${encodeURIComponent(generation_id)}/status`);
@@ -378,16 +379,16 @@ function registerGenerateTools(server, client) {
     'generate_elements',
     'Generate a video from reference elements (images and/or videos) + a text prompt. Use when the user wants to animate specific uploaded/referenced assets — e.g. "animate this product", "put these 3 characters into a scene". Supports Visual DNA for character consistency. For text-only → video use generate_video instead. For animating a single still image use generate_video_from_image. Returns the final video URL when complete.',
     {
-      prompt: { type: 'string', description: 'Text description of the desired video / animation' },
-      model: { type: 'string', description: 'Model identifier. Use list_models type="video" to see options. Omit for Smart Select.' },
-      reference_images: { type: 'array', description: 'Array of public image URLs used as reference elements (product shots, character references, etc.). URL mode.' },
-      files: { type: 'array', description: 'Array of URLs or absolute local paths — alternative to reference_images. Use this when you have local files to upload. Each item can be a URL OR a local path.' },
-      duration: { type: 'number', description: 'Duration in seconds. Default: 5' },
-      aspect_ratio: { type: 'string', description: 'Aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"' },
-      motion: { type: 'string', description: 'Motion style / intensity hint (optional)' },
-      preset_id: { type: 'string', description: 'Preset ID from list_presets type="video" (optional)' },
-      enhance_prompt: { type: 'boolean', description: 'Enhance the prompt. Default: true' },
-      visual_dna_ids: { type: 'array', description: 'Array of Visual DNA profile IDs to apply for character/style consistency across outputs.' }
+      prompt: z.string().describe('Text description of the desired video / animation'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="video" to see options. Omit for Smart Select.'),
+      reference_images: z.array(z.string()).optional().describe('Array of public image URLs used as reference elements (product shots, character references, etc.). URL mode.'),
+      files: z.array(z.string()).optional().describe('Array of URLs or absolute local paths — alternative to reference_images. Use this when you have local files to upload. Each item can be a URL OR a local path.'),
+      duration: z.number().optional().describe('Duration in seconds. Default: 5'),
+      aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"'),
+      motion: z.string().optional().describe('Motion style / intensity hint (optional)'),
+      preset_id: z.string().optional().describe('Preset ID from list_presets type="video" (optional)'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency across outputs.')
     },
     async ({ prompt, model, reference_images, files, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids }) => {
       if (!prompt) throw new Error('prompt is required');
@@ -441,16 +442,16 @@ function registerGenerateTools(server, client) {
     'generate_first_last_frame',
     'Generate a video that morphs / interpolates from a FIRST frame to a LAST frame. Provide the two frames as URLs (first_frame_url + last_frame_url) OR as local file paths (first_frame + last_frame). Optional prompt describes the desired motion/transition. Do NOT mix URL and file inputs. Returns the final video URL when complete.',
     {
-      first_frame_url: { type: 'string', description: 'Public URL of the first frame image (URL mode)' },
-      last_frame_url: { type: 'string', description: 'Public URL of the last frame image (URL mode)' },
-      first_frame: { type: 'string', description: 'URL or absolute local path to the first frame (file mode — alternative to first_frame_url)' },
-      last_frame: { type: 'string', description: 'URL or absolute local path to the last frame (file mode — alternative to last_frame_url)' },
-      prompt: { type: 'string', description: 'Optional description of the desired motion between the two frames (e.g. "smooth camera dolly in")' },
-      model: { type: 'string', description: 'Model identifier. Use list_models type="video_from_image" to see options. Omit for Smart Select.' },
-      duration: { type: 'number', description: 'Duration in seconds. Default: 5' },
-      aspect_ratio: { type: 'string', description: 'Aspect ratio (auto-detected from first frame if not provided). Default: "16:9"' },
-      enhance_prompt: { type: 'boolean', description: 'Enhance the prompt. Default: true' },
-      visual_dna_ids: { type: 'array', description: 'Array of Visual DNA profile IDs to apply.' }
+      first_frame_url: z.string().optional().describe('Public URL of the first frame image (URL mode)'),
+      last_frame_url: z.string().optional().describe('Public URL of the last frame image (URL mode)'),
+      first_frame: z.string().optional().describe('URL or absolute local path to the first frame (file mode — alternative to first_frame_url)'),
+      last_frame: z.string().optional().describe('URL or absolute local path to the last frame (file mode — alternative to last_frame_url)'),
+      prompt: z.string().optional().describe('Optional description of the desired motion between the two frames (e.g. "smooth camera dolly in")'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="video_from_image" to see options. Omit for Smart Select.'),
+      duration: z.number().optional().describe('Duration in seconds. Default: 5'),
+      aspect_ratio: z.string().optional().describe('Aspect ratio (auto-detected from first frame if not provided). Default: "16:9"'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply.')
     },
     async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids }) => {
       const urlMode = first_frame_url && last_frame_url;
@@ -508,11 +509,11 @@ function registerGenerateTools(server, client) {
     'generate_lipsync',
     'Lipsync an audio track to a source image or video. Both `source` (image or video) and `audio` can be provided as URLs or as absolute local file paths. Pass a text_prompt only if the model supports it (some lipsync models do character performance from a prompt). Returns a lipsynced video URL.',
     {
-      source: { type: 'string', description: 'URL or absolute local path to the source image or video (the face to animate)' },
-      audio: { type: 'string', description: 'URL or absolute local path to the audio track (the voice to sync to)' },
-      text_prompt: { type: 'string', description: 'Optional text prompt (for performance-capable models)' },
-      model: { type: 'string', description: 'Model identifier. Use list_models type="lipsync" to see options. Omit for Smart Select.' },
-      bounding_box_target: { type: 'array', description: 'Optional bounding box [x, y, w, h] for multi-face inputs (Hedra Character3 style). Leave empty for single-face.' }
+      source: z.string().describe('URL or absolute local path to the source image or video (the face to animate)'),
+      audio: z.string().describe('URL or absolute local path to the audio track (the voice to sync to)'),
+      text_prompt: z.string().optional().describe('Optional text prompt (for performance-capable models)'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="lipsync" to see options. Omit for Smart Select.'),
+      bounding_box_target: z.array(z.number()).optional().describe('Optional bounding box [x, y, w, h] for multi-face inputs (Hedra Character3 style). Leave empty for single-face.')
     },
     async ({ source, audio, text_prompt, model, bounding_box_target }) => {
       if (!source) throw new Error('source is required (URL or absolute local path to image/video)');
@@ -578,13 +579,13 @@ function registerGenerateTools(server, client) {
     'generate_video_from_video',
     'Restyle / transform an existing video using a text prompt (video-to-video). Use for style transfer, scene restyling, subject swap — anything where you want to keep the motion from the input video but change the look. Source video can be a URL or absolute local path. For animating a still image use generate_video_from_image instead. For text-only → video use generate_video.',
     {
-      source_video: { type: 'string', description: 'URL or absolute local path to the source video to restyle' },
-      prompt: { type: 'string', description: 'Text description of the desired restyle / transformation' },
-      model: { type: 'string', description: 'Model identifier. Omit for Smart Select.' },
-      aspect_ratio: { type: 'string', description: 'Output aspect ratio. Default: matches source' },
-      duration: { type: 'number', description: 'Duration in seconds (default: matches source)' },
-      enhance_prompt: { type: 'boolean', description: 'Enhance the prompt. Default: true' },
-      visual_dna_ids: { type: 'array', description: 'Array of Visual DNA profile IDs to apply for character/style consistency.' }
+      source_video: z.string().describe('URL or absolute local path to the source video to restyle'),
+      prompt: z.string().describe('Text description of the desired restyle / transformation'),
+      model: z.string().optional().describe('Model identifier. Omit for Smart Select.'),
+      aspect_ratio: z.string().optional().describe('Output aspect ratio. Default: matches source'),
+      duration: z.number().optional().describe('Duration in seconds (default: matches source)'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency.')
     },
     async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids }) => {
       if (!source_video) throw new Error('source_video is required');
@@ -633,7 +634,7 @@ function registerGenerateTools(server, client) {
     'transcribe_audio',
     'Transcribe audio or video into text + SRT subtitles. Source can be a URL or an absolute local file path. Returns the full text, SRT content, duration, and download URLs for .srt/.txt files. Works on both audio-only files (mp3, wav, m4a) and videos with audio tracks (mp4, mov, webm).',
     {
-      source: { type: 'string', description: 'URL or absolute local path to the audio / video file to transcribe' }
+      source: z.string().describe('URL or absolute local path to the audio / video file to transcribe')
     },
     async ({ source }) => {
       if (!source) throw new Error('source is required (URL or absolute local path)');
@@ -673,15 +674,15 @@ function registerGenerateTools(server, client) {
     'generate_3d',
     'Generate a 3D model from a text prompt, a single reference image, or multiple reference images (for multi-view reconstruction). Returns model URLs in multiple formats (GLB, FBX, OBJ, USDZ). Modes: "text" (prompt-only), "single" (one image), "multi" (multiple images for better quality). The mode is auto-detected from the inputs if not specified.',
     {
-      prompt: { type: 'string', description: 'Text description of the 3D object to generate (used in text mode and also as a hint in image modes)' },
-      reference_images: { type: 'array', description: 'Array of public image URLs. 1 image → single mode, 2+ → multi mode.' },
-      mode: { type: 'string', description: 'Explicitly set mode: "text" | "single" | "multi". Auto-detected from reference_images if omitted.' },
-      texture_prompt: { type: 'string', description: 'Optional prompt to guide texture generation' },
-      model: { type: 'string', description: 'Model identifier. Use list_models type="three_d" to see options.' },
-      topology: { type: 'string', description: 'Topology preset (optional, model-specific)' },
-      target_polycount: { type: 'number', description: 'Target polygon count (optional, model-specific)' },
-      enable_tpose: { type: 'boolean', description: 'Force T-pose for character models (optional)' },
-      enable_pbr: { type: 'boolean', description: 'Enable PBR textures (optional)' }
+      prompt: z.string().optional().describe('Text description of the 3D object to generate (used in text mode and also as a hint in image modes)'),
+      reference_images: z.array(z.string()).optional().describe('Array of public image URLs. 1 image → single mode, 2+ → multi mode.'),
+      mode: z.string().optional().describe('Explicitly set mode: "text" | "single" | "multi". Auto-detected from reference_images if omitted.'),
+      texture_prompt: z.string().optional().describe('Optional prompt to guide texture generation'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="three_d" to see options.'),
+      topology: z.string().optional().describe('Topology preset (optional, model-specific)'),
+      target_polycount: z.number().optional().describe('Target polygon count (optional, model-specific)'),
+      enable_tpose: z.boolean().optional().describe('Force T-pose for character models (optional)'),
+      enable_pbr: z.boolean().optional().describe('Enable PBR textures (optional)')
     },
     async ({ prompt, reference_images, mode, texture_prompt, model, topology, target_polycount, enable_tpose, enable_pbr }) => {
       if (!prompt && !(reference_images && reference_images.length > 0)) {

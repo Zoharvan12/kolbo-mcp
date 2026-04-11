@@ -3,16 +3,15 @@
  * `npx @kolbo/mcp` installs in the wild will break silently. Add new tools or
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
+const { z } = require('zod');
+
 function registerModelTools(server, client) {
   // ─── list_models ───────────────────────────────────────────
   server.tool(
     'list_models',
     'List available AI models on Kolbo. Filter by type to find models for a specific generation type.',
     {
-      type: {
-        type: 'string',
-        description: 'Filter by type: "image", "video", "video_from_image", "music", "speech", "sound". Omit for all models.'
-      }
+      type: z.string().optional().describe('Filter by type: "image", "video", "video_from_image", "music", "speech", "sound". Omit for all models.')
     },
     async ({ type }) => {
       const path = type ? `/v1/models?type=${encodeURIComponent(type)}` : '/v1/models';

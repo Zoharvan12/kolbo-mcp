@@ -3,6 +3,7 @@
  * `npx @kolbo/mcp` installs in the wild will break silently. Add new tools or
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
+const { z } = require('zod');
 const FormData = require('form-data');
 const { resolveToBuffer: sharedResolveToBuffer, VISUAL_DNA_MAX_BYTES } = require('./_shared');
 
@@ -19,12 +20,12 @@ function registerVisualDnaTools(server, client) {
     'create_visual_dna',
     'Create a Visual DNA profile from reference media. Each item in images/video/audio can be a public URL or an absolute local file path. Max 4 images, 1 video, 1 audio. Files capped at 25MB each.',
     {
-      name: { type: 'string', description: 'Name of the Visual DNA profile' },
-      dna_type: { type: 'string', description: 'Type: "character", "style", "product", "scene". Default: "character"' },
-      prompt_helper: { type: 'string', description: 'Optional description/notes to guide DNA extraction' },
-      images: { type: 'array', description: 'Array of image sources (URLs or absolute local paths). Max 4.' },
-      video: { type: 'string', description: 'Optional video source (URL or absolute local path)' },
-      audio: { type: 'string', description: 'Optional audio source (URL or absolute local path)' }
+      name: z.string().describe('Name of the Visual DNA profile'),
+      dna_type: z.string().optional().describe('Type: "character", "style", "product", "scene". Default: "character"'),
+      prompt_helper: z.string().optional().describe('Optional description/notes to guide DNA extraction'),
+      images: z.array(z.string()).optional().describe('Array of image sources (URLs or absolute local paths). Max 4.'),
+      video: z.string().optional().describe('Optional video source (URL or absolute local path)'),
+      audio: z.string().optional().describe('Optional audio source (URL or absolute local path)')
     },
     async ({ name, dna_type, prompt_helper, images, video, audio }) => {
       if (!name || !name.trim()) {
@@ -96,7 +97,7 @@ function registerVisualDnaTools(server, client) {
     'get_visual_dna',
     'Fetch a single Visual DNA profile by ID. Returns the full profile including system_prompt and all reference images.',
     {
-      visual_dna_id: { type: 'string', description: 'The Visual DNA profile ID' }
+      visual_dna_id: z.string().describe('The Visual DNA profile ID')
     },
     async ({ visual_dna_id }) => {
       const result = await client.get(`/v1/visual-dna/${encodeURIComponent(visual_dna_id)}`);
@@ -114,7 +115,7 @@ function registerVisualDnaTools(server, client) {
     'delete_visual_dna',
     'Delete a Visual DNA profile by ID. Only the owner can delete.',
     {
-      visual_dna_id: { type: 'string', description: 'The Visual DNA profile ID to delete' }
+      visual_dna_id: z.string().describe('The Visual DNA profile ID to delete')
     },
     async ({ visual_dna_id }) => {
       const result = await client.delete(`/v1/visual-dna/${encodeURIComponent(visual_dna_id)}`);
