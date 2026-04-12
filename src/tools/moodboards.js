@@ -9,10 +9,15 @@ function registerMoodboardTools(server, client) {
   // ─── list_moodboards ───────────────────────────────────────
   server.tool(
     'list_moodboards',
-    'List moodboards available to you: your own, system presets, and any organization moodboards. Returns id, name, master_prompt, thumbnail, and image URLs for each.',
-    {},
-    async () => {
-      const result = await client.get('/v1/moodboards');
+    'List moodboards. By default returns ALL (personal + system presets + organization). Use "scope" to filter: "personal" (user\'s own), "preset" or "global" (system presets), or "organization" (org-shared). Returns id, name, master_prompt, thumbnail, and image URLs for each.',
+    {
+      scope: z.enum(['all', 'personal', 'preset', 'global', 'organization']).optional().describe('Filter by scope. Default: "all" (everything accessible). "personal" = only your own. "preset"/"global" = system presets. "organization" = org-shared.')
+    },
+    async ({ scope } = {}) => {
+      const params = new URLSearchParams();
+      if (scope && scope !== 'all') params.set('scope', scope);
+      const qs = params.toString();
+      const result = await client.get(`/v1/moodboards${qs ? '?' + qs : ''}`);
       return {
         content: [{
           type: 'text',

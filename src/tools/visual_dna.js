@@ -76,10 +76,21 @@ function registerVisualDnaTools(server, client) {
   // ─── list_visual_dnas ──────────────────────────────────────
   server.tool(
     'list_visual_dnas',
-    'List your Visual DNA profiles. Returns id, name, type, and thumbnail for each.',
-    {},
-    async () => {
-      const result = await client.get('/v1/visual-dna');
+    'List Visual DNA profiles. By default returns ALL (personal + global cast presets + organization). Use "scope" to filter: "personal" (user\'s own), "global" (system cast/presets), or "organization" (org-shared). Use "search" to filter by name/tags/description. Use "collection" to filter global presets by collection (cast, influencers, props, locations, styles, glamour, street).',
+    {
+      scope: z.enum(['all', 'personal', 'global', 'organization']).optional().describe('Filter by scope. Default: "all" (everything accessible). "personal" = only your own. "global" = system presets/cast. "organization" = org-shared.'),
+      search: z.string().optional().describe('Search by name, tags, or description (case-insensitive)'),
+      collection: z.string().optional().describe('Filter global presets by collection: cast, influencers, props, locations, styles, glamour, street'),
+      tags: z.string().optional().describe('Comma-separated tags to filter by (OR logic)')
+    },
+    async ({ scope, search, collection, tags } = {}) => {
+      const params = new URLSearchParams();
+      if (scope && scope !== 'all') params.set('scope', scope);
+      if (search) params.set('search', search);
+      if (collection) params.set('collection', collection);
+      if (tags) params.set('tags', tags);
+      const qs = params.toString();
+      const result = await client.get(`/v1/visual-dna${qs ? '?' + qs : ''}`);
       return {
         content: [{
           type: 'text',
