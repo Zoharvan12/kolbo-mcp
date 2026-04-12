@@ -267,16 +267,10 @@ class KolboClient {
       ...formData.getHeaders()
     };
 
-    // Buffer the form-data stream into a single Buffer before passing to
-    // fetch(). Node's built-in fetch (undici) doesn't reliably consume
-    // legacy Node.js streams from the `form-data` package — especially on
-    // Windows — causing "fetch failed" errors on local file uploads.
-    const body = await new Promise((resolve, reject) => {
-      const chunks = [];
-      formData.on('data', (chunk) => chunks.push(chunk));
-      formData.on('end', () => resolve(Buffer.concat(chunks)));
-      formData.on('error', reject);
-    });
+    // Serialize form-data to a Buffer before passing to fetch(). Node's
+    // built-in fetch (undici) can't consume legacy Node.js streams from
+    // the `form-data` package, causing "fetch failed" on local file uploads.
+    const body = formData.getBuffer();
     headers['Content-Length'] = String(body.length);
 
     const response = await fetch(url, {
