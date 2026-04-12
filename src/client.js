@@ -267,16 +267,22 @@ class KolboClient {
       ...formData.getHeaders()
     };
 
-    try {
-      const len = formData.getLengthSync();
-      if (len) headers['Content-Length'] = String(len);
-    } catch (_) { /* streaming length unavailable */ }
+    // Buffer the form-data stream into a single Buffer before passing to
+    // fetch(). Node's built-in fetch (undici) doesn't reliably consume
+    // legacy Node.js streams from the `form-data` package — especially on
+    // Windows — causing "fetch failed" errors on local file uploads.
+    const body = await new Promise((resolve, reject) => {
+      const chunks = [];
+      formData.on('data', (chunk) => chunks.push(chunk));
+      formData.on('end', () => resolve(Buffer.concat(chunks)));
+      formData.on('error', reject);
+    });
+    headers['Content-Length'] = String(body.length);
 
     const response = await fetch(url, {
       method: 'POST',
       headers,
-      body: formData,
-      duplex: 'half'
+      body
     });
 
     let data;
