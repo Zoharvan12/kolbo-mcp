@@ -661,6 +661,7 @@ function registerGenerateTools(server, client) {
           text: JSON.stringify({
             text: result.result?.text || '',
             srt_url: result.result?.srt_url || null,
+            word_by_word_srt_url: result.result?.word_by_word_srt_url || null,
             txt_url: result.result?.txt_url || null,
             duration: result.result?.duration || null
           }, null, 2)
