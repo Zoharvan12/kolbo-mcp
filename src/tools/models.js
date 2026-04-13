@@ -11,7 +11,7 @@ function registerModelTools(server, client) {
     'list_models',
     'List available AI models on Kolbo. Filter by type to find models for a specific generation type.',
     {
-      type: z.string().optional().describe('Filter by type: "image", "video", "video_from_image", "music", "speech", "sound". Omit for all models.')
+      type: z.string().optional().describe('Filter by type: "image", "image_edit", "video", "video_from_image", "video_from_video", "music", "speech", "sound", "chat", "lipsync", "three_d", "elements", "first_last_frame", "transcription". Omit for all models.')
     },
     async ({ type }) => {
       const path = type ? `/v1/models?type=${encodeURIComponent(type)}` : '/v1/models';
