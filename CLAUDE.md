@@ -171,7 +171,7 @@ scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
   - The visible "Available Tools" section at the top of the page
   - The embedded skill markdown block (the `.claude/commands/kolbo.md` source)
   - Update the routing table, workflows, and tool lists — these are the sections the LLM uses to decide WHICH tool to call
-  - **Note**: the Kolbo CLI auto-fetches this file live from `kolbo-docs` on every `kolbo auth login`, so updating this file IS the skill distribution step. No separate CLI release is needed.
+  - **Note**: Kolbo Code auto-fetches this file live from `kolbo-docs` on every `kolbo auth login`, so updating this file IS the skill distribution step. No separate CLI release is needed.
 
 ### Publish the MCP package
 ```bash
