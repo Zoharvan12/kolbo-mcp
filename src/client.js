@@ -91,7 +91,7 @@ function xdgDataDir() {
 }
 
 /**
- * Read the Kolbo CLI's auth store. The CLI writes credentials to
+ * Read the Kolbo Code auth store. Kolbo Code writes credentials to
  * <xdg-data>/kolbo/auth.json after device-code login.
  *
  * On Windows (Git Bash / MSYS2) xdg-basedir resolves to ~/.local/share,
