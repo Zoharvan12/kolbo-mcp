@@ -90,7 +90,7 @@ function registerGenerateTools(server, client) {
   // ─── generate_creative_director ─────────────────────────────
   server.tool(
     'generate_creative_director',
-    'Generate a multi-scene coordinated set from ONE creative brief. Use this INSTEAD of calling generate_image/generate_video multiple times when the user wants a storyboard, multi-scene ad, product showcase, or any set of related outputs that should share visual language. Produces 1–8 scenes in a single request with consistent style. Supports image mode and video mode (`workflow_type`). Visual DNA and moodboard references keep character/style consistent across every scene.',
+    'Generate 2–8 related images or videos as one coherent set from a single creative brief. Use this when the user gives a general brief ("make 4 product shots", "create a storyboard") and you are planning the scenes — it handles style consistency and runs scenes in parallel. If the user explicitly provides separate prompts for each image, use parallel generate_image calls instead. Supports image and video modes (`workflow_type`). Visual DNA and moodboard references keep character/style consistent across every scene.',
     {
       prompt: z.string().describe('Creative brief or concept describing the full set of scenes to generate'),
       scene_count: z.number().optional().describe('Number of scenes to generate, 1–8. Default: 4'),
