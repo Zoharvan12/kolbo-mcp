@@ -10,17 +10,18 @@ function registerChatTools(server, client) {
   // ─── chat_send_message ─────────────────────────────────────
   server.tool(
     'chat_send_message',
-    'Send a chat message to Kolbo AI. Starts a new conversation (omit session_id) or continues an existing one. Returns the assistant response when complete. Supports web search and deep think modes.',
+    'Send a chat message to Kolbo AI. Starts a new conversation (omit session_id) or continues an existing one. Returns the assistant response when complete. Supports image/video/audio analysis via media_urls — pass public URLs and the model auto-routes to a vision-capable model (e.g. Gemini) when media is detected. Supports web search and deep think modes.',
     {
       message: z.string().describe('The user message to send'),
-      model: z.string().optional().describe('Model identifier (e.g. "gpt-4o", "claude-sonnet-4-5"). Omit for Smart Select (auto).'),
+      model: z.string().optional().describe('Model identifier (e.g. "gpt-4o", "claude-sonnet-4-5", "gemini-2.5-pro"). Omit for Smart Select (auto). For image/video/audio analysis, prefer "gemini-2.5-pro" or omit to auto-route.'),
       session_id: z.string().optional().describe('Existing chat session ID to continue. Omit to start a new conversation.'),
       system_prompt: z.string().optional().describe('System prompt for the conversation. Only applied when creating a new session.'),
       web_search: z.boolean().optional().describe('Enable web search for this message. Default: false'),
       deep_think: z.boolean().optional().describe('Enable deep think (extended reasoning). Default: false'),
-      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true')
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
+      media_urls: z.array(z.string()).optional().describe('Public URLs of images, videos, or audio files to analyze. The model auto-routes to a vision-capable model when media is present. Use upload_media first to get a public URL for local files.')
     },
-    async ({ message, model, session_id, system_prompt, web_search, deep_think, enhance_prompt }) => {
+    async ({ message, model, session_id, system_prompt, web_search, deep_think, enhance_prompt, media_urls }) => {
       const gen = await client.post('/v1/chat', {
         message,
         model,
@@ -28,7 +29,8 @@ function registerChatTools(server, client) {
         system_prompt,
         web_search,
         deep_think,
-        enhance_prompt
+        enhance_prompt,
+        media_urls
       });
 
       // Deep think reasoning can run far longer than normal chat. Also grant

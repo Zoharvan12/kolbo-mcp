@@ -19,7 +19,7 @@ Add to `.claude/settings.json`:
   "mcpServers": {
     "kolbo": {
       "command": "npx",
-      "args": ["-y", "@kolbo/mcp"],
+      "args": ["-y", "@kolbo/mcp@latest"],
       "env": {
         "KOLBO_API_KEY": "kolbo_live_..."
       }
@@ -39,6 +39,8 @@ Just ask Claude naturally:
 - *"Make a lo-fi hip hop beat"*
 - *"Read this out loud with a British female voice"*
 - *"Ask Claude about the latest AI news with web search on"*
+- *"Analyze this video and tell me what prompts are shown on screen"*
+- *"What's in this image?"*
 - *"Create a Visual DNA profile called 'Alex' from these images"*
 
 ## Available Tools (30)
@@ -63,10 +65,10 @@ Just ask Claude naturally:
 
 Every image/video/creative-director tool accepts `visual_dna_ids` and `moodboard_id` for character/style consistency across outputs — you can compose `create_visual_dna` → `generate_image` (with the DNA applied server-side) in a single agent turn. `generate_creative_director` also accepts `moodboard_ids` plural for blending.
 
-**Chat**
+**Chat & Vision**
 | Tool | Description |
 |------|-------------|
-| `chat_send_message` | Multi-turn chat with any Kolbo model; supports web search and deep think |
+| `chat_send_message` | Multi-turn chat with any Kolbo model. Pass `media_urls` to analyze images, videos, or audio — auto-routes to Gemini for vision. Supports web search and deep think. |
 | `chat_list_conversations` | List past chat threads |
 | `chat_get_messages` | Fetch messages in a conversation |
 
