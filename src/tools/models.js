@@ -17,15 +17,25 @@ function registerModelTools(server, client) {
       const path = type ? `/v1/models?type=${encodeURIComponent(type)}` : '/v1/models';
       const result = await client.get(path);
 
-      // Format for readability
-      const summary = result.models.map(m =>
-        `${m.identifier} (${m.name}) - ${m.credit} credits${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}`
-      ).join('\n');
+      // Split into auto-selectable (has summary) and named-only (no summary)
+      const withSummary = result.models.filter(m => m.summary && m.summary.trim() !== '');
+      const withoutSummary = result.models.filter(m => !m.summary || m.summary.trim() === '');
+
+      const formatModel = m =>
+        `${m.identifier} (${m.name}) - ${m.credit} credits${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}${m.summary ? ` — ${m.summary}` : ''}`;
+
+      const sections = [];
+      if (withSummary.length > 0) {
+        sections.push(`Auto-selectable models (${withSummary.length}) — safe to pick based on quality + cost:\n${withSummary.map(formatModel).join('\n')}`);
+      }
+      if (withoutSummary.length > 0) {
+        sections.push(`Named-only models (${withoutSummary.length}) — only use if the user explicitly requests by name:\n${withoutSummary.map(formatModel).join('\n')}`);
+      }
 
       return {
         content: [{
           type: 'text',
-          text: `Available models (${result.count}):\n\n${summary}\n\nUse the "identifier" value as the "model" parameter in generate tools.`
+          text: `Available models (${result.count}):\n\n${sections.join('\n\n')}\n\nUse the "identifier" value as the "model" parameter in generate tools.`
         }]
       };
     }
