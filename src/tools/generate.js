@@ -15,7 +15,7 @@ function registerGenerateTools(server, client) {
     'Generate image(s) from a text prompt using Kolbo AI. Supports Visual DNA profiles (for character/style/product consistency), moodboards (for style direction), reference images (for composition guidance), batch generation (num_images), and web-search grounding. For EDITING an existing image, use generate_image_edit instead. For a coordinated multi-scene set (storyboard, ad campaign), use generate_creative_director. Returns the final image URL(s) when complete.',
     {
       prompt: z.string().describe('Text description of the image to generate'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="image" to see options. Omit for Smart Select.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="text_to_img" to see options. Omit for Smart Select.'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "1:1", "16:9", "9:16"). Default: "1:1"'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: true'),
       num_images: z.number().optional().describe('Number of images to generate in one call. Default: 1'),
@@ -54,7 +54,7 @@ function registerGenerateTools(server, client) {
     'Edit or transform an existing image using AI. Provide the source image URL(s) in `source_images` and describe the edit in `prompt` (e.g., "remove the background", "change the car color to red", "add sunglasses to the person"). Supports Visual DNA profiles and moodboards for style-consistent edits. For creating a brand new image from scratch, use generate_image. Returns the edited image URL(s) when complete.',
     {
       prompt: z.string().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset")'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="image_edit" to see options. Omit for Smart Select.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="image_editing" to see options. Omit for Smart Select.'),
       source_images: z.array(z.string()).describe('Array of source image URLs to edit. Typically one, but some models accept multiple for compositing.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "1:1", "16:9", "9:16"). Default: "1:1"'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: true'),
@@ -144,7 +144,7 @@ function registerGenerateTools(server, client) {
     'Generate a video from a text prompt using Kolbo AI. For animating an existing still image into motion, use generate_video_from_image instead. For a coordinated multi-scene video campaign, use generate_creative_director with workflow_type="video". Supports Visual DNA profiles (for character consistency) and reference images (for style guidance). Returns the final video URL when complete.',
     {
       prompt: z.string().describe('Text description of the video to generate'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="video" to see options. Check supported_durations and supported_aspect_ratios.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="text_to_video" to see options. Check supported_durations and supported_aspect_ratios.'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"'),
       duration: z.number().optional().describe('Duration in seconds. Must be a value the chosen model supports — check supported_durations from list_models. Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
@@ -183,7 +183,7 @@ function registerGenerateTools(server, client) {
     {
       image_url: z.string().describe('URL of the source image to animate'),
       prompt: z.string().describe('Text description of the desired MOTION (e.g., "camera slowly pans right while the character walks forward")'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="video_from_image" to see options.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="img_to_video" to see options.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"'),
       duration: z.number().optional().describe('Duration in seconds. Must be a value the chosen model supports. Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the motion prompt. Default: true'),
@@ -219,7 +219,7 @@ function registerGenerateTools(server, client) {
     'Generate music from a text description using Kolbo AI. Supports instrumental mode, custom lyrics, style direction, and vocal gender. Default model is Suno. Returns the final audio URL when complete.',
     {
       prompt: z.string().describe('Text description of the music to generate (e.g., "upbeat electronic dance track with synthesizers")'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="music" to see options. Omit for Suno (default).'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="music_gen" to see options. Omit for Suno (default).'),
       style: z.string().optional().describe('Music style / genre (e.g., "pop", "rock", "lo-fi", "electronic", "jazz")'),
       instrumental: z.boolean().optional().describe('Generate instrumental only, no vocals. Default: false'),
       lyrics: z.string().optional().describe('Custom lyrics for the song. If omitted, lyrics are generated automatically from the prompt unless instrumental is true.'),
@@ -257,7 +257,7 @@ function registerGenerateTools(server, client) {
     {
       text: z.string().describe('The text to convert to speech'),
       voice: z.string().optional().describe('Voice ID (from list_voices) or voice display name (e.g., "Rachel", "Adam"). Default: "Rachel"'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="speech" to see options. Default: eleven_v3'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="text_to_speech" to see options. Default: eleven_v3'),
       language: z.string().optional().describe('Language code (e.g., "en-US", "he-IL", "es-ES"). Default: "en-US"')
     },
     async ({ text, voice, model, language }) => {
@@ -289,7 +289,7 @@ function registerGenerateTools(server, client) {
     'Generate sound effects (not music, not speech) from a text description using Kolbo AI. Use this for ambient sounds, foley, impacts, atmospheres, UI sounds, etc. For music use generate_music; for voice use generate_speech. Returns the final audio URL when complete.',
     {
       prompt: z.string().describe('Text description of the sound effect (e.g., "thunder clap with rain", "door creaking open", "futuristic UI beep")'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="sound" to see options. Default: elevenlabs-sound-effects-v1'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="text_to_sound" to see options. Default: elevenlabs-sound-effects-v1'),
       duration: z.number().optional().describe('Duration in seconds. Omit for automatic duration.')
     },
     async ({ prompt, model, duration }) => {
@@ -380,7 +380,7 @@ function registerGenerateTools(server, client) {
     'Generate a video from reference elements (images and/or videos) + a text prompt. Use when the user wants to animate specific uploaded/referenced assets — e.g. "animate this product", "put these 3 characters into a scene". Supports Visual DNA for character consistency. For text-only → video use generate_video instead. For animating a single still image use generate_video_from_image. Returns the final video URL when complete.',
     {
       prompt: z.string().describe('Text description of the desired video / animation'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="video" to see options. Omit for Smart Select.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="elements" to see options (Seedance 2, Kling O3 Reference, Grok Imagine, Veo 3.1, etc.). Omit for Smart Select.'),
       reference_images: z.array(z.string()).optional().describe('Array of public image URLs used as reference elements (product shots, character references, etc.). URL mode.'),
       files: z.array(z.string()).optional().describe('Array of URLs or absolute local paths — alternative to reference_images. Use this when you have local files to upload. Each item can be a URL OR a local path.'),
       duration: z.number().optional().describe('Duration in seconds. Default: 5'),
@@ -447,7 +447,7 @@ function registerGenerateTools(server, client) {
       first_frame: z.string().optional().describe('URL or absolute local path to the first frame (file mode — alternative to first_frame_url)'),
       last_frame: z.string().optional().describe('URL or absolute local path to the last frame (file mode — alternative to last_frame_url)'),
       prompt: z.string().optional().describe('Optional description of the desired motion between the two frames (e.g. "smooth camera dolly in")'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="video_from_image" to see options. Omit for Smart Select.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="firstlastgenerations" to see options. Omit for Smart Select.'),
       duration: z.number().optional().describe('Duration in seconds. Default: 5'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (auto-detected from first frame if not provided). Default: "16:9"'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
@@ -512,7 +512,7 @@ function registerGenerateTools(server, client) {
       source: z.string().describe('URL or absolute local path to the source image or video (the face to animate)'),
       audio: z.string().describe('URL or absolute local path to the audio track (the voice to sync to)'),
       text_prompt: z.string().optional().describe('Optional text prompt (for performance-capable models)'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="lipsync" to see options. Omit for Smart Select.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="lipsync-image" or type="lipsync-video" to see options. Omit for Smart Select.'),
       bounding_box_target: z.array(z.number()).optional().describe('Optional bounding box [x, y, w, h] for multi-face inputs (Hedra Character3 style). Leave empty for single-face.')
     },
     async ({ source, audio, text_prompt, model, bounding_box_target }) => {
@@ -581,7 +581,7 @@ function registerGenerateTools(server, client) {
     {
       source_video: z.string().describe('URL or absolute local path to the source video to restyle'),
       prompt: z.string().describe('Text description of the desired restyle / transformation'),
-      model: z.string().optional().describe('Model identifier. Omit for Smart Select.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="video_to_video" to see options. Omit for Smart Select.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio. Default: matches source'),
       duration: z.number().optional().describe('Duration in seconds (default: matches source)'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
@@ -679,7 +679,7 @@ function registerGenerateTools(server, client) {
       reference_images: z.array(z.string()).optional().describe('Array of public image URLs. 1 image → single mode, 2+ → multi mode.'),
       mode: z.string().optional().describe('Explicitly set mode: "text" | "single" | "multi". Auto-detected from reference_images if omitted.'),
       texture_prompt: z.string().optional().describe('Optional prompt to guide texture generation'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="three_d" to see options.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="three_d" to see all 3D options, or filter by sub-type: "3d_text_to_model", "3d_image_to_model", "3d_multi_image_to_model", "3d_world".'),
       topology: z.string().optional().describe('Topology preset (optional, model-specific)'),
       target_polycount: z.number().optional().describe('Target polygon count (optional, model-specific)'),
       enable_tpose: z.boolean().optional().describe('Force T-pose for character models (optional)'),
