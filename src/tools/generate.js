@@ -90,10 +90,10 @@ function registerGenerateTools(server, client) {
   // ─── generate_creative_director ─────────────────────────────
   server.tool(
     'generate_creative_director',
-    'Generate 2–8 related images or videos as one coherent set from a single creative brief. Use this when the user gives a general brief ("make 4 product shots", "create a storyboard") and you are planning the scenes — it handles style consistency and runs scenes in parallel. If the user explicitly provides separate prompts for each image, use parallel generate_image calls instead. Supports image and video modes (`workflow_type`). Visual DNA and moodboard references keep character/style consistent across every scene.',
+    'Generate 2–8 related images or videos as one coherent set from a single creative brief. Use scene_count (NOT num_images) to set the number of scenes (1–8, default 4). Use this when the user gives a general brief ("make 4 product shots", "create a storyboard") and you are planning the scenes — it handles style consistency and runs scenes in parallel. If the user explicitly provides separate prompts for each image, use parallel generate_image calls instead. Supports image and video modes (workflow_type). Visual DNA and moodboard references keep character/style consistent across every scene.',
     {
       prompt: z.string().describe('Creative brief or concept describing the full set of scenes to generate'),
-      scene_count: z.number().optional().describe('Number of scenes to generate, 1–8. Default: 4'),
+      scene_count: z.number().optional().describe('Number of scenes/images to generate, 1–8. Default: 4. Use this — NOT num_images — to control how many outputs are created.'),
       model: z.string().optional().describe('Model identifier applied to every scene. Omit for Smart Select.'),
       aspect_ratio: z.string().optional().describe('Aspect ratio applied to every scene (e.g., "1:1", "16:9", "9:16"). Default: "1:1"'),
       workflow_type: z.string().optional().describe('"image" (default) or "video"'),
