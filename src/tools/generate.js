@@ -23,12 +23,13 @@ function registerGenerateTools(server, client) {
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs (from create_visual_dna / list_visual_dnas) to apply for character / style / product / scene consistency. Pass the `id` field of each profile. Use this when the user wants to keep the same character or style across multiple images.'),
       moodboard_id: z.string().optional().describe('Moodboard ID (from list_moodboards / get_moodboard) whose master_prompt and style_guide should be applied to this generation.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding for the prompt (useful for current events, brand references, real-world accuracy). Default: false'),
-      resolution: z.string().optional().describe('Resolution tier: "1K" (~1024px), "2K" (Full HD, ~1920×1080), or "4K" (UHD, ~3840×2160). Model-dependent — check supported_resolutions from list_models. Omit to use the model default.')
+      resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolutionMultipliers on the same model to predict credit cost. Omit to use the model default.'),
+      preset_id: z.string().optional().describe('Preset ID from list_presets type="image" to apply a saved style preset to this generation.')
     },
-    async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution }) => {
+    async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id }) => {
       const gen = await client.post('/v1/generate/image', {
         prompt, model, aspect_ratio, enhance_prompt, num_images,
-        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution
+        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -63,7 +64,7 @@ function registerGenerateTools(server, client) {
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for consistency with an existing character / style / product.'),
       moodboard_id: z.string().optional().describe('Moodboard ID whose master_prompt and style_guide should be applied.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding. Default: false'),
-      resolution: z.string().optional().describe('Resolution tier: "1K" (~1024px), "2K" (Full HD), or "4K" (UHD). Model-dependent — check supported_resolutions from list_models. Default: "1K" for most edit models.')
+      resolution: z.string().optional().describe('Image resolution tier: "1K" / "2K" / "3K" / "4K". Model-dependent — call list_models and read supported_resolutions. Default: "1K" for most edit models.')
     },
     async ({ prompt, model, source_images, aspect_ratio, enhance_prompt, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution }) => {
       const gen = await client.post('/v1/generate/image-edit', {
@@ -105,7 +106,7 @@ function registerGenerateTools(server, client) {
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply consistently across every scene. This is the ideal way to keep a character or product looking the same in all scenes of a campaign.'),
       moodboard_id: z.string().optional().describe('A single moodboard ID whose master_prompt and style_guide should shape every scene.'),
       moodboard_ids: z.array(z.string()).optional().describe('Multiple moodboard IDs when blending styles. Prefer `moodboard_id` for single moodboards.'),
-      resolution: z.string().optional().describe('Resolution tier applied to every scene. Images: "1K" / "2K" / "4K" (model-dependent). Videos: "720p" / "1080p" (model-dependent). Check supported_resolutions on the target model.')
+      resolution: z.string().optional().describe('Resolution tier applied to every scene. Images: "1K" / "2K" / "3K" / "4K". Videos: "720p" / "1080p" / "1440p" / "2160p". Values are model-dependent — call list_models and read supported_resolutions on the target model. Multiplied across every scene.')
     },
     async ({ prompt, scene_count, model, aspect_ratio, workflow_type, duration, enhance_prompt, reference_images, visual_dna_ids, moodboard_id, moodboard_ids, resolution }) => {
       const gen = await client.post('/v1/generate/creative-director', {
@@ -153,11 +154,12 @@ function registerGenerateTools(server, client) {
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
       reference_images: z.array(z.string()).optional().describe('Array of image URLs used as visual references (style / composition / subject).'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to keep a character / style consistent with prior generations.'),
-      resolution: z.string().optional().describe('Video resolution tier. Most common: "720p" or "1080p" (model-dependent). Check supported_resolutions from list_models.')
+      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolutionMultipliers to predict cost.'),
+      preset_id: z.string().optional().describe('Preset ID from list_presets type="video" to apply a saved motion/style preset to this generation.')
     },
-    async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, visual_dna_ids, resolution }) => {
+    async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, visual_dna_ids, resolution, preset_id }) => {
       const gen = await client.post('/v1/generate/video', {
-        prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, visual_dna_ids, resolution
+        prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, visual_dna_ids, resolution, preset_id
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -192,7 +194,7 @@ function registerGenerateTools(server, client) {
       duration: z.number().optional().describe('Duration in seconds. Must be a value the chosen model supports. Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the motion prompt. Default: true'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to maintain consistency with prior characters / styles.'),
-      resolution: z.string().optional().describe('Video resolution tier. Most common: "720p" or "1080p" (model-dependent). Check supported_resolutions from list_models.')
+      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolutionMultipliers to predict cost.')
     },
     async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution }) => {
       const gen = await client.post('/v1/generate/video/from-image', {
@@ -229,11 +231,12 @@ function registerGenerateTools(server, client) {
       instrumental: z.boolean().optional().describe('Generate instrumental only, no vocals. Default: false'),
       lyrics: z.string().optional().describe('Custom lyrics for the song. If omitted, lyrics are generated automatically from the prompt unless instrumental is true.'),
       vocal_gender: z.string().optional().describe('Preferred vocal gender: "male" or "female". Only applies when instrumental is false.'),
-      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true')
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
+      preset_id: z.string().optional().describe('Preset ID from list_presets type="music" to apply a saved music style preset.')
     },
-    async ({ prompt, model, style, instrumental, lyrics, vocal_gender, enhance_prompt }) => {
+    async ({ prompt, model, style, instrumental, lyrics, vocal_gender, enhance_prompt, preset_id }) => {
       const gen = await client.post('/v1/generate/music', {
-        prompt, model, style, instrumental, lyrics, vocal_gender, enhance_prompt
+        prompt, model, style, instrumental, lyrics, vocal_gender, enhance_prompt, preset_id
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -295,11 +298,12 @@ function registerGenerateTools(server, client) {
     {
       prompt: z.string().describe('Text description of the sound effect (e.g., "thunder clap with rain", "door creaking open", "futuristic UI beep")'),
       model: z.string().optional().describe('Model identifier. Use list_models type="text_to_sound" to see options. Default: elevenlabs-sound-effects-v1'),
-      duration: z.number().optional().describe('Duration in seconds. Omit for automatic duration.')
+      duration: z.number().optional().describe('Duration in seconds. Omit for automatic duration.'),
+      prompt_influence: z.number().optional().describe('How strongly the prompt guides the generation (0–1). Default: 0.5. Lower values give the model more creative freedom; higher values follow the prompt more literally.')
     },
-    async ({ prompt, model, duration }) => {
+    async ({ prompt, model, duration, prompt_influence }) => {
       const gen = await client.post('/v1/generate/sound', {
-        prompt, model, duration
+        prompt, model, duration, prompt_influence
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -382,11 +386,13 @@ function registerGenerateTools(server, client) {
   // ─── generate_elements ─────────────────────────────────────
   server.tool(
     'generate_elements',
-    'Generate a video from reference elements (images and/or videos) + a text prompt. Use when the user wants to animate specific uploaded/referenced assets — e.g. "animate this product", "put these 3 characters into a scene". Supports Visual DNA for character consistency. For text-only → video use generate_video instead. For animating a single still image use generate_video_from_image. Returns the final video URL when complete.',
+    'Generate a video from reference elements (images, videos, and/or audio) + a text prompt. Use when the user wants to animate specific uploaded/referenced assets — e.g. "animate this product", "put these 3 characters into a scene". IMPORTANT: different models accept different numbers of inputs — call list_models type="elements" and read elementsMaxImages / elementsMaxVideos / elementsMaxAudio on the chosen model before generating. For text-only → video use generate_video instead. For animating a single still image use generate_video_from_image. Returns the final video URL when complete.',
     {
       prompt: z.string().describe('Text description of the desired video / animation'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="elements" to see options (Seedance 2, Kling O3 Reference, Grok Imagine, Veo 3.1, etc.). Omit for Smart Select.'),
-      reference_images: z.array(z.string()).optional().describe('Array of public image URLs used as reference elements (product shots, character references, etc.). URL mode.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="elements" to see options (Seedance 2, Kling O3 Reference, Grok Imagine, Veo 3.1, etc.). Check elementsMaxImages / elementsMaxVideos / elementsMaxAudio on the model. Omit for Smart Select.'),
+      reference_images: z.array(z.string()).optional().describe('Array of public image URLs used as reference elements (product shots, character references, etc.). Check elementsMaxImages on the chosen model — pass at most that many URLs.'),
+      reference_videos: z.array(z.string()).optional().describe('Array of reference video URLs for models that accept video inputs (elementsMaxVideos > 0). Check elementsMaxVideos on the chosen model from list_models before passing.'),
+      audio_url: z.string().optional().describe('URL of a reference audio track for models that accept audio inputs (elementsMaxAudio > 0). Check elementsMaxAudio on the chosen model from list_models before passing.'),
       files: z.array(z.string()).optional().describe('Array of URLs or absolute local paths — alternative to reference_images. Use this when you have local files to upload. Each item can be a URL OR a local path.'),
       duration: z.number().optional().describe('Duration in seconds. Default: 5'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"'),
@@ -394,9 +400,9 @@ function registerGenerateTools(server, client) {
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" (optional)'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency across outputs.'),
-      resolution: z.string().optional().describe('Video resolution tier (e.g., "720p", "1080p"). Model-dependent — check supported_resolutions from list_models.')
+      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.')
     },
-    async ({ prompt, model, reference_images, files, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution }) => {
+    async ({ prompt, model, reference_images, reference_videos, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution }) => {
       if (!prompt) throw new Error('prompt is required');
 
       let startResponse;
@@ -413,6 +419,8 @@ function registerGenerateTools(server, client) {
         if (enhance_prompt !== undefined) form.append('enhance_prompt', String(enhance_prompt));
         if (visual_dna_ids) form.append('visual_dna_ids', JSON.stringify(visual_dna_ids));
         if (reference_images) form.append('reference_images', JSON.stringify(reference_images));
+        if (reference_videos) form.append('reference_videos', JSON.stringify(reference_videos));
+        if (audio_url) form.append('audio_url', audio_url);
         if (resolution) form.append('resolution', resolution);
         for (const f of resolved) {
           form.append('files', f.buffer, { filename: f.filename, contentType: f.contentType });
@@ -421,7 +429,7 @@ function registerGenerateTools(server, client) {
       } else {
         // URL-only mode: plain JSON.
         startResponse = await client.post('/v1/generate/elements', {
-          prompt, model, reference_images, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution
+          prompt, model, reference_images, reference_videos, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution
         });
       }
 
@@ -459,7 +467,7 @@ function registerGenerateTools(server, client) {
       aspect_ratio: z.string().optional().describe('Aspect ratio (auto-detected from first frame if not provided). Default: "16:9"'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply.'),
-      resolution: z.string().optional().describe('Video resolution tier (e.g., "720p", "1080p"). Model-dependent — check supported_resolutions from list_models.')
+      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.')
     },
     async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids, resolution }) => {
       const urlMode = first_frame_url && last_frame_url;
@@ -586,18 +594,21 @@ function registerGenerateTools(server, client) {
   // ─── generate_video_from_video ─────────────────────────────
   server.tool(
     'generate_video_from_video',
-    'Restyle / transform an existing video using a text prompt (video-to-video). Use for style transfer, scene restyling, subject swap — anything where you want to keep the motion from the input video but change the look. Source video can be a URL or absolute local path. For animating a still image use generate_video_from_image instead. For text-only → video use generate_video.',
+    'Restyle / transform an existing video using a text prompt (video-to-video). Use for style transfer, scene restyling, subject swap, motion transfer, or character replacement. Source video can be a URL or absolute local path. IMPORTANT: different models support different extra inputs — call list_models type="video_to_video" and read maxImages / maxVideos / maxElements on the chosen model before generating. Pass reference_images for models with maxImages > 0 (e.g. Kling O1/O3, Aleph, WAN VACE), reference_videos for models with maxVideos > 1 (e.g. WAN 2.6 reference-to-video accepts up to 3), and elements for models with maxElements > 0. For animating a still image use generate_video_from_image instead. For text-only → video use generate_video.',
     {
-      source_video: z.string().describe('URL or absolute local path to the source video to restyle'),
+      source_video: z.string().describe('URL or absolute local path to the primary source video to restyle. For models that use reference_videos as their primary input (e.g. WAN 2.6 reference-to-video), pass the first reference video here and also include it in reference_videos.'),
       prompt: z.string().describe('Text description of the desired restyle / transformation'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="video_to_video" to see options. Omit for Smart Select.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="video_to_video" to see options and check maxImages / maxVideos / maxElements per model. Omit for Smart Select.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio. Default: matches source'),
       duration: z.number().optional().describe('Duration in seconds (default: matches source)'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency.'),
-      resolution: z.string().optional().describe('Video resolution tier (e.g., "720p", "1080p"). Model-dependent — check supported_resolutions from list_models.')
+      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.'),
+      reference_images: z.array(z.string()).optional().describe('Array of reference image URLs for models that support additional image inputs (maxImages > 0). Examples: character reference images for Kling O1/O3, style reference for Aleph/gen4_aleph, character image for WAN VACE video-edit. Check maxImages on the model from list_models before passing.'),
+      reference_videos: z.array(z.string()).optional().describe('Array of additional reference video URLs for models that support multiple video inputs (maxVideos > 1). Example: WAN 2.6 reference-to-video accepts 1–3 reference videos. Check maxVideos on the model from list_models before passing.'),
+      elements: z.array(z.string()).optional().describe('Array of element image URLs for models with maxElements > 0. Elements are used as style or character reference assets alongside the main video. Check maxElements on the model from list_models before passing.')
     },
-    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution }) => {
+    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, reference_images, reference_videos, elements }) => {
       if (!source_video) throw new Error('source_video is required');
       if (!prompt) throw new Error('prompt is required');
 
@@ -605,7 +616,8 @@ function registerGenerateTools(server, client) {
       let startResponse;
       if (isUrl) {
         startResponse = await client.post('/v1/generate/video-from-video', {
-          video_url: source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution
+          video_url: source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution,
+          reference_images, reference_videos, elements
         });
       } else {
         const resolved = await resolveToBuffer(source_video, 'video');
@@ -618,6 +630,9 @@ function registerGenerateTools(server, client) {
         if (enhance_prompt !== undefined) form.append('enhance_prompt', String(enhance_prompt));
         if (visual_dna_ids) form.append('visual_dna_ids', JSON.stringify(visual_dna_ids));
         if (resolution) form.append('resolution', resolution);
+        if (reference_images) form.append('reference_images', JSON.stringify(reference_images));
+        if (reference_videos) form.append('reference_videos', JSON.stringify(reference_videos));
+        if (elements) form.append('elements', JSON.stringify(elements));
         startResponse = await client.postMultipart('/v1/generate/video-from-video', form);
       }
 
@@ -726,6 +741,96 @@ function registerGenerateTools(server, client) {
             thumbnail_url: result.result?.thumbnail_url || null,
             mode: result.result?.mode || null,
             prompt_used: result.result?.prompt_used || null
+          }, null, 2)
+        }]
+      };
+    }
+  );
+  // ─── edit_image ────────────────────────────────────────────
+  server.tool(
+    'edit_image',
+    'Apply a targeted AI edit to an existing image. Use for upscaling resolution, changing aspect ratio (reframe), removing the background, portrait skin enhancement, or a text-guided edit (magic_edit). Faster and cheaper than generate_image_edit for these specific operations because it routes to specialized models. Returns the edited image URL when complete.',
+    {
+      image_url: z.string().describe('URL of the source image to edit'),
+      operation: z.enum(['upscale', 'reframe', 'removebg', 'enhance_skin', 'magic_edit'])
+        .describe('Edit operation to apply: "upscale" (increase resolution 2×–4×), "reframe" (change aspect ratio), "removebg" (remove background), "enhance_skin" (portrait retouching), "magic_edit" (text-guided edit — requires prompt)'),
+      model: z.string().optional().describe('Model identifier override. Omit to use the default model for the operation.'),
+      scale: z.number().optional().describe('Upscale factor: 2, 3, or 4. Only used when operation="upscale". Default: 2.'),
+      aspect_ratio: z.string().optional().describe('Target aspect ratio (e.g., "16:9", "9:16", "1:1"). Required for operation="reframe".'),
+      skin_strength: z.enum(['subtle', 'realistic', 'pimple', 'freckle']).optional()
+        .describe('Skin enhancement style. Only used when operation="enhance_skin". Default: "realistic".'),
+      prompt: z.string().optional().describe('Text instruction for the edit. Required for operation="magic_edit" (e.g., "add sunglasses", "change the sky to sunset").')
+    },
+    async ({ image_url, operation, model, scale, aspect_ratio, skin_strength, prompt }) => {
+      if (operation === 'magic_edit' && !prompt) throw new Error('prompt is required for magic_edit operation');
+      if (operation === 'reframe' && !aspect_ratio) throw new Error('aspect_ratio is required for reframe operation');
+
+      const gen = await client.post('/v1/edit/image', {
+        image_url, operation, model, scale, aspect_ratio, skin_strength, prompt
+      });
+
+      const result = await pollUntilDone(client, gen.generation_id, {
+        interval: (gen.poll_interval_hint || 5) * 1000,
+        timeout: 180000
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            urls: result.result?.urls || [],
+            edit_type: result.result?.edit_type || null,
+            model: result.result?.model || null
+          }, null, 2)
+        }]
+      };
+    }
+  );
+
+  // ─── edit_video ────────────────────────────────────────────
+  server.tool(
+    'edit_video',
+    'Apply a targeted AI edit to an existing video. Operations: upscale (4K resolution boost), reframe (change aspect ratio), generate_audio (add AI-generated sound/music from a prompt), remove_watermark, face_swap (replace faces using a reference image URL), extend (lengthen at start or end), magic_edit (restyle/transform with a prompt), lipsync (sync an audio track to a face in the video). Returns the edited video URL when complete.',
+    {
+      video_url: z.string().describe('URL of the source video to edit'),
+      operation: z.enum(['upscale', 'reframe', 'generate_audio', 'remove_watermark', 'face_swap', 'extend', 'magic_edit', 'lipsync'])
+        .describe('Edit operation: "upscale", "reframe" (requires aspect_ratio), "generate_audio" (requires prompt), "remove_watermark", "face_swap" (requires image_url), "extend" (requires duration), "magic_edit" (requires prompt), "lipsync" (requires audio_url)'),
+      model: z.string().optional().describe('Model identifier override. Omit to use the default model for the operation.'),
+      aspect_ratio: z.string().optional().describe('Target aspect ratio (e.g., "16:9", "9:16"). Required for operation="reframe".'),
+      scale: z.number().optional().describe('Upscale factor. Only used when operation="upscale".'),
+      prompt: z.string().optional().describe('Text prompt. Required for operation="magic_edit" and "generate_audio". Optional hint for "extend".'),
+      image_url: z.string().optional().describe('URL of the reference face image. Required for operation="face_swap".'),
+      audio_url: z.string().optional().describe('URL of the audio track to sync. Required for operation="lipsync".'),
+      duration: z.number().optional().describe('Seconds of video to generate. Required for operation="extend". Typical range: 1–20.'),
+      mode: z.string().optional().describe('Where to extend: "start" or "end". Only used when operation="extend". Default: "end".')
+    },
+    async ({ video_url, operation, model, aspect_ratio, scale, prompt, image_url, audio_url, duration, mode }) => {
+      if (operation === 'magic_edit' && !prompt) throw new Error('prompt is required for magic_edit');
+      if (operation === 'generate_audio' && !prompt) throw new Error('prompt is required for generate_audio');
+      if (operation === 'reframe' && !aspect_ratio) throw new Error('aspect_ratio is required for reframe');
+      if (operation === 'face_swap' && !image_url) throw new Error('image_url (reference face) is required for face_swap');
+      if (operation === 'lipsync' && !audio_url) throw new Error('audio_url is required for lipsync');
+      if (operation === 'extend' && !duration) throw new Error('duration is required for extend');
+
+      const gen = await client.post('/v1/edit/video', {
+        video_url, operation, model, aspect_ratio, scale, prompt,
+        image_url, audio_url, duration, mode
+      });
+
+      const result = await pollUntilDone(client, gen.generation_id, {
+        interval: (gen.poll_interval_hint || 8) * 1000,
+        timeout: 600000
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            urls: result.result?.urls || [],
+            download_url: result.result?.download_url || null,
+            edit_type: result.result?.edit_type || null,
+            duration: result.result?.duration || null,
+            model: result.result?.model || null
           }, null, 2)
         }]
       };

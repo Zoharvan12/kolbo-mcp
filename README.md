@@ -65,7 +65,7 @@ Just ask Claude naturally:
 
 Every image/video/creative-director tool accepts `visual_dna_ids` and `moodboard_id` for character/style consistency across outputs — you can compose `create_visual_dna` → `generate_image` (with the DNA applied server-side) in a single agent turn. `generate_creative_director` also accepts `moodboard_ids` plural for blending.
 
-Every generation tool also accepts an optional `resolution` arg: images use `"1K"` / `"2K"` / `"4K"` (model-dependent — call `list_models` and read `supported_resolutions`); videos use string tiers like `"720p"` / `"1080p"`. Omit it to use the model default.
+Every generation tool also accepts an optional `resolution` arg. Images use `"1K"` (~1024px) / `"2K"` (Full HD) / `"3K"` (QHD) / `"4K"` (UHD); videos use vertical-pixel tiers like `"720p"` / `"1080p"` / `"1440p"` / `"2160p"`. Values are model-dependent — call `list_models` and read the chosen model's `supported_resolutions` and `resolutionMultipliers`. Omit to use the model default.
 
 **Chat & Vision**
 | Tool | Description |
