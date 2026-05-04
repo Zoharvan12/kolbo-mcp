@@ -248,6 +248,10 @@ class KolboClient {
     return this.request('GET', reqPath);
   }
 
+  async put(reqPath, body = null) {
+    return this.request('PUT', reqPath, body);
+  }
+
   async delete(reqPath) {
     return this.request('DELETE', reqPath);
   }
