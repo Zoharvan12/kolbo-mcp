@@ -119,8 +119,7 @@ function registerAppBuilderTools(server, client) {
       edit_prompt: z.string().describe('Natural language instruction describing the change to make.')
     },
     async ({ session_id, generation_id, edit_prompt }) => {
-      await client.request(
-        'PUT',
+      await client.put(
         `/app-builder/generation/${encodeURIComponent(session_id)}/${encodeURIComponent(generation_id)}`,
         { editPrompt: edit_prompt }
       );
