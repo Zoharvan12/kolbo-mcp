@@ -19,8 +19,8 @@ function registerGenerateTools(server, client) {
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "1:1", "16:9", "9:16"). Default: "1:1"'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: true'),
       num_images: z.number().optional().describe('Number of images to generate in one call. Default: 1'),
-      reference_images: z.array(z.string()).optional().describe('Array of image URLs used as composition/style references (NOT as source images for editing — use generate_image_edit for that).'),
-      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs (from create_visual_dna / list_visual_dnas) to apply for character / style / product / scene consistency. Pass the `id` field of each profile. Use this when the user wants to keep the same character or style across multiple images.'),
+      reference_images: z.array(z.string()).optional().describe('STYLE/COMPOSITION inspiration only — does NOT embed reference pixels. Array of image URLs used to guide the look-and-feel of a brand-new generation. The model interprets the references and regenerates approximations conditioned on them. It will NOT copy pixels from these images into the output. To embed a specific logo, icon, watermark, or asset pixel-accurately, use generate_image_edit with the asset in source_images. To EDIT an existing image, also use generate_image_edit.'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Visual DNA profile IDs (from create_visual_dna / list_visual_dnas) for character / style / product / scene consistency. How DNA works: the server fetches the DNA\'s reference images AND always injects its `description` field into the prompt as plaintext (this is by design — the description carries the identity signal, independent of enhance_prompt). Practical implication: do NOT also write physical descriptors of the same subject in your own prompt — they will compete with the DNA description text. For pixel-accurate face anchoring of a specific person, prefer passing the DNA\'s reference image directly via source_images on generate_image_edit and OMIT visual_dna_ids. visual_dna_ids is best for style / scene / product DNAs and for soft consistency across a set.'),
       moodboard_id: z.string().optional().describe('Moodboard ID (from list_moodboards / get_moodboard) whose master_prompt and style_guide should be applied to this generation.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding for the prompt (useful for current events, brand references, real-world accuracy). Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolutionMultipliers on the same model to predict credit cost. Omit to use the model default.'),
@@ -43,7 +43,8 @@ function registerGenerateTools(server, client) {
           text: JSON.stringify({
             urls: result.result.urls,
             model: result.result.model,
-            prompt_used: result.result.prompt_used
+            prompt_used: result.result.prompt_used,
+            _followup_hint: 'If the user asks to edit/change/modify this image next, pass urls[0] to generate_image_edit (free-form edits) or edit_image (upscale/reframe/removebg/enhance_skin/magic_edit). Do NOT call generate_image again.'
           }, null, 2)
         }]
       };
@@ -57,11 +58,11 @@ function registerGenerateTools(server, client) {
     {
       prompt: z.string().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset")'),
       model: z.string().optional().describe('Model identifier. Use list_models type="image_editing" to see options. Omit for Smart Select.'),
-      source_images: z.array(z.string()).describe('Array of source image URLs to edit. Typically one, but some models accept multiple for compositing.'),
+      source_images: z.array(z.string()).describe('PIXEL-ACCURATE compositing. Array of source image URLs whose pixel content is composited into the output. Three modes the model auto-detects from input shape: (1) Single image → edit/transform that image. (2) Multiple images, one base + others → composite the others into the base. (3) Multiple images with no clear base → generate a new scene that pixel-accurately embeds the supplied images at positions described in the prompt. Mode 3 is the canonical pattern for thumbnails / branded compositions where exact-pixel logo + face fidelity matter. Refer to source images in the prompt by ordinal position ("FIRST source image", "SECOND source image"). Add "composite AS-IS, do not redraw or restyle" to lock pixels.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "1:1", "16:9", "9:16"). Default: "1:1"'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: true'),
       num_images: z.number().optional().describe('Number of output images. Default: 1'),
-      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for consistency with an existing character / style / product.'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Visual DNA profile IDs for character / style / product consistency. How DNA works: the server fetches the DNA\'s reference images AND always injects its `description` field into the prompt as plaintext (by design — independent of enhance_prompt). For pixel-accurate face anchoring of a specific person on this tool, the PREFERRED pattern is to pass the face photo directly via source_images and OMIT visual_dna_ids — that way the face pixels anchor the output and no description text competes. Do NOT pass visual_dna_ids if source_images already contains the same person\'s face (face averaging). visual_dna_ids is best here for style / product DNAs.'),
       moodboard_id: z.string().optional().describe('Moodboard ID whose master_prompt and style_guide should be applied.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding. Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" / "2K" / "3K" / "4K". Model-dependent — call list_models and read supported_resolutions. Default: "1K" for most edit models.')
@@ -72,9 +73,13 @@ function registerGenerateTools(server, client) {
         visual_dna_ids, moodboard_id, enable_web_search, resolution
       });
 
+      // Multi-source compositing or DNA-anchored edits routinely exceed 120s
+      // server-side. Extend the polling window in those cases to avoid forcing
+      // every call into the timeout-and-recover path via get_generation_status.
+      const heavy = (source_images && source_images.length > 1) || (visual_dna_ids && visual_dna_ids.length > 0);
       const result = await pollUntilDone(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 3) * 1000,
-        timeout: 120000
+        timeout: heavy ? 240000 : 120000
       });
 
       return {
@@ -83,7 +88,8 @@ function registerGenerateTools(server, client) {
           text: JSON.stringify({
             urls: result.result.urls,
             model: result.result.model,
-            prompt_used: result.result.prompt_used
+            prompt_used: result.result.prompt_used,
+            _followup_hint: 'If the user asks for another edit on this output, pass urls[0] back into generate_image_edit as source_images. For targeted ops (upscale/reframe/removebg/enhance_skin) use edit_image instead. Do NOT call generate_image from scratch.'
           }, null, 2)
         }]
       };
@@ -135,7 +141,8 @@ function registerGenerateTools(server, client) {
           text: JSON.stringify({
             scenes,
             total_scenes: result.scenes?.length || 0,
-            completed_scenes: scenes.length
+            completed_scenes: scenes.length,
+            _followup_hint: 'Each scene is a separate asset. If the user asks to edit one scene, find that scene by scene_number/title and pass its image_urls[0] (or video_urls[0]) to generate_image_edit / edit_image / edit_video / generate_video_from_video. Do NOT re-run generate_creative_director unless the user explicitly wants a brand-new set.'
           }, null, 2)
         }]
       };
@@ -175,7 +182,8 @@ function registerGenerateTools(server, client) {
             model: result.result.model,
             duration: result.result.duration,
             thumbnail_url: result.result.thumbnail_url,
-            prompt_used: result.result.prompt_used
+            prompt_used: result.result.prompt_used,
+            _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to edit_video (upscale/reframe/face_swap/extend/generate_audio/lipsync/magic_edit) or generate_video_from_video (restyle). Do NOT call generate_video from scratch.'
           }, null, 2)
         }]
       };
@@ -213,7 +221,8 @@ function registerGenerateTools(server, client) {
             urls: result.result.urls,
             model: result.result.model,
             duration: result.result.duration,
-            thumbnail_url: result.result.thumbnail_url
+            thumbnail_url: result.result.thumbnail_url,
+            _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to edit_video or generate_video_from_video. Do NOT re-run generate_video_from_image unless they want a fresh animation from a different source image.'
           }, null, 2)
         }]
       };
