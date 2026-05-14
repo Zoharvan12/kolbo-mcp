@@ -5,6 +5,7 @@
 
 const { z } = require('zod');
 const { pollUntilDone } = require('../polling');
+const { creditFields } = require('./_shared');
 
 function registerChatTools(server, client) {
   // ─── chat_send_message ─────────────────────────────────────
@@ -49,6 +50,7 @@ function registerChatTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             session_id: gen.session_id,
             message_id: gen.message_id,
             model: r.model || gen.model,

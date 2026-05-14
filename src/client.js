@@ -198,12 +198,21 @@ class KolboClient {
 
   async _doRequest(method, reqPath, body = null) {
     const url = `${this.baseUrl}${reqPath}`;
+    const headers = {
+      'X-API-Key': this.apiKey,
+      'Content-Type': 'application/json'
+    };
+    // Stable per-app-launch identifier from the parent process (Kolbo Code
+    // sets this in the MCP env when spawning us). kolbo-api tags every
+    // CreditUsage record with it so the desktop UI and the get_session_usage
+    // tool can aggregate spend without enumerating individual generations.
+    const callerSessionId = process.env.KOLBO_CALLER_SESSION_ID;
+    if (callerSessionId) {
+      headers['X-Kolbo-Caller-Session-Id'] = callerSessionId;
+    }
     const options = {
       method,
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json'
-      }
+      headers,
     };
 
     if (body) {
@@ -270,6 +279,11 @@ class KolboClient {
       'X-API-Key': this.apiKey,
       ...formData.getHeaders()
     };
+    // Same caller-session header as JSON requests — see _doRequest.
+    const callerSessionId = process.env.KOLBO_CALLER_SESSION_ID;
+    if (callerSessionId) {
+      headers['X-Kolbo-Caller-Session-Id'] = callerSessionId;
+    }
 
     // Serialize form-data to a Buffer before passing to fetch(). Node's
     // built-in fetch (undici) can't consume legacy Node.js streams from
