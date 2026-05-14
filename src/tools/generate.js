@@ -23,7 +23,7 @@ function registerGenerateTools(server, client) {
       visual_dna_ids: z.array(z.string()).optional().describe('Visual DNA profile IDs (from create_visual_dna / list_visual_dnas) for character / style / product / scene consistency. How DNA works: the server fetches the DNA\'s reference images AND always injects its `description` field into the prompt as plaintext (this is by design — the description carries the identity signal, independent of enhance_prompt). Practical implication: do NOT also write physical descriptors of the same subject in your own prompt — they will compete with the DNA description text. For pixel-accurate face anchoring of a specific person, prefer passing the DNA\'s reference image directly via source_images on generate_image_edit and OMIT visual_dna_ids. visual_dna_ids is best for style / scene / product DNAs and for soft consistency across a set.'),
       moodboard_id: z.string().optional().describe('Moodboard ID (from list_moodboards / get_moodboard) whose master_prompt and style_guide should be applied to this generation.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding for the prompt (useful for current events, brand references, real-world accuracy). Default: false'),
-      resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolutionMultipliers on the same model to predict credit cost. Omit to use the model default.'),
+      resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolution_multipliers on the same model to predict credit cost. Omit to use the model default.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="image" to apply a saved style preset to this generation.')
     },
     async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id }) => {
@@ -150,9 +150,13 @@ function registerGenerateTools(server, client) {
   );
 
   // ─── generate_video ────────────────────────────────────────
+  // NOTE: text-to-video does NOT support Visual DNA — the textToVideoGeneration
+  // controller in kolbo-api never reads visualDnaIds. For character-consistent
+  // video, use generate_elements (which DOES honor visual_dna_ids) or animate a
+  // DNA-locked still via generate_video_from_image.
   server.tool(
     'generate_video',
-    'Generate a video from a text prompt using Kolbo AI. For animating an existing still image into motion, use generate_video_from_image instead. For a coordinated multi-scene video campaign, use generate_creative_director with workflow_type="video". Supports Visual DNA profiles (for character consistency) and reference images (for style guidance). Returns the final video URL when complete.',
+    'Generate a video from a text prompt using Kolbo AI. For animating an existing still image into motion, use generate_video_from_image instead. For a coordinated multi-scene video campaign, use generate_creative_director with workflow_type="video". Supports reference images (for style/composition guidance). Does NOT support Visual DNA — for character-consistent video use generate_elements or animate a DNA-locked still via generate_video_from_image. Returns the final video URL when complete.',
     {
       prompt: z.string().describe('Text description of the video to generate'),
       model: z.string().optional().describe('Model identifier. Use list_models type="text_to_video" to see options. Check supported_durations and supported_aspect_ratios.'),
@@ -160,13 +164,12 @@ function registerGenerateTools(server, client) {
       duration: z.number().optional().describe('Duration in seconds. Must be a value the chosen model supports — check supported_durations from list_models. Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
       reference_images: z.array(z.string()).optional().describe('Array of image URLs used as visual references (style / composition / subject).'),
-      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to keep a character / style consistent with prior generations.'),
-      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolutionMultipliers to predict cost.'),
+      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolution_multipliers to predict cost.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" to apply a saved motion/style preset to this generation.')
     },
-    async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, visual_dna_ids, resolution, preset_id }) => {
+    async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id }) => {
       const gen = await client.post('/v1/generate/video', {
-        prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, visual_dna_ids, resolution, preset_id
+        prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -202,7 +205,7 @@ function registerGenerateTools(server, client) {
       duration: z.number().optional().describe('Duration in seconds. Must be a value the chosen model supports. Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the motion prompt. Default: true'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to maintain consistency with prior characters / styles.'),
-      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolutionMultipliers to predict cost.')
+      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolution_multipliers to predict cost.')
     },
     async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution }) => {
       const gen = await client.post('/v1/generate/video/from-image', {
@@ -395,13 +398,13 @@ function registerGenerateTools(server, client) {
   // ─── generate_elements ─────────────────────────────────────
   server.tool(
     'generate_elements',
-    'Generate a video from reference elements (images, videos, and/or audio) + a text prompt. Use when the user wants to animate specific uploaded/referenced assets — e.g. "animate this product", "put these 3 characters into a scene". IMPORTANT: different models accept different numbers of inputs — call list_models type="elements" and read elementsMaxImages / elementsMaxVideos / elementsMaxAudio on the chosen model before generating. For text-only → video use generate_video instead. For animating a single still image use generate_video_from_image. Returns the final video URL when complete.',
+    'Generate a video from reference elements (images, videos, and/or audio) + a text prompt. Use when the user wants to animate specific uploaded/referenced assets — e.g. "animate this product", "put these 3 characters into a scene". IMPORTANT: different models accept different numbers of inputs — call list_models type="elements" and read elements_max_images / elements_max_videos / elements_max_audio on the chosen model before generating. For text-only → video use generate_video instead. For animating a single still image use generate_video_from_image. Returns the final video URL when complete.',
     {
       prompt: z.string().describe('Text description of the desired video / animation'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="elements" to see options (Seedance 2, Kling O3 Reference, Grok Imagine, Veo 3.1, etc.). Check elementsMaxImages / elementsMaxVideos / elementsMaxAudio on the model. Omit for Smart Select.'),
-      reference_images: z.array(z.string()).optional().describe('Array of public image URLs used as reference elements (product shots, character references, etc.). Check elementsMaxImages on the chosen model — pass at most that many URLs.'),
-      reference_videos: z.array(z.string()).optional().describe('Array of reference video URLs for models that accept video inputs (elementsMaxVideos > 0). Check elementsMaxVideos on the chosen model from list_models before passing.'),
-      audio_url: z.string().optional().describe('URL of a reference audio track for models that accept audio inputs (elementsMaxAudio > 0). Check elementsMaxAudio on the chosen model from list_models before passing.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="elements" to see options (Seedance 2, Kling O3 Reference, Grok Imagine, Veo 3.1, etc.). Check elements_max_images / elements_max_videos / elements_max_audio on the model. Omit for Smart Select.'),
+      reference_images: z.array(z.string()).optional().describe('Array of public image URLs used as reference elements (product shots, character references, etc.). Check elements_max_images on the chosen model — pass at most that many URLs.'),
+      reference_videos: z.array(z.string()).optional().describe('Array of reference video URLs for models that accept video inputs (elements_max_videos > 0). Check elements_max_videos on the chosen model from list_models before passing.'),
+      audio_url: z.string().optional().describe('URL of a reference audio track for models that accept audio inputs (elements_max_audio > 0). Check elements_max_audio on the chosen model from list_models before passing.'),
       files: z.array(z.string()).optional().describe('Array of URLs or absolute local paths — alternative to reference_images. Use this when you have local files to upload. Each item can be a URL OR a local path.'),
       duration: z.number().optional().describe('Duration in seconds. Default: 5'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"'),
@@ -603,19 +606,19 @@ function registerGenerateTools(server, client) {
   // ─── generate_video_from_video ─────────────────────────────
   server.tool(
     'generate_video_from_video',
-    'Restyle / transform an existing video using a text prompt (video-to-video). Use for style transfer, scene restyling, subject swap, motion transfer, or character replacement. Source video can be a URL or absolute local path. IMPORTANT: different models support different extra inputs — call list_models type="video_to_video" and read maxImages / maxVideos / maxElements on the chosen model before generating. Pass reference_images for models with maxImages > 0 (e.g. Kling O1/O3, Aleph, WAN VACE), reference_videos for models with maxVideos > 1 (e.g. WAN 2.6 reference-to-video accepts up to 3), and elements for models with maxElements > 0. For animating a still image use generate_video_from_image instead. For text-only → video use generate_video.',
+    'Restyle / transform an existing video using a text prompt (video-to-video). Use for style transfer, scene restyling, subject swap, motion transfer, or character replacement. Source video can be a URL or absolute local path. IMPORTANT: different models support different extra inputs — call list_models type="video_to_video" and read max_images / max_videos / max_elements on the chosen model before generating. Pass reference_images for models with max_images > 0 (e.g. Kling O1/O3, Aleph, WAN VACE), reference_videos for models with max_videos > 1 (e.g. WAN 2.6 reference-to-video accepts up to 3), and elements for models with max_elements > 0. For animating a still image use generate_video_from_image instead. For text-only → video use generate_video.',
     {
       source_video: z.string().describe('URL or absolute local path to the primary source video to restyle. For models that use reference_videos as their primary input (e.g. WAN 2.6 reference-to-video), pass the first reference video here and also include it in reference_videos.'),
       prompt: z.string().describe('Text description of the desired restyle / transformation'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="video_to_video" to see options and check maxImages / maxVideos / maxElements per model. Omit for Smart Select.'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="video_to_video" to see options and check max_images / max_videos / max_elements per model. Omit for Smart Select.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio. Default: matches source'),
       duration: z.number().optional().describe('Duration in seconds (default: matches source)'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency.'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.'),
-      reference_images: z.array(z.string()).optional().describe('Array of reference image URLs for models that support additional image inputs (maxImages > 0). Examples: character reference images for Kling O1/O3, style reference for Aleph/gen4_aleph, character image for WAN VACE video-edit. Check maxImages on the model from list_models before passing.'),
-      reference_videos: z.array(z.string()).optional().describe('Array of additional reference video URLs for models that support multiple video inputs (maxVideos > 1). Example: WAN 2.6 reference-to-video accepts 1–3 reference videos. Check maxVideos on the model from list_models before passing.'),
-      elements: z.array(z.string()).optional().describe('Array of element image URLs for models with maxElements > 0. Elements are used as style or character reference assets alongside the main video. Check maxElements on the model from list_models before passing.')
+      reference_images: z.array(z.string()).optional().describe('Array of reference image URLs for models that support additional image inputs (max_images > 0). Examples: character reference images for Kling O1/O3, style reference for Aleph/gen4_aleph, character image for WAN VACE video-edit. Check max_images on the model from list_models before passing.'),
+      reference_videos: z.array(z.string()).optional().describe('Array of additional reference video URLs for models that support multiple video inputs (max_videos > 1). Example: WAN 2.6 reference-to-video accepts 1–3 reference videos. Check max_videos on the model from list_models before passing.'),
+      elements: z.array(z.string()).optional().describe('Array of element image URLs for models with max_elements > 0. Elements are used as style or character reference assets alongside the main video. Check max_elements on the model from list_models before passing.')
     },
     async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, reference_images, reference_videos, elements }) => {
       if (!source_video) throw new Error('source_video is required');
