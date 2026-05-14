@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone } = require('../polling');
-const { resolveToBuffer } = require('./_shared');
+const { resolveToBuffer, creditFields } = require('./_shared');
 
 function registerGenerateTools(server, client) {
   // ─── generate_image ────────────────────────────────────────
@@ -41,6 +41,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result.urls,
             model: result.result.model,
             prompt_used: result.result.prompt_used,
@@ -86,6 +87,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result.urls,
             model: result.result.model,
             prompt_used: result.result.prompt_used,
@@ -139,6 +141,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             scenes,
             total_scenes: result.scenes?.length || 0,
             completed_scenes: scenes.length,
@@ -181,6 +184,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result.urls,
             model: result.result.model,
             duration: result.result.duration,
@@ -221,6 +225,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result.urls,
             model: result.result.model,
             duration: result.result.duration,
@@ -260,6 +265,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result.urls,
             title: result.result.title,
             duration: result.result.duration,
@@ -294,6 +300,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result.urls,
             voice: result.result.voice,
             duration: result.result.duration
@@ -327,6 +334,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result.urls,
             duration: result.result.duration
           }, null, 2)
@@ -454,6 +462,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result?.urls || [],
             thumbnail_url: result.result?.thumbnail_url || null,
             duration: result.result?.duration || null,
@@ -523,6 +532,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result?.urls || [],
             thumbnail_url: result.result?.thumbnail_url || null,
             duration: result.result?.duration || null,
@@ -593,6 +603,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result?.urls || [],
             thumbnail_url: result.result?.thumbnail_url || null,
             duration: result.result?.duration || null,
@@ -657,6 +668,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result?.urls || [],
             thumbnail_url: result.result?.thumbnail_url || null,
             duration: result.result?.duration || null,
@@ -697,6 +709,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             text: result.result?.text || '',
             srt_url: result.result?.srt_url || null,
             word_by_word_srt_url: result.result?.word_by_word_srt_url || null,
@@ -749,6 +762,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result?.urls || [],
             thumbnail_url: result.result?.thumbnail_url || null,
             mode: result.result?.mode || null,
@@ -790,6 +804,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result?.urls || [],
             edit_type: result.result?.edit_type || null,
             model: result.result?.model || null
@@ -838,6 +853,7 @@ function registerGenerateTools(server, client) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            ...creditFields(result),
             urls: result.result?.urls || [],
             download_url: result.result?.download_url || null,
             edit_type: result.result?.edit_type || null,

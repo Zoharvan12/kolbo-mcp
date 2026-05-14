@@ -113,6 +113,38 @@ function registerModelTools(server, client) {
       };
     }
   );
+
+  // ─── get_session_usage ─────────────────────────────────────
+  // Real, multiplier-adjusted credit spend tagged with the caller's
+  // X-Kolbo-Caller-Session-Id (set automatically by the parent process —
+  // no need to pass it). Use this to give the user an honest "you've spent
+  // X credits in this app session" instead of estimating from base credits.
+  server.tool(
+    'get_session_usage',
+    'Fetch real, multiplier-adjusted credit spend for the current Kolbo Code app session. Use when the user asks "how much did I spend?" or before/after a large bulk job so you can quote actual cost (not an estimate from base credits). Returns total + per-tool breakdown + per-model breakdown + a recent list. The caller-session-id is forwarded automatically by the MCP HTTP client.',
+    {},
+    async () => {
+      try {
+        const r = await client.get('/credit-usage/by-caller-session');
+        // The endpoint returns { message, data: { total, count, by_tool, by_model, recent[] } }
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify(r.data || r, null, 2)
+          }]
+        };
+      } catch (err) {
+        // 400 from the endpoint means no caller-session-id was forwarded —
+        // surface a clear hint instead of a generic API error.
+        const hint = err?.status === 400
+          ? 'No caller-session-id was forwarded. Ensure the parent process (Kolbo Code / desktop sidecar) sets KOLBO_CALLER_SESSION_ID in this MCP\'s env, or call again after at least one media generation has fired.'
+          : err?.message || 'Failed to fetch session usage';
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ error: hint }, null, 2) }]
+        };
+      }
+    }
+  );
 }
 
 module.exports = { registerModelTools };
