@@ -21,8 +21,64 @@ function registerModelTools(server, client) {
       const withSummary = result.models.filter(m => m.summary && m.summary.trim() !== '');
       const withoutSummary = result.models.filter(m => !m.summary || m.summary.trim() === '');
 
+      // Format the per-model spec line. The agent NEEDS this — without it,
+      // it has to guess `supported_resolutions`/`supported_durations` and
+      // either invents values (then the API silently substitutes) or asks
+      // the user to clarify what's only knowable from this list.
+      const formatSpecs = m => {
+        const parts = [];
+
+        if (Array.isArray(m.supported_resolutions) && m.supported_resolutions.length) {
+          const mult = m.resolution_multipliers || {};
+          parts.push(
+            'resolutions: ' +
+              m.supported_resolutions
+                .map(r => (mult[r] != null && mult[r] !== 1 ? `${r} (${mult[r]}×)` : r))
+                .join(' · ')
+          );
+        }
+
+        if (Array.isArray(m.supported_durations) && m.supported_durations.length) {
+          const ds = m.supported_durations;
+          // Compact ranges like 4-15 if it's a contiguous run.
+          const sorted = [...ds].sort((a, b) => a - b);
+          const isRange = sorted.length > 2 && sorted.every((v, i) => i === 0 || v - sorted[i - 1] === 1);
+          parts.push(`durations: ${isRange ? `${sorted[0]}-${sorted[sorted.length - 1]}s` : sorted.join('/') + 's'}`);
+        }
+
+        if (Array.isArray(m.supported_aspect_ratios) && m.supported_aspect_ratios.length) {
+          parts.push(`aspect: ${m.supported_aspect_ratios.join(', ')}`);
+        }
+
+        // Elements-type caps (only show when at least one is non-zero)
+        const eImg = m.elements_max_images, eVid = m.elements_max_videos, eAud = m.elements_max_audio;
+        if ((eImg ?? 0) > 0 || (eVid ?? 0) > 0 || (eAud ?? 0) > 0) {
+          parts.push(`elements: ${eImg ?? 0} imgs / ${eVid ?? 0} vids / ${eAud ?? 0} audio`);
+        }
+
+        // Video-to-video / multi-input caps
+        const mImg = m.max_images, mVid = m.max_videos, mElm = m.max_elements;
+        if ((mImg ?? 0) > 0 || (mVid ?? 0) > 0 || (mElm ?? 0) > 0) {
+          parts.push(`refs: ${mImg ?? 0} imgs / ${mVid ?? 0} vids / ${mElm ?? 0} elms`);
+        }
+
+        if ((m.max_visual_dna ?? 0) > 0) parts.push(`max_dna: ${m.max_visual_dna}`);
+
+        // Sound (only show when sound costs more or is generated natively)
+        if (m.sound_generation_type === 'native') {
+          const mult = m.sound_credit_multiplier && m.sound_credit_multiplier !== 1
+            ? ` (${m.sound_credit_multiplier}×)`
+            : '';
+          parts.push(`sound: native${mult}${m.sound_enabled_by_default ? ' on-by-default' : ''}`);
+        }
+
+        if (m.max_audio_duration != null) parts.push(`audio_max: ${m.max_audio_duration}s`);
+
+        return parts.length ? `\n   ${parts.join(' | ')}` : '';
+      };
+
       const formatModel = m =>
-        `${m.identifier} (${m.name}) - ${m.credit} credits${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}${m.summary ? ` — ${m.summary}` : ''}`;
+        `${m.identifier} (${m.name}) - ${m.credit} credits${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}${m.summary ? ` — ${m.summary}` : ''}${formatSpecs(m)}`;
 
       const sections = [];
       if (withSummary.length > 0) {
