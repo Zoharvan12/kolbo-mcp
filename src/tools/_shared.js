@@ -200,6 +200,36 @@ async function resolveToBuffer(source, kind, opts = {}) {
   };
 }
 
+/**
+ * Extract real, multiplier-adjusted credit cost from a polled getStatus
+ * response. kolbo-api returns `credits_used` (final number deducted) and
+ * `credits_breakdown` (per-CreditUsage detail) when the generation is
+ * complete. Returns `{}` when the API didn't include them so spreading
+ * the result into a tool's response object is a no-op (forward-compatible
+ * with old kolbo-api versions).
+ *
+ * Usage in every generation tool:
+ *   return {
+ *     content: [{ type: 'text', text: JSON.stringify({
+ *       urls: result.result.urls,
+ *       model: result.result.model,
+ *       ...creditFields(result),   // adds credits_used + credits_breakdown
+ *       _followup_hint: '...',
+ *     }, null, 2) }]
+ *   };
+ */
+function creditFields(polledResult) {
+  if (!polledResult) return {};
+  const out = {};
+  if (typeof polledResult.credits_used === 'number') {
+    out.credits_used = polledResult.credits_used;
+  }
+  if (Array.isArray(polledResult.credits_breakdown) && polledResult.credits_breakdown.length) {
+    out.credits_breakdown = polledResult.credits_breakdown;
+  }
+  return out;
+}
+
 module.exports = {
   MAX_FILE_BYTES,
   VISUAL_DNA_MAX_BYTES,
@@ -208,5 +238,6 @@ module.exports = {
   safeFetch,
   guessFilename,
   guessContentType,
-  resolveToBuffer
+  resolveToBuffer,
+  creditFields,
 };
