@@ -67,6 +67,7 @@ const { registerMoodboardTools } = require('./tools/moodboards');
 const { registerMediaTools } = require('./tools/media');
 const { registerPresetTools } = require('./tools/presets');
 const { registerAppBuilderTools } = require('./tools/app_builder');
+const { registerArtifactTools } = require('./tools/artifacts');
 
 async function main() {
   const client = new KolboClient();
@@ -85,6 +86,7 @@ async function main() {
   registerMediaTools(server, client);
   registerPresetTools(server, client);
   registerAppBuilderTools(server, client);
+  registerArtifactTools(server, client);
 
   // Start the server with stdio transport
   const transport = new StdioServerTransport();

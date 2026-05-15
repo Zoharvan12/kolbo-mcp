@@ -16,11 +16,11 @@ function registerGenerateTools(server, client) {
     {
       prompt: z.string().describe('Text description of the image to generate'),
       model: z.string().optional().describe('Model identifier. Use list_models type="text_to_img" to see options. Omit for Smart Select.'),
-      aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "1:1", "16:9", "9:16"). Default: "1:1"'),
+      aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "1:1", "16:9", "9:16"). Must be a value present in the model\'s `supported_aspect_ratios` from list_models — pass an unsupported value and the API rejects. Default: "1:1"'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: true'),
-      num_images: z.number().optional().describe('Number of images to generate in one call. Default: 1'),
-      reference_images: z.array(z.string()).optional().describe('STYLE/COMPOSITION inspiration only — does NOT embed reference pixels. Array of image URLs used to guide the look-and-feel of a brand-new generation. The model interprets the references and regenerates approximations conditioned on them. It will NOT copy pixels from these images into the output. To embed a specific logo, icon, watermark, or asset pixel-accurately, use generate_image_edit with the asset in source_images. To EDIT an existing image, also use generate_image_edit.'),
-      visual_dna_ids: z.array(z.string()).optional().describe('Visual DNA profile IDs (from create_visual_dna / list_visual_dnas) for character / style / product / scene consistency. How DNA works: the server fetches the DNA\'s reference images AND always injects its `description` field into the prompt as plaintext (this is by design — the description carries the identity signal, independent of enhance_prompt). Practical implication: do NOT also write physical descriptors of the same subject in your own prompt — they will compete with the DNA description text. For pixel-accurate face anchoring of a specific person, prefer passing the DNA\'s reference image directly via source_images on generate_image_edit and OMIT visual_dna_ids. visual_dna_ids is best for style / scene / product DNAs and for soft consistency across a set.'),
+      num_images: z.number().optional().describe('Number of images to generate in one call. Default: 1. Note: some models (Midjourney etc.) have a fixed `images_per_request` and ignore this — check list_models.'),
+      reference_images: z.array(z.string()).optional().describe('STYLE/COMPOSITION inspiration only — does NOT embed reference pixels. Array of image URLs used to guide the look-and-feel of a brand-new generation. The model interprets the references and regenerates approximations conditioned on them. It will NOT copy pixels from these images into the output. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.** To embed a specific logo, icon, watermark, or asset pixel-accurately, use generate_image_edit with the asset in source_images. To EDIT an existing image, also use generate_image_edit.'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Visual DNA profile IDs (from create_visual_dna / list_visual_dnas) for character / style / product / scene consistency. **Cap: pass at most `max_visual_dna` IDs from list_models — if the field is null/0 or `supports_visual_dna: false`, the model rejects DNA entirely (silently ignored in some paths).** How DNA works: the server fetches the DNA\'s reference images AND always injects its `description` field into the prompt as plaintext (by design — independent of enhance_prompt). Practical implication: do NOT also write physical descriptors of the same subject in your own prompt — they will compete with the DNA description text. For pixel-accurate face anchoring of a specific person, prefer passing the DNA\'s reference image directly via source_images on generate_image_edit and OMIT visual_dna_ids. visual_dna_ids is best for style / scene / product DNAs and for soft consistency across a set.'),
       moodboard_id: z.string().optional().describe('Moodboard ID (from list_moodboards / get_moodboard) whose master_prompt and style_guide should be applied to this generation.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding for the prompt (useful for current events, brand references, real-world accuracy). Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolution_multipliers on the same model to predict credit cost. Omit to use the model default.'),
@@ -59,11 +59,11 @@ function registerGenerateTools(server, client) {
     {
       prompt: z.string().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset")'),
       model: z.string().optional().describe('Model identifier. Use list_models type="image_editing" to see options. Omit for Smart Select.'),
-      source_images: z.array(z.string()).describe('PIXEL-ACCURATE compositing. Array of source image URLs whose pixel content is composited into the output. Three modes the model auto-detects from input shape: (1) Single image → edit/transform that image. (2) Multiple images, one base + others → composite the others into the base. (3) Multiple images with no clear base → generate a new scene that pixel-accurately embeds the supplied images at positions described in the prompt. Mode 3 is the canonical pattern for thumbnails / branded compositions where exact-pixel logo + face fidelity matter. Refer to source images in the prompt by ordinal position ("FIRST source image", "SECOND source image"). Add "composite AS-IS, do not redraw or restyle" to lock pixels.'),
-      aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "1:1", "16:9", "9:16"). Default: "1:1"'),
+      source_images: z.array(z.string()).describe('PIXEL-ACCURATE compositing. Array of source image URLs whose pixel content is composited into the output. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.** Three modes the model auto-detects from input shape: (1) Single image → edit/transform that image. (2) Multiple images, one base + others → composite the others into the base. (3) Multiple images with no clear base → generate a new scene that pixel-accurately embeds the supplied images at positions described in the prompt. Mode 3 is the canonical pattern for thumbnails / branded compositions where exact-pixel logo + face fidelity matter. Refer to source images in the prompt by ordinal position ("FIRST source image", "SECOND source image") or use @image1/@image2 tags. Add "composite AS-IS, do not redraw or restyle" to lock pixels.'),
+      aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "1:1", "16:9", "9:16"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "1:1"'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: true'),
       num_images: z.number().optional().describe('Number of output images. Default: 1'),
-      visual_dna_ids: z.array(z.string()).optional().describe('Visual DNA profile IDs for character / style / product consistency. How DNA works: the server fetches the DNA\'s reference images AND always injects its `description` field into the prompt as plaintext (by design — independent of enhance_prompt). For pixel-accurate face anchoring of a specific person on this tool, the PREFERRED pattern is to pass the face photo directly via source_images and OMIT visual_dna_ids — that way the face pixels anchor the output and no description text competes. Do NOT pass visual_dna_ids if source_images already contains the same person\'s face (face averaging). visual_dna_ids is best here for style / product DNAs.'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Visual DNA profile IDs for character / style / product consistency. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.** How DNA works: the server fetches the DNA\'s reference images AND always injects its `description` field into the prompt as plaintext (by design — independent of enhance_prompt). For pixel-accurate face anchoring of a specific person on this tool, the PREFERRED pattern is to pass the face photo directly via source_images and OMIT visual_dna_ids — that way the face pixels anchor the output and no description text competes. Do NOT pass visual_dna_ids if source_images already contains the same person\'s face (face averaging). visual_dna_ids is best here for style / product DNAs.'),
       moodboard_id: z.string().optional().describe('Moodboard ID whose master_prompt and style_guide should be applied.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding. Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" / "2K" / "3K" / "4K". Model-dependent — call list_models and read supported_resolutions. Default: "1K" for most edit models.')
@@ -106,12 +106,12 @@ function registerGenerateTools(server, client) {
       prompt: z.string().describe('Creative brief or concept describing the full set of scenes to generate'),
       scene_count: z.number().optional().describe('Number of scenes/images to generate, 1–8. Default: 4. Use this — NOT num_images — to control how many outputs are created.'),
       model: z.string().optional().describe('Model identifier applied to every scene. Omit for Smart Select.'),
-      aspect_ratio: z.string().optional().describe('Aspect ratio applied to every scene (e.g., "1:1", "16:9", "9:16"). Default: "1:1"'),
+      aspect_ratio: z.string().optional().describe('Aspect ratio applied to every scene (e.g., "1:1", "16:9", "9:16"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "1:1"'),
       workflow_type: z.string().optional().describe('"image" (default) or "video"'),
-      duration: z.number().optional().describe('Duration in seconds per scene (video mode only). E.g., 5 or 10.'),
+      duration: z.number().optional().describe('Duration in seconds per scene (video mode only). Must be a value in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. E.g., 5 or 10.'),
       enhance_prompt: z.boolean().optional().describe('Enhance prompts per scene. Default: true'),
-      reference_images: z.array(z.string()).optional().describe('Array of reference image URLs to guide style/composition of every scene.'),
-      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply consistently across every scene. This is the ideal way to keep a character or product looking the same in all scenes of a campaign.'),
+      reference_images: z.array(z.string()).optional().describe('Array of reference image URLs to guide style/composition of every scene. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model.**'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply consistently across every scene. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.** This is the ideal way to keep a character or product looking the same in all scenes of a campaign.'),
       moodboard_id: z.string().optional().describe('A single moodboard ID whose master_prompt and style_guide should shape every scene.'),
       moodboard_ids: z.array(z.string()).optional().describe('Multiple moodboard IDs when blending styles. Prefer `moodboard_id` for single moodboards.'),
       resolution: z.string().optional().describe('Resolution tier applied to every scene. Images: "1K" / "2K" / "3K" / "4K". Videos: "720p" / "1080p" / "1440p" / "2160p". Values are model-dependent — call list_models and read supported_resolutions on the target model. Multiplied across every scene.')
@@ -163,10 +163,10 @@ function registerGenerateTools(server, client) {
     {
       prompt: z.string().describe('Text description of the video to generate'),
       model: z.string().optional().describe('Model identifier. Use list_models type="text_to_video" to see options. Check supported_durations and supported_aspect_ratios.'),
-      aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"'),
-      duration: z.number().optional().describe('Duration in seconds. Must be a value the chosen model supports — check supported_durations from list_models. Default: 5'),
+      aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "16:9"'),
+      duration: z.number().optional().describe('Duration in seconds. Must be a value in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration` (whichever the model exposes). Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
-      reference_images: z.array(z.string()).optional().describe('Array of image URLs used as visual references (style / composition / subject).'),
+      reference_images: z.array(z.string()).optional().describe('Array of image URLs used as visual references (style / composition / subject). **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolution_multipliers to predict cost.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" to apply a saved motion/style preset to this generation.')
     },
@@ -205,10 +205,10 @@ function registerGenerateTools(server, client) {
       image_url: z.string().describe('URL of the source image to animate'),
       prompt: z.string().describe('Text description of the desired MOTION (e.g., "camera slowly pans right while the character walks forward")'),
       model: z.string().optional().describe('Model identifier. Use list_models type="img_to_video" to see options.'),
-      aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"'),
-      duration: z.number().optional().describe('Duration in seconds. Must be a value the chosen model supports. Default: 5'),
+      aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "16:9"'),
+      duration: z.number().optional().describe('Duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the motion prompt. Default: true'),
-      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to maintain consistency with prior characters / styles.'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to maintain consistency with prior characters / styles. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false` the model ignores DNA entirely.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolution_multipliers to predict cost.')
     },
     async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution }) => {
@@ -410,16 +410,16 @@ function registerGenerateTools(server, client) {
     {
       prompt: z.string().describe('Text description of the desired video / animation'),
       model: z.string().optional().describe('Model identifier. Use list_models type="elements" to see options (Seedance 2, Kling O3 Reference, Grok Imagine, Veo 3.1, etc.). Check elements_max_images / elements_max_videos / elements_max_audio on the model. Omit for Smart Select.'),
-      reference_images: z.array(z.string()).optional().describe('Array of public image URLs used as reference elements (product shots, character references, etc.). Check elements_max_images on the chosen model — pass at most that many URLs.'),
-      reference_videos: z.array(z.string()).optional().describe('Array of reference video URLs for models that accept video inputs (elements_max_videos > 0). Check elements_max_videos on the chosen model from list_models before passing.'),
-      audio_url: z.string().optional().describe('URL of a reference audio track for models that accept audio inputs (elements_max_audio > 0). Check elements_max_audio on the chosen model from list_models before passing.'),
-      files: z.array(z.string()).optional().describe('Array of URLs or absolute local paths — alternative to reference_images. Use this when you have local files to upload. Each item can be a URL OR a local path.'),
-      duration: z.number().optional().describe('Duration in seconds. Default: 5'),
-      aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Default: "16:9"'),
+      reference_images: z.array(z.string()).optional().describe('Array of public image URLs used as reference elements (product shots, character references, etc.). **Cap: pass at most `elements_max_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
+      reference_videos: z.array(z.string()).optional().describe('Array of reference video URLs for models that accept video inputs. **Cap: pass at most `elements_max_videos` URLs from list_models — if the cap is 0 the model rejects videos.**'),
+      audio_url: z.string().optional().describe('URL of a reference audio track. **Audio constraints: `elements_max_audio` from list_models gates whether audio is accepted at all; audio duration must fall within `min_audio_duration`-`max_audio_duration`; format must be in `supported_audio_formats` (if specified).**'),
+      files: z.array(z.string()).optional().describe('Array of URLs or absolute local paths — alternative to reference_images. Use this when you have local files to upload. Each item can be a URL OR a local path. **Total count across files + reference_images still capped by `elements_max_images`.**'),
+      duration: z.number().optional().describe('Output duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
+      aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in `supported_aspect_ratios` from list_models. Default: "16:9"'),
       motion: z.string().optional().describe('Motion style / intensity hint (optional)'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" (optional)'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
-      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency across outputs.'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency across outputs. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.')
     },
     async ({ prompt, model, reference_images, reference_videos, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution }) => {
@@ -484,10 +484,10 @@ function registerGenerateTools(server, client) {
       last_frame: z.string().optional().describe('URL or absolute local path to the last frame (file mode — alternative to last_frame_url)'),
       prompt: z.string().optional().describe('Optional description of the desired motion between the two frames (e.g. "smooth camera dolly in")'),
       model: z.string().optional().describe('Model identifier. Use list_models type="firstlastgenerations" to see options. Omit for Smart Select.'),
-      duration: z.number().optional().describe('Duration in seconds. Default: 5'),
-      aspect_ratio: z.string().optional().describe('Aspect ratio (auto-detected from first frame if not provided). Default: "16:9"'),
+      duration: z.number().optional().describe('Duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
+      aspect_ratio: z.string().optional().describe('Aspect ratio (auto-detected from first frame if not provided). Must be in `supported_aspect_ratios` from list_models when set. Default: "16:9"'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
-      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply.'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.')
     },
     async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids, resolution }) => {
@@ -546,10 +546,10 @@ function registerGenerateTools(server, client) {
   // ─── generate_lipsync ──────────────────────────────────────
   server.tool(
     'generate_lipsync',
-    'Lipsync an audio track to a source image or video. Both `source` (image or video) and `audio` can be provided as URLs or as absolute local file paths. Pass a text_prompt only if the model supports it (some lipsync models do character performance from a prompt). Returns a lipsynced video URL.',
+    'Lipsync an audio track to a source image or video. Both `source` (image or video) and `audio` can be provided as URLs or as absolute local file paths. Pass a text_prompt only if the model supports it (some lipsync models do character performance from a prompt). **Validate before submitting: for `lipsync-video` sources, the input video duration must fall within `min_video_duration`-`max_video_duration` from list_models; audio duration must fall within `min_audio_duration`-`max_audio_duration` (and if `audio_max_follows_video_duration: true`, audio is also capped at the video duration); audio format must be in `supported_audio_formats` when specified.** Returns a lipsynced video URL.',
     {
-      source: z.string().describe('URL or absolute local path to the source image or video (the face to animate)'),
-      audio: z.string().describe('URL or absolute local path to the audio track (the voice to sync to)'),
+      source: z.string().describe('URL or absolute local path to the source image or video (the face to animate). For lipsync-video: duration must fall within `min_video_duration`-`max_video_duration` from list_models.'),
+      audio: z.string().describe('URL or absolute local path to the audio track (the voice to sync to). Duration must fall within `min_audio_duration`-`max_audio_duration` from list_models; format must be in `supported_audio_formats` (when set).'),
       text_prompt: z.string().optional().describe('Optional text prompt (for performance-capable models)'),
       model: z.string().optional().describe('Model identifier. Use list_models type="lipsync-image" or type="lipsync-video" to see options. Omit for Smart Select.'),
       bounding_box_target: z.array(z.number()).optional().describe('Optional bounding box [x, y, w, h] for multi-face inputs (Hedra Character3 style). Leave empty for single-face.')
@@ -619,17 +619,17 @@ function registerGenerateTools(server, client) {
     'generate_video_from_video',
     'Restyle / transform an existing video using a text prompt (video-to-video). Use for style transfer, scene restyling, subject swap, motion transfer, or character replacement. Source video can be a URL or absolute local path. IMPORTANT: different models support different extra inputs — call list_models type="video_to_video" and read max_images / max_videos / max_elements on the chosen model before generating. Pass reference_images for models with max_images > 0 (e.g. Kling O1/O3, Aleph, WAN VACE), reference_videos for models with max_videos > 1 (e.g. WAN 2.6 reference-to-video accepts up to 3), and elements for models with max_elements > 0. For animating a still image use generate_video_from_image instead. For text-only → video use generate_video.',
     {
-      source_video: z.string().describe('URL or absolute local path to the primary source video to restyle. For models that use reference_videos as their primary input (e.g. WAN 2.6 reference-to-video), pass the first reference video here and also include it in reference_videos.'),
+      source_video: z.string().describe('URL or absolute local path to the primary source video to restyle. **Source duration must fall within `min_video_duration`-`max_video_duration` from list_models for the chosen model** — videos outside that range are rejected (or silently truncated by some upstream providers). For models that use reference_videos as their primary input (e.g. WAN 2.6 reference-to-video), pass the first reference video here and also include it in reference_videos.'),
       prompt: z.string().describe('Text description of the desired restyle / transformation'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="video_to_video" to see options and check max_images / max_videos / max_elements per model. Omit for Smart Select.'),
-      aspect_ratio: z.string().optional().describe('Output aspect ratio. Default: matches source'),
-      duration: z.number().optional().describe('Duration in seconds (default: matches source)'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="video_to_video" to see options and check max_images / max_videos / max_elements / max_video_duration per model. Omit for Smart Select.'),
+      aspect_ratio: z.string().optional().describe('Output aspect ratio. Must be in `supported_aspect_ratios` from list_models when set. Default: matches source'),
+      duration: z.number().optional().describe('Output duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: matches source'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
-      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency.'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.'),
-      reference_images: z.array(z.string()).optional().describe('Array of reference image URLs for models that support additional image inputs (max_images > 0). Examples: character reference images for Kling O1/O3, style reference for Aleph/gen4_aleph, character image for WAN VACE video-edit. Check max_images on the model from list_models before passing.'),
-      reference_videos: z.array(z.string()).optional().describe('Array of additional reference video URLs for models that support multiple video inputs (max_videos > 1). Example: WAN 2.6 reference-to-video accepts 1–3 reference videos. Check max_videos on the model from list_models before passing.'),
-      elements: z.array(z.string()).optional().describe('Array of element image URLs for models with max_elements > 0. Elements are used as style or character reference assets alongside the main video. Check max_elements on the model from list_models before passing.')
+      reference_images: z.array(z.string()).optional().describe('Array of reference image URLs for models that support additional image inputs. **Cap: pass at most `max_images` URLs from list_models — if `max_images === 0` the model does not accept image refs.** Examples: character reference images for Kling O1/O3, style reference for Aleph/gen4_aleph, character image for WAN VACE video-edit.'),
+      reference_videos: z.array(z.string()).optional().describe('Array of additional reference video URLs for models that support multiple video inputs. **Cap: pass at most `max_videos` URLs from list_models — if `max_videos <= 1` only the source_video is accepted.** Example: WAN 2.6 reference-to-video accepts 1–3 reference videos.'),
+      elements: z.array(z.string()).optional().describe('Array of element image URLs. **Cap: pass at most `max_elements` URLs from list_models — if `max_elements === 0` the model does not accept elements.** Elements are style or character reference assets alongside the main video.')
     },
     async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, reference_images, reference_videos, elements }) => {
       if (!source_video) throw new Error('source_video is required');
