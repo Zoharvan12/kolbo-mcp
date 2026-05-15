@@ -43,7 +43,7 @@ Just ask Claude naturally:
 - *"What's in this image?"*
 - *"Create a Visual DNA profile called 'Alex' from these images"*
 
-## Available Tools (30)
+## Available Tools (51)
 
 **Generation**
 | Tool | Description |
@@ -92,7 +92,28 @@ Every generation tool also accepts an optional `resolution` arg. Images use `"1K
 | Tool | Description |
 |------|-------------|
 | `upload_media` | Upload a local file (or remote URL) → stable Kolbo CDN URL for reuse |
-| `list_media` | Browse your uploaded media with type filter and pagination |
+| `list_media` | Browse media library — filter by `project_id`, `folder_id`, `type`, `category` (ai / uploaded / edited / favorites / training-lab), `source_type`, `sort`, `search`, pagination |
+| `list_media_folders` | List the user's media folders (owned + shared) — discover `folder_id` values to pass to `list_media` |
+| `create_media_folder` | Create a new folder (name, optional description / color / icon) |
+| `update_media_folder` | Rename / recolor / re-icon a folder (owner only) |
+| `delete_media_folder` | Soft-delete a folder (owner only; items remain in library) |
+| `add_media_to_folder` | Add up to 500 media items to a folder (idempotent) |
+| `remove_media_from_folder` | Remove media items from a folder |
+| `share_media_folder` | Share a folder by user email (owner only) |
+| `unshare_media_folder` | Revoke a user's access to a folder (owner only) |
+| `favorite_media` | Mark a media item as favorited (idempotent) — pass `media_id` from `list_media` |
+| `unfavorite_media` | Remove a media item from favorites (idempotent) — pass `media_id` from `list_media` |
+| `get_media` | Fetch one media item's full details by id |
+| `delete_media` | Soft-delete a media item (30-day trash) |
+| `restore_media` | Restore a trashed item |
+| `permanently_delete_media` | Hard-delete (NOT reversible — confirm with user first) |
+| `move_media` | Re-assign a media item to a different project |
+| `bulk_delete_media` | Soft-delete up to 1000 items in one call |
+| `bulk_restore_media` | Restore up to 1000 trashed items |
+| `bulk_permanently_delete_media` | Hard-delete up to 1000 (NOT reversible) |
+| `bulk_move_media` | Move up to 1000 items to a project (atomic — all-or-nothing) |
+| `move_folder_contents` | Move every item in a folder to a project |
+| `get_media_stats` | Counts + storage bytes per type (optionally per project) |
 
 **Discovery & Account**
 | Tool | Description |

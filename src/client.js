@@ -151,10 +151,12 @@ class KolboClient {
     this.apiKey = this._envKey || this._readAuthStore();
 
     if (!this.apiKey) {
+      // No key in env OR auth store. The Kolbo Code parent process should
+      // never spawn us in this state (it injects the key into env after the
+      // user signs in). If this fires, the parent will catch it via the
+      // [KOLBO_AUTH_MISSING] tag and surface the in-app sign-in flow.
       throw new Error(
-        'Kolbo API key not found.\n' +
-        'Fix: Run "kolbo auth login" in the terminal, then restart this editor.\n' +
-        'Or: Get an API key at https://app.kolbo.ai/developer and set KOLBO_API_KEY env var.'
+        'Kolbo API key not found. Sign in to Kolbo to continue. [KOLBO_AUTH_MISSING]'
       );
     }
   }
@@ -235,9 +237,15 @@ class KolboClient {
       const code = data.code || null;
       let fullMessage = code ? `${message} [${code}]` : message;
       if (response.status === 401) {
-        // Tag the response so the retry logic in request() can see it
+        // Tag the response so the retry logic in request() can see it AND so
+        // the Kolbo Code parent process can intercept this error before the
+        // agent sees it — trigger the in-app reconnect flow, refresh the key,
+        // and transparently retry the tool call. Never instruct the user to
+        // open a terminal: most users run Kolbo Code as a desktop / web app
+        // and have no terminal context.
         data._status = 401;
-        fullMessage += '\n\nAPI key is invalid or expired. Fix: run "kolbo auth login" in the terminal, then restart this editor. Or get a new key at https://app.kolbo.ai/developer';
+        data._kolbo_auth_expired = true;
+        fullMessage = `${fullMessage} [KOLBO_AUTH_EXPIRED]`;
       }
       throw new KolboApiError(fullMessage, {
         code,
@@ -261,8 +269,12 @@ class KolboClient {
     return this.request('PUT', reqPath, body);
   }
 
-  async delete(reqPath) {
-    return this.request('DELETE', reqPath);
+  async patch(reqPath, body = null) {
+    return this.request('PATCH', reqPath, body);
+  }
+
+  async delete(reqPath, body = null) {
+    return this.request('DELETE', reqPath, body);
   }
 
   async postMultipart(reqPath, formData) {
@@ -312,8 +324,12 @@ class KolboClient {
       const code = data.code || null;
       let fullMessage = code ? `${message} [${code}]` : message;
       if (response.status === 401) {
+        // Multipart uploads: same auth-expired contract as _doRequest. The
+        // Kolbo Code parent process intercepts [KOLBO_AUTH_EXPIRED] and runs
+        // the in-app reconnect flow — no terminal command needed.
         data._status = 401;
-        fullMessage += '\n\nAPI key is invalid or expired. Fix: run "kolbo auth login" in the terminal, then restart this editor. Or get a new key at https://app.kolbo.ai/developer';
+        data._kolbo_auth_expired = true;
+        fullMessage = `${fullMessage} [KOLBO_AUTH_EXPIRED]`;
       }
       throw new KolboApiError(fullMessage, {
         code,
