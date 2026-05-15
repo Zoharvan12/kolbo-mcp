@@ -29,6 +29,15 @@ const KOLBO_API = process.env.KOLBO_API_PATH
   || path.resolve(MCP_REPO, '..', 'kolbo-api');
 
 const SDK_INDEX = path.join(KOLBO_API, 'src', 'modules', 'sdk', 'index.js');
+// Some kolbo-api routes the MCP relies on aren't mounted under the SDK
+// module — they live in their own top-level modules and are mounted at the
+// API root (creditUsage at /credit-usage, artifact at /v1/artifact). Without
+// scanning them here, the parity check would false-positive every release.
+// Add new entries when MCP tools call out to non-SDK route modules.
+const EXTRA_ROUTE_SOURCES = [
+  { file: path.join(KOLBO_API, 'src', 'modules', 'creditUsage', 'index.js'), mountPath: '/credit-usage' },
+  { file: path.join(KOLBO_API, 'src', 'modules', 'artifact', 'routes.js'), mountPath: '/v1/artifact' },
+];
 const MCP_TOOLS_DIR = path.join(MCP_REPO, 'src', 'tools');
 
 function readFileOrBail(p) {
@@ -104,6 +113,27 @@ function parseSdkRoutes(src) {
   return routes;
 }
 
+// Parse routes from a non-SDK module file and prefix each one with the path
+// the module is mounted at on the API root. Express style: a module file
+// declares `router.get('/by-caller-session', ...)` and is mounted via
+// `app.use('/credit-usage', creditUsageRouter)` — the full external path
+// then becomes `/credit-usage/by-caller-session`.
+function parseExtraModuleRoutes(src, mountPath) {
+  const re = /router\.(post|get|delete|put|patch)\(\s*['"`]([^'"`]+)['"`]/g;
+  const routes = new Set();
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const method = m[1].toUpperCase();
+    // Glue mount path + local route, then normalize. normalizePath will
+    // ensure the /v1 prefix where appropriate.
+    let local = m[2];
+    if (!local.startsWith('/')) local = '/' + local;
+    const full = (mountPath + local).replace(/\/+/g, '/');
+    routes.add(`${method} ${normalizePath(full)}`);
+  }
+  return routes;
+}
+
 function normalizeMethod(method) {
   const m = method.toUpperCase();
   return m === 'POSTMULTIPART' ? 'POST' : m;
@@ -172,6 +202,25 @@ console.log('Parity check: kolbo-mcp tools vs kolbo-api SDK routes\n');
 
 const sdkSrc = readFileOrBail(SDK_INDEX);
 const sdkRoutes = parseSdkRoutes(sdkSrc);
+
+// Extra modules contribute routes for the STALE check only (so MCP calls
+// into /credit-usage and /v1/artifact aren't flagged as targeting nonexistent
+// endpoints) — but NOT for the GAP check, because most of those modules'
+// routes are admin / internal and aren't meant to surface as MCP tools.
+// Missing extra files warn but don't fatal — better to over-report stale
+// MCP calls than to silently skip the whole check on a layout change.
+const auxSdkRoutes = new Set();
+for (const { file, mountPath } of EXTRA_ROUTE_SOURCES) {
+  if (!fs.existsSync(file)) {
+    console.warn(`WARN: extra route source missing, skipping: ${file}`);
+    continue;
+  }
+  const extraSrc = fs.readFileSync(file, 'utf8');
+  for (const route of parseExtraModuleRoutes(extraSrc, mountPath)) {
+    auxSdkRoutes.add(route);
+  }
+}
+
 const { calls: mcpCalls, loosePaths: mcpLoosePaths } = parseMcpToolCalls();
 
 // Routes the SDK exposes but MCP never references
@@ -183,10 +232,11 @@ for (const route of sdkRoutes) {
   }
 }
 
-// Routes the MCP calls via client.METHOD but the SDK no longer exposes (stale)
+// Routes the MCP calls via client.METHOD but neither the core SDK module
+// nor any aux module exposes (truly stale references).
 const missingInSdk = [];
 for (const [route, files] of mcpCalls) {
-  if (!sdkRoutes.has(route)) {
+  if (!sdkRoutes.has(route) && !auxSdkRoutes.has(route)) {
     missingInSdk.push({ route, files: [...files] });
   }
 }

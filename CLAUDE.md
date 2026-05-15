@@ -78,13 +78,19 @@ src/tools/models.js      — Discovery tools (list_models, check_credits)
 src/tools/chat.js        — Chat tools (send, list conversations, get messages)
 src/tools/visual_dna.js  — Visual DNA CRUD (thin wrapper that imports from _shared)
 src/tools/moodboards.js  — Moodboard discovery (list, get)
-src/tools/media.js       — Media library (upload_media, list_media)
+src/tools/media.js       — Media library: upload_media, list_media, get_media, delete_media, restore_media,
+                            permanently_delete_media, move_media, bulk_delete_media, bulk_restore_media,
+                            bulk_permanently_delete_media, bulk_move_media, get_media_stats,
+                            favorite_media, unfavorite_media, list_media_folders, create_media_folder,
+                            update_media_folder, delete_media_folder, add_media_to_folder,
+                            remove_media_from_folder, move_folder_contents, share_media_folder,
+                            unshare_media_folder
 src/tools/presets.js     — Preset discovery (list_presets — unified across catalogs)
 scripts/smoke.js         — Load-time smoke test (no network)
 scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 ```
 
-## Available Tools (30)
+## Available Tools (51)
 
 **Generation** (`src/tools/generate.js`)
 | Tool | Route | Timeout | Composition args |
@@ -110,7 +116,28 @@ scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 | Tool | Route | Notes |
 |------|-------|-------|
 | `upload_media` | `POST /v1/media/upload` (multipart) | Upload a local file (or remote URL re-host) and get a stable Kolbo CDN URL |
-| `list_media` | `GET /v1/media` | Filters: `type`, `page`, `page_size`, `search` |
+| `list_media` | `GET /v1/media` | Filters: `project_id`, `folder_id`, `type`, `category` (ai / uploaded / edited / favorites / training-lab), `source_type`, `sort`, `page`, `page_size`, `search` |
+| `list_media_folders` | `GET /v1/media/folders` | List the user's media folders (owned + shared) |
+| `create_media_folder` | `POST /v1/media/folders` | Create a folder (name + optional description / color / icon) |
+| `update_media_folder` | `PUT /v1/media/folders/:id` | Update name / description / color / icon (owner only) |
+| `delete_media_folder` | `DELETE /v1/media/folders/:id` | Soft-delete folder (owner only) |
+| `add_media_to_folder` | `POST /v1/media/folders/:id/items` | Add up to 500 media items (idempotent) |
+| `remove_media_from_folder` | `DELETE /v1/media/folders/:id/items` | Remove media items (body: `media_ids`) |
+| `share_media_folder` | `POST /v1/media/folders/:id/share` | Share by email (owner only) |
+| `unshare_media_folder` | `DELETE /v1/media/folders/:id/share/:user_id` | Revoke access (owner only) |
+| `favorite_media` | `POST /v1/media/:id/favorite` | Mark a media item as favorited (idempotent) |
+| `unfavorite_media` | `DELETE /v1/media/:id/favorite` | Remove a media item from favorites (idempotent) |
+| `get_media` | `GET /v1/media/:id` | Fetch one item by id (incl. full metadata) |
+| `delete_media` | `DELETE /v1/media/:id` | Soft-delete (30-day trash) |
+| `restore_media` | `POST /v1/media/:id/restore` | Restore from trash |
+| `permanently_delete_media` | `DELETE /v1/media/:id/permanent` | Hard-delete (S3 + DB) — NOT reversible |
+| `move_media` | `PATCH /v1/media/:id/project` | Move item to a different project |
+| `bulk_delete_media` | `POST /v1/media/bulk/delete` | Soft-delete ≤1000 |
+| `bulk_restore_media` | `POST /v1/media/bulk/restore` | Restore ≤1000 |
+| `bulk_permanently_delete_media` | `POST /v1/media/bulk/permanent` | Hard-delete ≤1000 |
+| `bulk_move_media` | `POST /v1/media/bulk/move` | Move ≤1000 (atomic) |
+| `move_folder_contents` | `POST /v1/media/folders/:id/move-contents` | Move all items in a folder |
+| `get_media_stats` | `GET /v1/media/stats` | Counts + total bytes (optionally per project) |
 
 **Preset Discovery** (`src/tools/presets.js`)
 | Tool | Route | Notes |
