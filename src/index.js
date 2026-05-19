@@ -93,7 +93,15 @@ async function main() {
   await server.connect(transport);
 }
 
-main().catch(err => {
-  console.error('Failed to start Kolbo MCP server:', err);
-  process.exit(1);
-});
+module.exports = { main };
+
+// Auto-run when invoked directly (e.g. `node src/index.js` or via the published
+// bin/kolbo-mcp.js wrapper). Consumers that `require()` this module to embed it
+// inside another process (the Kolbo Code CLI's `kolbo mcp serve` subcommand)
+// should call `main()` themselves.
+if (require.main === module || require.main?.filename?.endsWith('kolbo-mcp.js')) {
+  main().catch(err => {
+    console.error('Failed to start Kolbo MCP server:', err);
+    process.exit(1);
+  });
+}
