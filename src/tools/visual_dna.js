@@ -20,7 +20,7 @@ function registerVisualDnaTools(server, client) {
     'create_visual_dna',
     'Create a Visual DNA profile from reference media. Each item in images/video/audio can be a public URL or an absolute local file path. Max 4 images, 1 video, 1 audio. Files capped at 25MB each.',
     {
-      name: z.string().describe('Name of the Visual DNA profile'),
+      name: z.string().describe('Name of the Visual DNA profile. **Pick a short, lowercase, no-space single token** (e.g. `maya`, `tokyo_neon`, `brand_red`, `esther_model`) — never names with spaces (`Sarah Johnson` ❌). The user/LLM types this as `@<name>` inside generation prompts, and the @ parser stops at the first space, so `@Sarah Johnson` matches only `Sarah` and the binding silently drops. Multi-word concepts should use underscores or be a single token. Names are case-insensitive on lookup, but **reserved** values rejected on creation: `Image1`, `Image2`, …, `Video1`, …, `Audio1`, … (any-language characters allowed; max 100 chars).'),
       dna_type: z.string().optional().describe('Type: "character", "style", "product", "scene". Default: "character"'),
       prompt_helper: z.string().optional().describe('Optional description/notes to guide DNA extraction'),
       images: z.array(z.string()).optional().describe('Array of image sources (URLs or absolute local paths). Max 4.'),
