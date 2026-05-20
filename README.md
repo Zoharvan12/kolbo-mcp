@@ -4,7 +4,20 @@ Use [Kolbo AI](https://kolbo.ai) as native tools in Claude Code and Claude Deskt
 
 Generate images, videos, music, speech, sound effects, multi-scene campaigns, and conversational chat — all from natural language in your coding environment. 100+ AI models behind Smart Select routing, with reusable Visual DNA profiles for character/style consistency.
 
-## Quick Setup
+## Recommended install: the Kolbo Claude Code plugin
+
+The easiest way to use this MCP from Claude Code is the official **Kolbo plugin**, which bundles this server + the routing skill + a first-run API-key prompt — no `settings.json` editing required:
+
+```bash
+claude plugin marketplace add Zoharvan12/kolbo-claude-plugin
+claude plugin install kolbo@kolbo
+```
+
+You'll be prompted for your API key once and it's stored in your OS keychain. The plugin lives in its own tiny repo at [`kolbo-claude-plugin`](https://github.com/Zoharvan12/kolbo-claude-plugin); the routing skill it ships is auto-synced from the canonical source in [`kolbo-code`](https://github.com/Zoharvan12/kolbo-code), so the Claude Code plugin and the Kolbo Code CLI always carry the same skill.
+
+Continue below if you'd rather wire the MCP in by hand (Claude Desktop, Cursor, custom setups).
+
+## Manual setup
 
 ### 1. Get an API Key
 
@@ -114,6 +127,11 @@ Every generation tool also accepts an optional `resolution` arg. Images use `"1K
 | `bulk_move_media` | Move up to 1000 items to a project (atomic — all-or-nothing) |
 | `move_folder_contents` | Move every item in a folder to a project |
 | `get_media_stats` | Counts + storage bytes per type (optionally per project) |
+
+**Artifacts**
+| Tool | Description |
+|------|-------------|
+| `publish_html_artifact` | Publish an HTML page, SVG, or Mermaid diagram and get a public shareable URL on `sites.kolbo.ai`. Pass `share_token` from a prior publish to update the same URL in place (old content kept in version history). |
 
 **Discovery & Account**
 | Tool | Description |
