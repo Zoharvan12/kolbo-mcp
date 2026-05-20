@@ -18,6 +18,12 @@ jobs:
       - run: npm run smoke
         env:
           KOLBO_API_KEY: dummy_ci_smoke_test
-      - run: npm publish --access public
+      # --provenance signs the tarball with GitHub's OIDC token so npm shows a
+      # "Provenance ✓" badge linking back to this commit + workflow run.
+      # Antivirus heuristics (Bitdefender, Norton, etc.) treat provenance-attested
+      # packages as much higher trust, which is critical for an MCP server that
+      # gets spawned as a long-lived child process by user AI agents.
+      # The `id-token: write` permission above is the prerequisite.
+      - run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
