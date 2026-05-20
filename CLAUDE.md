@@ -56,6 +56,16 @@
 
 MCP server exposing Kolbo AI generation, chat, Visual DNA, and moodboard capabilities as native tools in Claude Code/Desktop. Published as `@kolbo/mcp` on npm.
 
+## Distribution channels
+
+This package is consumed in three ways:
+
+1. **Kolbo plugin for Claude Code** — `Zoharvan12/kolbo-claude-plugin` is a dedicated tiny repo (~6 files) that wraps this MCP with a `userConfig` API-key prompt. Users install with `claude plugin marketplace add Zoharvan12/kolbo-claude-plugin && claude plugin install kolbo@kolbo`. The plugin executes `npx -y @kolbo/mcp`, so **any change here flows to plugin users on next `npx` cache refresh** — no plugin re-publish needed for backend tool updates. The plugin's `version` (in `kolbo-claude-plugin/.claude-plugin/plugin.json`) auto-bumps via the sync workflow in kolbo-code whenever `SKILL.md` changes; manually bump only for manifest / MCP server config changes.
+2. **Kolbo Code CLI** — `kolbo-code/packages/opencode/src/mcp/wire.ts` writes a stdio MCP config that runs `npx -y @kolbo/mcp` on `kolbo auth login`.
+3. **Manual setup** — Claude Desktop / Cursor / vanilla Claude Code users who edit `claude_desktop_config.json` by hand (see README).
+
+**When adding or renaming a tool here, also update `kolbo-code/packages/opencode/skills/kolbo/SKILL.md`** — the canonical skill loaded by both the Kolbo Code binary AND the Claude Code plugin. That file is the only place that teaches the LLM how to route to the new tool.
+
 ## Architecture
 
 ```
@@ -86,6 +96,7 @@ src/tools/media.js       — Media library: upload_media, list_media, get_media,
                             remove_media_from_folder, move_folder_contents, share_media_folder,
                             unshare_media_folder
 src/tools/presets.js     — Preset discovery (list_presets — unified across catalogs)
+src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
 scripts/smoke.js         — Load-time smoke test (no network)
 scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 ```
@@ -164,6 +175,11 @@ scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 |------|-------|
 | `list_moodboards` | `GET /v1/moodboards` |
 | `get_moodboard` | `GET /v1/moodboards/:id` |
+
+**Artifacts** (`src/tools/artifacts.js`)
+| Tool | Route | Notes |
+|------|-------|-------|
+| `publish_html_artifact` | `POST /artifact/quick-share` | Publish HTML/SVG/Mermaid → public URL on `sites.kolbo.ai`. Server dedups identical content (returns same URL). Pass `share_token` from a prior publish to update that artifact in place (URL unchanged, old content moved into version history). |
 
 **Discovery & Account** (`src/tools/models.js`)
 | Tool | Route |
