@@ -45,16 +45,37 @@ Add to `.claude/settings.json`:
 
 Just ask Claude naturally:
 
+**Generation**
 - *"Generate an image of a sunset over mountains"*
 - *"Create a 5-second video of waves crashing"*
 - *"Build a 4-scene storyboard for a coffee shop ad"*
 - *"Remove the background from this image"*
 - *"Make a lo-fi hip hop beat"*
 - *"Read this out loud with a British female voice"*
+
+**Marketing & UGC**
+- *"Make me a UGC ad for my sneaker brand — 9:16, talking-head style"*
+- *"TV spot for my new beverage, 15 seconds, cinematic"*
+- *"Unboxing video for this product photo"*
+
+**Brand & product imagery**
+- *"Pinterest pin for my candle brand, cottagecore mood"*
+- *"Hero banner for my landing page, wide format"*
+- *"Lifestyle shot of my product in a kitchen"*
+- *"4 ad creative variants for Meta and TikTok"*
+
+**Marketplace listings**
+- *"Generate Amazon main image + 5 secondary images for my product"*
+- *"Full A+ content set for my Shopify listing"*
+
+**Analysis & utility**
 - *"Ask Claude about the latest AI news with web search on"*
 - *"Analyze this video and tell me what prompts are shown on screen"*
 - *"What's in this image?"*
 - *"Create a Visual DNA profile called 'Alex' from these images"*
+- *"Use the same brand as last time"* (loads a persisted brand kit from the workspace)
+
+The skill that ships with the [Kolbo plugin](https://github.com/Zoharvan12/kolbo-claude-plugin) routes each of these to the right MCP tool with the right defaults — UGC mode picks 9:16 + sound-off + no-captions, marketplace mode enforces compliance (pure white bg, no text, no props), product photoshoot mode uses the right aspect for the platform (2:3 Pinterest, 16:9 hero banner, 1:1 IG feed), etc. See the canonical skill at [`kolbo-code/packages/opencode/skills/kolbo/`](https://github.com/Zoharvan12/kolbo-code/tree/dev/packages/opencode/skills/kolbo).
 
 ## Available Tools (51)
 
