@@ -64,7 +64,31 @@ This package is consumed in three ways:
 2. **Kolbo Code CLI** — `kolbo-code/packages/opencode/src/mcp/wire.ts` writes a stdio MCP config that runs `npx -y @kolbo/mcp` on `kolbo auth login`.
 3. **Manual setup** — Claude Desktop / Cursor / vanilla Claude Code users who edit `claude_desktop_config.json` by hand (see README).
 
-**When adding or renaming a tool here, also update `kolbo-code/packages/opencode/skills/kolbo/SKILL.md`** — the canonical skill loaded by both the Kolbo Code binary AND the Claude Code plugin. That file is the only place that teaches the LLM how to route to the new tool.
+**When adding, renaming, or changing tool behavior here, you MUST update the skill tree at `kolbo-code/packages/opencode/skills/kolbo/`** — the canonical skill loaded by both the Kolbo Code binary AND the Claude Code plugin. That tree is the only place that teaches the LLM how to route to your tool. As of skill v0.4.0 the tree uses progressive disclosure:
+
+```
+kolbo-code/packages/opencode/skills/kolbo/
+├── SKILL.md                          # always-loaded core: tool inventory, hard rules, routing index
+├── VERSION                           # synced to plugin manifest + SKILL.md frontmatter
+└── references/
+    ├── models/                       # per-model prompt rules — mirrors kolbo-api/src/config/systemPrompt.js
+    │   ├── seedance.md, gpt-image.md, nano-banana.md, veo.md, creative-director.md,
+    │   ├── music.md, html-presentation.md, landing-page.md, visual-code.md, prompt-copilot.md
+    └── workflows/                    # cross-cutting / use-case routing
+        ├── marketing-studio.md       # UGC + ad video modes — routes to generate_video*, generate_elements, generate_creative_director
+        ├── dtc-ads.md                # composed brand ad images — generate_creative_director + brand-kit prompts
+        ├── product-photoshoot.md     # 10 modes for brand product imagery — generate_image / generate_creative_director
+        ├── marketplace-cards.md      # Amazon/Shopify listings — generate_creative_director with compliance-aware prompts
+        ├── visual-dna.md, production-log.md, transcription.md, research-first.md,
+        ├── media-library.md, app-builder.md, cost-and-validation.md, troubleshooting.md
+```
+
+**What to update when you change a tool:**
+- New tool, new optional arg, or routing change → add a row to `SKILL.md`'s tool inventory + (if relevant) a row to the routing index pointing at the right `references/*.md`. Bump `references/models/*.md` or `references/workflows/*.md` content if the new behavior changes prompt rules or workflow shape.
+- Tool description tweak only → no skill change needed (the description ships from the MCP server itself).
+- New backend-only capability that needs a brand-new use case (e.g. a dedicated marketing-ad endpoint) → add a new `references/workflows/<name>.md` AND a row in SKILL.md's routing index.
+
+CI in kolbo-code (`.github/workflows/validate-skill.yml`) enforces frontmatter, version-sync, link resolution, and the rebrand rule (zero `higgsfield` mentions). Don't get blocked by it — just keep links + frontmatter version in sync with `VERSION`.
 
 ## Architecture
 
@@ -97,11 +121,15 @@ src/tools/media.js       — Media library: upload_media, list_media, get_media,
                             unshare_media_folder
 src/tools/presets.js     — Preset discovery (list_presets — unified across catalogs)
 src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
+src/tools/projects.js    — Project discovery (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool)
 scripts/smoke.js         — Load-time smoke test (no network)
 scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 ```
 
-## Available Tools (51)
+## Available Tools (52)
+
+Every generation tool below also accepts an optional `project_id` arg that routes the generation into a specific project (owner + edit/full shares). Call `list_projects` to discover IDs. Omit to fall back to the user's auto-created "API Generations" project.
+
 
 **Generation** (`src/tools/generate.js`)
 | Tool | Route | Timeout | Composition args |
@@ -181,10 +209,11 @@ scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 |------|-------|-------|
 | `publish_html_artifact` | `POST /artifact/quick-share` | Publish HTML/SVG/Mermaid → public URL on `sites.kolbo.ai`. Server dedups identical content (returns same URL). Pass `share_token` from a prior publish to update that artifact in place (URL unchanged, old content moved into version history). |
 
-**Discovery & Account** (`src/tools/models.js`)
+**Discovery & Account** (`src/tools/models.js`, `src/tools/projects.js`)
 | Tool | Route |
 |------|-------|
 | `list_models` | `GET /v1/models` |
+| `list_projects` | `GET /v1/projects` |
 | `check_credits` | `GET /v1/account/credits` |
 
 **Generation flow**: POST → get `generation_id` → poll `/v1/generate/:id/status` → return `result` when `state === 'completed'`.

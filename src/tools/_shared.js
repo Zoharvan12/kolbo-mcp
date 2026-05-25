@@ -230,6 +230,16 @@ function creditFields(polledResult) {
   return out;
 }
 
+// Shared zod schema for the optional `project_id` arg every generation tool
+// accepts. Keep this in one place so the description never drifts across the
+// 17 tools that use it. When omitted, the generation lands in the user's
+// auto-created "API Generations" project. Call `list_projects` first to
+// resolve a name → ObjectId.
+const { z } = require('zod');
+const projectIdField = z.string().optional().describe(
+  'Project ObjectId to drop this generation into. Call `list_projects` to discover IDs (the API has no concept of project names — only ObjectIds). Omit to use the user\'s default "API Generations" project. Requires owner / edit / full permission on the project; view-only is rejected.'
+);
+
 module.exports = {
   MAX_FILE_BYTES,
   VISUAL_DNA_MAX_BYTES,
@@ -240,4 +250,5 @@ module.exports = {
   guessContentType,
   resolveToBuffer,
   creditFields,
+  projectIdField,
 };

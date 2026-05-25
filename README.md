@@ -77,7 +77,7 @@ Just ask Claude naturally:
 
 The skill that ships with the [Kolbo plugin](https://github.com/Zoharvan12/kolbo-claude-plugin) routes each of these to the right MCP tool with the right defaults — UGC mode picks 9:16 + sound-off + no-captions, marketplace mode enforces compliance (pure white bg, no text, no props), product photoshoot mode uses the right aspect for the platform (2:3 Pinterest, 16:9 hero banner, 1:1 IG feed), etc. See the canonical skill at [`kolbo-code/packages/opencode/skills/kolbo/`](https://github.com/Zoharvan12/kolbo-code/tree/dev/packages/opencode/skills/kolbo).
 
-## Available Tools (51)
+## Available Tools (52)
 
 **Generation**
 | Tool | Description |
@@ -100,6 +100,8 @@ The skill that ships with the [Kolbo plugin](https://github.com/Zoharvan12/kolbo
 Every image/video/creative-director tool accepts `visual_dna_ids` and `moodboard_id` for character/style consistency across outputs — you can compose `create_visual_dna` → `generate_image` (with the DNA applied server-side) in a single agent turn. `generate_creative_director` also accepts `moodboard_ids` plural for blending.
 
 Every generation tool also accepts an optional `resolution` arg. Images use `"1K"` (~1024px) / `"2K"` (Full HD) / `"3K"` (QHD) / `"4K"` (UHD); videos use vertical-pixel tiers like `"720p"` / `"1080p"` / `"1440p"` / `"2160p"`. Values are model-dependent — call `list_models` and read the chosen model's `supported_resolutions` and `resolutionMultipliers`. Omit to use the model default.
+
+Every generation tool also accepts an optional `project_id` arg that routes the generation into a specific project (owned or shared with edit+). Call `list_projects` to discover IDs. When omitted, generations land in the user's auto-created "API Generations" project.
 
 **Chat & Vision**
 | Tool | Description |
@@ -160,6 +162,7 @@ Every generation tool also accepts an optional `resolution` arg. Images use `"1K
 | `list_models` | Current model catalog with costs and capabilities |
 | `list_voices` | TTS voices (presets + cloned) |
 | `list_presets` | Generation presets across image/video/music/text-to-video catalogs |
+| `list_projects` | List owned + shared projects (id, name, role, is_default) — call first to resolve a project name into the `project_id` you pass to generation tools |
 | `check_credits` | Check credit balance |
 | `get_generation_status` | Poll a generation by ID (fallback if a tool times out) |
 
