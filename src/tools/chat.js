@@ -5,7 +5,7 @@
 
 const { z } = require('zod');
 const { pollUntilDone } = require('../polling');
-const { creditFields } = require('./_shared');
+const { creditFields, projectIdField } = require('./_shared');
 
 function registerChatTools(server, client) {
   // ─── chat_send_message ─────────────────────────────────────
@@ -20,9 +20,10 @@ function registerChatTools(server, client) {
       web_search: z.boolean().optional().describe('Enable web search for this message. Default: false'),
       deep_think: z.boolean().optional().describe('Enable deep think (extended reasoning). Default: false'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
-      media_urls: z.array(z.string()).optional().describe('Public URLs of images, videos, or audio files to analyze. The model auto-routes to a vision-capable model when media is present. Use upload_media first to get a public URL for local files.')
+      media_urls: z.array(z.string()).optional().describe('Public URLs of images, videos, or audio files to analyze. The model auto-routes to a vision-capable model when media is present. Use upload_media first to get a public URL for local files.'),
+      project_id: projectIdField
     },
-    async ({ message, model, session_id, system_prompt, web_search, deep_think, enhance_prompt, media_urls }) => {
+    async ({ message, model, session_id, system_prompt, web_search, deep_think, enhance_prompt, media_urls, project_id }) => {
       const gen = await client.post('/v1/chat', {
         message,
         model,
@@ -31,7 +32,8 @@ function registerChatTools(server, client) {
         web_search,
         deep_think,
         enhance_prompt,
-        media_urls
+        media_urls,
+        project_id
       });
 
       // Deep think reasoning can run far longer than normal chat. Also grant
