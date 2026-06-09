@@ -144,11 +144,21 @@ function readCliAuthKey() {
 // ---------------------------------------------------------------------------
 
 class KolboClient {
-  constructor() {
-    this.baseUrl = resolveApiBase();
+  /**
+   * @param {object} [opts]
+   * @param {string} [opts.apiKey]  Explicit key. Takes precedence over env +
+   *   auth store. Used by a remote HTTP host that injects the caller's key per
+   *   request (one KolboClient per request) instead of reading a process-wide
+   *   env var. When set, the auth-store 401 refresh path is disabled — the host
+   *   owns the key lifecycle.
+   * @param {string} [opts.apiBase] Explicit API base URL override.
+   */
+  constructor(opts = {}) {
+    this.baseUrl = opts.apiBase ? String(opts.apiBase).replace(/\/$/, '') : resolveApiBase();
+    this._explicitKey = opts.apiKey || null;
     this._envKey = process.env.KOLBO_API_KEY || null;
     this._authStoreKey = null; // lazy-loaded
-    this.apiKey = this._envKey || this._readAuthStore();
+    this.apiKey = this._explicitKey || this._envKey || this._readAuthStore();
 
     if (!this.apiKey) {
       // No key in env OR auth store. The Kolbo Code parent process should
@@ -171,6 +181,9 @@ class KolboClient {
    * since the MCP server started. Returns true if a new key was found.
    */
   _tryRefreshKey() {
+    // Host-injected per-request key is authoritative — never override it from
+    // the local CLI auth store (which may not even exist in a server context).
+    if (this._explicitKey) return false;
     if (this._envKey) {
       // Env var is set but invalid — can't override it, but try auth store
       const fresh = readCliAuthKey();
