@@ -70,8 +70,20 @@ const { registerAppBuilderTools } = require('./tools/app_builder');
 const { registerArtifactTools } = require('./tools/artifacts');
 const { registerProjectTools } = require('./tools/projects');
 
-async function main() {
-  const client = new KolboClient();
+/**
+ * Build a fully-configured Kolbo MCP server (all tool groups registered)
+ * WITHOUT connecting a transport. This is the reusable core shared by:
+ *   - the stdio entrypoint below (npx / Kolbo Code), and
+ *   - a remote HTTP host (kolbo-api) that creates one server per request with
+ *     the caller's key injected via `opts.apiKey`.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.apiKey]   Per-instance Kolbo API key (overrides env).
+ * @param {string} [opts.apiBase]  API base URL override.
+ * @returns {McpServer} a server ready to `.connect(transport)`.
+ */
+function createServer(opts = {}) {
+  const client = new KolboClient(opts);
 
   const server = new McpServer({
     name: 'kolbo',
@@ -90,12 +102,18 @@ async function main() {
   registerArtifactTools(server, client);
   registerProjectTools(server, client);
 
+  return server;
+}
+
+async function main() {
+  const server = createServer();
+
   // Start the server with stdio transport
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
-module.exports = { main };
+module.exports = { main, createServer };
 
 // Auto-run when invoked directly (e.g. `node src/index.js` or via the published
 // bin/kolbo-mcp.js wrapper). Consumers that `require()` this module to embed it
