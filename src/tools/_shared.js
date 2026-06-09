@@ -240,6 +240,42 @@ const projectIdField = z.string().optional().describe(
   'Project ObjectId to drop this generation into. Call `list_projects` to discover IDs (the API has no concept of project names — only ObjectIds). Omit to use the user\'s default "API Generations" project. Requires owner / edit / full permission on the project; view-only is rejected.'
 );
 
+// ─── Optional inline-image content blocks ────────────────────────────────────
+// When a host opts in (the remote HTTP connector sets inlineImages:true), turn
+// generated IMAGE urls into MCP `image` content blocks so clients render them
+// inline instead of a "Show Image" link. Strictly gated + bounded:
+//   - only runs when opts.enabled is true (stdio/Kolbo Code never enables it,
+//     so their behavior is byte-identical: text URL only);
+//   - caps the number of images and the bytes per image;
+//   - ONLY embeds responses whose content-type is image/* — a video/audio URL
+//     can never be base64-embedded even if mistakenly passed in;
+//   - any fetch/decoding failure silently falls back to URL-only.
+const INLINE_IMG_MAX_COUNT = 4;
+const INLINE_IMG_MAX_BYTES = 8 * 1024 * 1024; // 8 MB per image
+
+async function inlineImageBlocks(urls, opts = {}) {
+  if (!opts || !opts.enabled) return [];
+  if (!Array.isArray(urls) || urls.length === 0) return [];
+  const out = [];
+  for (const url of urls.slice(0, INLINE_IMG_MAX_COUNT)) {
+    try {
+      if (typeof url !== 'string' || !isHttpUrl(url)) continue;
+      const res = await safeFetch(url);
+      if (!res.ok) continue;
+      const contentType = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+      if (!contentType.startsWith('image/')) continue; // never embed non-images
+      const declaredLen = Number(res.headers.get('content-length') || 0);
+      if (declaredLen && declaredLen > INLINE_IMG_MAX_BYTES) continue;
+      const ab = await res.arrayBuffer();
+      if (ab.byteLength > INLINE_IMG_MAX_BYTES) continue;
+      out.push({ type: 'image', data: Buffer.from(ab).toString('base64'), mimeType: contentType });
+    } catch (_) {
+      // fall back to URL-only for this image
+    }
+  }
+  return out;
+}
+
 module.exports = {
   MAX_FILE_BYTES,
   VISUAL_DNA_MAX_BYTES,
@@ -251,4 +287,5 @@ module.exports = {
   resolveToBuffer,
   creditFields,
   projectIdField,
+  inlineImageBlocks,
 };
