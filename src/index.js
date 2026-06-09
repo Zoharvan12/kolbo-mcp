@@ -90,8 +90,10 @@ function createServer(opts = {}) {
     version: '1.0.0'
   });
 
-  // Register all tools
-  registerGenerateTools(server, client);
+  // Register all tools. `inlineImages` (off by default) is opt-in: only the
+  // remote HTTP host enables it, so stdio clients (Kolbo Code / Desktop / Cursor)
+  // keep identical text-URL output.
+  registerGenerateTools(server, client, { inlineImages: !!opts.inlineImages });
   registerModelTools(server, client);
   registerChatTools(server, client);
   registerVisualDnaTools(server, client);

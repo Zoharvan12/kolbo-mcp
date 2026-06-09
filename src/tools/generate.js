@@ -6,9 +6,13 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone } = require('../polling');
-const { resolveToBuffer, creditFields, projectIdField } = require('./_shared');
+const { resolveToBuffer, creditFields, projectIdField, inlineImageBlocks } = require('./_shared');
 
-function registerGenerateTools(server, client) {
+function registerGenerateTools(server, client, options = {}) {
+  // Only enabled by hosts that explicitly opt in (the remote HTTP connector).
+  // stdio hosts (Kolbo Code, Claude Desktop, Cursor) leave this false, so their
+  // tool output is unchanged: a text block with the image URL.
+  const inlineImages = !!options.inlineImages;
   // ─── generate_image ────────────────────────────────────────
   server.tool(
     'generate_image',
@@ -38,6 +42,7 @@ function registerGenerateTools(server, client) {
         timeout: 120000
       });
 
+      const images = await inlineImageBlocks(result.result.urls, { enabled: inlineImages });
       return {
         content: [{
           type: 'text',
@@ -48,7 +53,7 @@ function registerGenerateTools(server, client) {
             prompt_used: result.result.prompt_used,
             _followup_hint: 'If the user asks to edit/change/modify this image next, pass urls[0] to generate_image_edit (free-form edits) or edit_image (upscale/reframe/removebg/enhance_skin/magic_edit). Do NOT call generate_image again.'
           }, null, 2)
-        }]
+        }, ...images]
       };
     }
   );
@@ -85,6 +90,7 @@ function registerGenerateTools(server, client) {
         timeout: heavy ? 240000 : 120000
       });
 
+      const images = await inlineImageBlocks(result.result.urls, { enabled: inlineImages });
       return {
         content: [{
           type: 'text',
@@ -95,7 +101,7 @@ function registerGenerateTools(server, client) {
             prompt_used: result.result.prompt_used,
             _followup_hint: 'If the user asks for another edit on this output, pass urls[0] back into generate_image_edit as source_images. For targeted ops (upscale/reframe/removebg/enhance_skin) use edit_image instead. Do NOT call generate_image from scratch.'
           }, null, 2)
-        }]
+        }, ...images]
       };
     }
   );
