@@ -52,7 +52,7 @@ The config above is all you need. If you want one-word slash-commands (`/kolbo:m
 ```bash
 # Claude Code (also writes the MCP config for you, so you can skip Step 2 above)
 claude plugin marketplace add Zoharvan12/kolbo-skills
-claude plugin install kolbo@kolbo
+claude plugin install kolbo@kolbo-skills
 
 # Cursor / Codex / any agent (cross-agent installer)
 npx skills add Zoharvan12/kolbo-skills
