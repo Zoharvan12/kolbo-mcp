@@ -256,24 +256,29 @@ const INLINE_IMG_MAX_BYTES = 8 * 1024 * 1024; // 8 MB per image
 async function inlineImageBlocks(urls, opts = {}) {
   if (!opts || !opts.enabled) return [];
   if (!Array.isArray(urls) || urls.length === 0) return [];
-  const out = [];
-  for (const url of urls.slice(0, INLINE_IMG_MAX_COUNT)) {
-    try {
-      if (typeof url !== 'string' || !isHttpUrl(url)) continue;
-      const res = await safeFetch(url);
-      if (!res.ok) continue;
-      const contentType = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-      if (!contentType.startsWith('image/')) continue; // never embed non-images
-      const declaredLen = Number(res.headers.get('content-length') || 0);
-      if (declaredLen && declaredLen > INLINE_IMG_MAX_BYTES) continue;
-      const ab = await res.arrayBuffer();
-      if (ab.byteLength > INLINE_IMG_MAX_BYTES) continue;
-      out.push({ type: 'image', data: Buffer.from(ab).toString('base64'), mimeType: contentType });
-    } catch (_) {
-      // fall back to URL-only for this image
-    }
-  }
-  return out;
+  // Fetch the (≤4) images in parallel — they're independent, the cap already
+  // bounds concurrency, and this sits on the connector response path right
+  // after generation. Order is preserved by map-then-filter; any failure falls
+  // back to URL-only for that image.
+  const blocks = await Promise.all(
+    urls.slice(0, INLINE_IMG_MAX_COUNT).map(async (url) => {
+      try {
+        if (typeof url !== 'string' || !isHttpUrl(url)) return null;
+        const res = await safeFetch(url);
+        if (!res.ok) return null;
+        const contentType = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+        if (!contentType.startsWith('image/')) return null; // never embed non-images
+        const declaredLen = Number(res.headers.get('content-length') || 0);
+        if (declaredLen && declaredLen > INLINE_IMG_MAX_BYTES) return null;
+        const ab = await res.arrayBuffer();
+        if (ab.byteLength > INLINE_IMG_MAX_BYTES) return null;
+        return { type: 'image', data: Buffer.from(ab).toString('base64'), mimeType: contentType };
+      } catch (_) {
+        return null;
+      }
+    })
+  );
+  return blocks.filter(Boolean);
 }
 
 module.exports = {
