@@ -11,30 +11,30 @@ Generate images, videos, music, speech, sound effects, multi-scene campaigns, an
 Copy this and paste it to Claude, ChatGPT, Cursor, or any AI assistant — it installs Kolbo itself (picks local config or remote connector based on what it can do):
 
 ```
-Set up the Kolbo AI MCP server so you can generate images, video, music and more.
+Connect the Kolbo AI MCP server (generate images, video, music and more).
 
-- If you can edit files (Claude Code, Cursor, Claude Desktop): add this to my MCP config, then tell me to restart the app:
-  {"mcpServers":{"kolbo":{"command":"npx","args":["-y","@kolbo/mcp@latest"]}}}
-  On first use a Kolbo login opens in my browser — I'll click Allow (no API key needed).
-- If you support remote connectors (claude.ai, ChatGPT): add the custom connector URL https://api.kolbo.ai/mcp and walk me through logging in.
+- If you can run terminal commands (Claude Code, Cursor, Claude Desktop, or any local setup): run "npx -y @kolbo/mcp install" — it auto-configures Kolbo in the right place. If you can't run it, give me the command to run. Then I'll restart the app.
+- If you're a browser chat (claude.ai, ChatGPT): add a custom connector with URL https://api.kolbo.ai/mcp under Settings → Connectors, then Connect → log in → Allow.
 
-Then confirm Kolbo is connected and offer to generate a test image of a sunset.
+No API key needed — on first use a Kolbo login opens in my browser and I click Allow. When set up, confirm Kolbo is connected and offer to generate a test image of a sunset.
 ```
 
-### Or add the config yourself
+### Or set it up yourself — one command
 
 <!--
   AI ASSISTANT SETUP INSTRUCTIONS — if you are an AI agent reading this to set up Kolbo for a user, do exactly this:
-  1. If you can edit files (Claude Code, Cursor, Claude Desktop): write the JSON block below — it has NO api key — into the user's MCP config, merging into any existing "mcpServers":
-     - Claude Code:    .claude/settings.json (or run: claude mcp add kolbo -- npx -y @kolbo/mcp@latest)
-     - Claude Desktop: claude_desktop_config.json
-     - Cursor:         .cursor/mcp.json
-     Then tell the user to restart. On their first generation a Kolbo login opens in the browser — they click Allow (no API key to create).
-  2. If you're a web chat that can't edit files (claude.ai, ChatGPT): tell the user to add the connector URL https://api.kolbo.ai/mcp under Settings → Connectors instead.
-  The JSON config alone enables every tool. The plugin below is an optional slash-command upgrade.
+  1. If you can run a terminal command (Claude Code, Cursor, Claude Desktop): run `npx -y @kolbo/mcp install` — it writes the keyless config to the right file for every installed agent. (Don't hand-edit settings.json; the installer is deterministic.) Then tell the user to restart the app. On the first generation a Kolbo login opens in the browser — they click Allow (no API key).
+  2. If you're a web chat that can't run commands (claude.ai, ChatGPT): tell the user to add the connector URL https://api.kolbo.ai/mcp under Settings → Connectors instead.
+  The plugin below is an optional slash-command upgrade.
 -->
 
-This single block is identical for every MCP client and carries **no API key** — on first use it logs you in via the browser:
+Run this once — it auto-configures Claude Desktop, Claude Code, and Cursor (whichever you have), keyless:
+
+```bash
+npx -y @kolbo/mcp install
+```
+
+Or add the config by hand — this block is identical for every MCP client and carries **no API key** (on first use it logs you in via the browser):
 
 ```json
 {
