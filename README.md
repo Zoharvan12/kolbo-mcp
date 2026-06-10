@@ -28,7 +28,7 @@ No API key needed — on first use a Kolbo login opens in my browser and I click
   The plugin below is an optional slash-command upgrade.
 -->
 
-Run this once — it auto-configures Claude Desktop, Claude Code, and Cursor (whichever you have), keyless:
+Run this once — it sets up the **full** Kolbo experience (the MCP tools **and** the routing skill) for every installed agent (Claude Desktop, Claude Code, Cursor), keyless:
 
 ```bash
 npx -y @kolbo/mcp install
