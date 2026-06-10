@@ -62,9 +62,34 @@ function configure(t) {
   }
 }
 
+// The Kolbo routing skill is bundled at <package>/skill/ — copy it into the
+// agent's skills dir so the agent gets the routing brain (correct model ids,
+// defaults, "never hardcode model names"), not just the raw tools.
+function skillTargets() {
+  const home = os.homedir();
+  return [
+    { name: 'Claude Code skill', root: path.join(home, '.claude'), dir: path.join(home, '.claude', 'skills', 'kolbo') },
+    { name: 'Agents skill (Cursor/Codex)', root: path.join(home, '.agents'), dir: path.join(home, '.agents', 'skills', 'kolbo') },
+  ];
+}
+
+function installSkill(t) {
+  const src = path.join(__dirname, '..', 'skill');
+  if (!fs.existsSync(src)) return { ...t, status: 'skill not bundled' };
+  if (!fs.existsSync(t.root)) return { ...t, status: 'not found' };
+  try {
+    fs.mkdirSync(t.dir, { recursive: true });
+    fs.cpSync(src, t.dir, { recursive: true });
+    return { ...t, status: 'installed' };
+  } catch (e) {
+    return { ...t, status: `failed — ${e.message}` };
+  }
+}
+
 async function run() {
   const out = (s = '') => process.stdout.write(s + '\n');
   const results = targets().map(configure);
+  const skills = skillTargets().map(installSkill);
   const newlyConfigured = results.filter((r) => r.status === 'configured');
   const ready = results.filter((r) => r.status === 'configured' || r.status === 'already set up');
 
@@ -74,6 +99,10 @@ async function run() {
   for (const r of results) {
     const ok = r.status === 'configured' || r.status === 'already set up';
     out(`  ${ok ? '✓' : '·'} ${r.name}: ${r.status}${ok ? `  (${r.file})` : ''}`);
+  }
+  for (const s of skills) {
+    if (s.status === 'not found' || s.status === 'skill not bundled') continue;
+    out(`  ${s.status === 'installed' ? '✓' : '·'} ${s.name}: ${s.status}`);
   }
   out();
 
