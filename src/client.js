@@ -158,17 +158,45 @@ class KolboClient {
     this._explicitKey = opts.apiKey || null;
     this._envKey = process.env.KOLBO_API_KEY || null;
     this._authStoreKey = null; // lazy-loaded
+    // Local stdio servers (raw `npx @kolbo/mcp` in Claude Desktop / Code / Cursor)
+    // may start with no key and log in via the browser on first use. Disabled when:
+    //   - the host opts out (remote HTTP connector passes allowBrowserLogin:false —
+    //     it always injects the caller's key, and opening a browser on a server is
+    //     nonsensical), or
+    //   - we're spawned by Kolbo Code (it sets KOLBO_CALLER_SESSION_ID and runs its
+    //     OWN in-app sign-in off the [KOLBO_AUTH_MISSING] error — don't double up).
+    this._allowBrowserLogin =
+      opts.allowBrowserLogin !== undefined
+        ? opts.allowBrowserLogin
+        : !process.env.KOLBO_CALLER_SESSION_ID;
+    this._loginPromise = null;
     this.apiKey = this._explicitKey || this._envKey || this._readAuthStore();
 
-    if (!this.apiKey) {
-      // No key in env OR auth store. The Kolbo Code parent process should
-      // never spawn us in this state (it injects the key into env after the
-      // user signs in). If this fires, the parent will catch it via the
-      // [KOLBO_AUTH_MISSING] tag and surface the in-app sign-in flow.
+    if (!this.apiKey && !this._allowBrowserLogin) {
       throw new Error(
         'Kolbo API key not found. Sign in to Kolbo to continue. [KOLBO_AUTH_MISSING]'
       );
     }
+    // When allowBrowserLogin is on and there's no key yet, we DON'T throw —
+    // the first request triggers an interactive browser login (see _ensureLogin).
+  }
+
+  /**
+   * Ensure we have a key before a request. If none, run the one-time browser
+   * login (single-flight so concurrent first calls share one login window).
+   */
+  async _ensureLogin() {
+    if (this.apiKey) return;
+    if (!this._allowBrowserLogin) {
+      throw new Error('Kolbo API key not found. Sign in to Kolbo to continue. [KOLBO_AUTH_MISSING]');
+    }
+    if (!this._loginPromise) {
+      const { browserLogin } = require('./auth');
+      this._loginPromise = browserLogin({ apiBase: this.baseUrl })
+        .then((key) => { this.apiKey = key; this._explicitKey = key; return key; })
+        .catch((err) => { this._loginPromise = null; throw err; });
+    }
+    await this._loginPromise;
   }
 
   _readAuthStore() {
@@ -202,6 +230,7 @@ class KolboClient {
   }
 
   async request(method, reqPath, body = null) {
+    if (!this.apiKey) await this._ensureLogin();
     const result = await this._doRequest(method, reqPath, body);
 
     // On 401, try re-reading auth store and retry once
@@ -291,6 +320,7 @@ class KolboClient {
   }
 
   async postMultipart(reqPath, formData) {
+    if (!this.apiKey) await this._ensureLogin();
     const result = await this._doMultipart(reqPath, formData);
     if (result._status === 401 && this._tryRefreshKey()) {
       return this._doMultipart(reqPath, formData);
