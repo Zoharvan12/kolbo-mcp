@@ -106,11 +106,11 @@ function assertSafeUrl(rawUrl) {
   return u;
 }
 
-async function safeFetch(rawUrl) {
+async function safeFetch(rawUrl, opts = {}) {
   let current = rawUrl;
   for (let i = 0; i <= MAX_REDIRECTS; i++) {
     assertSafeUrl(current);
-    const res = await fetch(current, { redirect: 'manual' });
+    const res = await fetch(current, { redirect: 'manual', signal: opts.signal });
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
       const next = new URL(res.headers.get('location'), current).toString();
       current = next;
@@ -251,20 +251,28 @@ const projectIdField = z.string().optional().describe(
 //     can never be base64-embedded even if mistakenly passed in;
 //   - any fetch/decoding failure silently falls back to URL-only.
 const INLINE_IMG_MAX_COUNT = 4;
-const INLINE_IMG_MAX_BYTES = 8 * 1024 * 1024; // 8 MB per image
+// Cap kept conservative on purpose: a base64 image rides inside the JSON-RPC
+// tool result, and chat clients (claude.ai etc.) drop the WHOLE result if it's
+// too large — which looks like "no image at all". Anything over the cap is left
+// to the URL in the text payload (clients render a "Show Image" affordance from
+// it), so a big image degrades to a click instead of vanishing.
+const INLINE_IMG_MAX_BYTES = 1.5 * 1024 * 1024; // 1.5 MB per image
+const INLINE_IMG_FETCH_TIMEOUT_MS = 8000; // never hang the tool response on a slow CDN
 
 async function inlineImageBlocks(urls, opts = {}) {
   if (!opts || !opts.enabled) return [];
   if (!Array.isArray(urls) || urls.length === 0) return [];
   // Fetch the (≤4) images in parallel — they're independent, the cap already
   // bounds concurrency, and this sits on the connector response path right
-  // after generation. Order is preserved by map-then-filter; any failure falls
-  // back to URL-only for that image.
+  // after generation. Order is preserved by map-then-filter; any failure (size,
+  // type, timeout, network) returns null and falls back to URL-only.
   const blocks = await Promise.all(
     urls.slice(0, INLINE_IMG_MAX_COUNT).map(async (url) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), INLINE_IMG_FETCH_TIMEOUT_MS);
       try {
         if (typeof url !== 'string' || !isHttpUrl(url)) return null;
-        const res = await safeFetch(url);
+        const res = await safeFetch(url, { signal: controller.signal });
         if (!res.ok) return null;
         const contentType = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
         if (!contentType.startsWith('image/')) return null; // never embed non-images
@@ -275,6 +283,8 @@ async function inlineImageBlocks(urls, opts = {}) {
         return { type: 'image', data: Buffer.from(ab).toString('base64'), mimeType: contentType };
       } catch (_) {
         return null;
+      } finally {
+        clearTimeout(timer);
       }
     })
   );
