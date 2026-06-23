@@ -138,10 +138,10 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `generate_image_edit` | `POST /v1/generate/image-edit` | 120s | `source_images`, `visual_dna_ids`, `moodboard_id`, `enable_web_search`, `resolution` |
 | `generate_video` | `POST /v1/generate/video` | 300s | `visual_dna_ids`, `reference_images`, `resolution` |
 | `generate_video_from_image` | `POST /v1/generate/video/from-image` | 300s | `image_url`, `visual_dna_ids`, `aspect_ratio`, `resolution` |
-| `generate_video_from_video` | `POST /v1/generate/video-from-video` | 600s | `source_video` (URL or local), `visual_dna_ids`, `resolution` |
+| `generate_video_from_video` | `POST /v1/generate/video-from-video` | 600s | `source_video` (URL or local), optional `prompt`, `visual_dna_ids`, `resolution`; VEED Subtitles: `preset` / `source_language` / `translation_language` / `srt_content` / `srt_file_url` / `vocabulary` / `customization` |
 | `generate_elements` | `POST /v1/generate/elements` | 600s | `reference_images`, `files`, `visual_dna_ids`, `motion`, `preset_id`, `resolution` |
 | `generate_first_last_frame` | `POST /v1/generate/first-last-frame` | 300s | URLs OR local paths for `first_frame`/`last_frame`, `visual_dna_ids`, `resolution` |
-| `generate_lipsync` | `POST /v1/generate/lipsync` | 600s | `source` (URL or local), `audio` (URL or local), `bounding_box_target` |
+| `generate_lipsync` | `POST /v1/generate/lipsync` | 600s | `source` (URL or local), `audio` (URL or local), `bounding_box_target`; Sync-3 only: `sync_mode`, `model_mode`, `emotion`, `temperature`, `occlusion_detection_enabled`, `active_speaker_detection` |
 | `generate_creative_director` | `POST /v1/generate/creative-director` | 600s | `visual_dna_ids`, `moodboard_id`, `moodboard_ids`, `reference_images`, `scene_count`, `workflow_type`, `resolution` |
 | `generate_music` | `POST /v1/generate/music` | 300s | `lyrics`, `style`, `instrumental`, `vocal_gender` |
 | `generate_speech` | `POST /v1/generate/speech` | 120s | `voice` (id OR display name), `language` |

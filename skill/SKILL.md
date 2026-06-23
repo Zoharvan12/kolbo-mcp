@@ -81,7 +81,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `generate_video_from_video` | Restyle/transform an existing video. Keeps original motion. |
 | `generate_elements` | Reference-driven video. **Primary route for DNA → video.** |
 | `generate_first_last_frame` | Keyframe interpolation between two frames. |
-| `generate_lipsync` | Lipsync audio to an image or video face. |
+| `generate_lipsync` | Lipsync audio to an image or video face. Sync-3 adds multi-person speaker selection (`active_speaker_detection`), `emotion`, `model_mode`, `temperature`. |
 | `generate_music` | Music generation (Suno + variants). |
 | `generate_speech` | TTS. Use `list_voices` to pick a voice. |
 | `generate_sound` | Sound effects. |

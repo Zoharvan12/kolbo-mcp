@@ -120,10 +120,10 @@ Without the optional skill, the config block alone already exposes every tool �
 | `generate_image_edit` | Existing image(s) + prompt → edited image |
 | `generate_video` | Text → video |
 | `generate_video_from_image` | Still image + motion prompt → video |
-| `generate_video_from_video` | Input video + prompt → restyled video (video-to-video) |
+| `generate_video_from_video` | Input video → restyled video, or burn in subtitles (video-to-video). `prompt` optional — prompt-less models (VEED Subtitles, Act Two, Wan Animate) use `preset` / `source_language` / `translation_language`, plus `srt_content` / `srt_file_url` / `vocabulary` / `customization` for VEED |
 | `generate_elements` | Reference images/videos + prompt → animated video |
 | `generate_first_last_frame` | First frame + last frame → interpolated video |
-| `generate_lipsync` | Source image/video + audio → lipsynced video |
+| `generate_lipsync` | Source image/video + audio → lipsynced video (Sync-3 adds active-speaker selection, emotion, model mode, temperature) |
 | `generate_creative_director` | One brief → N coordinated scenes (image or video) |
 | `generate_music` | Text (+ optional lyrics) → song |
 | `generate_speech` | Text + voice → spoken audio |
