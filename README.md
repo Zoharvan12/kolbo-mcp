@@ -190,6 +190,17 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 |------|-------------|
 | `publish_html_artifact` | Publish an HTML page, SVG, or Mermaid diagram and get a public shareable URL on `sites.kolbo.ai`. Pass `share_token` from a prior publish to update the same URL in place (old content kept in version history). |
 
+**Music Library** (stock / production music)
+| Tool | Description |
+|------|-------------|
+| `search_music_library` | Search the licensed stock-music catalog by keyword + genre/mood/BPM/duration filters. Find a ready-made track (distinct from `generate_music`, which composes a new song). |
+| `analyze_script_for_music` | AI: turn a video/voiceover script into a music search (`query`, `mood`, `genre`, `keywords`). |
+| `browse_music_library` | Browse the catalog without a query (paginated). |
+| `get_music_library_facets` | List available genres, moods, instruments + BPM/duration ranges. |
+| `get_music_track_audio` | Get a track's downloadable 128/320/WAV URLs by id. |
+| `get_music_track_related` | Get stems + alternate versions of a track. |
+| `get_music_track_lyrics` | Get lyrics text, theme, and explicit flag for a track. |
+
 **Discovery & Account**
 | Tool | Description |
 |------|-------------|
