@@ -49,6 +49,7 @@ If the user is on a whitelabel build (`sapir`, etc.), they must use their brande
 | Generate a **Veo 3 / 3.1** video | `references/models/veo.md` |
 | Build a **multi-scene set** (Creative Director, storyboard, campaign batch, 4+ angles) | `references/models/creative-director.md` |
 | Generate **music** (Suno, song, lyrics, jingle, score) | `references/models/music.md` |
+| Find an **existing / stock / library / royalty-free track** to score a video, ad, or voiceover | `references/workflows/music-library.md` |
 | Build an **HTML presentation / slide deck** | `references/models/html-presentation.md` |
 | Build a **landing page / marketing site** | `references/models/landing-page.md` |
 | Build a **dashboard / data viz / interactive widget / mini-game / UI mockup** | `references/models/visual-code.md` |
@@ -95,6 +96,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `create_visual_dna` / `list_visual_dnas` / `get_visual_dna` / `delete_visual_dna` | Visual DNA — see `workflows/visual-dna.md` |
 | `list_moodboards` / `get_moodboard` / `list_presets` | Style overlays |
 | `chat_send_message` / `chat_list_conversations` / `chat_get_messages` | Kolbo chat with optional `media_urls` (up to 10 per call) |
+| `search_music_library` / `analyze_script_for_music` / `browse_music_library` / `get_music_library_facets` / `get_music_track_audio` / `get_music_track_related` / `get_music_track_lyrics` | **Stock / production music library** — find a licensed ready-made track (NOT `generate_music`, which composes a new song). See `workflows/music-library.md` |
 | `app_builder_*` (9 tools) | Full React app generation — see `workflows/app-builder.md` |
 | `publish_html_artifact` | Publish HTML / SVG / Mermaid to `sites.kolbo.ai`. Server dedupes by content hash. Strict CSP. |
 
