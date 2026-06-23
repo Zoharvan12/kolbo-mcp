@@ -122,6 +122,7 @@ src/tools/media.js       — Media library: upload_media, list_media, get_media,
 src/tools/presets.js     — Preset discovery (list_presets — unified across catalogs)
 src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
 src/tools/projects.js    — Project discovery (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool)
+src/tools/music_library.js — Stock/production music catalog (search, analyze-script, browse, facets, track audio/related/lyrics)
 scripts/smoke.js         — Load-time smoke test (no network)
 scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 ```
@@ -208,6 +209,17 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | Tool | Route | Notes |
 |------|-------|-------|
 | `publish_html_artifact` | `POST /artifact/quick-share` | Publish HTML/SVG/Mermaid → public URL on `sites.kolbo.ai`. Server dedups identical content (returns same URL). Pass `share_token` from a prior publish to update that artifact in place (URL unchanged, old content moved into version history). |
+
+**Music Library** (`src/tools/music_library.js`) — stock/production music ("Synci")
+| Tool | Route | Notes |
+|------|-------|-------|
+| `search_music_library` | `POST /v1/music-library/search` | Keyword + genre/mood/bpm/duration filters + sort. Free (no credits). Distinct from `generate_music`. |
+| `analyze_script_for_music` | `POST /v1/music-library/analyze-script` | Script → `{ query, mood, genre, keywords }` via cheap LLM call. |
+| `browse_music_library` | `GET /v1/music-library/catalog` | Paginated browse, no query. |
+| `get_music_library_facets` | `GET /v1/music-library/facets` | Distinct genres/moods/instruments + ranges. |
+| `get_music_track_audio` | `GET /v1/music-library/track/:id/audio` | 128/320/WAV download URLs. |
+| `get_music_track_related` | `GET /v1/music-library/track/:id/related` | Stems + alternate versions. |
+| `get_music_track_lyrics` | `GET /v1/music-library/track/:id/lyrics` | Lyrics text + theme + explicit flag. |
 
 **Discovery & Account** (`src/tools/models.js`, `src/tools/projects.js`)
 | Tool | Route |
