@@ -69,6 +69,7 @@ const { registerPresetTools } = require('./tools/presets');
 const { registerAppBuilderTools } = require('./tools/app_builder');
 const { registerArtifactTools } = require('./tools/artifacts');
 const { registerProjectTools } = require('./tools/projects');
+const { registerVoiceTools } = require('./tools/voices');
 
 /**
  * Build a fully-configured Kolbo MCP server (all tool groups registered)
@@ -95,6 +96,7 @@ function createServer(opts = {}) {
   // keep identical text-URL output.
   registerGenerateTools(server, client, { inlineImages: !!opts.inlineImages });
   registerModelTools(server, client);
+  registerVoiceTools(server, client);
   registerChatTools(server, client);
   registerVisualDnaTools(server, client);
   registerMoodboardTools(server, client);

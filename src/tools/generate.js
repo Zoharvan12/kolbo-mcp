@@ -357,43 +357,6 @@ function registerGenerateTools(server, client, options = {}) {
     }
   );
 
-  // ─── list_voices ─────────────────────────────────────────────
-  server.tool(
-    'list_voices',
-    'List available TTS voices for generate_speech. Returns preset voices and the user\'s own cloned/designed voices. Filter by provider, language, or gender to find the right voice. Use the returned `voice_id` as the `voice` parameter in generate_speech.',
-    {
-      provider: z.string().optional().describe('Filter by provider (e.g., "elevenLabs", "google")'),
-      language: z.string().optional().describe('Filter by language name or code (e.g., "English", "en-US")'),
-      gender: z.string().optional().describe('Filter by gender (e.g., "Female", "Male")')
-    },
-    async ({ provider, language, gender }) => {
-      const params = new URLSearchParams();
-      if (provider) params.set('provider', provider);
-      if (language) params.set('language', language);
-      if (gender) params.set('gender', gender);
-
-      const qs = params.toString();
-      const result = await client.get(`/v1/voices${qs ? '?' + qs : ''}`);
-
-      // Summarize for context window efficiency
-      const voices = (result.voices || []).map(v => ({
-        voice_id: v.voice_id,
-        name: v.name,
-        provider: v.provider,
-        language: v.language,
-        gender: v.gender,
-        custom: v.custom
-      }));
-
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ voices, count: result.count }, null, 2)
-        }]
-      };
-    }
-  );
-
   // ─── get_generation_status ─────────────────────────────────
   server.tool(
     'get_generation_status',
@@ -568,12 +531,27 @@ function registerGenerateTools(server, client, options = {}) {
     {
       source: z.string().describe('URL or absolute local path to the source image or video (the face to animate). For lipsync-video: duration must fall within `min_video_duration`-`max_video_duration` from list_models.'),
       audio: z.string().describe('URL or absolute local path to the audio track (the voice to sync to). Duration must fall within `min_audio_duration`-`max_audio_duration` from list_models; format must be in `supported_audio_formats` (when set).'),
-      text_prompt: z.string().optional().describe('Optional text prompt (for performance-capable models)'),
+      text_prompt: z.string().optional().describe('Optional text prompt (for performance-capable models). For Sync-3 this is the free-text emotion/acting prompt, e.g. "speaking with excitement, calm and serious".'),
       model: z.string().optional().describe('Model identifier. Use list_models type="lipsync-image" or type="lipsync-video" to see options. Omit for Smart Select.'),
       bounding_box_target: z.array(z.number()).optional().describe('Optional bounding box [x, y, w, h] for multi-face inputs (Hedra Character3 style). Leave empty for single-face.'),
+      // Sync-3 (fal-ai/sync-lipsync/v3) only; ignored by other models.
+      sync_mode: z.enum(['cut_off', 'loop', 'bounce', 'silence', 'remap']).optional().describe('Sync-3 / sync-lipsync family: how to reconcile an audio/video length mismatch. Default cut_off.'),
+      model_mode: z.enum(['lips', 'face', 'head', 'lipsync', 'emotion', 'talking_head']).optional().describe('Sync-3 only: which region drives the sync.'),
+      emotion: z.enum(['neutral', 'happy', 'sad', 'angry', 'disgusted', 'surprised']).optional().describe('Sync-3 only: quick emotion shortcut. A free-text text_prompt overrides this and gives finer control.'),
+      temperature: z.number().min(0).max(1).optional().describe('Sync-3 only: expressiveness 0 (subtle) .. 1 (energetic).'),
+      occlusion_detection_enabled: z.boolean().optional().describe('Sync-3 only: handle objects passing in front of the face.'),
+      active_speaker_detection: z.object({
+        auto_detect: z.boolean().optional().describe('Auto-detect and sync the active speaker.'),
+        v3: z.boolean().optional().describe('Use Sync.so v3 detection engine.'),
+        frame_number: z.number().int().min(0).optional().describe('Frame index the coordinates refer to.'),
+        coordinates: z.array(z.number().int()).length(2).optional().describe('[x, y] PIXEL point on the speaker face (source-video resolution).'),
+        bounding_boxes: z.array(z.array(z.number().int())).optional().describe('Per-frame face boxes [x1,y1,x2,y2].'),
+        bounding_boxes_url: z.string().optional().describe('URL to a JSON file with per-frame boxes.'),
+        face_image: z.string().optional().describe('Base64-encoded reference face image.')
+      }).optional().describe('Sync-3 only: choose which speaker gets synced in a multi-person video. Use auto_detect:true for automatic, or coordinates + frame_number to pin a specific face.'),
       project_id: projectIdField
     },
-    async ({ source, audio, text_prompt, model, bounding_box_target, project_id }) => {
+    async ({ source, audio, text_prompt, model, bounding_box_target, sync_mode, model_mode, emotion, temperature, occlusion_detection_enabled, active_speaker_detection, project_id }) => {
       if (!source) throw new Error('source is required (URL or absolute local path to image/video)');
       if (!audio) throw new Error('audio is required (URL or absolute local path to audio file)');
 
@@ -589,6 +567,13 @@ function registerGenerateTools(server, client, options = {}) {
           prompt: text_prompt,
           model,
           bounding_box_target,
+          // Sync-3 advanced options (additive; ignored by other models)
+          sync_mode,
+          model_mode,
+          emotion,
+          temperature,
+          occlusion_detection_enabled,
+          active_speaker_detection,
           project_id
         });
       } else {
@@ -611,6 +596,13 @@ function registerGenerateTools(server, client, options = {}) {
         if (text_prompt) form.append('prompt', text_prompt);
         if (model) form.append('model', model);
         if (bounding_box_target) form.append('bounding_box_target', JSON.stringify(bounding_box_target));
+        // Sync-3 advanced options (additive — ignored by other models)
+        if (sync_mode) form.append('sync_mode', sync_mode);
+        if (model_mode) form.append('model_mode', model_mode);
+        if (emotion) form.append('emotion', emotion);
+        if (temperature !== undefined) form.append('temperature', String(temperature));
+        if (occlusion_detection_enabled !== undefined) form.append('occlusion_detection_enabled', String(occlusion_detection_enabled));
+        if (active_speaker_detection) form.append('active_speaker_detection', JSON.stringify(active_speaker_detection));
         if (project_id) form.append('project_id', project_id);
         startResponse = await client.postMultipart('/v1/generate/lipsync', form);
       }
@@ -638,10 +630,10 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_video_from_video ─────────────────────────────
   server.tool(
     'generate_video_from_video',
-    'Restyle / transform an existing video using a text prompt (video-to-video). Use for style transfer, scene restyling, subject swap, motion transfer, or character replacement. Source video can be a URL or absolute local path. IMPORTANT: different models support different extra inputs — call list_models type="video_to_video" and read max_images / max_videos / max_elements on the chosen model before generating. Pass reference_images for models with max_images > 0 (e.g. Kling O1/O3, Aleph, WAN VACE), reference_videos for models with max_videos > 1 (e.g. WAN 2.6 reference-to-video accepts up to 3), and elements for models with max_elements > 0. For animating a still image use generate_video_from_image instead. For text-only → video use generate_video.',
+    'Restyle / transform an existing video (video-to-video). Use for style transfer, scene restyling, subject swap, motion transfer, character replacement, or burning in styled subtitles (VEED Subtitles). Source video can be a URL or absolute local path. `prompt` is OPTIONAL: most models need it, but prompt-less models (VEED Subtitles, Act Two, Wan Animate, Kling Motion Control) ignore it. For VEED Subtitles, pass a `preset` style and optional `source_language` / `translation_language` instead of a prompt. IMPORTANT: different models support different extra inputs — call list_models type="video_to_video" and read max_images / max_videos / max_elements on the chosen model before generating. Pass reference_images for models with max_images > 0 (e.g. Kling O1/O3, Aleph, WAN VACE), reference_videos for models with max_videos > 1 (e.g. WAN 2.6 reference-to-video accepts up to 3), and elements for models with max_elements > 0. For animating a still image use generate_video_from_image instead. For text-only → video use generate_video.',
     {
       source_video: z.string().describe('URL or absolute local path to the primary source video to restyle. **Source duration must fall within `min_video_duration`-`max_video_duration` from list_models for the chosen model** — videos outside that range are rejected (or silently truncated by some upstream providers). For models that use reference_videos as their primary input (e.g. WAN 2.6 reference-to-video), pass the first reference video here and also include it in reference_videos.'),
-      prompt: z.string().describe('Text description of the desired restyle / transformation'),
+      prompt: z.string().optional().describe('Text description of the desired restyle / transformation. Required by most video-to-video models; omit for prompt-less models (VEED Subtitles, Act Two, Wan Animate, Kling Motion Control).'),
       model: z.string().optional().describe('Model identifier. Use list_models type="video_to_video" to see options and check max_images / max_videos / max_elements / max_video_duration per model. Omit for Smart Select.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio. Must be in `supported_aspect_ratios` from list_models when set. Default: matches source'),
       duration: z.number().optional().describe('Output duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: matches source'),
@@ -651,24 +643,49 @@ function registerGenerateTools(server, client, options = {}) {
       reference_images: z.array(z.string()).optional().describe('Array of reference image URLs for models that support additional image inputs. **Cap: pass at most `max_images` URLs from list_models — if `max_images === 0` the model does not accept image refs.** Examples: character reference images for Kling O1/O3, style reference for Aleph/gen4_aleph, character image for WAN VACE video-edit.'),
       reference_videos: z.array(z.string()).optional().describe('Array of additional reference video URLs for models that support multiple video inputs. **Cap: pass at most `max_videos` URLs from list_models — if `max_videos <= 1` only the source_video is accepted.** Example: WAN 2.6 reference-to-video accepts 1–3 reference videos.'),
       elements: z.array(z.string()).optional().describe('Array of element image URLs. **Cap: pass at most `max_elements` URLs from list_models — if `max_elements === 0` the model does not accept elements.** Elements are style or character reference assets alongside the main video.'),
+      // VEED Subtitles (model: veed/subtitles) — burns styled subtitles into the video
+      preset: z.string().optional().describe('VEED Subtitles only: caption style preset (e.g. "glass", "whisper", "fusion", "simple", "vegas"). Call list_models type="video_to_video" for the veed/subtitles model. Ignored by other models.'),
+      source_language: z.string().optional().describe('VEED Subtitles only: BCP-47 code of the spoken language to improve transcription accuracy (e.g. "en-US", "es-ES", "he-IL"). Omit to auto-detect.'),
+      translation_language: z.string().optional().describe('VEED Subtitles only: BCP-47 code to translate the subtitles into (e.g. "en-US", "fr-FR"). Omit to keep the original spoken language.'),
+      srt_content: z.string().optional().describe('VEED Subtitles only: raw .srt subtitle text to burn in. When set, auto-transcription is skipped.'),
+      srt_file_url: z.string().optional().describe('VEED Subtitles only: URL to a .srt subtitle file. Alternative to srt_content. When set, auto-transcription is skipped.'),
+      vocabulary: z.array(z.object({
+        word: z.string().describe('Correct spelling to enforce'),
+        replaces: z.array(z.string()).describe('Mis-transcriptions to replace with `word`'),
+      })).optional().describe('VEED Subtitles only: brand names / jargon to help transcription (e.g. [{"word":"Kolbo","replaces":["colbo","kolboo"]}]). Ignored when srt_content / srt_file_url is set.'),
+      customization: z.object({
+        position: z.enum(['top', 'center', 'bottom']).optional().describe('Caption vertical position. Ignored by complex animated presets.'),
+        shadow: z.enum(['none', 'min', 'mid', 'max']).optional().describe('Text shadow intensity.'),
+        text_customizations: z.object({
+          baseline: z.object({ font: z.string().optional(), weight: z.number().int().min(100).max(900).optional(), color: z.string().optional() }).optional().describe('All words: Google font name, weight 100-900, hex colour.'),
+          highlighted: z.object({ font: z.string().optional(), weight: z.number().int().min(100).max(900).optional(), color: z.string().optional() }).optional().describe('Highlighted word tier styling.'),
+        }).optional(),
+      }).optional().describe('VEED Subtitles only: style overrides. Any omitted field keeps the preset default. Best supported by Basic presets.'),
       project_id: projectIdField
     },
-    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, reference_images, reference_videos, elements, project_id }) => {
+    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, project_id }) => {
       if (!source_video) throw new Error('source_video is required');
-      if (!prompt) throw new Error('prompt is required');
 
       const isUrl = /^https?:\/\//i.test(source_video);
       let startResponse;
       if (isUrl) {
         startResponse = await client.post('/v1/generate/video-from-video', {
           video_url: source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution,
-          reference_images, reference_videos, elements, project_id
+          reference_images, reference_videos, elements, preset, source_language, translation_language,
+          srt_content, srt_file_url, vocabulary, customization, project_id
         });
       } else {
         const resolved = await resolveToBuffer(source_video, 'video');
         const form = new FormData();
         form.append('files', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });
-        form.append('prompt', prompt);
+        if (prompt) form.append('prompt', prompt);
+        if (preset) form.append('preset', preset);
+        if (source_language) form.append('source_language', source_language);
+        if (translation_language) form.append('translation_language', translation_language);
+        if (srt_content) form.append('srt_content', srt_content);
+        if (srt_file_url) form.append('srt_file_url', srt_file_url);
+        if (vocabulary) form.append('vocabulary', JSON.stringify(vocabulary));
+        if (customization) form.append('customization', JSON.stringify(customization));
         if (model) form.append('model', model);
         if (aspect_ratio) form.append('aspect_ratio', aspect_ratio);
         if (duration !== undefined) form.append('duration', String(duration));

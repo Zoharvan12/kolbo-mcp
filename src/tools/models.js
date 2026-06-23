@@ -158,6 +158,31 @@ function registerModelTools(server, client) {
           parts.push(`images_per_request: ${m.images_per_request}`);
         }
 
+        // Quality tiers (image models that support quality selection)
+        if (Array.isArray(m.supported_qualities) && m.supported_qualities.length) {
+          const qMult = m.quality_multipliers || {};
+          const qParts = m.supported_qualities.map(q =>
+            qMult[q] && qMult[q] !== 1 ? `${q}(${qMult[q]}×)` : q
+          );
+          parts.push(`quality: ${qParts.join(' · ')}${m.default_quality ? ` (default ${m.default_quality})` : ''}`);
+        }
+
+        // Fixed-price override (some models charge a flat rate per resolution instead of per-second)
+        if (m.flat_credit_by_resolution && typeof m.flat_credit_by_resolution === 'object' && Object.keys(m.flat_credit_by_resolution).length) {
+          const fp = Object.entries(m.flat_credit_by_resolution).map(([k, v]) => `${k}:${v}cr`).join(' · ');
+          parts.push(`flat_price: ${fp}`);
+        }
+
+        // Estimated generation time (wall-clock at base settings)
+        if (m.estimated_duration_seconds != null) {
+          parts.push(`est_time: ~${m.estimated_duration_seconds}s`);
+        }
+
+        // NSFW flag
+        if (m.nsfw_only) {
+          parts.push('nsfw: required');
+        }
+
         return parts.length ? `\n   ${parts.join(' | ')}` : '';
       };
 
