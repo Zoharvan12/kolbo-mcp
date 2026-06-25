@@ -123,6 +123,7 @@ src/tools/presets.js     — Preset discovery (list_presets — unified across c
 src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
 src/tools/projects.js    — Project discovery (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool)
 src/tools/music_library.js — Stock/production music catalog (search, analyze-script, browse, facets, track audio/related/lyrics)
+src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
 scripts/smoke.js         — Load-time smoke test (no network)
 scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 ```
@@ -220,6 +221,16 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `get_music_track_audio` | `GET /v1/music-library/track/:id/audio` | 128/320/WAV download URLs. |
 | `get_music_track_related` | `GET /v1/music-library/track/:id/related` | Stems + alternate versions. |
 | `get_music_track_lyrics` | `GET /v1/music-library/track/:id/lyrics` | Lyrics text + theme + explicit flag. |
+
+**Stock Library** (`src/tools/stock_library.js`) — multi-source stock media (Pexels, Pixabay, Sketchfab 3D, Music)
+| Tool | Route | Notes |
+|------|-------|-------|
+| `search_stock_media` | `GET /v1/stock/search` | Unified search; `source=all` interleaves providers. Free. Distinct from `generate_image`/`generate_video`. |
+| `get_stock_sources` | `GET /v1/stock/sources` | Enabled sources + supported media types/filters. |
+| `get_stock_categories` | `GET /v1/stock/categories` | Dynamic category chips; pass `providerParam` as `category`. |
+| `get_stock_asset` | `GET /v1/stock/asset/:source/:id` | One asset + download variants + author/license/attribution. |
+| `analyze_script_for_stock` | `POST /v1/stock/analyze-script` | Script → `{ queries[], mediaType, keywords }` via cheap LLM call. |
+| `import_stock_asset` | `POST /v1/stock/import` | Copy asset → media library (CDN copy). Free. Music not importable here. |
 
 **Discovery & Account** (`src/tools/models.js`, `src/tools/projects.js`)
 | Tool | Route |
