@@ -201,6 +201,16 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `get_music_track_related` | Get stems + alternate versions of a track. |
 | `get_music_track_lyrics` | Get lyrics text, theme, and explicit flag for a track. |
 
+**Stock Library** (multi-source stock media: Pexels, Pixabay, Sketchfab 3D, Music)
+| Tool | Description |
+|------|-------------|
+| `search_stock_media` | Search photos/videos/illustrations/vectors/3D/music across providers. `source="all"` returns one interleaved feed. Find ready-made assets / b-roll (distinct from `generate_image`/`generate_video`). |
+| `get_stock_sources` | List enabled sources + which media types/filters each supports. |
+| `get_stock_categories` | List dynamic category/topic chips (pass `providerParam` as the `category` filter). |
+| `get_stock_asset` | Get one asset with all download variants, author, license, and attribution. |
+| `analyze_script_for_stock` | AI: turn a script into b-roll search terms (`queries[]`, `mediaType`, `keywords`). |
+| `import_stock_asset` | Copy a stock asset into the media library (CDN copy, stable URL). Free. |
+
 **Discovery & Account**
 | Tool | Description |
 |------|-------------|

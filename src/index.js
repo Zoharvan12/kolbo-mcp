@@ -71,6 +71,7 @@ const { registerArtifactTools } = require('./tools/artifacts');
 const { registerProjectTools } = require('./tools/projects');
 const { registerVoiceTools } = require('./tools/voices');
 const { registerMusicLibraryTools } = require('./tools/music_library');
+const { registerStockLibraryTools } = require('./tools/stock_library');
 
 /**
  * Build a fully-configured Kolbo MCP server (all tool groups registered)
@@ -107,6 +108,7 @@ function createServer(opts = {}) {
   registerArtifactTools(server, client);
   registerProjectTools(server, client);
   registerMusicLibraryTools(server, client);
+  registerStockLibraryTools(server, client);
 
   return server;
 }
