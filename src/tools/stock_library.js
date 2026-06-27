@@ -30,8 +30,8 @@ function registerStockLibraryTools(server, client) {
       query: z.string().max(200).optional().describe('For visual providers: concrete keywords ("city skyline sunset"). For Kolbo SFX/music (source="kolbo-ai"): a natural-language VIBE works great ("eerie suspenseful drone", "emotional sad piano"). Omit to browse.'),
       source: z.enum(['all', 'kolbo-ai', 'pexels', 'pixabay', 'sketchfab', 'music', 'freesound']).optional().describe('Provider. "all" (default) interleaves. "kolbo-ai" = Kolbo\'s own AI SFX + music (best for vibe search). "freesound" = external CC sound effects.'),
       mediaType: z.enum(['image', 'illustration', 'vector', 'video', '3d', 'music', 'sfx']).optional().describe('Asset type (default "image"). "sfx" = sound effects, "music" = music tracks. Not every source supports every type — call get_stock_sources.'),
-      category: z.string().optional().describe('Category/group chip value (providerParam) from get_stock_categories. For Kolbo SFX these are the Artlist groups (transitions/ambience/foley/genre/realistic).'),
-      subcategory: z.string().optional().describe('Kolbo SFX sub-filter within a group (providerParam from get_stock_categories, e.g. "risers", "footsteps", "scary-textures").'),
+      category: z.string().optional().describe('Category/group chip value (providerParam) from get_stock_categories. For Kolbo SFX these are 77 Soundly-style top-level groups (e.g. Ambience, Animals, Vehicles, Weapons, Water, Designed, Magic, UI) — call get_stock_categories to list them all.'),
+      subcategory: z.string().optional().describe('Kolbo SFX sub-filter within a group (providerParam from get_stock_categories, e.g. Weapons>sword, Water>splash, Footsteps>concrete, Designed>riser). 623 sub-filters across the 77 groups.'),
       packId: z.string().optional().describe('Filter to one Kolbo themed pack id (from get_stock_collections, kind="pack").'),
       collectionId: z.string().optional().describe('Filter to one Kolbo collection id (from get_stock_collections).'),
       orientation: z.enum(['horizontal', 'vertical', 'landscape', 'portrait', 'square']).optional().describe('Orientation filter (provider-dependent).'),
@@ -65,7 +65,7 @@ function registerStockLibraryTools(server, client) {
   // ─── get_stock_categories ─────────────────────────────────────
   server.tool(
     'get_stock_categories',
-    'List the dynamic category chips for stock sources. For external providers: Pixabay/Sketchfab categories + curated Pexels topics. For Kolbo SFX (source="kolbo-ai", mediaType="sfx"): the Artlist groups (top-level, group=null) AND their sub-filters (each has a `group` pointing to its parent). Pass a row\'s `providerParam` as `category` (groups) or `subcategory` (sub-filters) to search_stock_media.',
+    'List the dynamic category chips for stock sources. For external providers: Pixabay/Sketchfab categories + curated Pexels topics. For Kolbo SFX (source="kolbo-ai", mediaType="sfx"): the 77 Soundly-style top-level groups (group=null) AND their 623 sub-filters (each has a `group` pointing to its parent). Pass a row\'s `providerParam` as `category` (groups) or `subcategory` (sub-filters) to search_stock_media.',
     {
       source: z.enum(['kolbo-ai', 'pexels', 'pixabay', 'sketchfab']).optional().describe('Restrict to one source. Use "kolbo-ai" to list the SFX groups + sub-filters.'),
       mediaType: z.string().optional().describe('Restrict to one media type (e.g. "image", "video", "3d", "sfx").')
