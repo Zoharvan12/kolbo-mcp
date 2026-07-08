@@ -1,5 +1,5 @@
 ---
-version: 0.4.0
+version: 0.5.0
 name: kolbo
 description: |
   Generate, edit, or analyze creative media via the Kolbo AI MCP server:
@@ -39,6 +39,25 @@ Once per conversation, before any other Kolbo tool call:
 
 If the user is on a whitelabel build (`sapir`, etc.), they must use their branded command — not `kolbo`. See `references/workflows/troubleshooting.md`.
 
+## 🎬 Confirm the Creative Brief BEFORE Generating (CRITICAL — read first)
+
+Never fire a paid generation the moment the user says "make X". First **present the brief back as a confirmation the user can change** — this is the single most important interaction. It gives the user control over what gets created and what it costs, instead of silently spending credits on defaults.
+
+**Before ANY paid image / video / music / speech / 3D generation**, unless the user has *explicitly* dictated every key parameter in this message, ask ONE labeled question (the UI renders it as an options card) confirming:
+
+- **Model** — your recommended pick as the default option, plus 1–2 alternatives (with their credit cost).
+- **Aspect ratio** — e.g. `1:1 / 9:16 / 16:9` (offer the sensible default first).
+- **Count** — how many (1 / 4 / …).
+- **Resolution / quality / duration** — where the model supports it.
+- **Creative direction** — style / mood / scene, when the user was vague ("4 cats" → offer style options: photoreal / illustrated / cinematic / surprise-me).
+- **Credit cost** — state the total (`✦ N credits`) right in the question so cost is never a surprise.
+
+Then generate **only** with the confirmed parameters. If the user changes an option, use the change. This mirrors the approval-card flow: propose → let them adjust → confirm → generate.
+
+**Only skip the brief confirmation when** the user's message already pins model + aspect + count + creative direction (e.g. "generate 4 photoreal tabby cats, 1:1, z-image/turbo") — then just state the cost one-liner and fire. A low credit cost is **not** a reason to skip: cheap ≠ no-confirmation. What matters is whether the user actually chose the parameters.
+
+For multi-scene / batch work this pairs with `generate_creative_director` (see below) — still confirm the brief first.
+
 ## Routing Index — Read These Files on Demand
 
 | If the user wants to… | Read first |
@@ -49,7 +68,6 @@ If the user is on a whitelabel build (`sapir`, etc.), they must use their brande
 | Generate a **Veo 3 / 3.1** video | `references/models/veo.md` |
 | Build a **multi-scene set** (Creative Director, storyboard, campaign batch, 4+ angles) | `references/models/creative-director.md` |
 | Generate **music** (Suno, song, lyrics, jingle, score) | `references/models/music.md` |
-| Find an **existing / stock / library / royalty-free track** to score a video, ad, or voiceover | `references/workflows/music-library.md` |
 | Build an **HTML presentation / slide deck** | `references/models/html-presentation.md` |
 | Build a **landing page / marketing site** | `references/models/landing-page.md` |
 | Build a **dashboard / data viz / interactive widget / mini-game / UI mockup** | `references/models/visual-code.md` |
@@ -82,7 +100,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `generate_video_from_video` | Restyle/transform an existing video. Keeps original motion. |
 | `generate_elements` | Reference-driven video. **Primary route for DNA → video.** |
 | `generate_first_last_frame` | Keyframe interpolation between two frames. |
-| `generate_lipsync` | Lipsync audio to an image or video face. Sync-3 adds multi-person speaker selection (`active_speaker_detection`), `emotion`, `model_mode`, `temperature`. |
+| `generate_lipsync` | Lipsync audio to an image or video face. |
 | `generate_music` | Music generation (Suno + variants). |
 | `generate_speech` | TTS. Use `list_voices` to pick a voice. |
 | `generate_sound` | Sound effects. |
@@ -96,7 +114,6 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `create_visual_dna` / `list_visual_dnas` / `get_visual_dna` / `delete_visual_dna` | Visual DNA — see `workflows/visual-dna.md` |
 | `list_moodboards` / `get_moodboard` / `list_presets` | Style overlays |
 | `chat_send_message` / `chat_list_conversations` / `chat_get_messages` | Kolbo chat with optional `media_urls` (up to 10 per call) |
-| `search_music_library` / `analyze_script_for_music` / `browse_music_library` / `get_music_library_facets` / `get_music_track_audio` / `get_music_track_related` / `get_music_track_lyrics` | **Stock / production music library** — find a licensed ready-made track (NOT `generate_music`, which composes a new song). See `workflows/music-library.md` |
 | `app_builder_*` (9 tools) | Full React app generation — see `workflows/app-builder.md` |
 | `publish_html_artifact` | Publish HTML / SVG / Mermaid to `sites.kolbo.ai`. Server dedupes by content hash. Strict CSP. |
 
@@ -145,8 +162,8 @@ Model types for `list_models`: `text_to_img`, `image_editing`, `text_to_video`, 
 
 Full tables + formulas in `references/workflows/cost-and-validation.md`. Quick rules:
 
-- **Skip cost confirmation** when the user already specified model + count + duration, OR when a single generation costs < 5 credits.
-- **Required cost confirmation** otherwise: one-line summary, suggest cheaper alternative if available, wait for confirm.
+- **Skip the brief/cost confirmation ONLY** when the user's message already pins model + count + aspect + creative direction (see "Confirm the Creative Brief" above). Low cost alone is **not** a reason to skip — cheap generations still get the one labeled confirmation unless the user chose the parameters.
+- **Otherwise confirm** via the labeled-question card: the parameters + the credit cost, suggest a cheaper alternative if one fits, wait for the user's pick. Never fire on defaults the user didn't choose.
 - **Batch totalling 100+ credits**: run `check_credits` first.
 - **Quote real cost**: after firing, log `credits_used` (from the tool result) to `.kolbo/production.md` — never `base × count`.
 
