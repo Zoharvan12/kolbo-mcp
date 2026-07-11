@@ -224,7 +224,7 @@ function render3d(sc, urls) {
         '<button class="k-btn" data-url="' + esc(u) + '">Download</button></div>';
     }).join('');
   Array.prototype.forEach.call(el('stage').querySelectorAll('.k-btn[data-url]'), function (b) {
-    b.onclick = function () { window.kolbo.openLink(b.getAttribute('data-url')); };
+    b.onclick = function () { window.kolbo.openLink(downloadUrl(b.getAttribute('data-url'))); };
   });
 }
 
@@ -325,7 +325,7 @@ function renderActions(sc) {
   a.push('<button class="k-btn ghost" id="btn-open">Open in Kolbo ↗</button>');
   el('actions').innerHTML = a.join('');
 
-  bind('btn-download', function () { window.kolbo.openLink(currentUrl()); });
+  bind('btn-download', function () { window.kolbo.openLink(downloadUrl(currentUrl())); });
   bind('btn-open', function () { window.kolbo.openLink(state.open_url || 'https://app.kolbo.ai'); });
   bind('btn-recreate', function () {
     window.kolbo.sendMessage('Recreate this with the same settings' +

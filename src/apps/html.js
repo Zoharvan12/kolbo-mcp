@@ -33,6 +33,12 @@ function esc(s) {
   });
 }
 function el(id) { return document.getElementById(id); }
+// Force-download via the api.kolbo.ai proxy (CDN files open inline otherwise —
+// browsers display images/videos instead of saving them).
+function downloadUrl(u) {
+  if (!u) return u;
+  return 'https://api.kolbo.ai/mcp/download?url=' + encodeURIComponent(u);
+}
 function fmtCredits(n) { return (n == null) ? '' : (Math.round(n * 100) / 100) + ' cr'; }
 function fmtDur(s) { if (s == null) return ''; s = Math.round(s); return s >= 60 ? Math.floor(s/60) + 'm ' + (s%60) + 's' : s + 's'; }
 function applyTheme(ctx) {

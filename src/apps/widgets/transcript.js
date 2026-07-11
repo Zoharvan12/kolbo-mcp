@@ -72,7 +72,7 @@ function boot(sc) {
   a.push('<button class="k-btn ghost" id="btn-copy">Copy text</button>');
   el('actions').innerHTML = a.join('');
   Array.prototype.forEach.call(el('actions').querySelectorAll('[data-url]'), function (b) {
-    b.onclick = function () { window.kolbo.openLink(b.getAttribute('data-url')); };
+    b.onclick = function () { window.kolbo.openLink(downloadUrl(b.getAttribute('data-url'))); };
   });
   var copyBtn = el('btn-copy');
   if (copyBtn) copyBtn.onclick = function () {
