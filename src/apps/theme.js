@@ -161,11 +161,21 @@ body {
 
 /* Keep the whole completed card under the host's iframe height cap (~800px):
    header + prompt + chips + viewer + thumbs + actions + footer must all fit,
-   or claude.ai adds an inner scrollbar. Click the image to open it full-size. */
+   or claude.ai adds an inner scrollbar. Click the image to expand in-Claude. */
 .k-viewer { margin-bottom: 10px; }
 .k-viewer img, .k-viewer video { display: block; width: 100%; max-height: 340px; object-fit: contain;
   border-radius: 12px; background: #000; border: 1px solid var(--border); cursor: zoom-in; }
 .k-viewer video { cursor: default; }
+
+/* ---- Fullscreen (ui/request-display-mode granted) ---- */
+html.k-fullscreen, html.k-fullscreen body { height: 100%; }
+html.k-fullscreen .k-card { height: 100%; display: flex; flex-direction: column; border-radius: 0; }
+html.k-fullscreen .k-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+html.k-fullscreen .k-viewer { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+html.k-fullscreen .k-viewer img, html.k-fullscreen .k-viewer video {
+  max-height: 100%; max-width: 100%; width: auto; margin: 0 auto; cursor: zoom-out; }
+html.k-fullscreen .k-thumbs .k-thumb { width: 64px; height: 64px; }
+.k-expand-hint { display: none; }
 .k-thumbs { display: flex; gap: 6px; margin: 10px 0 2px; }
 .k-thumbs .k-thumb { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; cursor: pointer;
   border: 2px solid transparent; opacity: 0.75; transition: all 150ms var(--smooth); flex: none; }
