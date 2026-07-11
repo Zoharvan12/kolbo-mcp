@@ -48,16 +48,29 @@ function widgetHtml(uri) {
 // img/script/style/font/media-src; connectDomains to connect-src.
 const WIDGET_CSP = {
   resourceDomains: [
-    'https://*.kolbo.ai',                       // media.kolbo.ai CDN + app.kolbo.ai model icons
-    'https://*.digitaloceanspaces.com',         // DO Spaces buckets (all envs)
-    'https://*.cdn.digitaloceanspaces.com',     // DO Spaces CDN endpoints
+    // Exact hosts FIRST — not every host CSP implementation honors wildcards,
+    // and a declared-but-unmatched allowlist blocks harder than no declaration.
+    'https://api.kolbo.ai',                     // model icons (/assets)
+    'https://app.kolbo.ai',
+    'https://media.kolbo.ai',                   // media CDN (prod)
+    'https://media-staging.kolbo.ai',
+    'https://media-dev.kolbo.ai',
+    'https://kolboai-production.ams3.digitaloceanspaces.com',
+    'https://kolboai-production.ams3.cdn.digitaloceanspaces.com',
+    'https://kolboai-development.ams3.digitaloceanspaces.com',
+    'https://kolboai-development.ams3.cdn.digitaloceanspaces.com',
+    'https://kolbo-general-media.fra1.cdn.digitaloceanspaces.com',
     'https://fonts.googleapis.com',             // Inter / JetBrains Mono stylesheet
     'https://fonts.gstatic.com',                // font files
     'https://images.pexels.com',                // stock thumbnails
+    // Wildcards as a second layer for hosts that do support them.
+    'https://*.kolbo.ai',
+    'https://*.digitaloceanspaces.com',
+    'https://*.cdn.digitaloceanspaces.com',
     'https://*.pexels.com',
     'https://*.pixabay.com',
     'https://*.sketchfab.com',
-    'https://*.cloudfront.net',                 // provider-hosted previews
+    'https://*.cloudfront.net',
   ],
   connectDomains: [],
 };
