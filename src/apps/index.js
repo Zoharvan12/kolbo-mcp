@@ -130,9 +130,64 @@ async function modelIcon(client, modelName) {
   return map.get(String(modelName).toLowerCase()) || null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Declaration-level widget metadata                                    */
+/* ------------------------------------------------------------------ */
+
+// Hosts (claude.ai) decide whether to prepare a widget iframe from the TOOL
+// DECLARATION in tools/list — result-level `_meta` alone is not enough. The
+// legacy server.tool() registration API has no _meta parameter, so we attach
+// it post-registration via the SDK's registered-tool objects (tools/list
+// serves `tool._meta` verbatim; verified against SDK 1.29.0).
+const TOOL_WIDGETS = {
+  // generation card
+  generate_image: UI.generation,
+  generate_image_edit: UI.generation,
+  generate_creative_director: UI.generation,
+  generate_video: UI.generation,
+  generate_video_from_image: UI.generation,
+  generate_video_from_video: UI.generation,
+  generate_elements: UI.generation,
+  generate_first_last_frame: UI.generation,
+  generate_lipsync: UI.generation,
+  generate_music: UI.generation,
+  generate_speech: UI.generation,
+  generate_sound: UI.generation,
+  generate_3d: UI.generation,
+  edit_image: UI.generation,
+  edit_video: UI.generation,
+  shorts_render: UI.generation,
+  // transcript viewer
+  transcribe_audio: UI.transcript,
+  // model catalog
+  list_models: UI.catalog,
+  // media grid
+  list_media: UI.mediaGrid,
+  search_stock_media: UI.mediaGrid,
+  get_stock_collections: UI.mediaGrid,
+  search_music_library: UI.mediaGrid,
+  browse_music_library: UI.mediaGrid,
+  list_presets: UI.mediaGrid,
+  list_voices: UI.mediaGrid,
+  list_visual_dnas: UI.mediaGrid,
+  list_moodboards: UI.mediaGrid,
+  shorts_analyze: UI.mediaGrid,
+};
+
+function attachToolWidgetMeta(server) {
+  const registered = server && server._registeredTools;
+  if (!registered) return;
+  for (const [name, uri] of Object.entries(TOOL_WIDGETS)) {
+    const tool = registered[name];
+    if (!tool) continue;
+    tool._meta = { ...(tool._meta || {}), ...uiMeta(uri) };
+  }
+}
+
 module.exports = {
   UI,
   registerApps,
+  attachToolWidgetMeta,
   uiMeta,
   uiResult,
   appsEnabled,
