@@ -4,7 +4,7 @@
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
 const { z } = require('zod');
-const { UI, uiResult, appsEnabled } = require('../apps');
+const { UI, uiResult, appsEnabled, resolveAvatarUrl } = require('../apps');
 
 // type name → human group label for the catalog widget
 const TYPE_GROUPS = {
@@ -73,9 +73,7 @@ function buildCatalogStructured(models, type) {
     if (g.models.length >= 6) continue; // curated cap — full list lives in the text payload
     g.models.push({
       name: m.name,
-      icon: m.avatar
-        ? (/^https?:\/\//i.test(m.avatar) ? m.avatar : `https://app.kolbo.ai/models_icons/${m.avatar}`)
-        : null,
+      icon: resolveAvatarUrl(m.avatar),
       description: String(m.smartSelect_StrengthsSummary || m.summary || m.description || '').slice(0, 90),
       chips: modelChips(m),
       use_hint: `Generate with the "${m.name}" model — ask me what I want to create first.`,

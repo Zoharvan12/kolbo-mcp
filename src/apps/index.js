@@ -140,19 +140,19 @@ const infoCache = new Map(); // apiBase → { at, byKey: Map<lowername, {icon, e
 
 /**
  * Resolve a Model.avatar value to an absolute URL. Avatars are bare filenames
- * (sometimes with spaces) living in the BACKEND's public assets folder —
- * `<api origin>/assets/<file>`. Do NOT use app.kolbo.ai for this: it's the SPA,
- * whose catch-all returns 200 text/html for any missing file, which renders as
- * a broken image in widgets.
+ * (sometimes with spaces). They're mirrored from kolbo-api/assets to the
+ * public DO Spaces CDN by kolbo-api scripts/infra/upload-model-icons-cdn.js —
+ * the CDN is the ONLY host that reliably loads inside claude.ai's sandboxed
+ * widget iframes (api.kolbo.ai sits behind Cloudflare bot rules that block
+ * sandbox image requests; app.kolbo.ai is the SPA whose catch-all returns
+ * 200 text/html for missing files).
  */
-function resolveAvatarUrl(avatar, apiBase) {
+const ICON_CDN_BASE = 'https://kolbo-general-media.fra1.cdn.digitaloceanspaces.com/models_icons';
+
+function resolveAvatarUrl(avatar) {
   if (!avatar) return null;
   if (/^https?:\/\//i.test(avatar)) return avatar;
-  let origin = 'https://api.kolbo.ai';
-  try {
-    origin = new URL(apiBase || 'https://api.kolbo.ai/api').origin;
-  } catch (_) { /* keep default */ }
-  return `${origin}/assets/${encodeURIComponent(avatar)}`;
+  return `${ICON_CDN_BASE}/${encodeURIComponent(avatar)}`;
 }
 
 async function modelInfoMap(client) {
