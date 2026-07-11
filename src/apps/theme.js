@@ -175,7 +175,8 @@ body {
    header + prompt + chips + viewer + thumbs + actions + footer must all fit,
    or claude.ai adds an inner scrollbar. Click the image to expand in-Claude. */
 .k-viewer { margin-bottom: 10px; }
-.k-viewer img, .k-viewer video { display: block; width: 100%; max-height: 340px; object-fit: contain;
+.k-viewer img, .k-viewer video { display: block; width: 100%;
+  max-height: min(340px, 55vh); object-fit: contain;
   border-radius: 12px; background: #000; border: 1px solid var(--border); cursor: zoom-in; }
 .k-viewer video { cursor: default; }
 
@@ -185,7 +186,10 @@ html.k-fullscreen .k-card { height: 100%; display: flex; flex-direction: column;
 html.k-fullscreen .k-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 html.k-fullscreen .k-viewer { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
 html.k-fullscreen .k-viewer img, html.k-fullscreen .k-viewer video {
-  max-height: 100%; max-width: 100%; width: auto; margin: 0 auto; cursor: zoom-out; }
+  /* hard viewport cap — the image must NEVER exceed the screen or cover the
+     host's chrome, whatever the host's iframe sizing does */
+  max-height: min(100%, calc(100dvh - 130px)); max-width: 100%;
+  width: auto; margin: 0 auto; cursor: zoom-out; object-fit: contain; }
 html.k-fullscreen .k-thumbs .k-thumb { width: 64px; height: 64px; }
 .k-expand-hint { display: none; }
 .k-thumbs { display: flex; gap: 6px; margin: 10px 0 2px; }
