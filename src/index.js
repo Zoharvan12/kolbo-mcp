@@ -73,7 +73,7 @@ const { registerVoiceTools } = require('./tools/voices');
 const { registerMusicLibraryTools } = require('./tools/music_library');
 const { registerStockLibraryTools } = require('./tools/stock_library');
 const { registerShortsCreatorTools } = require('./tools/shorts_creator');
-const { registerApps } = require('./apps');
+const { registerApps, attachToolWidgetMeta } = require('./apps');
 
 /**
  * Build a fully-configured Kolbo MCP server (all tool groups registered)
@@ -123,6 +123,9 @@ function createServer(opts = {}) {
   // MCP Apps widget resources (ui://kolbo/*). Registering resources is inert
   // for text-only hosts — they never fetch them.
   registerApps(server);
+  // Declaration-level `_meta['ui/resourceUri']` on every widget-carrying tool —
+  // claude.ai prepares the widget iframe from tools/list, not from the result.
+  attachToolWidgetMeta(server);
 
   return server;
 }
