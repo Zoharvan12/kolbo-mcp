@@ -97,7 +97,12 @@ function createServer(opts = {}) {
 
   const server = new McpServer({
     name: 'kolbo',
-    version: '1.0.0'
+    title: 'Kolbo',
+    version: '1.0.0',
+    websiteUrl: 'https://kolbo.ai',
+    // Connector avatar for hosts that render server icons (claude.ai tool
+    // headers show this instead of a letter monogram).
+    icons: [{ src: 'https://api.kolbo.ai/assets/kolbo-ai.png', mimeType: 'image/png', sizes: ['512x512'] }]
   });
 
   // Register all tools. `inlineImages` (off by default) is opt-in: only the
