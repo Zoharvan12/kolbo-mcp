@@ -46,6 +46,25 @@ function rmrf(p) {
 }
 
 async function main() {
+  // 0. Widget scripts must PARSE. The widgets are assembled from template
+  // literals, where a quoting slip (e.g. \' collapsing to ') ships a widget
+  // whose inline <script> is a syntax error → an empty card in claude.ai that
+  // no server-side test notices. Caught a real production bug (v1.30.2).
+  {
+    const { widgetHtml, UI } = require(path.join(PKG_ROOT, 'src', 'apps'));
+    for (const uri of Object.values(UI)) {
+      const html = widgetHtml(uri);
+      const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+      if (!scripts.length) throw new Error(`widget ${uri} has no inline scripts`);
+      scripts.forEach((s, i) => {
+        try { new Function(s); } catch (e) {
+          throw new Error(`widget ${uri} script #${i} does not parse: ${e.message}`);
+        }
+      });
+    }
+    console.log('[smoke] widget scripts parse OK');
+  }
+
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kolbo-mcp-smoke-'));
   const installDir = path.join(tmpRoot, 'install');
   fs.mkdirSync(installDir, { recursive: true });
