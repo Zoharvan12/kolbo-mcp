@@ -1,0 +1,3016 @@
+diff --git a/src/apps/bridge.js b/src/apps/bridge.js
+new file mode 100644
+index 0000000..b7b71e7
+--- /dev/null
++++ b/src/apps/bridge.js
+@@ -0,0 +1,146 @@
++'use strict';
++
++/**
++ * Minimal MCP Apps iframe bridge (io.modelcontextprotocol/ui, protocol 2026-01-26).
++ *
++ * Injected as an inline <script> into every ui://kolbo/* widget. Hand-rolled instead
++ * of shipping the 337KB @modelcontextprotocol/ext-apps browser bundle — implements the
++ * same JSON-RPC-over-postMessage handshake the official App class performs:
++ *
++ *   widget → host  request      ui/initialize { appInfo, appCapabilities, protocolVersion }
++ *   widget → host  notification ui/notifications/initialized
++ *   host  → widget notification ui/notifications/tool-result | tool-input | host-context-changed
++ *   widget → host  request      tools/call | ui/message | ui/open-link
++ *   widget → host  notification ui/notifications/size-changed
++ *
++ * Host-bound calls made before the handshake completes are queued (avoids the
++ * hidden-iframe race documented in claude-ai-mcp#61/#149).
++ *
++ * Exposed global: window.kolbo
++ *   .ready(fn)                 — fn(hostContext) after handshake
++ *   .onToolResult(fn)          — fn(result) for ui/notifications/tool-result
++ *   .onThemeChange(fn)         — fn(hostContext) on host-context-changed
++ *   .callTool(name, args)      — Promise<CallToolResult>
++ *   .sendMessage(text)         — append a user chat message (returns Promise)
++ *   .openLink(url)             — open external URL
++ *   .notifySize()              — report content size to host
++ */
++
++const BRIDGE_JS = `
++(function () {
++  var nextId = 1;
++  var pending = {};      // id -> {resolve, reject}
++  var initialized = false;
++  var queue = [];        // deferred host-bound sends until initialized
++  var hostContext = null;
++  var readyFns = [], toolResultFns = [], themeFns = [];
++
++  function post(msg) { window.parent.postMessage(msg, '*'); }
++
++  function request(method, params) {
++    return new Promise(function (resolve, reject) {
++      var id = nextId++;
++      pending[id] = { resolve: resolve, reject: reject };
++      var msg = { jsonrpc: '2.0', id: id, method: method, params: params || {} };
++      if (initialized || method === 'ui/initialize') post(msg);
++      else queue.push(msg);
++    });
++  }
++
++  function notify(method, params) {
++    var msg = { jsonrpc: '2.0', method: method, params: params || {} };
++    if (initialized || method === 'ui/notifications/initialized') post(msg);
++    else queue.push(msg);
++  }
++
++  window.addEventListener('message', function (ev) {
++    var m = ev.data;
++    if (!m || m.jsonrpc !== '2.0') return;
++    if (m.id != null && (m.result !== undefined || m.error !== undefined)) {
++      var p = pending[m.id];
++      if (!p) return;
++      delete pending[m.id];
++      if (m.error) p.reject(new Error(m.error.message || 'host error'));
++      else p.resolve(m.result);
++      return;
++    }
++    if (m.method === 'ui/notifications/tool-result') {
++      toolResultFns.forEach(function (f) { try { f(m.params || {}); } catch (e) {} });
++    } else if (m.method === 'ui/notifications/host-context-changed') {
++      hostContext = (m.params && m.params.hostContext) || m.params || hostContext;
++      themeFns.forEach(function (f) { try { f(hostContext); } catch (e) {} });
++    } else if (m.method === 'ui/resource-teardown' && m.id != null) {
++      post({ jsonrpc: '2.0', id: m.id, result: {} });
++    } else if (m.id != null) {
++      // Unknown host request — respond empty so the host isn't left hanging.
++      post({ jsonrpc: '2.0', id: m.id, result: {} });
++    }
++  });
++
++  request('ui/initialize', {
++    protocolVersion: '2026-01-26',
++    appInfo: { name: 'kolbo-widget', version: '1.0.0' },
++    appCapabilities: {}
++  }).then(function (res) {
++    hostContext = (res && res.hostContext) || null;
++    notify('ui/notifications/initialized');
++    initialized = true;
++    queue.forEach(post);
++    queue = [];
++    readyFns.forEach(function (f) { try { f(hostContext); } catch (e) {} });
++  }).catch(function () { /* host without apps support — widget stays static */ });
++
++  function notifySize() {
++    // Measure the widget card itself — documentElement.scrollHeight over-reports
++    // in some hosts and leaves a huge empty iframe below the card.
++    var card = document.querySelector('.k-card');
++    var rect = card ? card.getBoundingClientRect() : null;
++    var height = rect ? Math.ceil(rect.bottom + 8) : document.documentElement.scrollHeight;
++    notify('ui/notifications/size-changed', {
++      width: document.documentElement.scrollWidth, height: height
++    });
++  }
++
++  var sizeTimer = null;
++  function queueSize(delay) {
++    clearTimeout(sizeTimer);
++    sizeTimer = setTimeout(notifySize, delay || 120);
++  }
++  new MutationObserver(function () { queueSize(120); })
++    .observe(document.documentElement, { childList: true, subtree: true, attributes: true });
++  // DOM mutations don't fire when an <img>/<video> finishes loading and reflows
++  // the card — without this the host keeps the pre-image height and the card
++  // gets an inner scrollbar. ResizeObserver catches every layout change.
++  if (window.ResizeObserver) {
++    var ro = new ResizeObserver(function () { queueSize(60); });
++    ro.observe(document.documentElement);
++    ro.observe(document.body);
++    var card = document.querySelector('.k-card');
++    if (card) ro.observe(card);
++  }
++  // Belt and suspenders: media load events bubble as capture-phase 'load'.
++  document.addEventListener('load', function (e) {
++    var t = e.target && e.target.tagName;
++    if (t === 'IMG' || t === 'VIDEO') queueSize(60);
++  }, true);
++  document.addEventListener('loadedmetadata', function () { queueSize(60); }, true);
++
++  window.kolbo = {
++    ready: function (f) { if (initialized) f(hostContext); else readyFns.push(f); },
++    onToolResult: function (f) { toolResultFns.push(f); },
++    onThemeChange: function (f) { themeFns.push(f); },
++    callTool: function (name, args) { return request('tools/call', { name: name, arguments: args || {} }); },
++    sendMessage: function (text) {
++      return request('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
++    },
++    openLink: function (url) { return request('ui/open-link', { url: url }); },
++    updateModelContext: function (text) {
++      return request('ui/update-model-context', { content: [{ type: 'text', text: text }] });
++    },
++    notifySize: notifySize,
++    hostContext: function () { return hostContext; }
++  };
++})();
++`;
++
++module.exports = { BRIDGE_JS };
+diff --git a/src/apps/html.js b/src/apps/html.js
+new file mode 100644
+index 0000000..af3567a
+--- /dev/null
++++ b/src/apps/html.js
+@@ -0,0 +1,74 @@
++'use strict';
++
++const { BRIDGE_JS } = require('./bridge');
++const { KOLBO_CSS, KOLBO_LOGO_SVG, KOLBO_LOGO_IMG } = require('./theme');
++
++/**
++ * Assemble a self-contained widget page. No build step — each widget module
++ * provides a body skeleton + its script; we wrap with theme, bridge, and the
++ * shared runtime helpers (theme sync, escaping, chips, formatting).
++ */
++function widgetPage({ title, body, script }) {
++  return `<!DOCTYPE html>
++<html lang="en">
++<head>
++<meta charset="UTF-8">
++<meta name="viewport" content="width=device-width, initial-scale=1">
++<title>${title}</title>
++<link rel="preconnect" href="https://fonts.googleapis.com">
++<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
++<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
++<style>${KOLBO_CSS}</style>
++</head>
++<body>
++${body}
++<script>${BRIDGE_JS}</script>
++<script>
++// ---- shared widget runtime ----
++var KOLBO_LOGO_FALLBACK = ${JSON.stringify(KOLBO_LOGO_SVG)};
++var KOLBO_LOGO = ${JSON.stringify(KOLBO_LOGO_IMG)};
++function esc(s) {
++  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
++    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
++  });
++}
++function el(id) { return document.getElementById(id); }
++function fmtCredits(n) { return (n == null) ? '' : (Math.round(n * 100) / 100) + ' cr'; }
++function fmtDur(s) { if (s == null) return ''; s = Math.round(s); return s >= 60 ? Math.floor(s/60) + 'm ' + (s%60) + 's' : s + 's'; }
++function applyTheme(ctx) {
++  try {
++    var theme = ctx && (ctx.theme || (ctx.styles && ctx.styles.theme));
++    if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
++    else if (theme === 'dark') document.documentElement.removeAttribute('data-theme');
++  } catch (e) {}
++}
++window.kolbo.ready(function (ctx) { applyTheme(ctx); window.kolbo.notifySize(); });
++window.kolbo.onThemeChange(applyTheme);
++
++// Model chip: real icon when the API provided one, brand monogram fallback.
++function modelChipHTML(name, iconUrl) {
++  if (!name) return '';
++  var inner = iconUrl
++    ? '<img src="' + esc(iconUrl) + '" onerror="this.outerHTML=monogram(\\'' + esc(name).replace(/'/g, '') + '\\')" alt="">'
++    : monogram(name);
++  return '<span class="k-chip brand">' + inner + esc(name) + '</span>';
++}
++function monogram(name) {
++  return '<span class="k-mono-icon">' + esc(String(name).trim().charAt(0).toUpperCase()) + '</span>';
++}
++// Pull structuredContent out of a tools/call result (host bridge shape).
++function structured(res) {
++  if (!res) return null;
++  if (res.structuredContent) return res.structuredContent;
++  try {
++    var t = (res.content || []).filter(function (c) { return c.type === 'text'; })[0];
++    return t ? JSON.parse(t.text) : null;
++  } catch (e) { return null; }
++}
++</script>
++<script>${script}</script>
++</body>
++</html>`;
++}
++
++module.exports = { widgetPage };
+diff --git a/src/apps/index.js b/src/apps/index.js
+new file mode 100644
+index 0000000..80bd674
+--- /dev/null
++++ b/src/apps/index.js
+@@ -0,0 +1,297 @@
++'use strict';
++
++/**
++ * MCP Apps integration (io.modelcontextprotocol/ui) — Kolbo interactive widgets.
++ *
++ * Registers the ui://kolbo/* HTML resources and provides the helpers tool files
++ * use to attach widgets to results. Everything here is ADDITIVE: text-only hosts
++ * (Claude Code, Cursor, old clients) ignore `_meta` + `structuredContent` and see
++ * exactly the same text responses as before.
++ */
++
++const {
++  registerAppResource,
++  getUiCapability,
++  RESOURCE_MIME_TYPE,
++  RESOURCE_URI_META_KEY,
++} = require('@modelcontextprotocol/ext-apps/server');
++
++const { generationWidgetHtml } = require('./widgets/generation');
++const { mediaGridWidgetHtml } = require('./widgets/mediaGrid');
++const { catalogWidgetHtml } = require('./widgets/catalog');
++const { transcriptWidgetHtml } = require('./widgets/transcript');
++
++const UI = {
++  generation: 'ui://kolbo/generation.html',
++  mediaGrid: 'ui://kolbo/media-grid.html',
++  catalog: 'ui://kolbo/catalog.html',
++  transcript: 'ui://kolbo/transcript.html',
++};
++
++const WIDGET_BUILDERS = {
++  [UI.generation]: generationWidgetHtml,
++  [UI.mediaGrid]: mediaGridWidgetHtml,
++  [UI.catalog]: catalogWidgetHtml,
++  [UI.transcript]: transcriptWidgetHtml,
++};
++
++// Widgets are pure functions of source — build once per process.
++const htmlCache = new Map();
++function widgetHtml(uri) {
++  if (!htmlCache.has(uri)) htmlCache.set(uri, WIDGET_BUILDERS[uri]());
++  return htmlCache.get(uri);
++}
++
++// Hosts apply a deny-by-default CSP to widget iframes — without this
++// declaration EVERY external asset (generated images/videos on the CDN, model
++// icons, Google Fonts) is silently blocked. resourceDomains maps to
++// img/script/style/font/media-src; connectDomains to connect-src.
++const WIDGET_CSP = {
++  resourceDomains: [
++    // Exact hosts FIRST — not every host CSP implementation honors wildcards,
++    // and a declared-but-unmatched allowlist blocks harder than no declaration.
++    'https://api.kolbo.ai',                     // model icons (/assets)
++    'https://app.kolbo.ai',
++    'https://media.kolbo.ai',                   // media CDN (prod)
++    'https://media-staging.kolbo.ai',
++    'https://media-dev.kolbo.ai',
++    'https://kolboai-production.ams3.digitaloceanspaces.com',
++    'https://kolboai-production.ams3.cdn.digitaloceanspaces.com',
++    'https://kolboai-development.ams3.digitaloceanspaces.com',
++    'https://kolboai-development.ams3.cdn.digitaloceanspaces.com',
++    'https://kolbo-general-media.fra1.cdn.digitaloceanspaces.com',
++    'https://fonts.googleapis.com',             // Inter / JetBrains Mono stylesheet
++    'https://fonts.gstatic.com',                // font files
++    'https://images.pexels.com',                // stock thumbnails
++    // Wildcards as a second layer for hosts that do support them.
++    'https://*.kolbo.ai',
++    'https://*.digitaloceanspaces.com',
++    'https://*.cdn.digitaloceanspaces.com',
++    'https://*.pexels.com',
++    'https://*.pixabay.com',
++    'https://*.sketchfab.com',
++    'https://*.cloudfront.net',
++  ],
++  connectDomains: [],
++};
++
++/** Register all Kolbo widget resources on an McpServer. */
++function registerApps(server) {
++  for (const [uri, name] of [
++    [UI.generation, 'Kolbo Generation Widget'],
++    [UI.mediaGrid, 'Kolbo Library Widget'],
++    [UI.catalog, 'Kolbo Model Catalog Widget'],
++    [UI.transcript, 'Kolbo Transcription Widget'],
++  ]) {
++    registerAppResource(
++      server, name, uri,
++      { mimeType: RESOURCE_MIME_TYPE, _meta: { csp: WIDGET_CSP, ui: { csp: WIDGET_CSP } } },
++      async () => ({
++        contents: [{
++          uri, mimeType: RESOURCE_MIME_TYPE, text: widgetHtml(uri),
++          _meta: { csp: WIDGET_CSP, ui: { csp: WIDGET_CSP } },
++        }],
++      })
++    );
++  }
++}
++
++/** `_meta` for a tool RESULT (and optionally for tool registration). */
++function uiMeta(uri) {
++  return { [RESOURCE_URI_META_KEY]: uri, ui: { resourceUri: uri } };
++}
++
++/**
++ * Should this server instance produce widget results?
++ * - `opts.apps === true` — set by the kolbo-api remote connector (claude.ai),
++ *   where the stateless transport makes client capabilities unavailable per-call.
++ * - stdio hosts (Claude Desktop) — detected from the initialize handshake.
++ * - `KOLBO_MCP_APPS=1|0` env — manual override for local testing.
++ */
++function appsEnabled(server, opts = {}) {
++  if (process.env.KOLBO_MCP_APPS === '0') return false;
++  if (opts.apps === true || process.env.KOLBO_MCP_APPS === '1') return true;
++  try {
++    const caps = server?.server?.getClientCapabilities?.();
++    return getUiCapability(caps) !== undefined;
++  } catch (_) {
++    return false;
++  }
++}
++
++/**
++ * Build a widget-carrying tool result. `text` stays the LLM-facing source of
++ * truth; `structured` goes to the widget only.
++ */
++function uiResult(uri, text, structured) {
++  return {
++    content: [{ type: 'text', text }],
++    structuredContent: structured,
++    _meta: uiMeta(uri),
++  };
++}
++
++/* ------------------------------------------------------------------ */
++/* Model icon lookup (name/identifier → absolute avatar URL)           */
++/* ------------------------------------------------------------------ */
++
++const ICON_TTL_MS = 10 * 60 * 1000;
++const infoCache = new Map(); // apiBase → { at, byKey: Map<lowername, {icon, eta}> }
++
++/**
++ * Resolve a Model.avatar value to an absolute URL. Avatars are bare filenames
++ * (sometimes with spaces). They're mirrored from kolbo-api/assets to the
++ * public DO Spaces CDN by kolbo-api scripts/infra/upload-model-icons-cdn.js —
++ * the CDN is the ONLY host that reliably loads inside claude.ai's sandboxed
++ * widget iframes (api.kolbo.ai sits behind Cloudflare bot rules that block
++ * sandbox image requests; app.kolbo.ai is the SPA whose catch-all returns
++ * 200 text/html for missing files).
++ */
++const ICON_CDN_BASE = 'https://kolbo-general-media.fra1.cdn.digitaloceanspaces.com/models_icons';
++
++function resolveAvatarUrl(avatar) {
++  if (!avatar) return null;
++  if (/^https?:\/\//i.test(avatar)) return avatar;
++  return `${ICON_CDN_BASE}/${encodeURIComponent(avatar)}`;
++}
++
++async function modelInfoMap(client) {
++  const cacheKey = client.apiBase || 'default';
++  const hit = infoCache.get(cacheKey);
++  if (hit && Date.now() - hit.at < ICON_TTL_MS) return hit.byKey;
++  const byKey = new Map();
++  try {
++    const res = await client.request('GET', '/v1/models');
++    const models = res?.models || res?.data?.models || [];
++    for (const m of models) {
++      if (!m) continue;
++      const icon = resolveAvatarUrl(m.avatar, client.apiBase);
++      // Real p75 wall-clock estimate mined from production creditUsages —
++      // the same source the in-app countdowns use. No estimate → no ETA shown.
++      const eta = Number(m.estimatedDurationSeconds || m.estimated_duration_seconds) || null;
++      const info = { icon, eta, id: m.identifier || null };
++      // Display names collide across variants ("Nano Banana 2" names both the
++      // t2i model and its editing sibling) — on collision keep the model with
++      // the SHORTEST identifier (the base model), deterministically.
++      const setName = (k) => {
++        const prev = byKey.get(k);
++        if (!prev || !prev.id || (info.id && info.id.length < prev.id.length)) byKey.set(k, info);
++      };
++      if (m.name) setName(String(m.name).toLowerCase());
++      if (m.identifier) byKey.set(String(m.identifier).toLowerCase(), info);
++    }
++  } catch (_) {
++    /* fail open — widgets fall back to monogram chips, no ETA */
++  }
++  // Never cache an empty map: the first request in a fresh worker (typical
++  // right after a deploy restart) can fail transiently, and caching that
++  // failure blanks every model icon for the TTL window.
++  if (byKey.size > 0) infoCache.set(cacheKey, { at: Date.now(), byKey });
++  return byKey;
++}
++
++/** Resolve one model's { icon, eta }; missing → { icon: null, eta: null }. */
++async function modelInfo(client, modelName) {
++  if (!modelName) return { icon: null, eta: null };
++  const map = await modelInfoMap(client);
++  return map.get(String(modelName).toLowerCase()) || { icon: null, eta: null };
++}
++
++/** Back-compat shim (used by uiCompleted and older call sites). */
++async function modelIcon(client, modelName) {
++  return (await modelInfo(client, modelName)).icon;
++}
++
++/**
++ * Lenient model-identifier resolution for LLM-supplied model args.
++ * Users say "z-image"; the real identifier is "z-image/turbo" — the backend
++ * has no fuzzy matching on generation routes and fails deep in credit
++ * reservation. Resolve here: exact name/identifier hit → its identifier;
++ * else a UNIQUE identifier prefix match ("z-image" → "z-image/turbo");
++ * ambiguous or unknown → pass through unchanged (API stays source of truth).
++ */
++async function canonicalModelId(client, input) {
++  if (!input || typeof input !== 'string') return input;
++  try {
++    const map = await modelInfoMap(client);
++    const key = input.toLowerCase().trim();
++    const hit = map.get(key) || map.get(key.replace(/\s+/g, '-'));
++    if (hit && hit.id) return hit.id;
++    const ids = new Set();
++    for (const info of map.values()) {
++      const id = (info.id || '').toLowerCase();
++      if (id && (id.startsWith(key + '/') || id.startsWith(key + '-'))) ids.add(info.id);
++    }
++    if (ids.size === 1) return [...ids][0];
++  } catch (_) { /* fail open */ }
++  return input;
++}
++
++/* ------------------------------------------------------------------ */
++/* Declaration-level widget metadata                                    */
++/* ------------------------------------------------------------------ */
++
++// Hosts (claude.ai) decide whether to prepare a widget iframe from the TOOL
++// DECLARATION in tools/list — result-level `_meta` alone is not enough. The
++// legacy server.tool() registration API has no _meta parameter, so we attach
++// it post-registration via the SDK's registered-tool objects (tools/list
++// serves `tool._meta` verbatim; verified against SDK 1.29.0).
++const TOOL_WIDGETS = {
++  // generation card
++  generate_image: UI.generation,
++  generate_image_edit: UI.generation,
++  generate_creative_director: UI.generation,
++  generate_video: UI.generation,
++  generate_video_from_image: UI.generation,
++  generate_video_from_video: UI.generation,
++  generate_elements: UI.generation,
++  generate_first_last_frame: UI.generation,
++  generate_lipsync: UI.generation,
++  generate_music: UI.generation,
++  generate_speech: UI.generation,
++  generate_sound: UI.generation,
++  generate_3d: UI.generation,
++  edit_image: UI.generation,
++  edit_video: UI.generation,
++  shorts_render: UI.generation,
++  // transcript viewer
++  transcribe_audio: UI.transcript,
++  // model catalog
++  list_models: UI.catalog,
++  // media grid
++  list_media: UI.mediaGrid,
++  search_stock_media: UI.mediaGrid,
++  get_stock_collections: UI.mediaGrid,
++  search_music_library: UI.mediaGrid,
++  browse_music_library: UI.mediaGrid,
++  list_presets: UI.mediaGrid,
++  list_voices: UI.mediaGrid,
++  list_visual_dnas: UI.mediaGrid,
++  list_moodboards: UI.mediaGrid,
++  shorts_analyze: UI.mediaGrid,
++};
++
++function attachToolWidgetMeta(server) {
++  const registered = server && server._registeredTools;
++  if (!registered) return;
++  for (const [name, uri] of Object.entries(TOOL_WIDGETS)) {
++    const tool = registered[name];
++    if (!tool) continue;
++    tool._meta = { ...(tool._meta || {}), ...uiMeta(uri) };
++  }
++}
++
++module.exports = {
++  UI,
++  registerApps,
++  attachToolWidgetMeta,
++  uiMeta,
++  uiResult,
++  appsEnabled,
++  modelIcon,
++  modelInfo,
++  modelInfoMap,
++  canonicalModelId,
++  resolveAvatarUrl,
++  widgetHtml, // exported for smoke tests
++};
+diff --git a/src/apps/theme.js b/src/apps/theme.js
+new file mode 100644
+index 0000000..d2d2c85
+--- /dev/null
++++ b/src/apps/theme.js
+@@ -0,0 +1,255 @@
++'use strict';
++
++/**
++ * Kolbo Liquid Glass design system for MCP App widgets.
++ * Tokens extracted from kolbo-map (tailwind.config + index.css + liquid-glass.css):
++ * dark bg #0F0F0F, card #262626/90 + blur, brand #3b82f6, text #F5F5F2, Inter,
++ * specular top-edge highlight, spring easing cubic-bezier(.34,1.56,.64,1),
++ * skeleton-sweep shimmer, liquid-press buttons.
++ */
++
++const KOLBO_CSS = `
++:root {
++  --bg: #0f0f0f;
++  --card: rgba(38, 38, 38, 0.90);
++  --card-solid: #262626;
++  --surface: rgba(255, 255, 255, 0.03);
++  --surface-2: rgba(255, 255, 255, 0.06);
++  --border: rgba(255, 255, 255, 0.08);
++  --border-strong: rgba(255, 255, 255, 0.14);
++  --text: #f5f5f2;
++  --text-muted: rgba(245, 245, 242, 0.62);
++  --text-faint: rgba(245, 245, 242, 0.40);
++  --brand: #3b82f6;
++  --brand-soft: rgba(59, 130, 246, 0.16);
++  --success: #22c55e;
++  --error: #ef4444;
++  --warning: #f59e0b;
++  --radius-card: 16px;
++  --radius-btn: 8px;
++  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
++  --smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
++  --specular: inset 0 1px 0 rgba(255, 255, 255, 0.18);
++  color-scheme: dark;
++}
++[data-theme="light"] {
++  --bg: #f5f5f2;
++  --card: rgba(255, 255, 255, 0.85);
++  --card-solid: #ffffff;
++  --surface: rgba(0, 0, 0, 0.02);
++  --surface-2: rgba(0, 0, 0, 0.04);
++  --border: rgba(0, 0, 0, 0.08);
++  --border-strong: rgba(0, 0, 0, 0.14);
++  --text: #0a0a0c;
++  --text-muted: rgba(10, 10, 12, 0.62);
++  --text-faint: rgba(10, 10, 12, 0.40);
++  --brand-soft: rgba(59, 130, 246, 0.10);
++  --specular: inset 0 1px 0 rgba(255, 255, 255, 0.65);
++  color-scheme: light;
++}
++* { box-sizing: border-box; margin: 0; padding: 0; }
++html, body { background: transparent; }
++body {
++  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
++  color: var(--text);
++  font-size: 14px;
++  line-height: 1.5;
++  -webkit-font-smoothing: antialiased;
++}
++
++/* ---- Card shell ---- */
++.k-card {
++  background: var(--card);
++  backdrop-filter: blur(20px) saturate(180%);
++  -webkit-backdrop-filter: blur(20px) saturate(180%);
++  border: 1px solid var(--border);
++  border-radius: var(--radius-card);
++  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25), var(--specular);
++  overflow: hidden;
++  animation: k-in 400ms var(--spring);
++}
++@keyframes k-in { from { opacity: 0; transform: translateY(6px) scale(0.985); } to { opacity: 1; transform: none; } }
++
++.k-head {
++  display: flex; align-items: center; gap: 10px;
++  padding: 12px 16px;
++  border-bottom: 1px solid var(--border);
++}
++.k-logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; letter-spacing: -0.01em; }
++.k-logo svg { display: block; }
++.k-head .k-title { color: var(--text-muted); font-size: 12.5px; font-weight: 500; }
++.k-head .k-spacer { flex: 1; }
++
++.k-body { padding: 14px 16px; }
++.k-prompt { color: var(--text-muted); font-size: 12.5px; margin-bottom: 10px; word-break: break-word;
++  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
++
++/* ---- Chips ---- */
++.k-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px; }
++.k-chip {
++  display: inline-flex; align-items: center; gap: 5px;
++  padding: 3px 9px; border-radius: 999px;
++  background: var(--surface-2); border: 1px solid var(--border);
++  box-shadow: var(--specular);
++  font-size: 11px; font-weight: 500; color: var(--text-muted);
++  white-space: nowrap;
++  font-family: 'JetBrains Mono', ui-monospace, monospace;
++  letter-spacing: 0.01em;
++  animation: k-chip-in 200ms var(--spring);
++}
++@keyframes k-chip-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
++.k-chip.brand { background: var(--brand-soft); border-color: rgba(59, 130, 246, 0.3); color: var(--brand); }
++.k-chip img { width: 14px; height: 14px; border-radius: 4px; object-fit: cover; }
++.k-chip .k-mono-icon {
++  width: 14px; height: 14px; border-radius: 4px; background: var(--brand);
++  color: #fff; font-size: 9px; font-weight: 700; display: inline-flex;
++  align-items: center; justify-content: center; font-family: 'Inter', sans-serif;
++}
++.k-ref-thumb { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-strong); }
++
++/* ---- Generating state ---- */
++.k-gen-grid { display: grid; gap: 8px; }
++.k-gen-grid.n1 { grid-template-columns: 1fr; }
++.k-gen-grid.n2 { grid-template-columns: 1fr 1fr; }
++.k-gen-grid.n3, .k-gen-grid.n4 { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
++.k-skel {
++  position: relative; border-radius: 10px; overflow: hidden;
++  background: var(--surface-2); border: 1px solid var(--border);
++  min-height: 120px; max-height: 300px;
++}
++.k-skel.video { aspect-ratio: 16 / 9; }
++.k-skel.square { aspect-ratio: 1; }
++.k-skel.portrait { aspect-ratio: 3 / 4; }
++.k-skel::after {
++  content: ''; position: absolute; inset: 0;
++  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 40%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.06) 60%, transparent 100%);
++  background-size: 200% 100%;
++  animation: k-sweep 1.6s ease-in-out infinite;
++}
++@keyframes k-sweep { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
++.k-gen-badge {
++  position: absolute; top: 10px; left: 10px; z-index: 2;
++  display: inline-flex; align-items: center; gap: 6px;
++  padding: 4px 10px; border-radius: 999px;
++  background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(6px);
++  border: 1px solid rgba(255, 255, 255, 0.14);
++  font-size: 11px; font-weight: 600; color: #fff;
++}
++.k-spin {
++  width: 12px; height: 12px; border-radius: 50%;
++  border: 2px solid rgba(255,255,255,0.25); border-top-color: var(--brand);
++  animation: k-rot 0.8s linear infinite;
++}
++@keyframes k-rot { to { transform: rotate(360deg); } }
++
++.k-progress { position: relative; height: 3px; border-radius: 2px; overflow: hidden;
++  background: var(--surface-2); margin-top: 12px; }
++.k-progress > i { position: absolute; inset: 0 auto 0 0; width: 0%; border-radius: 2px;
++  background: linear-gradient(90deg, var(--brand), #60a5fa);
++  transition: width 600ms var(--smooth); }
++.k-status-line { display: flex; align-items: center; justify-content: space-between;
++  margin-top: 8px; font-size: 11px; color: var(--text-faint); }
++
++/* ---- Results ---- */
++.k-media { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
++  background: #000; cursor: pointer; transition: transform 300ms var(--spring), box-shadow 300ms var(--smooth); }
++.k-media:hover { transform: scale(1.015); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45); }
++.k-media img, .k-media video { display: block; width: 100%; height: 100%; object-fit: cover; }
++.k-media.selected { outline: 2px solid var(--brand); outline-offset: 1px; }
++
++/* Keep the whole completed card under the host's iframe height cap (~800px):
++   header + prompt + chips + viewer + thumbs + actions + footer must all fit,
++   or claude.ai adds an inner scrollbar. Click the image to open it full-size. */
++.k-viewer { margin-bottom: 10px; }
++.k-viewer img, .k-viewer video { display: block; width: 100%; max-height: 340px; object-fit: contain;
++  border-radius: 12px; background: #000; border: 1px solid var(--border); cursor: zoom-in; }
++.k-viewer video { cursor: default; }
++.k-thumbs { display: flex; gap: 6px; margin: 10px 0 2px; }
++.k-thumbs .k-thumb { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; cursor: pointer;
++  border: 2px solid transparent; opacity: 0.75; transition: all 150ms var(--smooth); flex: none; }
++.k-thumbs .k-thumb:hover { opacity: 1; }
++.k-thumbs .k-thumb.active { border-color: var(--brand); opacity: 1; }
++.k-thumbs .k-thumb img { width: 100%; height: 100%; object-fit: cover; }
++
++/* ---- Buttons ---- */
++.k-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 12px; }
++.k-btn {
++  display: inline-flex; align-items: center; gap: 6px;
++  padding: 7px 14px; border-radius: var(--radius-btn);
++  border: 1px solid var(--border); background: var(--surface-2);
++  box-shadow: var(--specular);
++  color: var(--text); font-size: 12px; font-weight: 600; font-family: inherit;
++  cursor: pointer; transition: all 150ms var(--smooth);
++  text-decoration: none; user-select: none;
++}
++.k-btn:hover { background: var(--border-strong); }
++.k-btn:active { transform: scale(0.97); }
++.k-btn.primary { background: var(--brand); border-color: var(--brand); color: #fff;
++  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
++.k-btn.primary:hover { background: #2f74e8; }
++.k-btn.ghost { background: transparent; box-shadow: none; border-color: transparent; color: var(--text-muted); }
++.k-btn.ghost:hover { color: var(--text); background: var(--surface-2); }
++.k-btn svg { width: 13px; height: 13px; }
++.k-btn:disabled { opacity: 0.5; cursor: default; }
++
++/* ---- Inline prompt input (Animate / Edit flows) ---- */
++.k-prompt-row { display: none; gap: 8px; margin-top: 10px; }
++.k-prompt-row.open { display: flex; animation: k-in 250ms var(--spring); }
++.k-input {
++  flex: 1; padding: 8px 12px; border-radius: var(--radius-btn);
++  border: 1px solid var(--border-strong); background: var(--surface);
++  color: var(--text); font-size: 12.5px; font-family: inherit; outline: none;
++}
++.k-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
++.k-input::placeholder { color: var(--text-faint); }
++
++/* ---- Grid widget (media / stock / presets) ---- */
++.k-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
++.k-cell { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
++  background: var(--surface); cursor: pointer; transition: transform 250ms var(--spring); }
++.k-cell:hover { transform: translateY(-2px) scale(1.01); }
++.k-cell .k-cell-media { aspect-ratio: 1; background: #000; }
++.k-cell .k-cell-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
++.k-cell .k-cell-label { padding: 6px 8px; font-size: 11px; color: var(--text-muted);
++  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
++.k-cell .k-cell-sub { padding: 0 8px 7px; font-size: 10px; color: var(--text-faint);
++  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
++
++/* ---- Audio rows ---- */
++.k-audio-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px;
++  border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
++  margin-bottom: 6px; transition: background 150ms var(--smooth); }
++.k-audio-row:hover { background: var(--surface-2); }
++.k-audio-art { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none;
++  background: var(--brand-soft); }
++.k-audio-meta { flex: 1; min-width: 0; }
++.k-audio-title { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
++.k-audio-sub { font-size: 11px; color: var(--text-faint); }
++.k-play {
++  width: 32px; height: 32px; border-radius: 50%; flex: none; border: 1px solid rgba(255,255,255,0.18);
++  background: rgba(0,0,0,0.5); color: #fff; cursor: pointer;
++  display: inline-flex; align-items: center; justify-content: center;
++  transition: all 150ms var(--smooth);
++}
++.k-play:hover { background: var(--brand); border-color: var(--brand); }
++
++/* ---- Misc ---- */
++.k-error { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px;
++  background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25);
++  color: #fca5a5; font-size: 12.5px; }
++.k-empty { padding: 22px; text-align: center; color: var(--text-faint); font-size: 12.5px; }
++.k-footer { display: flex; align-items: center; gap: 6px; padding: 8px 16px 12px;
++  font-size: 10.5px; color: var(--text-faint); }
++.k-footer a { color: var(--text-faint); text-decoration: none; }
++.k-footer a:hover { color: var(--brand); }
++.k-credits { margin-left: auto; font-family: 'JetBrains Mono', monospace; }
++`;
++
++/**
++ * Kolbo mark — the real app icon from the CDN (the host CSP allows it), with
++ * the simplified inline SVG only as the onerror fallback.
++ */
++const KOLBO_LOGO_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#3b82f6"/><path d="M7 5.5v13M7 12l6.5-6.5M7 12l7 6.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
++const KOLBO_LOGO_IMG = `<img src="https://kolbo-general-media.fra1.cdn.digitaloceanspaces.com/models_icons/kolbo-ai.png" alt="Kolbo" style="width:18px;height:18px;border-radius:5px;display:block" onerror="this.outerHTML=KOLBO_LOGO_FALLBACK">`;
++
++module.exports = { KOLBO_CSS, KOLBO_LOGO_SVG, KOLBO_LOGO_IMG };
+diff --git a/src/apps/widgets/catalog.js b/src/apps/widgets/catalog.js
+new file mode 100644
+index 0000000..96569a4
+--- /dev/null
++++ b/src/apps/widgets/catalog.js
+@@ -0,0 +1,75 @@
++'use strict';
++
++const { widgetPage } = require('../html');
++
++/**
++ * Model catalog widget — list_models.
++ *
++ * structuredContent: {
++ *   widget: 'catalog', title,
++ *   groups: [{ name: 'Video Generation', models: [{ name, icon, description,
++ *     chips: ['5–12s', '4K', 'audio'], use_hint }] }]
++ * }
++ */
++
++const BODY = `
++<div class="k-card">
++  <div class="k-head">
++    <span class="k-logo" id="logo"></span>
++    <span class="k-title" id="title"></span>
++    <span class="k-spacer"></span>
++    <span class="k-chip" id="count-chip" style="display:none"></span>
++  </div>
++  <div class="k-body" id="stage"><div class="k-empty">Loading…</div></div>
++  <div class="k-footer"><span>Powered by <a href="#" id="kolbo-link">Kolbo.AI</a></span></div>
++</div>
++`;
++
++const SCRIPT = `
++el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
++el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai'); };
++var state = null;
++
++function boot(sc) {
++  if (!sc || !sc.groups) return;
++  state = sc;
++  el('title').textContent = sc.title || 'AI Models';
++  var shown = sc.groups.reduce(function (n, g) { return n + g.models.length; }, 0);
++  el('count-chip').style.display = '';
++  el('count-chip').textContent = sc.total_available && sc.total_available > shown
++    ? 'top picks · ' + sc.total_available + ' total'
++    : shown + ' models';
++  el('stage').innerHTML = sc.groups.map(function (g, gi) {
++    return '<div style="margin-bottom:10px">' +
++      '<div style="font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px">' + esc(g.name) + '</div>' +
++      g.models.map(function (m, mi) {
++        return '<div class="k-audio-row" data-g="' + gi + '" data-m="' + mi + '" style="cursor:pointer;padding:6px 8px;margin-bottom:4px">' +
++          (m.icon ? '<img class="k-audio-art" style="width:24px;height:24px;border-radius:6px" src="' + esc(m.icon) + '" onerror="this.outerHTML=monogram(\\'' + esc(m.name).replace(/'/g, '') + '\\')">'
++                  : '<span style="flex:none">' + monogram(m.name) + '</span>') +
++          '<div class="k-audio-meta"><div class="k-audio-title" style="font-size:12px">' + esc(m.name) + '</div>' +
++          (m.description ? '<div class="k-audio-sub" style="font-size:10.5px">' + esc(m.description) + '</div>' : '') + '</div>' +
++          '<div style="display:flex;gap:4px;flex:none">' + (m.chips || []).slice(0, 3).map(function (c) {
++            return '<span class="k-chip" style="padding:2px 7px;font-size:10px">' + esc(c) + '</span>';
++          }).join('') + '</div></div>';
++      }).join('') + '</div>';
++  }).join('');
++  Array.prototype.forEach.call(document.querySelectorAll('[data-g]'), function (row) {
++    row.onclick = function () {
++      var m = state.groups[+row.getAttribute('data-g')].models[+row.getAttribute('data-m')];
++      window.kolbo.sendMessage(m.use_hint || ('Generate something with the "' + m.name + '" model — ask me what I want to make.'));
++    };
++  });
++  window.kolbo.notifySize();
++}
++
++window.kolbo.onToolResult(function (result) {
++  var sc = result.structuredContent || structured(result);
++  if (sc) boot(sc);
++});
++`;
++
++function catalogWidgetHtml() {
++  return widgetPage({ title: 'Kolbo Models', body: BODY, script: SCRIPT });
++}
++
++module.exports = { catalogWidgetHtml };
+diff --git a/src/apps/widgets/generation.js b/src/apps/widgets/generation.js
+new file mode 100644
+index 0000000..6330100
+--- /dev/null
++++ b/src/apps/widgets/generation.js
+@@ -0,0 +1,355 @@
++'use strict';
++
++const { widgetPage } = require('../html');
++
++/**
++ * Universal generation widget — used by every generate_ / edit_ tool.
++ *
++ * structuredContent contract (set by src/tools/*):
++ * {
++ *   phase: 'generating' | 'completed' | 'failed',
++ *   kind: 'image' | 'video' | 'audio' | '3d' | 'scenes',
++ *   tool: 'generate_image',            // originating MCP tool name
++ *   generation_id, poll_tool,          // when phase === 'generating'
++ *   status_args,                       // extra args for the poll tool (optional)
++
++ *   model, model_icon, prompt, count,
++ *   settings: { duration, resolution, aspect_ratio, audio, voice, mode },
++ *   reference_image,                   // thumbnail URL (optional)
++ *   urls, thumbnail_url, title, duration, credits_used,
++ *   scenes: [{ scene_number, title, image_urls, video_urls }],
++ *   error,
++ *   open_url                           // "Open in Kolbo" target (optional)
++ * }
++ */
++
++const BODY = `
++<div class="k-card" id="card">
++  <div class="k-head">
++    <span class="k-logo" id="logo"></span>
++    <span class="k-title" id="tool-title"></span>
++    <span class="k-spacer"></span>
++    <span class="k-chip" id="phase-chip" style="display:none"></span>
++  </div>
++  <div class="k-body">
++    <div class="k-prompt" id="prompt"></div>
++    <div class="k-chips" id="chips"></div>
++    <div id="stage"></div>
++    <div class="k-prompt-row" id="prompt-row">
++      <input class="k-input" id="action-input" placeholder="">
++      <button class="k-btn primary" id="action-send">Send</button>
++      <button class="k-btn ghost" id="action-cancel">✕</button>
++    </div>
++    <div class="k-actions" id="actions"></div>
++  </div>
++  <div class="k-footer">
++    <span>Powered by <a href="#" id="kolbo-link">Kolbo.AI</a></span>
++    <span class="k-credits" id="credits"></span>
++  </div>
++</div>
++`;
++
++const SCRIPT = `
++var state = null;          // current structuredContent
++var selected = 0;          // selected result index
++var pollTimer = null;
++
++el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
++el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai'); };
++
++var TOOL_TITLES = {
++  generate_image: 'Image Generation', generate_image_edit: 'Image Edit',
++  generate_video: 'Video Generation', generate_video_from_image: 'Image to Video',
++  generate_video_from_video: 'Video to Video', generate_elements: 'Elements Video',
++  generate_first_last_frame: 'First–Last Frame', generate_lipsync: 'Lipsync',
++  generate_music: 'Music Generation', generate_speech: 'Text to Speech',
++  generate_sound: 'Sound Effect', generate_3d: '3D Generation',
++  generate_creative_director: 'Creative Director', edit_image: 'Image Edit', edit_video: 'Video Edit'
++};
++
++function boot(sc) {
++  if (!sc) return;
++  state = sc;
++  el('tool-title').textContent = TOOL_TITLES[sc.tool] || 'Generation';
++  el('prompt').textContent = sc.prompt || '';
++  el('prompt').style.display = sc.prompt ? '' : 'none';
++  renderChips(sc);
++  el('credits').textContent = sc.credits_used != null ? fmtCredits(sc.credits_used) : '';
++  if (sc.phase === 'generating') renderGenerating(sc);
++  else if (sc.phase === 'failed') renderError(sc.error || 'Generation failed');
++  else renderResult(sc);
++  window.kolbo.notifySize();
++}
++
++function renderChips(sc) {
++  var h = modelChipHTML(sc.model, sc.model_icon);
++  var s = sc.settings || {};
++  if (sc.kind) h += chip(iconFor(sc.kind) + ' ' + sc.kind);
++  if (s.duration) h += chip('⏱ ' + fmtDur(s.duration));
++  if (s.resolution) h += chip(esc(s.resolution));
++  if (s.aspect_ratio) h += chip(esc(s.aspect_ratio));
++  if (s.audio) h += chip('🔊 audio');
++  if (s.voice) h += chip('🎤 ' + esc(s.voice));
++  if (s.mode) h += chip(esc(s.mode));
++  if (sc.count > 1) h += chip('×' + sc.count);
++  if (sc.reference_image) h += '<img class="k-ref-thumb" src="' + esc(sc.reference_image) + '" alt="" title="Reference image" onerror="this.style.display=\\'none\\'">';
++  el('chips').innerHTML = h;
++}
++function chip(inner) { return '<span class="k-chip">' + inner + '</span>'; }
++function iconFor(kind) {
++  return { image: '🖼', video: '🎬', audio: '🎵', '3d': '🧊', scenes: '🎞' }[kind] || '✨';
++}
++
++/* ---------- generating ---------- */
++function renderGenerating(sc) {
++  setPhaseChip('Generating', true);
++  var n = Math.min(sc.count || 1, 4);
++  var shape = sc.kind === 'video' || sc.kind === 'scenes' ? 'video' : (sc.kind === 'audio' ? 'video' : 'square');
++  var cells = '';
++  for (var i = 0; i < n; i++) {
++    cells += '<div class="k-skel ' + shape + '">' +
++      (i === 0 ? '<span class="k-gen-badge"><span class="k-spin"></span>Generating</span>' : '') + '</div>';
++  }
++  el('stage').innerHTML = '<div class="k-gen-grid n' + n + '">' + cells + '</div>';
++  el('actions').innerHTML = '';
++  schedulePoll(sc);
++}
++
++function schedulePoll(sc) {
++  clearTimeout(pollTimer);
++  pollTimer = setTimeout(function () { poll(sc); }, 4000);
++}
++function poll(sc) {
++  var args = sc.status_args || { generation_id: sc.generation_id };
++  window.kolbo.callTool(sc.poll_tool || 'get_generation_status', args).then(function (res) {
++    var st = structured(res) || {};
++    var stateName = st.state || st.phase || st.status;
++    if (stateName === 'completed') {
++      var r = st.result || st;
++
++      var done = Object.assign({}, sc, r, {
++        phase: 'completed',
++        urls: r.urls || st.urls || [],
++        credits_used: st.credits_used != null ? st.credits_used : sc.credits_used
++      });
++      state = done;
++      el('credits').textContent = done.credits_used != null ? fmtCredits(done.credits_used) : '';
++      renderResult(done);
++      // Let the model know the outcome without it having to poll.
++      try {
++        window.kolbo.updateModelContext(
++          'Generation ' + (sc.generation_id || '') + ' completed (' + (sc.tool || '') + ').' +
++          '\\nOutput URLs:\\n' + (done.urls || []).join('\\n') +
++          (done.credits_used != null ? '\\nCredits used: ' + done.credits_used : ''));
++      } catch (e) {}
++    } else if (stateName === 'failed' || stateName === 'error' || stateName === 'cancelled') {
++      renderError(st.error || 'Generation ' + stateName);
++    } else {
++      schedulePoll(sc);
++    }
++  }).catch(function () { schedulePoll(sc); });
++}
++
++/* ---------- results ---------- */
++function renderResult(sc) {
++  clearTimeout(pollTimer);
++
++  setPhaseChip('', false);
++  if (sc.kind === 'scenes' && sc.scenes && sc.scenes.length) return renderScenes(sc);
++  var urls = sc.urls || [];
++  if (!urls.length) return renderError('No output received');
++  if (sc.kind === 'image') renderImages(sc, urls);
++  else if (sc.kind === 'video') renderVideo(sc, urls);
++  else if (sc.kind === 'audio') renderAudio(sc, urls);
++  else if (sc.kind === '3d') render3d(sc, urls);
++  else renderLinks(urls);
++  renderActions(sc);
++  window.kolbo.notifySize();
++}
++
++function renderImages(sc, urls) {
++  selected = Math.min(selected, urls.length - 1);
++  // If the host CSP still blocks the image, degrade to open-in-browser rows
++  // instead of a broken empty viewer.
++  var viewer = '<div class="k-viewer"><img id="main-img" src="' + esc(urls[selected]) + '" alt="" onerror="window.__imgFail && window.__imgFail()"></div>';
++  window.__imgFail = function () { renderLinks(urls); window.kolbo.notifySize(); };
++  // Constrained viewer → click opens the original full-size.
++  setTimeout(function () {
++    var img = el('main-img');
++    if (img) img.onclick = function () { window.kolbo.openLink(state.urls[selected]); };
++  }, 0);
++  var thumbs = '';
++  if (urls.length > 1) {
++    thumbs = '<div class="k-thumbs">' + urls.map(function (u, i) {
++      return '<div class="k-thumb' + (i === selected ? ' active' : '') + '" data-i="' + i + '"><img src="' + esc(u) + '" alt=""></div>';
++    }).join('') + '</div>';
++  }
++  el('stage').innerHTML = viewer + thumbs;
++  Array.prototype.forEach.call(el('stage').querySelectorAll('.k-thumb'), function (t) {
++    t.onclick = function () {
++      selected = +t.getAttribute('data-i');
++      el('main-img').src = state.urls[selected];
++      Array.prototype.forEach.call(el('stage').querySelectorAll('.k-thumb'), function (x) { x.classList.remove('active'); });
++      t.classList.add('active');
++    };
++  });
++}
++
++function renderVideo(sc, urls) {
++  el('stage').innerHTML = '<div class="k-viewer"><video id="main-video" src="' + esc(urls[0]) + '"' +
++    (sc.thumbnail_url ? ' poster="' + esc(sc.thumbnail_url) + '"' : '') + ' controls playsinline></video></div>';
++}
++
++function renderAudio(sc, urls) {
++  el('stage').innerHTML = urls.map(function (u, i) {
++    var title = sc.title || ((TOOL_TITLES[sc.tool] || 'Audio') + (urls.length > 1 ? ' ' + (i + 1) : ''));
++    return '<div class="k-audio-row">' +
++      (sc.thumbnail_url ? '<img class="k-audio-art" src="' + esc(sc.thumbnail_url) + '">' : '<div class="k-audio-art"></div>') +
++      '<div class="k-audio-meta"><div class="k-audio-title">' + esc(title) + '</div>' +
++      '<div class="k-audio-sub">' + esc(sc.model || '') + (sc.duration ? ' · ' + fmtDur(sc.duration) : '') + '</div></div>' +
++      '<audio src="' + esc(u) + '" controls style="height:32px;max-width:260px"></audio></div>';
++  }).join('');
++}
++
++function render3d(sc, urls) {
++  el('stage').innerHTML = (sc.thumbnail_url
++    ? '<div class="k-viewer"><img src="' + esc(sc.thumbnail_url) + '" alt=""></div>' : '') +
++    urls.map(function (u) {
++      var extMatch = u.split('?')[0].match(/\\.(\\w+)$/);
++      var ext = extMatch ? extMatch[1].toUpperCase() : 'FILE';
++      return '<div class="k-audio-row"><div class="k-audio-art" style="display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">' + esc(ext) + '</div>' +
++        '<div class="k-audio-meta"><div class="k-audio-title">3D Model (' + esc(ext) + ')</div></div>' +
++        '<button class="k-btn" data-url="' + esc(u) + '">Download</button></div>';
++    }).join('');
++  Array.prototype.forEach.call(el('stage').querySelectorAll('.k-btn[data-url]'), function (b) {
++    b.onclick = function () { window.kolbo.openLink(b.getAttribute('data-url')); };
++  });
++}
++
++function renderLinks(urls) {
++  el('stage').innerHTML = urls.map(function (u) {
++    return '<div class="k-audio-row"><div class="k-audio-meta"><div class="k-audio-title" style="word-break:break-all">' + esc(u) + '</div></div>' +
++      '<button class="k-btn" data-url="' + esc(u) + '">Open</button></div>';
++  }).join('');
++  Array.prototype.forEach.call(el('stage').querySelectorAll('.k-btn[data-url]'), function (b) {
++    b.onclick = function () { window.kolbo.openLink(b.getAttribute('data-url')); };
++  });
++}
++
++function renderScenes(sc) {
++  el('stage').innerHTML = sc.scenes.map(function (scene) {
++    var media = (scene.video_urls || []).map(function (u) {
++      return '<div class="k-media"><video src="' + esc(u) + '" controls playsinline></video></div>';
++    }).join('') + (scene.image_urls || []).map(function (u) {
++      return '<div class="k-media"><img src="' + esc(u) + '" alt=""></div>';
++    }).join('');
++    return '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">Scene ' +
++      esc(scene.scene_number) + (scene.title ? ' — ' + esc(scene.title) : '') + '</div>' +
++      '<div class="k-gen-grid n2">' + media + '</div></div>';
++  }).join('');
++  renderActions(sc);
++}
++
++function renderError(msg) {
++  clearTimeout(pollTimer);
++
++  setPhaseChip('Failed', false);
++  el('stage').innerHTML = '<div class="k-error">⚠ ' + esc(msg) + '</div>';
++  el('actions').innerHTML = '<button class="k-btn" id="retry-btn">↻ Try Again</button>';
++  el('retry-btn').onclick = function () {
++    window.kolbo.sendMessage('Please retry that ' + (TOOL_TITLES[state.tool] || 'generation').toLowerCase() + ' — it failed with: ' + msg);
++  };
++  window.kolbo.notifySize();
++}
++
++function setPhaseChip(text, spinning) {
++  var c = el('phase-chip');
++  if (!text) { c.style.display = 'none'; return; }
++  c.style.display = '';
++  c.innerHTML = (spinning ? '<span class="k-spin"></span>' : '') + esc(text);
++}
++
++/* ---------- actions ---------- */
++function currentUrl() {
++  return (state.urls && state.urls[state.kind === 'image' ? selected : 0]) || '';
++}
++
++function renderActions(sc) {
++  var a = [];
++  if (sc.kind === 'image') {
++    a.push('<button class="k-btn primary" id="btn-animate">🎬 Animate</button>');
++    a.push('<button class="k-btn" id="btn-edit">✏️ Edit</button>');
++  }
++  if (sc.kind === 'video') {
++    a.push('<button class="k-btn primary" id="btn-download">⬇ Download</button>');
++    a.push('<button class="k-btn" id="btn-analyze">📊 Analyze</button>');
++  } else {
++    a.push('<button class="k-btn" id="btn-download">⬇ Download</button>');
++  }
++  a.push('<button class="k-btn" id="btn-recreate">↻ Recreate</button>');
++  a.push('<button class="k-btn ghost" id="btn-open">Open in Kolbo ↗</button>');
++  el('actions').innerHTML = a.join('');
++
++  bind('btn-download', function () { window.kolbo.openLink(currentUrl()); });
++  bind('btn-open', function () { window.kolbo.openLink(state.open_url || 'https://app.kolbo.ai'); });
++  bind('btn-recreate', function () {
++    window.kolbo.sendMessage('Recreate this with the same settings' +
++      (state.model ? '\\nModel: ' + state.model : '') +
++      (state.prompt ? '\\nPrompt: ' + state.prompt : '') +
++      '\\n(from the ' + (TOOL_TITLES[state.tool] || 'generation') + ' widget)');
++  });
++  bind('btn-animate', function () {
++    openPromptRow('Describe the motion (optional — Smart Select picks the best video model)…', function (text) {
++      window.kolbo.sendMessage('Animate this image into a short video' +
++        '\\n🎬 Reference image: ' + currentUrl() +
++        '\\nModel: smart select — pick the best image-to-video model' +
++        (text ? '\\nMotion prompt: ' + text : '\\nMotion prompt: subtle cinematic motion, slow push-in'));
++    });
++  });
++  bind('btn-edit', function () {
++    openPromptRow('Describe the edit — e.g. "make the background a beach at sunset"…', function (text) {
++      if (!text) return;
++      window.kolbo.sendMessage('Edit this image' +
++        '\\n🖼 Reference image: ' + currentUrl() +
++        '\\nEdit instruction: ' + text);
++    });
++  });
++  bind('btn-analyze', function () {
++    window.kolbo.sendMessage('Analyze this video and give me an engagement/virality read — hook strength, pacing, retention risks, and concrete improvement tips:\\n' + currentUrl());
++  });
++}
++function bind(id, fn) { var b = el(id); if (b) b.onclick = fn; }
++
++function openPromptRow(placeholder, onSend) {
++  var row = el('prompt-row');
++  row.classList.add('open');
++  var input = el('action-input');
++  input.placeholder = placeholder;
++  input.value = '';
++  input.focus();
++  el('action-send').onclick = function () { row.classList.remove('open'); onSend(input.value.trim()); };
++  input.onkeydown = function (e) { if (e.key === 'Enter') el('action-send').onclick(); };
++  el('action-cancel').onclick = function () { row.classList.remove('open'); };
++  window.kolbo.notifySize();
++}
++
++/* ---------- wire host events ---------- */
++window.kolbo.onToolResult(function (result) {
++  var sc = result.structuredContent || structured(result);
++  if (sc) boot(sc);
++});
++window.kolbo.ready(function (ctx) {
++  // Some hosts deliver the initial result via hostContext.toolInfo; the
++  // tool-result notification is the primary path.
++  if (!state && ctx && ctx.toolInfo && ctx.toolInfo.result) {
++    var sc = ctx.toolInfo.result.structuredContent;
++    if (sc) boot(sc);
++  }
++});
++`;
++
++function generationWidgetHtml() {
++  return widgetPage({ title: 'Kolbo Generation', body: BODY, script: SCRIPT });
++}
++
++module.exports = { generationWidgetHtml };
+diff --git a/src/apps/widgets/mediaGrid.js b/src/apps/widgets/mediaGrid.js
+new file mode 100644
+index 0000000..358c815
+--- /dev/null
++++ b/src/apps/widgets/mediaGrid.js
+@@ -0,0 +1,129 @@
++'use strict';
++
++const { widgetPage } = require('../html');
++
++/**
++ * Media grid widget — media library, stock search, presets, voices, moodboards,
++ * visual DNAs, music library.
++ *
++ * structuredContent contract:
++ * {
++ *   widget: 'media-grid',
++ *   title: 'Stock Search — "rain on window"',
++ *   items: [{
++ *     id, title, subtitle, thumbnail, media_type: 'image'|'video'|'audio'|'3d',
++ *     url,                 // full asset / playback URL
++ *     preview_audio,       // audio preview URL (voices, music)
++ *     use_hint             // message template sent when "Use" clicked, {URL}/{ID}/{TITLE} substituted
++ *   }],
++ *   total, has_more,
++ *   import_tool_hint       // e.g. 'import via import_stock_asset' — shown on Use
++ * }
++ */
++
++const BODY = `
++<div class="k-card">
++  <div class="k-head">
++    <span class="k-logo" id="logo"></span>
++    <span class="k-title" id="title"></span>
++    <span class="k-spacer"></span>
++    <span class="k-chip" id="count-chip" style="display:none"></span>
++  </div>
++  <div class="k-body"><div id="stage" class="k-empty">Loading…</div></div>
++  <div class="k-footer"><span>Powered by <a href="#" id="kolbo-link">Kolbo.AI</a></span></div>
++</div>
++`;
++
++const SCRIPT = `
++el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
++el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai'); };
++var state = null;
++var playing = null;
++
++function boot(sc) {
++  if (!sc || !sc.items) return;
++  state = sc;
++  el('title').textContent = sc.title || 'Library';
++  if (sc.total != null) { el('count-chip').style.display = ''; el('count-chip').textContent = sc.total + ' results'; }
++  if (!sc.items.length) { el('stage').innerHTML = '<div class="k-empty">No results</div>'; return; }
++  var audioItems = sc.items.filter(function (i) { return i.media_type === 'audio'; });
++  var visualItems = sc.items.filter(function (i) { return i.media_type !== 'audio'; });
++  var h = '';
++  if (visualItems.length) {
++    h += '<div class="k-grid">' + visualItems.slice(0, 24).map(cellHTML).join('') + '</div>';
++  }
++  if (audioItems.length) {
++    h += audioItems.slice(0, 12).map(audioRowHTML).join('');
++  }
++  el('stage').innerHTML = h;
++  el('stage').classList.remove('k-empty');
++  wire();
++  window.kolbo.notifySize();
++}
++
++function cellHTML(item, i) {
++  var idx = state.items.indexOf(item);
++  var media = item.thumbnail
++    ? '<img src="' + esc(item.thumbnail) + '" loading="lazy" alt="">'
++    : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-faint);font-size:20px">' +
++      ({ video: '🎬', '3d': '🧊' }[item.media_type] || '🖼') + '</div>';
++  return '<div class="k-cell" data-i="' + idx + '">' +
++    '<div class="k-cell-media">' + media + '</div>' +
++    '<div class="k-cell-label">' + esc(item.title || '') + '</div>' +
++    (item.subtitle ? '<div class="k-cell-sub">' + esc(item.subtitle) + '</div>' : '') +
++    '</div>';
++}
++
++function audioRowHTML(item) {
++  var idx = state.items.indexOf(item);
++  return '<div class="k-audio-row" data-i="' + idx + '">' +
++    (item.thumbnail ? '<img class="k-audio-art" src="' + esc(item.thumbnail) + '">' : '<div class="k-audio-art"></div>') +
++    '<div class="k-audio-meta"><div class="k-audio-title">' + esc(item.title || '') + '</div>' +
++    '<div class="k-audio-sub">' + esc(item.subtitle || '') + '</div></div>' +
++    (item.preview_audio || item.url
++      ? '<button class="k-play" data-play="' + esc(item.preview_audio || item.url) + '">▶</button>' : '') +
++    '<button class="k-btn" data-use="' + idx + '">Use</button></div>';
++}
++
++function wire() {
++  Array.prototype.forEach.call(document.querySelectorAll('.k-cell'), function (c) {
++    c.onclick = function () { useItem(+c.getAttribute('data-i')); };
++  });
++  Array.prototype.forEach.call(document.querySelectorAll('[data-use]'), function (b) {
++    b.onclick = function (e) { e.stopPropagation(); useItem(+b.getAttribute('data-use')); };
++  });
++  Array.prototype.forEach.call(document.querySelectorAll('[data-play]'), function (b) {
++    b.onclick = function (e) {
++      e.stopPropagation();
++      var url = b.getAttribute('data-play');
++      if (playing && playing.src === url && !playing.paused) { playing.pause(); b.textContent = '▶'; return; }
++      if (playing) playing.pause();
++      Array.prototype.forEach.call(document.querySelectorAll('[data-play]'), function (x) { x.textContent = '▶'; });
++      playing = new Audio(url);
++      playing.play();
++      b.textContent = '⏸';
++      playing.onended = function () { b.textContent = '▶'; };
++    };
++  });
++}
++
++function useItem(i) {
++  var item = state.items[i];
++  if (!item) return;
++  var msg = item.use_hint
++    ? item.use_hint.replace('{URL}', item.url || '').replace('{ID}', item.id || '').replace('{TITLE}', item.title || '')
++    : 'Use this asset: "' + (item.title || item.id) + '"\\nURL: ' + (item.url || '') + (item.id ? '\\nID: ' + item.id : '');
++  window.kolbo.sendMessage(msg);
++}
++
++window.kolbo.onToolResult(function (result) {
++  var sc = result.structuredContent || structured(result);
++  if (sc) boot(sc);
++});
++`;
++
++function mediaGridWidgetHtml() {
++  return widgetPage({ title: 'Kolbo Library', body: BODY, script: SCRIPT });
++}
++
++module.exports = { mediaGridWidgetHtml };
+diff --git a/src/apps/widgets/transcript.js b/src/apps/widgets/transcript.js
+new file mode 100644
+index 0000000..68b0b2a
+--- /dev/null
++++ b/src/apps/widgets/transcript.js
+@@ -0,0 +1,108 @@
++'use strict';
++
++const { widgetPage } = require('../html');
++
++/**
++ * Transcript widget — transcribe_audio results.
++ *
++ * structuredContent: {
++ *   widget: 'transcript', phase: 'completed'|'generating'|'failed',
++ *   generation_id, poll_tool, text, duration, audio_url, srt_url,
++ *   word_by_word_srt_url, txt_url, credits_used, error
++ * }
++ */
++
++const BODY = `
++<div class="k-card">
++  <div class="k-head">
++    <span class="k-logo" id="logo"></span>
++    <span class="k-title">Transcription</span>
++    <span class="k-spacer"></span>
++    <span class="k-chip" id="phase-chip" style="display:none"></span>
++  </div>
++  <div class="k-body">
++    <div id="player"></div>
++    <div id="stage" class="k-empty">Loading…</div>
++    <div class="k-actions" id="actions"></div>
++  </div>
++  <div class="k-footer">
++    <span>ElevenLabs Scribe v2 · <a href="#" id="kolbo-link">Kolbo.AI</a></span>
++    <span class="k-credits" id="credits"></span>
++  </div>
++</div>
++`;
++
++const SCRIPT = `
++el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
++el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai'); };
++var state = null, pollTimer = null;
++
++function boot(sc) {
++  if (!sc) return;
++  state = sc;
++  el('credits').textContent = sc.credits_used != null ? fmtCredits(sc.credits_used) : '';
++  if (sc.phase === 'generating') {
++    el('phase-chip').style.display = '';
++    el('phase-chip').innerHTML = '<span class="k-spin"></span>Transcribing';
++    el('stage').innerHTML = '<div class="k-skel video" style="min-height:80px"></div>';
++    el('stage').classList.remove('k-empty');
++    clearTimeout(pollTimer);
++    pollTimer = setTimeout(poll, 5000);
++    window.kolbo.notifySize();
++    return;
++  }
++  if (sc.phase === 'failed') {
++    el('phase-chip').style.display = 'none';
++    el('stage').innerHTML = '<div class="k-error">⚠ ' + esc(sc.error || 'Transcription failed') + '</div>';
++    return;
++  }
++  el('phase-chip').style.display = '';
++  el('phase-chip').textContent = sc.duration ? fmtDur(sc.duration) : 'Done';
++  if (sc.audio_url) {
++    el('player').innerHTML = '<audio src="' + esc(sc.audio_url) + '" controls style="width:100%;height:36px;margin-bottom:10px"></audio>';
++  }
++  el('stage').classList.remove('k-empty');
++  el('stage').innerHTML = '<div style="max-height:280px;overflow-y:auto;padding:10px 12px;border-radius:10px;' +
++    'background:var(--surface);border:1px solid var(--border);font-size:12.5px;color:var(--text-muted);white-space:pre-wrap">' +
++    esc(sc.text || '(empty transcript)') + '</div>';
++  var a = [];
++  if (sc.srt_url) a.push('<button class="k-btn primary" data-url="' + esc(sc.srt_url) + '">⬇ SRT</button>');
++  if (sc.word_by_word_srt_url) a.push('<button class="k-btn" data-url="' + esc(sc.word_by_word_srt_url) + '">⬇ Word-by-word SRT</button>');
++  if (sc.txt_url) a.push('<button class="k-btn" data-url="' + esc(sc.txt_url) + '">⬇ TXT</button>');
++  a.push('<button class="k-btn ghost" id="btn-copy">Copy text</button>');
++  el('actions').innerHTML = a.join('');
++  Array.prototype.forEach.call(el('actions').querySelectorAll('[data-url]'), function (b) {
++    b.onclick = function () { window.kolbo.openLink(b.getAttribute('data-url')); };
++  });
++  var copyBtn = el('btn-copy');
++  if (copyBtn) copyBtn.onclick = function () {
++    try { navigator.clipboard.writeText(state.text || ''); copyBtn.textContent = 'Copied ✓'; } catch (e) {}
++  };
++  window.kolbo.notifySize();
++}
++
++function poll() {
++  window.kolbo.callTool(state.poll_tool || 'get_generation_status', { generation_id: state.generation_id })
++    .then(function (res) {
++      var st = structured(res) || {};
++      var s = st.state || st.phase;
++      if (s === 'completed') {
++        var r = st.result || st;
++        boot(Object.assign({}, state, r, { phase: 'completed', credits_used: st.credits_used }));
++      } else if (s === 'failed' || s === 'cancelled') {
++        boot(Object.assign({}, state, { phase: 'failed', error: st.error }));
++      } else { pollTimer = setTimeout(poll, 5000); }
++    }).catch(function () { pollTimer = setTimeout(poll, 5000); });
++}
++
++window.kolbo.onToolResult(function (result) {
++  var sc = result.structuredContent || structured(result);
++  if (sc) boot(sc);
++});
++`;
++
++function transcriptWidgetHtml() {
++  return widgetPage({ title: 'Kolbo Transcription', body: BODY, script: SCRIPT });
++}
++
++module.exports = { transcriptWidgetHtml };
+diff --git a/src/index.js b/src/index.js
+index 7b92215..606fecf 100644
+--- a/src/index.js
++++ b/src/index.js
+@@ -72,6 +72,8 @@ const { registerProjectTools } = require('./tools/projects');
+ const { registerVoiceTools } = require('./tools/voices');
+ const { registerMusicLibraryTools } = require('./tools/music_library');
+ const { registerStockLibraryTools } = require('./tools/stock_library');
++const { registerShortsCreatorTools } = require('./tools/shorts_creator');
++const { registerApps, attachToolWidgetMeta } = require('./apps');
+ 
+ /**
+  * Build a fully-configured Kolbo MCP server (all tool groups registered)
+@@ -83,6 +85,11 @@ const { registerStockLibraryTools } = require('./tools/stock_library');
+  * @param {object} [opts]
+  * @param {string} [opts.apiKey]   Per-instance Kolbo API key (overrides env).
+  * @param {string} [opts.apiBase]  API base URL override.
++ * @param {boolean} [opts.apps]    Force-enable MCP Apps widget results. Set by
++ *                                 the kolbo-api remote connector (claude.ai),
++ *                                 whose stateless transport hides client
++ *                                 capabilities. stdio hosts are auto-detected
++ *                                 from the initialize handshake instead.
+  * @returns {McpServer} a server ready to `.connect(transport)`.
+  */
+ function createServer(opts = {}) {
+@@ -90,25 +97,40 @@ function createServer(opts = {}) {
+ 
+   const server = new McpServer({
+     name: 'kolbo',
+-    version: '1.0.0'
++    title: 'Kolbo',
++    version: '1.0.0',
++    websiteUrl: 'https://kolbo.ai',
++    // Connector avatar for hosts that render server icons (claude.ai tool
++    // headers show this instead of a letter monogram).
++    icons: [{ src: 'https://api.kolbo.ai/assets/kolbo-ai.png', mimeType: 'image/png', sizes: ['512x512'] }]
+   });
+ 
+   // Register all tools. `inlineImages` (off by default) is opt-in: only the
+   // remote HTTP host enables it, so stdio clients (Kolbo Code / Desktop / Cursor)
+-  // keep identical text-URL output.
+-  registerGenerateTools(server, client, { inlineImages: !!opts.inlineImages });
+-  registerModelTools(server, client);
+-  registerVoiceTools(server, client);
+-  registerChatTools(server, client);
+-  registerVisualDnaTools(server, client);
+-  registerMoodboardTools(server, client);
+-  registerMediaTools(server, client);
+-  registerPresetTools(server, client);
+-  registerAppBuilderTools(server, client);
+-  registerArtifactTools(server, client);
+-  registerProjectTools(server, client);
+-  registerMusicLibraryTools(server, client);
+-  registerStockLibraryTools(server, client);
++  // keep identical text-URL output. `apps` gates interactive widget results
++  // (MCP Apps) the same way — see src/apps/index.js.
++  const toolOptions = { inlineImages: !!opts.inlineImages, apps: !!opts.apps };
++  registerGenerateTools(server, client, toolOptions);
++  registerModelTools(server, client, toolOptions);
++  registerVoiceTools(server, client, toolOptions);
++  registerChatTools(server, client, toolOptions);
++  registerVisualDnaTools(server, client, toolOptions);
++  registerMoodboardTools(server, client, toolOptions);
++  registerMediaTools(server, client, toolOptions);
++  registerPresetTools(server, client, toolOptions);
++  registerAppBuilderTools(server, client, toolOptions);
++  registerArtifactTools(server, client, toolOptions);
++  registerProjectTools(server, client, toolOptions);
++  registerMusicLibraryTools(server, client, toolOptions);
++  registerStockLibraryTools(server, client, toolOptions);
++  registerShortsCreatorTools(server, client, toolOptions);
++
++  // MCP Apps widget resources (ui://kolbo/*). Registering resources is inert
++  // for text-only hosts — they never fetch them.
++  registerApps(server);
++  // Declaration-level `_meta['ui/resourceUri']` on every widget-carrying tool —
++  // claude.ai prepares the widget iframe from tools/list, not from the result.
++  attachToolWidgetMeta(server);
+ 
+   return server;
+ }
+diff --git a/src/tools/_shared.js b/src/tools/_shared.js
+index e701458..d932ca6 100644
+--- a/src/tools/_shared.js
++++ b/src/tools/_shared.js
+@@ -291,6 +291,78 @@ async function inlineImageBlocks(urls, opts = {}) {
+   return blocks.filter(Boolean);
+ }
+ 
++// ─── MCP Apps generation widget helpers ──────────────────────────────────────
++// When the host renders MCP Apps (claude.ai via the remote connector, Claude
++// Desktop over stdio), generation tools return IMMEDIATELY after submit and the
++// ui://kolbo/generation.html widget takes over: live progress, inline result,
++// action buttons. Text-only hosts never enter this path — their blocking
++// behavior and response bytes are UNCHANGED.
++const { UI, uiResult, appsEnabled, modelIcon } = require('../apps');
++
++/**
++ * Build the "submitted — widget is live" tool result for a UI host.
++ * @param {object} p
++ *   tool           MCP tool name (e.g. 'generate_image')
++ *   kind           'image' | 'video' | 'audio' | '3d' | 'scenes'
++ *   gen            the submit response ({ generation_id, poll_interval_hint })
++ *   client         KolboClient (for model icon lookup)
++ *   model, prompt, count, settings, reference_image, estimated_seconds
++ *   poll_tool      widget-side status tool (default 'get_generation_status')
++ *   status_args    args for poll_tool (default { generation_id })
++ */
++async function uiGenerating(p) {
++  // No ETAs anywhere — just a spinner until the poll flips to completed.
++  const icon = await modelIcon(p.client, p.model).catch(() => null);
++  const structured = {
++    phase: 'generating',
++    widget: 'generation',
++    kind: p.kind,
++    tool: p.tool,
++    generation_id: p.gen.generation_id,
++    poll_tool: p.poll_tool || 'get_generation_status',
++    status_args: p.status_args,
++    model: p.model || 'Smart Select',
++    model_icon: icon,
++    prompt: p.prompt,
++    count: p.count || 1,
++    settings: p.settings || {},
++    reference_image: p.reference_image,
++  };
++  const text = JSON.stringify({
++    status: 'submitted',
++    generation_id: p.gen.generation_id,
++    _widget_note: 'A live Kolbo widget is rendering this generation for the user (progress + final result + action buttons). Tell the user it is generating and the card above will update — do NOT poll in a loop. If you later need the output URLs (e.g. for a follow-up edit), call get_generation_status once with this generation_id.',
++  }, null, 2);
++  return uiResult(UI.generation, text, structured);
++}
++
++/**
++ * Wrap an already-completed generation result with the widget (used by tools
++ * that stay blocking even on UI hosts, e.g. creative director).
++ */
++async function uiCompleted(p, textPayload) {
++  const icon = await modelIcon(p.client, p.model).catch(() => null);
++  const structured = {
++    phase: 'completed',
++    widget: 'generation',
++    kind: p.kind,
++    tool: p.tool,
++    model: p.model || 'Smart Select',
++    model_icon: icon,
++    prompt: p.prompt,
++    count: p.count || 1,
++    settings: p.settings || {},
++    reference_image: p.reference_image,
++    urls: p.urls,
++    thumbnail_url: p.thumbnail_url,
++    title: p.title,
++    duration: p.duration,
++    scenes: p.scenes,
++    credits_used: p.credits_used,
++  };
++  return uiResult(UI.generation, textPayload, structured);
++}
++
+ module.exports = {
+   MAX_FILE_BYTES,
+   VISUAL_DNA_MAX_BYTES,
+@@ -303,4 +375,7 @@ module.exports = {
+   creditFields,
+   projectIdField,
+   inlineImageBlocks,
++  uiGenerating,
++  uiCompleted,
++  appsEnabled,
+ };
+diff --git a/src/tools/generate.js b/src/tools/generate.js
+index e3dee22..3eee210 100644
+--- a/src/tools/generate.js
++++ b/src/tools/generate.js
+@@ -6,13 +6,18 @@
+ const { z } = require('zod');
+ const FormData = require('form-data');
+ const { pollUntilDone } = require('../polling');
+-const { resolveToBuffer, creditFields, projectIdField, inlineImageBlocks } = require('./_shared');
++const { resolveToBuffer, creditFields, projectIdField, inlineImageBlocks, uiGenerating, uiCompleted, appsEnabled } = require('./_shared');
++const { UI, uiResult, canonicalModelId } = require('../apps');
+ 
+ function registerGenerateTools(server, client, options = {}) {
+   // Only enabled by hosts that explicitly opt in (the remote HTTP connector).
+   // stdio hosts (Kolbo Code, Claude Desktop, Cursor) leave this false, so their
+   // tool output is unchanged: a text block with the image URL.
+   const inlineImages = !!options.inlineImages;
++  // MCP Apps hosts (claude.ai remote connector, Claude Desktop) get an instant
++  // "submitted" response + a live ui://kolbo/generation.html widget that polls
++  // get_generation_status itself. Text-only hosts never take this branch.
++  const ui = () => appsEnabled(server, options);
+   // ─── generate_image ────────────────────────────────────────
+   server.tool(
+     'generate_image',
+@@ -32,11 +37,18 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       const gen = await client.post('/v1/generate/image', {
+         prompt, model, aspect_ratio, enhance_prompt, num_images,
+         reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, project_id
+       });
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_image', kind: 'image', gen, client, model, prompt,
++        count: num_images, settings: { resolution, aspect_ratio },
++        reference_image: reference_images?.[0]
++      });
++
+       const result = await pollUntilDone(client, gen.generation_id, {
+         interval: (gen.poll_interval_hint || 3) * 1000,
+         timeout: 120000
+@@ -76,11 +88,18 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ prompt, model, source_images, aspect_ratio, enhance_prompt, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       const gen = await client.post('/v1/generate/image-edit', {
+         prompt, model, source_images, aspect_ratio, enhance_prompt, num_images,
+         visual_dna_ids, moodboard_id, enable_web_search, resolution, project_id
+       });
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_image_edit', kind: 'image', gen, client, model, prompt,
++        count: num_images, settings: { resolution, aspect_ratio },
++        reference_image: source_images?.[0]
++      });
++
+       // Multi-source compositing or DNA-anchored edits routinely exceed 120s
+       // server-side. Extend the polling window in those cases to avoid forcing
+       // every call into the timeout-and-recover path via get_generation_status.
+@@ -126,6 +145,7 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ prompt, scene_count, model, aspect_ratio, workflow_type, duration, enhance_prompt, reference_images, visual_dna_ids, moodboard_id, moodboard_ids, resolution, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       const gen = await client.post('/v1/generate/creative-director', {
+         prompt, scene_count, model, aspect_ratio, workflow_type, duration,
+         enhance_prompt, reference_images, visual_dna_ids, moodboard_id, moodboard_ids, resolution, project_id
+@@ -146,18 +166,24 @@ function registerGenerateTools(server, client, options = {}) {
+           video_urls: s.video_urls
+         }));
+ 
+-      return {
+-        content: [{
+-          type: 'text',
+-          text: JSON.stringify({
+-            ...creditFields(result),
+-            scenes,
+-            total_scenes: result.scenes?.length || 0,
+-            completed_scenes: scenes.length,
+-            _followup_hint: 'Each scene is a separate asset. If the user asks to edit one scene, find that scene by scene_number/title and pass its image_urls[0] (or video_urls[0]) to generate_image_edit / edit_image / edit_video / generate_video_from_video. Do NOT re-run generate_creative_director unless the user explicitly wants a brand-new set.'
+-          }, null, 2)
+-        }]
+-      };
++      const cdText = JSON.stringify({
++        ...creditFields(result),
++        scenes,
++        total_scenes: result.scenes?.length || 0,
++        completed_scenes: scenes.length,
++        _followup_hint: 'Each scene is a separate asset. If the user asks to edit one scene, find that scene by scene_number/title and pass its image_urls[0] (or video_urls[0]) to generate_image_edit / edit_image / edit_video / generate_video_from_video. Do NOT re-run generate_creative_director unless the user explicitly wants a brand-new set.'
++      }, null, 2);
++
++      // Creative Director polls a dedicated status route the widget can't reach
++      // through get_generation_status, so it stays blocking on UI hosts too and
++      // renders the completed scene gallery.
++      if (ui()) return uiCompleted({
++        tool: 'generate_creative_director', kind: 'scenes', client, model, prompt,
++        settings: { duration, resolution, mode: workflow_type }, scenes,
++        credits_used: creditFields(result).credits_used
++      }, cdText);
++
++      return { content: [{ type: 'text', text: cdText }] };
+     }
+   );
+ 
+@@ -181,10 +207,17 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       const gen = await client.post('/v1/generate/video', {
+         prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, project_id
+       });
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_video', kind: 'video', gen, client, model, prompt,
++        settings: { duration, resolution, aspect_ratio },
++        reference_image: reference_images?.[0]
++      });
++
+       const result = await pollUntilDone(client, gen.generation_id, {
+         interval: (gen.poll_interval_hint || 8) * 1000,
+         timeout: 300000
+@@ -223,10 +256,17 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       const gen = await client.post('/v1/generate/video/from-image', {
+         image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, project_id
+       });
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_video_from_image', kind: 'video', gen, client, model, prompt,
++        settings: { duration, resolution, aspect_ratio },
++        reference_image: image_url
++      });
++
+       const result = await pollUntilDone(client, gen.generation_id, {
+         interval: (gen.poll_interval_hint || 8) * 1000,
+         timeout: 300000
+@@ -264,10 +304,16 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ prompt, model, style, instrumental, lyrics, vocal_gender, enhance_prompt, preset_id, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       const gen = await client.post('/v1/generate/music', {
+         prompt, model, style, instrumental, lyrics, vocal_gender, enhance_prompt, preset_id, project_id
+       });
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_music', kind: 'audio', gen, client, model: model || 'Suno', prompt,
++        settings: { mode: instrumental ? 'instrumental' : (style || undefined) },
++      });
++
+       const result = await pollUntilDone(client, gen.generation_id, {
+         interval: (gen.poll_interval_hint || 8) * 1000,
+         timeout: 300000
+@@ -300,10 +346,16 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ text, voice, model, language, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       const gen = await client.post('/v1/generate/speech', {
+         text, voice, model, language, project_id
+       });
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_speech', kind: 'audio', gen, client, model, prompt: text,
++        settings: { voice: voice || 'Rachel' }
++      });
++
+       const result = await pollUntilDone(client, gen.generation_id, {
+         interval: (gen.poll_interval_hint || 5) * 1000,
+         timeout: 120000
+@@ -335,10 +387,16 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ prompt, model, duration, prompt_influence, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       const gen = await client.post('/v1/generate/sound', {
+         prompt, model, duration, prompt_influence, project_id
+       });
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_sound', kind: 'audio', gen, client, model, prompt,
++        settings: { duration }
++      });
++
+       const result = await pollUntilDone(client, gen.generation_id, {
+         interval: (gen.poll_interval_hint || 5) * 1000,
+         timeout: 120000
+@@ -401,6 +459,7 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ prompt, model, reference_images, reference_videos, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       if (!prompt) throw new Error('prompt is required');
+ 
+       let startResponse;
+@@ -432,6 +491,12 @@ function registerGenerateTools(server, client, options = {}) {
+         });
+       }
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_elements', kind: 'video', gen: startResponse, client, model, prompt,
++        settings: { duration, resolution, aspect_ratio },
++        reference_image: reference_images?.[0]
++      });
++
+       const result = await pollUntilDone(client, startResponse.generation_id, {
+         interval: (startResponse.poll_interval_hint || 8) * 1000,
+         timeout: 600000
+@@ -471,6 +536,7 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids, resolution, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       const urlMode = first_frame_url && last_frame_url;
+       const fileMode = first_frame && last_frame;
+       if (!urlMode && !fileMode) {
+@@ -504,6 +570,12 @@ function registerGenerateTools(server, client, options = {}) {
+         });
+       }
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_first_last_frame', kind: 'video', gen: startResponse, client, model, prompt,
++        settings: { duration, resolution, aspect_ratio },
++        reference_image: first_frame_url || undefined
++      });
++
+       const result = await pollUntilDone(client, startResponse.generation_id, {
+         interval: (startResponse.poll_interval_hint || 8) * 1000,
+         timeout: 300000
+@@ -552,6 +624,7 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ source, audio, text_prompt, model, bounding_box_target, sync_mode, model_mode, emotion, temperature, occlusion_detection_enabled, active_speaker_detection, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       if (!source) throw new Error('source is required (URL or absolute local path to image/video)');
+       if (!audio) throw new Error('audio is required (URL or absolute local path to audio file)');
+ 
+@@ -607,6 +680,12 @@ function registerGenerateTools(server, client, options = {}) {
+         startResponse = await client.postMultipart('/v1/generate/lipsync', form);
+       }
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_lipsync', kind: 'video', gen: startResponse, client, model,
++        prompt: text_prompt, settings: { mode: 'lipsync' },
++        reference_image: sourceIsUrl && !/\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? source : undefined,
++      });
++
+       const result = await pollUntilDone(client, startResponse.generation_id, {
+         interval: (startResponse.poll_interval_hint || 8) * 1000,
+         timeout: 600000
+@@ -664,6 +743,7 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       if (!source_video) throw new Error('source_video is required');
+ 
+       const isUrl = /^https?:\/\//i.test(source_video);
+@@ -699,6 +779,13 @@ function registerGenerateTools(server, client, options = {}) {
+         startResponse = await client.postMultipart('/v1/generate/video-from-video', form);
+       }
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_video_from_video', kind: 'video', gen: startResponse, client, model,
++        prompt: prompt || (preset ? `Subtitles preset: ${preset}` : undefined),
++        settings: { duration, resolution, aspect_ratio, mode: preset ? 'subtitles' : 'restyle' },
++        reference_image: reference_images?.[0]
++      });
++
+       const result = await pollUntilDone(client, startResponse.generation_id, {
+         interval: (startResponse.poll_interval_hint || 8) * 1000,
+         timeout: 600000
+@@ -742,6 +829,19 @@ function registerGenerateTools(server, client, options = {}) {
+         startResponse = await client.postMultipart('/v1/transcribe', form);
+       }
+ 
++      if (ui()) {
++        return uiResult(UI.transcript, JSON.stringify({
++          status: 'submitted',
++          generation_id: startResponse.generation_id,
++          _widget_note: 'A live Kolbo transcription widget is rendering above — it shows progress, the transcript text, and SRT/TXT download buttons. Tell the user it is transcribing. If you need the transcript text for a follow-up step, call get_generation_status with this generation_id once done.',
++        }, null, 2), {
++          widget: 'transcript', phase: 'generating',
++          generation_id: startResponse.generation_id,
++          poll_tool: 'get_generation_status',
++          audio_url: isUrl ? source : undefined,
++        });
++      }
++
+       const result = await pollUntilDone(client, startResponse.generation_id, {
+         interval: (startResponse.poll_interval_hint || 5) * 1000,
+         timeout: 1800000 // 30 minutes — long podcasts are a thing
+@@ -780,6 +880,7 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ prompt, reference_images, mode, texture_prompt, model, topology, target_polycount, enable_tpose, enable_pbr, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       if (!prompt && !(reference_images && reference_images.length > 0)) {
+         throw new Error('Provide prompt (text mode) or reference_images (single/multi mode)');
+       }
+@@ -797,6 +898,12 @@ function registerGenerateTools(server, client, options = {}) {
+         project_id
+       });
+ 
++      if (ui()) return uiGenerating({
++        tool: 'generate_3d', kind: '3d', gen: startResponse, client, model, prompt,
++        settings: { mode: mode || (reference_images?.length > 1 ? 'multi' : reference_images?.length === 1 ? 'single' : 'text') },
++        reference_image: reference_images?.[0]
++      });
++
+       const result = await pollUntilDone(client, startResponse.generation_id, {
+         interval: (startResponse.poll_interval_hint || 8) * 1000,
+         timeout: 900000 // 15 minutes — 3D generation is slow
+@@ -833,6 +940,7 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ image_url, operation, model, scale, aspect_ratio, skin_strength, prompt, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       if (operation === 'magic_edit' && !prompt) throw new Error('prompt is required for magic_edit operation');
+       if (operation === 'reframe' && !aspect_ratio) throw new Error('aspect_ratio is required for reframe operation');
+ 
+@@ -840,6 +948,13 @@ function registerGenerateTools(server, client, options = {}) {
+         image_url, operation, model, scale, aspect_ratio, skin_strength, prompt, project_id
+       });
+ 
++      if (ui()) return uiGenerating({
++        tool: 'edit_image', kind: 'image', gen, client, model,
++        prompt: prompt || operation,
++        settings: { mode: operation, aspect_ratio },
++        reference_image: image_url
++      });
++
+       const result = await pollUntilDone(client, gen.generation_id, {
+         interval: (gen.poll_interval_hint || 5) * 1000,
+         timeout: 180000
+@@ -878,6 +993,7 @@ function registerGenerateTools(server, client, options = {}) {
+       project_id: projectIdField
+     },
+     async ({ video_url, operation, model, aspect_ratio, scale, prompt, image_url, audio_url, duration, mode, project_id }) => {
++      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+       if (operation === 'magic_edit' && !prompt) throw new Error('prompt is required for magic_edit');
+       if (operation === 'generate_audio' && !prompt) throw new Error('prompt is required for generate_audio');
+       if (operation === 'reframe' && !aspect_ratio) throw new Error('aspect_ratio is required for reframe');
+@@ -890,6 +1006,13 @@ function registerGenerateTools(server, client, options = {}) {
+         image_url, audio_url, duration, mode, project_id
+       });
+ 
++      if (ui()) return uiGenerating({
++        tool: 'edit_video', kind: 'video', gen, client, model,
++        prompt: prompt || operation,
++        settings: { mode: operation, duration, aspect_ratio },
++        reference_image: image_url
++      });
++
+       const result = await pollUntilDone(client, gen.generation_id, {
+         interval: (gen.poll_interval_hint || 8) * 1000,
+         timeout: 600000
+diff --git a/src/tools/media.js b/src/tools/media.js
+index fdead4a..5f1da3a 100644
+--- a/src/tools/media.js
++++ b/src/tools/media.js
+@@ -6,8 +6,10 @@
+ const { z } = require('zod');
+ const FormData = require('form-data');
+ const { resolveToBuffer } = require('./_shared');
++const { UI, uiResult, appsEnabled } = require('../apps');
+ 
+-function registerMediaTools(server, client) {
++function registerMediaTools(server, client, options = {}) {
++  const ui = () => appsEnabled(server, options);
+   // ─── upload_media ──────────────────────────────────────────
+   server.tool(
+     'upload_media',
+@@ -72,13 +74,32 @@ function registerMediaTools(server, client) {
+       const qs = params.toString();
+       const result = await client.get(`/v1/media${qs ? '?' + qs : ''}`);
+ 
++      const media = result.media || [];
++      const pagination = result.pagination || null;
++      const text = JSON.stringify({ media, pagination }, null, 2);
++
++      if (ui()) {
++        const items = media.slice(0, 24).map((m) => ({
++          id: m.id,
++          title: m.filename,
++          subtitle: m.media_type + (m.size ? ' · ' + Math.round(m.size / 1024) + 'KB' : ''),
++          thumbnail: m.media_type === 'image' ? m.url : (m.thumbnail_url || null),
++          media_type: m.media_type,
++          url: m.url,
++          use_hint: 'Use this media library asset in my next step:\nURL: {URL}\n(id: {ID})'
++        }));
++        return uiResult(UI.mediaGrid, text, {
++          widget: 'media-grid',
++          title: 'Media Library',
++          items,
++          total: pagination && pagination.total != null ? pagination.total : media.length
++        });
++      }
++
+       return {
+         content: [{
+           type: 'text',
+-          text: JSON.stringify({
+-            media: result.media || [],
+-            pagination: result.pagination || null
+-          }, null, 2)
++          text
+         }]
+       };
+     }
+diff --git a/src/tools/models.js b/src/tools/models.js
+index 3925368..1a03452 100644
+--- a/src/tools/models.js
++++ b/src/tools/models.js
+@@ -4,8 +4,92 @@
+  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
+ 
+ const { z } = require('zod');
++const { UI, uiResult, appsEnabled, resolveAvatarUrl } = require('../apps');
+ 
+-function registerModelTools(server, client) {
++// type name → human group label for the catalog widget
++const TYPE_GROUPS = {
++  text_to_img: 'Image Generation',
++  text_to_video: 'Video Generation',
++  img_to_video: 'Video Generation',
++  music_gen: 'Music',
++  text_to_speech: 'Voice',
++  image_editing: 'Image Editing',
++  video_to_video: 'Video to Video',
++  elements: 'Elements',
++};
++
++function groupNameFor(m) {
++  const t = (Array.isArray(m.types) && m.types[0]) || m.type || '';
++  if (TYPE_GROUPS[t]) return TYPE_GROUPS[t];
++  if (t === 'three_d' || String(t).startsWith('3d_')) return '3D';
++  return 'Other';
++}
++
++function modelChips(m) {
++  const chips = [];
++  if (Array.isArray(m.supported_resolutions) && m.supported_resolutions.length) {
++    const highest = [...m.supported_resolutions]
++      .sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0))
++      .pop();
++    if (highest) chips.push(String(highest));
++  }
++  if (Array.isArray(m.supported_durations) && m.supported_durations.length) {
++    const ds = [...m.supported_durations].sort((a, b) => a - b);
++    chips.push(ds.length > 1 ? `${ds[0]}-${ds[ds.length - 1]}s` : `${ds[0]}s`);
++  }
++  if (m.supports_visual_dna) chips.push('DNA');
++  if (m.new_model || m.newModel) chips.push('NEW');
++  return chips.slice(0, 3);
++}
++
++// structuredContent for ui://kolbo/catalog.html — see src/apps/widgets/catalog.js
++// Deliberately CURATED, not exhaustive: the widget is a picker, not a database.
++// Smart Select is pinned first, each group shows the recommended/new models
++// (max 6), and the total count chip tells the user how many exist overall.
++function buildCatalogStructured(models, type) {
++  const groups = [];
++  const byName = new Map();
++  const isAuto = (m) => /^auto$|smart.select/i.test(String(m.name || '')) || /smart-select|k_auto/i.test(String(m.identifier || ''));
++
++  // Pinned Smart Select entry (replaces the confusing "Other / Auto" row).
++  const smartSelect = {
++    name: 'Smart Select',
++    icon: null,
++    description: 'Recommended — automatically routes to the best model for your prompt, quality and cost.',
++    chips: ['AUTO'],
++    use_hint: 'Generate with Smart Select (omit the model) — ask me what I want to create first.',
++  };
++
++  // Recommended + new models float to the top of each group.
++  const ranked = [...models].filter((m) => !isAuto(m)).sort((a, b) => {
++    const score = (m) => (m.recommended ? 2 : 0) + (m.new_model || m.newModel ? 1 : 0);
++    return score(b) - score(a);
++  });
++
++  for (const m of ranked) {
++    const name = groupNameFor(m);
++    let g = byName.get(name);
++    if (!g) { g = { name, models: [] }; byName.set(name, g); groups.push(g); }
++    if (g.models.length >= 6) continue; // curated cap — full list lives in the text payload
++    g.models.push({
++      name: m.name,
++      icon: resolveAvatarUrl(m.avatar),
++      description: String(m.smartSelect_StrengthsSummary || m.summary || m.description || '').slice(0, 90),
++      chips: modelChips(m),
++      use_hint: `Generate with the "${m.name}" model — ask me what I want to create first.`,
++    });
++  }
++  groups.sort((a, b) => (a.name === 'Other' ? 1 : b.name === 'Other' ? -1 : 0));
++  return {
++    widget: 'catalog',
++    title: 'Kolbo AI Models' + (type ? ' — ' + type : ''),
++    total_available: models.length,
++    groups: [{ name: 'Recommended', models: [smartSelect] }, ...groups],
++  };
++}
++
++function registerModelTools(server, client, options = {}) {
++  const ui = () => appsEnabled(server, options);
+   // ─── list_models ───────────────────────────────────────────
+   server.tool(
+     'list_models',
+@@ -23,12 +107,9 @@ function registerModelTools(server, client) {
+       // a request lives here (durations, reference caps, audio/video min/max,
+       // resolution multipliers, supports_* flags, prompt-length limits, etc.).
+       if (format === 'json') {
+-        return {
+-          content: [{
+-            type: 'text',
+-            text: JSON.stringify({ count: result.count, models: result.models }, null, 2)
+-          }]
+-        };
++        const text = JSON.stringify({ count: result.count, models: result.models }, null, 2);
++        if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type));
++        return { content: [{ type: 'text', text }] };
+       }
+ 
+       // Split into auto-selectable (has summary) and named-only (no summary)
+@@ -197,12 +278,9 @@ function registerModelTools(server, client) {
+         sections.push(`Named-only models (${withoutSummary.length}) — only use if the user explicitly requests by name:\n${withoutSummary.map(formatModel).join('\n')}`);
+       }
+ 
+-      return {
+-        content: [{
+-          type: 'text',
+-          text: `Available models (${result.count}):\n\n${sections.join('\n\n')}\n\nUse the "identifier" value as the "model" parameter in generate tools. For programmatic cap validation, re-call with format: "json".`
+-        }]
+-      };
++      const text = `Available models (${result.count}):\n\n${sections.join('\n\n')}\n\nUse the "identifier" value as the "model" parameter in generate tools. For programmatic cap validation, re-call with format: "json".`;
++      if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type));
++      return { content: [{ type: 'text', text }] };
+     }
+   );
+ 
+diff --git a/src/tools/moodboards.js b/src/tools/moodboards.js
+index b97adf9..f960b78 100644
+--- a/src/tools/moodboards.js
++++ b/src/tools/moodboards.js
+@@ -4,8 +4,10 @@
+  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
+ 
+ const { z } = require('zod');
++const { UI, uiResult, appsEnabled } = require('../apps');
+ 
+-function registerMoodboardTools(server, client) {
++function registerMoodboardTools(server, client, options = {}) {
++  const ui = () => appsEnabled(server, options);
+   // ─── list_moodboards ───────────────────────────────────────
+   server.tool(
+     'list_moodboards',
+@@ -18,15 +20,29 @@ function registerMoodboardTools(server, client) {
+       if (scope && scope !== 'all') params.set('scope', scope);
+       const qs = params.toString();
+       const result = await client.get(`/v1/moodboards${qs ? '?' + qs : ''}`);
+-      return {
+-        content: [{
+-          type: 'text',
+-          text: JSON.stringify({
+-            moodboards: result.moodboards || [],
+-            count: result.count || 0
+-          }, null, 2)
+-        }]
+-      };
++      const moodboards = result.moodboards || [];
++      const text = JSON.stringify({
++        moodboards,
++        count: result.count || 0
++      }, null, 2);
++
++      if (ui()) {
++        return uiResult(UI.mediaGrid, text, {
++          widget: 'media-grid',
++          title: 'Moodboards',
++          items: moodboards.slice(0, 24).map(mb => ({
++            id: mb.id,
++            title: mb.name,
++            thumbnail: mb.thumbnail || (Array.isArray(mb.image_urls) ? mb.image_urls[0] : undefined),
++            media_type: 'image',
++            use_hint: 'Apply moodboard "{TITLE}" (moodboard_id: {ID}) to my next generation.'
++          })),
++          total: result.count || moodboards.length,
++          has_more: moodboards.length > 24
++        });
++      }
++
++      return { content: [{ type: 'text', text }] };
+     }
+   );
+ 
+diff --git a/src/tools/music_library.js b/src/tools/music_library.js
+index c3c5145..e8b7b04 100644
+--- a/src/tools/music_library.js
++++ b/src/tools/music_library.js
+@@ -2,6 +2,7 @@
+  * CONTRACT. Never rename, remove, or break an existing tool/arg. Full rules: ../index.js top-of-file. */
+ 
+ const { z } = require('zod');
++const { UI, uiResult, appsEnabled } = require('../apps');
+ 
+ // Format a normalized track into a compact human-readable line.
+ function trackLine(t) {
+@@ -16,7 +17,25 @@ function trackLine(t) {
+   return `${t.id} — ${t.title}${t.artist ? ` by ${t.artist}` : ''}\n   ${meta}${flags ? `  [${flags}]` : ''}${t.audioUrl ? `\n   preview: ${t.audioUrl}` : ''}`;
+ }
+ 
+-function registerMusicLibraryTools(server, client) {
++// Map a normalized track onto the media-grid widget item contract.
++function trackItem(t) {
++  return {
++    id: t.id,
++    title: t.title,
++    subtitle: [
++      t.artist,
++      t.durationSeconds != null ? Math.round(t.durationSeconds) + 's' : null,
++      Array.isArray(t.genres) && t.genres.length ? t.genres.slice(0, 2).join('/') : (t.genre || null)
++    ].filter(Boolean).join(' · '),
++    thumbnail: t.artworkUrl || null,
++    media_type: 'audio',
++    preview_audio: t.audioUrl || t.audioUrl128 || null,
++    use_hint: 'Get download links for track "{TITLE}" (id: {ID}) via get_music_track_audio.'
++  };
++}
++
++function registerMusicLibraryTools(server, client, options = {}) {
++  const ui = () => appsEnabled(server, options);
+   // ─── search_music_library ─────────────────────────────────────
+   server.tool(
+     'search_music_library',
+@@ -42,7 +61,18 @@ function registerMusicLibraryTools(server, client) {
+         return { content: [{ type: 'text', text: 'No tracks found matching those filters. Try a broader query or call get_music_library_facets for valid genres/moods.' }] };
+       }
+       const head = `Found ${tracks.length} track${tracks.length === 1 ? '' : 's'}${result.total ? ` (of ${result.total} sorted)` : ''}:`;
+-      return { content: [{ type: 'text', text: `${head}\n\n${tracks.map(trackLine).join('\n\n')}\n\nUse the track id with get_music_track_audio to get the downloadable 128/320/wav URLs.` }] };
++      const text = `${head}\n\n${tracks.map(trackLine).join('\n\n')}\n\nUse the track id with get_music_track_audio to get the downloadable 128/320/wav URLs.`;
++
++      if (ui()) {
++        return uiResult(UI.mediaGrid, text, {
++          widget: 'media-grid',
++          title: 'Music Library' + (args.query ? ' — "' + args.query + '"' : ''),
++          items: tracks.slice(0, 20).map(trackItem),
++          total: result.total != null ? result.total : tracks.length
++        });
++      }
++
++      return { content: [{ type: 'text', text }] };
+     }
+   );
+ 
+@@ -90,7 +120,18 @@ function registerMusicLibraryTools(server, client) {
+       if (tracks.length === 0) {
+         return { content: [{ type: 'text', text: 'No tracks returned.' }] };
+       }
+-      return { content: [{ type: 'text', text: `Catalog (${tracks.length} track${tracks.length === 1 ? '' : 's'}):\n\n${tracks.map(trackLine).join('\n\n')}` }] };
++      const text = `Catalog (${tracks.length} track${tracks.length === 1 ? '' : 's'}):\n\n${tracks.map(trackLine).join('\n\n')}`;
++
++      if (ui()) {
++        return uiResult(UI.mediaGrid, text, {
++          widget: 'media-grid',
++          title: 'Music Library',
++          items: tracks.slice(0, 20).map(trackItem),
++          total: result.total != null ? result.total : tracks.length
++        });
++      }
++
++      return { content: [{ type: 'text', text }] };
+     }
+   );
+ 
+diff --git a/src/tools/presets.js b/src/tools/presets.js
+index f267612..db5ae86 100644
+--- a/src/tools/presets.js
++++ b/src/tools/presets.js
+@@ -4,8 +4,10 @@
+  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
+ 
+ const { z } = require('zod');
++const { UI, uiResult, appsEnabled } = require('../apps');
+ 
+-function registerPresetTools(server, client) {
++function registerPresetTools(server, client, options = {}) {
++  const ui = () => appsEnabled(server, options);
+   // ─── list_presets ──────────────────────────────────────────
+   server.tool(
+     'list_presets',
+@@ -19,16 +21,33 @@ function registerPresetTools(server, client) {
+       const qs = params.toString();
+       const result = await client.get(`/v1/presets${qs ? '?' + qs : ''}`);
+ 
+-      return {
+-        content: [{
+-          type: 'text',
+-          text: JSON.stringify({
+-            presets: result.presets || [],
+-            count: result.count || 0,
+-            ...(result.warning ? { warning: result.warning } : {})
+-          }, null, 2)
+-        }]
+-      };
++      const presets = result.presets || [];
++      const text = JSON.stringify({
++        presets,
++        count: result.count || 0,
++        ...(result.warning ? { warning: result.warning } : {})
++      }, null, 2);
++
++      if (ui()) {
++        return uiResult(UI.mediaGrid, text, {
++          widget: 'media-grid',
++          title: 'Presets' + (type ? ' — ' + type : ''),
++          items: presets.slice(0, 24).map(p => ({
++            id: p.id,
++            title: p.name,
++            subtitle: p.category,
++            thumbnail: p.thumbnail,
++            media_type: p.audio_preview_url ? 'audio' : 'image',
++            preview_audio: p.audio_preview_url,
++            url: p.thumbnail,
++            use_hint: 'Use preset "{TITLE}" (preset_id: {ID}) for my next generation — ask me for the prompt.'
++          })),
++          total: result.count || presets.length,
++          has_more: presets.length > 24
++        });
++      }
++
++      return { content: [{ type: 'text', text }] };
+     }
+   );
+ }
+diff --git a/src/tools/shorts_creator.js b/src/tools/shorts_creator.js
+new file mode 100644
+index 0000000..91d93da
+--- /dev/null
++++ b/src/tools/shorts_creator.js
+@@ -0,0 +1,404 @@
++/* ⛔ BACKWARD COMPATIBILITY: Tool names and arg names below are a PUBLIC
++ * CONTRACT. Never rename, remove, or break an existing tool/arg — old cached
++ * `npx @kolbo/mcp` installs in the wild will break silently. Add new tools or
++ * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
++
++const { z } = require('zod');
++const { projectIdField, uiGenerating, appsEnabled } = require('./_shared');
++const { UI, uiResult } = require('../apps');
++
++/* ────────────────────────────────────────────────────────────────────────────
++ * Shorts Creator — two-phase job flow (NOT the generic generation state
++ * machine, so it doesn't use ../polling.js):
++ *
++ *   1. shorts_analyze  → POST /v1/generate/shorts/analyze (flat 15 credits)
++ *      job.phase: ANALYZING → AWAITING_SELECTION (moments ready to pick)
++ *   2. shorts_render   → POST /v1/generate/shorts/:jobId/render
++ *      job.phase: RENDERING → COMPLETED | PARTIALLY_COMPLETED | FAILED | CANCELLED
++ *
++ * All routes return { status: true, data: <job or payload> }.
++ * ──────────────────────────────────────────────────────────────────────────*/
++
++const TERMINAL_PHASES = new Set(['COMPLETED', 'PARTIALLY_COMPLETED', 'FAILED', 'CANCELLED']);
++
++// Same transient-tolerance philosophy as ../polling.js: a kolbo-api restart or
++// network blip mid-poll must not abandon a job that's still rendering.
++const TRANSIENT_STATUS_CODES = new Set([0, 408, 425, 429, 500, 502, 503, 504, 522, 524]);
++function isTransientPollError(err) {
++  if (!err) return false;
++  if (err.name === 'TypeError') return true;
++  if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT' || err.code === 'EPIPE') return true;
++  const status = err.status ?? err.options?.status;
++  if (typeof status === 'number' && TRANSIENT_STATUS_CODES.has(status)) return true;
++  return false;
++}
++
++class ShortsPollingTimeoutError extends Error {
++  constructor(jobId, timeoutMs, phase) {
++    const seconds = Math.round(timeoutMs / 1000);
++    super(
++      `Shorts job timed out after ${seconds}s of polling (last phase: ${phase || 'unknown'}). ` +
++      `The job may STILL be running on the server — call shorts_status with job_id="${jobId}" to check. ` +
++      `Analysis usually takes 1-3 min; rendering can take 5-20 min.`
++    );
++    this.name = 'ShortsPollingTimeoutError';
++    this.jobId = jobId;
++    this.timedOut = true;
++  }
++}
++
++/**
++ * Poll GET /v1/generate/shorts/:jobId/status until `until(job)` is true or
++ * a terminal phase is reached. Returns the raw job object.
++ */
++async function pollShortsJob(client, jobId, { until, interval = 10000, timeout = 300000 } = {}) {
++  const startTime = Date.now();
++  let transientFailures = 0;
++  let lastPhase = null;
++
++  while (true) {
++    if (Date.now() - startTime > timeout) {
++      throw new ShortsPollingTimeoutError(jobId, timeout, lastPhase);
++    }
++
++    let job;
++    try {
++      const result = await client.get(`/v1/generate/shorts/${encodeURIComponent(jobId)}/status`);
++      job = result.data || result;
++      transientFailures = 0;
++    } catch (err) {
++      if (isTransientPollError(err)) {
++        transientFailures++;
++        if (transientFailures > 30) throw err;
++        const backoff = Math.min(interval * Math.pow(1.5, Math.min(transientFailures - 1, 5)), 30000);
++        await new Promise((resolve) => setTimeout(resolve, backoff));
++        continue;
++      }
++      throw err;
++    }
++
++    lastPhase = job.phase;
++    if (until(job) || TERMINAL_PHASES.has(job.phase)) return job;
++
++    await new Promise((resolve) => setTimeout(resolve, interval));
++  }
++}
++
++// Compact summary of a job's rendered shorts (drop internal noise).
++function summarizeShorts(shorts) {
++  return (shorts || []).map((s) => ({
++    moment_index: s.momentIndex,
++    status: s.status,
++    mode: s.mode,
++    preset: s.presetIdentifier,
++    final_url: s.finalUrl || null,
++    duration: s.duration ?? null,
++    error: s.error_message || null
++  }));
++}
++
++function summarizeMoments(moments) {
++  return (moments || []).map((m, i) => ({
++    moment_index: i,
++    start: m.start,
++    end: m.end,
++    title: m.title,
++    hook: m.hook,
++    score: m.score,
++    accent_beats: (m.accentBeats || []).map((b) => ({ start: b.start, end: b.end, reason: b.reason }))
++  }));
++}
++
++// Shared zod schema for the shorts selection array used by both
++// shorts_estimate and shorts_render. Snake_case args (MCP house style) are
++// mapped to the backend's camelCase in buildSelectionBody().
++const shortsSelectionField = z.array(z.object({
++  moment_index: z.number().int().min(0).describe('Index of the moment in the analysis.moments array returned by shorts_analyze / shorts_status.'),
++  mode: z.enum(['accents', 'full']).optional().describe('"accents" = restyle only the strongest beats of the moment (cheaper, 1-3 restyled chunks). "full" = restyle the entire clip (pricier, one chunk per ~10s). Omit to use the preset\'s default_mode.'),
++  preset_identifier: z.string().describe('Style preset identifier from shorts_list_presets (each preset has a name, description, and preview video).'),
++  subtitles_enabled: z.boolean().optional().describe('Burn subtitles into the short. The restyle itself NEVER adds text — subtitles come only from this step. Default: false.'),
++  subtitles_preset: z.string().optional().describe('VEED subtitle style preset name (default "glass"). Only used when subtitles_enabled is true.'),
++  start: z.number().optional().describe('Optional override of the moment\'s start time in seconds (trim/extend the suggested window). Final short must be 15-90s.'),
++  end: z.number().optional().describe('Optional override of the moment\'s end time in seconds. Final short must be 15-90s.'),
++  delete_ranges: z.array(z.object({
++    start: z.number().describe('Range start in ABSOLUTE source-video seconds.'),
++    end: z.number().describe('Range end in ABSOLUTE source-video seconds.')
++  })).optional().describe('Optional ranges to CUT from the short (dead air, filler, tangents). Times are absolute source seconds (same timeline as the moment\'s start/end). The server enforces at least 8s of remaining footage after cuts. Cuts shorten the effective duration, so shorts_estimate reflects a cheaper chunk count.'),
++  srt_content: z.string().optional().describe('Optional user-edited SRT subtitle content (max 200KB). Timestamps must be in the CUT timeline (after delete_ranges are applied), starting at 0. Build it from shorts_get_transcript word timings. Providing this implies burned-in subtitles unless subtitles_enabled is explicitly false.')
++})).min(1).max(5).describe('Up to 5 shorts to price/render, each picking one analyzed moment + a style preset.');
++
++function buildSelectionBody(shorts) {
++  return {
++    shorts: shorts.map((s) => {
++      const out = { momentIndex: s.moment_index, presetIdentifier: s.preset_identifier };
++      if (s.mode) out.mode = s.mode;
++      if (s.subtitles_enabled != null || s.subtitles_preset || s.srt_content) {
++        out.subtitles = {
++          // srt_content implies subtitles unless subtitles_enabled is explicitly false
++          enabled: s.subtitles_enabled != null ? !!s.subtitles_enabled : !!s.srt_content,
++          veedPreset: s.subtitles_preset || 'glass'
++        };
++        if (s.srt_content) out.subtitles.srtContent = s.srt_content;
++      }
++      if (s.start != null) out.start = s.start;
++      if (s.end != null) out.end = s.end;
++      if (Array.isArray(s.delete_ranges) && s.delete_ranges.length) {
++        out.deleteRanges = s.delete_ranges.map((r) => ({ start: r.start, end: r.end }));
++      }
++      return out;
++    })
++  };
++}
++
++function registerShortsCreatorTools(server, client, options = {}) {
++  // MCP Apps hosts (claude.ai remote connector, Claude Desktop) get widget
++  // results; text-only hosts keep the exact blocking behavior below.
++  const ui = () => appsEnabled(server, options);
++  // ─── shorts_analyze ───────────────────────────────────────────
++  server.tool(
++    'shorts_analyze',
++    'PHASE 1 of the Shorts Creator: analyze a long video (up to 30 min) and get back the AI-picked best moments for short-form clips. Costs a flat 15 credits. The video URL MUST be a Kolbo media-library URL — upload local/external files first with upload_media. This tool submits the analysis and polls until the moments are ready (usually 1-3 min), then returns the moments list: each has start/end (seconds in the source), a title, a hook, a virality score, and accent beats. NEXT STEP: show the moments to the user, pick up to 5, choose a style preset (shorts_list_presets) + mode ("accents" = cheaper, restyles only the strongest beats; "full" = pricier, restyles everything), optionally price with shorts_estimate, then start PHASE 2 with shorts_render.',
++    {
++      video_url: z.string().describe('Kolbo media-library URL of the source video (from upload_media / list_media). External URLs are rejected — upload first. Source must be between ~30s and 30 min.'),
++      project_id: projectIdField
++    },
++    async ({ video_url, project_id }) => {
++      const submitted = await client.post('/v1/generate/shorts/analyze', { video_url, project_id });
++      const d = submitted.data || {};
++      const jobId = d.jobId;
++
++      let job;
++      try {
++        job = await pollShortsJob(client, jobId, {
++          until: (j) => j.phase === 'AWAITING_SELECTION',
++          interval: 10000,
++          timeout: 300000 // ~5 min — analysis usually takes 1-3 min
++        });
++      } catch (err) {
++        if (err.timedOut) {
++          return { content: [{ type: 'text', text: `${err.message}\n\njob_id: ${jobId}` }] };
++        }
++        throw err;
++      }
++
++      if (job.phase === 'FAILED' || job.phase === 'CANCELLED') {
++        throw new Error(`Shorts analysis ${job.phase.toLowerCase()}: ${job.error_message || 'unknown error'} (job_id="${jobId}")`);
++      }
++
++      const moments = summarizeMoments(job.analysis?.moments);
++      const text = JSON.stringify({
++        job_id: jobId,
++        phase: job.phase,
++        analysis_credits: d.analysisCredits,
++        source: d.source || job.source,
++        moments,
++        _followup_hint: 'Show these moments to the user and let them pick up to 5. Then call shorts_list_presets for styles, optionally shorts_estimate to price the selection (free), and shorts_render to produce the shorts. Each rendered short must be 15-90s.'
++      }, null, 2);
++
++      if (ui()) return uiResult(UI.mediaGrid, text, {
++        widget: 'media-grid',
++        title: 'Shorts — Best Moments',
++        items: moments.map((m) => {
++          const duration = (m.end != null && m.start != null) ? m.end - m.start : null;
++          return {
++            id: String(m.moment_index),
++            title: 'Moment ' + m.moment_index + (duration ? ' · ' + Math.round(duration) + 's' : ''),
++            subtitle: String(m.title || m.hook || '').slice(0, 80),
++            media_type: 'video',
++            use_hint: `Render short for moment {ID} of shorts job ${jobId} (shorts_render). First shorts_estimate it.`
++          };
++        }),
++        total: moments.length
++      });
++
++      return { content: [{ type: 'text', text }] };
++    }
++  );
++
++  // ─── shorts_estimate ──────────────────────────────────────────
++  server.tool(
++    'shorts_estimate',
++    'Price a Shorts Creator selection BEFORE rendering — free, no credits charged. Pass the job_id from shorts_analyze and the shorts selection (moments + presets + modes + subtitles, plus optional delete_ranges cuts / edited srt_content). delete_ranges shorten the effective duration, so the estimate gets cheaper. Returns total credits and a per-short breakdown with chunk counts. Pricing: each restyled chunk is a flat 200 credits ("accents" mode = 1-3 chunks per short, "full" mode = one chunk per ~10s of clip length); burned-in subtitles add 40 credits/min (60s minimum). Call this to confirm cost with the user before shorts_render.',
++    {
++      job_id: z.string().describe('The Shorts job id from shorts_analyze.'),
++      shorts: shortsSelectionField
++    },
++    async ({ job_id, shorts }) => {
++      const result = await client.post(`/v1/generate/shorts/${encodeURIComponent(job_id)}/estimate`, buildSelectionBody(shorts));
++      const d = result.data || {};
++      return {
++        content: [{
++          type: 'text',
++          text: JSON.stringify({
++            job_id,
++            total_credits: d.totalCredits,
++            per_short: (d.perShort || []).map((p) => ({ moment_index: p.momentIndex, credits: p.credits, chunk_count: p.chunkCount })),
++            _followup_hint: 'If the user approves the cost, call shorts_render with the SAME shorts selection.'
++          }, null, 2)
++        }]
++      };
++    }
++  );
++
++  // ─── shorts_render ────────────────────────────────────────────
++  server.tool(
++    'shorts_render',
++    'PHASE 2 of the Shorts Creator: render the selected shorts (max 5, each 15-90s). Credits are reserved up-front (price with shorts_estimate first); any short that fails is auto-refunded. Each short takes one analyzed moment and applies a style preset in "accents" mode (restyle only the strongest beats, cheaper) or "full" mode (restyle everything, pricier), plus optional burned-in subtitles (VEED preset, default "glass" — the restyle itself NEVER adds text). Per short you can also pass delete_ranges (cut dead air / filler, absolute source seconds, ≥8s must remain) and srt_content (user-edited SRT, cut-timeline timestamps — build it with shorts_get_transcript). This tool submits the render and polls until done (can take 5-20 min), then returns each short\'s final video URL. On PARTIALLY_COMPLETED it returns both the successes (with URLs) and the failures (with errors, refunded).',
++    {
++      job_id: z.string().describe('The Shorts job id from shorts_analyze (must be in AWAITING_SELECTION phase).'),
++      shorts: shortsSelectionField
++    },
++    async ({ job_id, shorts }) => {
++      await client.post(`/v1/generate/shorts/${encodeURIComponent(job_id)}/render`, buildSelectionBody(shorts));
++
++      // UI hosts: return immediately — the generation widget polls shorts_status
++      // itself (shorts_status adds widget-friendly state/result fields when
++      // the job reaches a terminal phase).
++      if (ui()) return uiGenerating({
++        tool: 'generate_video', kind: 'video',
++        gen: { generation_id: job_id }, client,
++        model: 'Shorts Creator',
++        prompt: 'Rendering ' + shorts.length + ' short(s)',
++        count: Math.min(shorts.length, 4),
++        settings: { mode: 'shorts' },
++        poll_tool: 'shorts_status',
++        status_args: { job_id },
++      });
++
++      let job;
++      try {
++        job = await pollShortsJob(client, job_id, {
++          until: (j) => TERMINAL_PHASES.has(j.phase),
++          interval: 12000,
++          timeout: 1500000 // 25 min — rendering can take 5-20 min
++        });
++      } catch (err) {
++        if (err.timedOut) {
++          return { content: [{ type: 'text', text: `${err.message}\n\njob_id: ${job_id}` }] };
++        }
++        throw err;
++      }
++
++      if (job.phase === 'FAILED') {
++        throw new Error(`Shorts render failed: ${job.error_message || 'all shorts failed'} (job_id="${job_id}"). Reserved credits for failed shorts are auto-refunded.`);
++      }
++      if (job.phase === 'CANCELLED') {
++        throw new Error(`Shorts job was cancelled (job_id="${job_id}"). Unused credits were refunded.`);
++      }
++
++      const all = summarizeShorts(job.shorts);
++      const succeeded = all.filter((s) => s.final_url);
++      const failed = all.filter((s) => !s.final_url);
++      return {
++        content: [{
++          type: 'text',
++          text: JSON.stringify({
++            job_id,
++            phase: job.phase,
++            shorts: succeeded,
++            ...(failed.length ? { failed_shorts: failed, _note: 'Credits for failed shorts are automatically refunded.' } : {}),
++            _followup_hint: 'Each final_url is a finished vertical short. To restyle differently, render again from the same job with a different preset/mode.'
++          }, null, 2)
++        }]
++      };
++    }
++  );
++
++  // ─── shorts_status ────────────────────────────────────────────
++  server.tool(
++    'shorts_status',
++    'Get the current state of a Shorts Creator job in one read (no polling). Use after a shorts_analyze / shorts_render timeout, or to resume a job later. Phases: ANALYZING → AWAITING_SELECTION (moments ready — pick and render) → RENDERING → COMPLETED / PARTIALLY_COMPLETED / FAILED / CANCELLED. Returns the moments list when awaiting selection and the shorts (with final URLs) when rendering/done.',
++    {
++      job_id: z.string().describe('The Shorts job id.')
++    },
++    async ({ job_id }) => {
++      const result = await client.get(`/v1/generate/shorts/${encodeURIComponent(job_id)}/status`);
++      const job = result.data || {};
++      const out = { job_id, phase: job.phase };
++      if (job.source) out.source = job.source;
++      if (job.analysis?.moments?.length) out.moments = summarizeMoments(job.analysis.moments);
++      if (job.shorts?.length) out.shorts = summarizeShorts(job.shorts);
++      if (job.error_message) out.error = job.error_message;
++
++      // ADDITIVE widget-compat fields (MCP Apps generation widget polls this
++      // tool and expects lowercase state + result.urls — see
++      // src/apps/widgets/generation.js poll()). Existing fields untouched.
++      if (job.phase === 'COMPLETED' || job.phase === 'PARTIALLY_COMPLETED') {
++        const urls = (out.shorts || []).map((s) => s.final_url).filter(Boolean);
++        if (urls.length) {
++          out.state = 'completed';
++          out.result = { urls };
++        } else {
++          out.state = 'failed';
++        }
++      } else if (job.phase === 'FAILED') {
++        out.state = 'failed';
++      } else if (job.phase === 'CANCELLED') {
++        out.state = 'cancelled';
++      }
++
++      return { content: [{ type: 'text', text: JSON.stringify(out, null, 2) }] };
++    }
++  );
++
++  // ─── shorts_get_transcript ────────────────────────────────────
++  server.tool(
++    'shorts_get_transcript',
++    'Get the word-level transcript of a Shorts Creator job\'s source video (from the analysis-phase Scribe transcription — free, no extra credits). Returns { words, language, sourceDuration } where each word has its text and start/end times in ABSOLUTE source seconds. Use this for the Review & Edit workflow: map words to the picked moment\'s window, decide delete_ranges (filler/dead air to cut, absolute source seconds), and build an edited SRT (srt_content, timestamps in the CUT timeline) to pass in the shorts_estimate / shorts_render selection.',
++    {
++      job_id: z.string().describe('The Shorts job id from shorts_analyze (analysis must be complete).')
++    },
++    async ({ job_id }) => {
++      const result = await client.get(`/v1/generate/shorts/${encodeURIComponent(job_id)}/transcript`);
++      const d = result.data || {};
++      return {
++        content: [{
++          type: 'text',
++          text: JSON.stringify({
++            job_id,
++            language: d.language || null,
++            source_duration: d.sourceDuration ?? null,
++            words: d.words || [],
++            _followup_hint: 'Word times are absolute source seconds. To edit a short: pick delete_ranges (absolute source seconds, ≥8s must remain) and/or build an edited SRT whose timestamps are in the cut timeline (after deletions), then pass delete_ranges / srt_content per short to shorts_estimate and shorts_render.'
++          }, null, 2)
++        }]
++      };
++    }
++  );
++
++  // ─── shorts_list_presets ──────────────────────────────────────
++  server.tool(
++    'shorts_list_presets',
++    'List the Shorts Creator style presets — each restyles the picked moment into a distinct visual style (identifier, name, description, thumbnail, preview video, default mode, default subtitle preset, category). Call before shorts_estimate / shorts_render so the user can pick a style; pass the `identifier` as preset_identifier.',
++    {},
++    async () => {
++      const result = await client.get('/v1/generate/shorts/presets');
++      const presets = (result.data || []).map((p) => ({
++        identifier: p.identifier,
++        name: p.name,
++        description: p.description,
++        category: p.category,
++        default_mode: p.default_mode,
++        default_subtitle_preset: p.default_veed_preset,
++        thumbnail_url: p.thumbnail_url,
++        preview_video_url: p.preview_video_url
++      }));
++      return { content: [{ type: 'text', text: JSON.stringify({ count: presets.length, presets }, null, 2) }] };
++    }
++  );
++
++  // ─── shorts_cancel ────────────────────────────────────────────
++  server.tool(
++    'shorts_cancel',
++    'Cancel a running Shorts Creator job (analysis or render) and refund all unused reserved credits. Use when the user changes their mind or a job is stuck.',
++    {
++      job_id: z.string().describe('The Shorts job id to cancel.')
++    },
++    async ({ job_id }) => {
++      const result = await client.post(`/v1/generate/shorts/${encodeURIComponent(job_id)}/cancel`, {});
++      return { content: [{ type: 'text', text: JSON.stringify({ job_id, cancelled: true, ...(result.data && typeof result.data === 'object' ? result.data : {}) }, null, 2) }] };
++    }
++  );
++}
++
++module.exports = { registerShortsCreatorTools };
+diff --git a/src/tools/stock_library.js b/src/tools/stock_library.js
+index c9c3318..f318912 100644
+--- a/src/tools/stock_library.js
++++ b/src/tools/stock_library.js
+@@ -2,6 +2,7 @@
+  * CONTRACT. Never rename, remove, or break an existing tool/arg. Full rules: ../index.js top-of-file. */
+ 
+ const { z } = require('zod');
++const { UI, uiResult, appsEnabled } = require('../apps');
+ 
+ // Compact one-line render of a normalized stock asset.
+ function assetLine(a) {
+@@ -21,7 +22,16 @@ function buildQuery(obj) {
+   return p.toString();
+ }
+ 
+-function registerStockLibraryTools(server, client) {
++// Map provider mediaType values onto the widget's 4-value contract.
++function widgetMediaType(mediaType) {
++  if (mediaType === 'music' || mediaType === 'sfx' || mediaType === 'audio') return 'audio';
++  if (mediaType === 'video') return 'video';
++  if (mediaType === '3d') return '3d';
++  return 'image'; // image / photo / illustration / vector
++}
++
++function registerStockLibraryTools(server, client, options = {}) {
++  const ui = () => appsEnabled(server, options);
+   // ─── search_stock_media ───────────────────────────────────────
+   server.tool(
+     'search_stock_media',
+@@ -47,7 +57,32 @@ function registerStockLibraryTools(server, client) {
+       const assets = result.assets || [];
+       if (!assets.length) return { content: [{ type: 'text', text: 'No assets found. Try a broader query, a different source/mediaType, or call get_stock_sources.' }] };
+       const head = `Found ${assets.length} asset${assets.length === 1 ? '' : 's'}${result.total ? ` (≈${result.total} total)` : ''}${result.hasMore ? ' — more available (increment page)' : ''}:`;
+-      return { content: [{ type: 'text', text: `${head}\n\n${assets.map(assetLine).join('\n\n')}\n\nUse [source:sourceId] with get_stock_asset for full variants, or import_stock_asset to copy it into the media library.` }] };
++      const text = `${head}\n\n${assets.map(assetLine).join('\n\n')}\n\nUse [source:sourceId] with get_stock_asset for full variants, or import_stock_asset to copy it into the media library.`;
++
++      if (ui()) {
++        const items = assets.slice(0, 24).map((a) => {
++          const mt = widgetMediaType(a.mediaType);
++          return {
++            id: a.source + ':' + a.sourceId,
++            title: a.title,
++            subtitle: (a.author?.name ? a.author.name + ' · ' : '') + a.source,
++            thumbnail: a.thumbnailUrl,
++            media_type: mt,
++            url: (a.downloadVariants?.[0]?.url) || a.thumbnailUrl,
++            preview_audio: mt === 'audio' ? (a.previewUrl || a.downloadVariants?.[0]?.url) : undefined,
++            use_hint: 'Import this stock asset into my media library: import_stock_asset source="' + a.source + '" id="' + a.sourceId + '" ("{TITLE}")'
++          };
++        });
++        return uiResult(UI.mediaGrid, text, {
++          widget: 'media-grid',
++          title: 'Stock — "' + (args.query || 'browse') + '"',
++          items,
++          total: result.total != null ? result.total : assets.length,
++          has_more: !!result.hasMore
++        });
++      }
++
++      return { content: [{ type: 'text', text }] };
+     }
+   );
+ 
+@@ -88,7 +123,29 @@ function registerStockLibraryTools(server, client) {
+     async (args) => {
+       const q = buildQuery(args);
+       const result = await client.get(`/v1/stock/collections${q ? '?' + q : ''}`);
+-      return { content: [{ type: 'text', text: JSON.stringify({ count: result.count, collections: result.collections }, null, 2) }] };
++      const text = JSON.stringify({ count: result.count, collections: result.collections }, null, 2);
++
++      if (ui()) {
++        const collections = result.collections || [];
++        const items = collections.slice(0, 24).map((c) => ({
++          id: c.id,
++          title: c.title,
++          subtitle: [c.kind, c.mediaType].filter(Boolean).join(' · '),
++          thumbnail: c.coverUrl || null,
++          media_type: 'image',
++          url: c.coverUrl || null,
++          use_hint: 'Browse this stock collection: search_stock_media source="kolbo-ai" '
++            + (c.kind === 'pack' ? 'packId' : 'collectionId') + '="{ID}" ("{TITLE}")'
++        }));
++        return uiResult(UI.mediaGrid, text, {
++          widget: 'media-grid',
++          title: 'Stock Collections',
++          items,
++          total: result.count != null ? result.count : collections.length
++        });
++      }
++
++      return { content: [{ type: 'text', text }] };
+     }
+   );
+ 
+diff --git a/src/tools/visual_dna.js b/src/tools/visual_dna.js
+index 59c482c..5b54398 100644
+--- a/src/tools/visual_dna.js
++++ b/src/tools/visual_dna.js
+@@ -6,6 +6,7 @@
+ const { z } = require('zod');
+ const FormData = require('form-data');
+ const { resolveToBuffer: sharedResolveToBuffer, VISUAL_DNA_MAX_BYTES } = require('./_shared');
++const { UI, uiResult, appsEnabled } = require('../apps');
+ 
+ // Visual DNA caps reference media at 25MB per file (stricter than the
+ // default _shared.resolveToBuffer cap — DNA profiles only need enough
+@@ -14,7 +15,8 @@ function resolveToBuffer(source, kind) {
+   return sharedResolveToBuffer(source, kind, { maxBytes: VISUAL_DNA_MAX_BYTES });
+ }
+ 
+-function registerVisualDnaTools(server, client) {
++function registerVisualDnaTools(server, client, options = {}) {
++  const ui = () => appsEnabled(server, options);
+   // ─── create_visual_dna ─────────────────────────────────────
+   server.tool(
+     'create_visual_dna',
+@@ -91,15 +93,30 @@ function registerVisualDnaTools(server, client) {
+       if (tags) params.set('tags', tags);
+       const qs = params.toString();
+       const result = await client.get(`/v1/visual-dna${qs ? '?' + qs : ''}`);
+-      return {
+-        content: [{
+-          type: 'text',
+-          text: JSON.stringify({
+-            visual_dnas: result.visual_dnas || [],
+-            count: result.count || 0
+-          }, null, 2)
+-        }]
+-      };
++      const dnas = result.visual_dnas || [];
++      const text = JSON.stringify({
++        visual_dnas: dnas,
++        count: result.count || 0
++      }, null, 2);
++
++      if (ui()) {
++        return uiResult(UI.mediaGrid, text, {
++          widget: 'media-grid',
++          title: 'Visual DNA Profiles',
++          items: dnas.slice(0, 24).map(d => ({
++            id: d.id,
++            title: d.name,
++            subtitle: (d.dna_type || '') + (Array.isArray(d.tags) && d.tags.length ? ' · ' + d.tags.slice(0, 3).join(', ') : ''),
++            thumbnail: d.thumbnail,
++            media_type: 'image',
++            use_hint: 'Use Visual DNA "{TITLE}" (id: {ID}) in my next generation for character/style consistency.'
++          })),
++          total: result.count || dnas.length,
++          has_more: dnas.length > 24
++        });
++      }
++
++      return { content: [{ type: 'text', text }] };
+     }
+   );
+ 
+diff --git a/src/tools/voices.js b/src/tools/voices.js
+index dad37b2..f0e1d3e 100644
+--- a/src/tools/voices.js
++++ b/src/tools/voices.js
+@@ -2,8 +2,10 @@
+  * CONTRACT. Never rename, remove, or break an existing tool/arg. Full rules: ../index.js top-of-file. */
+ 
+ const { z } = require('zod');
++const { UI, uiResult, appsEnabled } = require('../apps');
+ 
+-function registerVoiceTools(server, client) {
++function registerVoiceTools(server, client, options = {}) {
++  const ui = () => appsEnabled(server, options);
+   // ─── list_voices ──────────────────────────────────────────────
+   server.tool(
+     'list_voices',
+@@ -36,12 +38,26 @@ function registerVoiceTools(server, client) {
+         return `${v.voice_id} — ${v.name} (${v.provider})${v3}\n   ${tags}${styles}${v.description ? `\n   ${v.description}` : ''}`;
+       });
+ 
+-      return {
+-        content: [{
+-          type: 'text',
+-          text: `Available voices (${voices.length}):\n\n${lines.join('\n\n')}\n\nUse the "voice_id" value in generate_speech calls.`
+-        }]
+-      };
++      const text = `Available voices (${voices.length}):\n\n${lines.join('\n\n')}\n\nUse the "voice_id" value in generate_speech calls.`;
++
++      if (ui()) {
++        return uiResult(UI.mediaGrid, text, {
++          widget: 'media-grid',
++          title: 'Voices',
++          items: voices.slice(0, 24).map(v => ({
++            id: v.voice_id,
++            title: v.name,
++            subtitle: [v.provider, v.language, v.gender, v.accent].filter(Boolean).join(' · '),
++            media_type: 'audio',
++            preview_audio: v.preview_url,
++            use_hint: 'Use voice "{TITLE}" (voice_id: {ID}) for text-to-speech — ask me what text to speak.'
++          })),
++          total: voices.length,
++          has_more: voices.length > 24
++        });
++      }
++
++      return { content: [{ type: 'text', text }] };
+     }
+   );
+ }

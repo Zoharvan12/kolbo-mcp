@@ -106,8 +106,12 @@ const BRIDGE_JS = `
     clearTimeout(sizeTimer);
     sizeTimer = setTimeout(notifySize, delay || 120);
   }
+  // With ResizeObserver present, attribute churn (class/style toggles) that
+  // actually changes layout is caught by RO on the card — observing attributes
+  // here would just re-fire on EVERY class/style write. Only watch attributes
+  // as a fallback when RO is unavailable.
   new MutationObserver(function () { queueSize(120); })
-    .observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+    .observe(document.documentElement, { childList: true, subtree: true, attributes: !window.ResizeObserver });
   // DOM mutations don't fire when an <img>/<video> finishes loading and reflows
   // the card — without this the host keeps the pre-image height and the card
   // gets an inner scrollbar. ResizeObserver catches every layout change.
