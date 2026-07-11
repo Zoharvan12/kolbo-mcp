@@ -6,13 +6,18 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone } = require('../polling');
-const { resolveToBuffer, creditFields, projectIdField, inlineImageBlocks } = require('./_shared');
+const { resolveToBuffer, creditFields, projectIdField, inlineImageBlocks, uiGenerating, uiCompleted, appsEnabled } = require('./_shared');
+const { UI, uiResult } = require('../apps');
 
 function registerGenerateTools(server, client, options = {}) {
   // Only enabled by hosts that explicitly opt in (the remote HTTP connector).
   // stdio hosts (Kolbo Code, Claude Desktop, Cursor) leave this false, so their
   // tool output is unchanged: a text block with the image URL.
   const inlineImages = !!options.inlineImages;
+  // MCP Apps hosts (claude.ai remote connector, Claude Desktop) get an instant
+  // "submitted" response + a live ui://kolbo/generation.html widget that polls
+  // get_generation_status itself. Text-only hosts never take this branch.
+  const ui = () => appsEnabled(server, options);
   // ─── generate_image ────────────────────────────────────────
   server.tool(
     'generate_image',
@@ -35,6 +40,12 @@ function registerGenerateTools(server, client, options = {}) {
       const gen = await client.post('/v1/generate/image', {
         prompt, model, aspect_ratio, enhance_prompt, num_images,
         reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, project_id
+      });
+
+      if (ui()) return uiGenerating({
+        tool: 'generate_image', kind: 'image', gen, client, model, prompt,
+        count: num_images, settings: { resolution, aspect_ratio },
+        reference_image: reference_images?.[0], estimated_seconds: 25
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -79,6 +90,12 @@ function registerGenerateTools(server, client, options = {}) {
       const gen = await client.post('/v1/generate/image-edit', {
         prompt, model, source_images, aspect_ratio, enhance_prompt, num_images,
         visual_dna_ids, moodboard_id, enable_web_search, resolution, project_id
+      });
+
+      if (ui()) return uiGenerating({
+        tool: 'generate_image_edit', kind: 'image', gen, client, model, prompt,
+        count: num_images, settings: { resolution, aspect_ratio },
+        reference_image: source_images?.[0], estimated_seconds: 40
       });
 
       // Multi-source compositing or DNA-anchored edits routinely exceed 120s
@@ -146,18 +163,24 @@ function registerGenerateTools(server, client, options = {}) {
           video_urls: s.video_urls
         }));
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            scenes,
-            total_scenes: result.scenes?.length || 0,
-            completed_scenes: scenes.length,
-            _followup_hint: 'Each scene is a separate asset. If the user asks to edit one scene, find that scene by scene_number/title and pass its image_urls[0] (or video_urls[0]) to generate_image_edit / edit_image / edit_video / generate_video_from_video. Do NOT re-run generate_creative_director unless the user explicitly wants a brand-new set.'
-          }, null, 2)
-        }]
-      };
+      const cdText = JSON.stringify({
+        ...creditFields(result),
+        scenes,
+        total_scenes: result.scenes?.length || 0,
+        completed_scenes: scenes.length,
+        _followup_hint: 'Each scene is a separate asset. If the user asks to edit one scene, find that scene by scene_number/title and pass its image_urls[0] (or video_urls[0]) to generate_image_edit / edit_image / edit_video / generate_video_from_video. Do NOT re-run generate_creative_director unless the user explicitly wants a brand-new set.'
+      }, null, 2);
+
+      // Creative Director polls a dedicated status route the widget can't reach
+      // through get_generation_status, so it stays blocking on UI hosts too and
+      // renders the completed scene gallery.
+      if (ui()) return uiCompleted({
+        tool: 'generate_creative_director', kind: 'scenes', client, model, prompt,
+        settings: { duration, resolution, mode: workflow_type }, scenes,
+        credits_used: creditFields(result).credits_used
+      }, cdText);
+
+      return { content: [{ type: 'text', text: cdText }] };
     }
   );
 
@@ -183,6 +206,12 @@ function registerGenerateTools(server, client, options = {}) {
     async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, project_id }) => {
       const gen = await client.post('/v1/generate/video', {
         prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, project_id
+      });
+
+      if (ui()) return uiGenerating({
+        tool: 'generate_video', kind: 'video', gen, client, model, prompt,
+        settings: { duration, resolution, aspect_ratio },
+        reference_image: reference_images?.[0], estimated_seconds: 120
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -227,6 +256,12 @@ function registerGenerateTools(server, client, options = {}) {
         image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, project_id
       });
 
+      if (ui()) return uiGenerating({
+        tool: 'generate_video_from_image', kind: 'video', gen, client, model, prompt,
+        settings: { duration, resolution, aspect_ratio },
+        reference_image: image_url, estimated_seconds: 120
+      });
+
       const result = await pollUntilDone(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 8) * 1000,
         timeout: 300000
@@ -268,6 +303,12 @@ function registerGenerateTools(server, client, options = {}) {
         prompt, model, style, instrumental, lyrics, vocal_gender, enhance_prompt, preset_id, project_id
       });
 
+      if (ui()) return uiGenerating({
+        tool: 'generate_music', kind: 'audio', gen, client, model: model || 'Suno', prompt,
+        settings: { mode: instrumental ? 'instrumental' : (style || undefined) },
+        estimated_seconds: 90
+      });
+
       const result = await pollUntilDone(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 8) * 1000,
         timeout: 300000
@@ -304,6 +345,11 @@ function registerGenerateTools(server, client, options = {}) {
         text, voice, model, language, project_id
       });
 
+      if (ui()) return uiGenerating({
+        tool: 'generate_speech', kind: 'audio', gen, client, model, prompt: text,
+        settings: { voice: voice || 'Rachel' }, estimated_seconds: 20
+      });
+
       const result = await pollUntilDone(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 5) * 1000,
         timeout: 120000
@@ -337,6 +383,11 @@ function registerGenerateTools(server, client, options = {}) {
     async ({ prompt, model, duration, prompt_influence, project_id }) => {
       const gen = await client.post('/v1/generate/sound', {
         prompt, model, duration, prompt_influence, project_id
+      });
+
+      if (ui()) return uiGenerating({
+        tool: 'generate_sound', kind: 'audio', gen, client, model, prompt,
+        settings: { duration }, estimated_seconds: 20
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -432,6 +483,12 @@ function registerGenerateTools(server, client, options = {}) {
         });
       }
 
+      if (ui()) return uiGenerating({
+        tool: 'generate_elements', kind: 'video', gen: startResponse, client, model, prompt,
+        settings: { duration, resolution, aspect_ratio },
+        reference_image: reference_images?.[0], estimated_seconds: 180
+      });
+
       const result = await pollUntilDone(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
         timeout: 600000
@@ -503,6 +560,12 @@ function registerGenerateTools(server, client, options = {}) {
           first_frame_url, last_frame_url, prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids, resolution, project_id
         });
       }
+
+      if (ui()) return uiGenerating({
+        tool: 'generate_first_last_frame', kind: 'video', gen: startResponse, client, model, prompt,
+        settings: { duration, resolution, aspect_ratio },
+        reference_image: first_frame_url || undefined, estimated_seconds: 120
+      });
 
       const result = await pollUntilDone(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
@@ -607,6 +670,13 @@ function registerGenerateTools(server, client, options = {}) {
         startResponse = await client.postMultipart('/v1/generate/lipsync', form);
       }
 
+      if (ui()) return uiGenerating({
+        tool: 'generate_lipsync', kind: 'video', gen: startResponse, client, model,
+        prompt: text_prompt, settings: { mode: 'lipsync' },
+        reference_image: sourceIsUrl && !/\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? source : undefined,
+        estimated_seconds: 180
+      });
+
       const result = await pollUntilDone(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
         timeout: 600000
@@ -699,6 +769,13 @@ function registerGenerateTools(server, client, options = {}) {
         startResponse = await client.postMultipart('/v1/generate/video-from-video', form);
       }
 
+      if (ui()) return uiGenerating({
+        tool: 'generate_video_from_video', kind: 'video', gen: startResponse, client, model,
+        prompt: prompt || (preset ? `Subtitles preset: ${preset}` : undefined),
+        settings: { duration, resolution, aspect_ratio, mode: preset ? 'subtitles' : 'restyle' },
+        reference_image: reference_images?.[0], estimated_seconds: 240
+      });
+
       const result = await pollUntilDone(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
         timeout: 600000
@@ -740,6 +817,19 @@ function registerGenerateTools(server, client, options = {}) {
         form.append('file', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });
         if (project_id) form.append('project_id', project_id);
         startResponse = await client.postMultipart('/v1/transcribe', form);
+      }
+
+      if (ui()) {
+        return uiResult(UI.transcript, JSON.stringify({
+          status: 'submitted',
+          generation_id: startResponse.generation_id,
+          _widget_note: 'A live Kolbo transcription widget is rendering above — it shows progress, the transcript text, and SRT/TXT download buttons. Tell the user it is transcribing. If you need the transcript text for a follow-up step, call get_generation_status with this generation_id once done.',
+        }, null, 2), {
+          widget: 'transcript', phase: 'generating',
+          generation_id: startResponse.generation_id,
+          poll_tool: 'get_generation_status',
+          audio_url: isUrl ? source : undefined,
+        });
       }
 
       const result = await pollUntilDone(client, startResponse.generation_id, {
@@ -797,6 +887,12 @@ function registerGenerateTools(server, client, options = {}) {
         project_id
       });
 
+      if (ui()) return uiGenerating({
+        tool: 'generate_3d', kind: '3d', gen: startResponse, client, model, prompt,
+        settings: { mode: mode || (reference_images?.length > 1 ? 'multi' : reference_images?.length === 1 ? 'single' : 'text') },
+        reference_image: reference_images?.[0], estimated_seconds: 300
+      });
+
       const result = await pollUntilDone(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
         timeout: 900000 // 15 minutes — 3D generation is slow
@@ -838,6 +934,13 @@ function registerGenerateTools(server, client, options = {}) {
 
       const gen = await client.post('/v1/edit/image', {
         image_url, operation, model, scale, aspect_ratio, skin_strength, prompt, project_id
+      });
+
+      if (ui()) return uiGenerating({
+        tool: 'edit_image', kind: 'image', gen, client, model,
+        prompt: prompt || operation,
+        settings: { mode: operation, aspect_ratio },
+        reference_image: image_url, estimated_seconds: 40
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -888,6 +991,13 @@ function registerGenerateTools(server, client, options = {}) {
       const gen = await client.post('/v1/edit/video', {
         video_url, operation, model, aspect_ratio, scale, prompt,
         image_url, audio_url, duration, mode, project_id
+      });
+
+      if (ui()) return uiGenerating({
+        tool: 'edit_video', kind: 'video', gen, client, model,
+        prompt: prompt || operation,
+        settings: { mode: operation, duration, aspect_ratio },
+        reference_image: image_url, estimated_seconds: 180
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {

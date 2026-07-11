@@ -4,6 +4,8 @@ Use [Kolbo AI](https://kolbo.ai) as native tools in Claude Code and Claude Deskt
 
 Generate images, videos, music, speech, sound effects, multi-scene campaigns, and conversational chat — all from natural language in your coding environment. 100+ AI models behind Smart Select routing, with reusable Visual DNA profiles for character/style consistency.
 
+**✨ Interactive widgets (v1.30+):** in claude.ai and Claude Desktop, generations render as live Kolbo cards — real-time progress with model + settings chips, an inline result gallery / video player, and one-click **Animate · Edit · Recreate · Download** actions. Library and model searches render as browsable grids with audio preview. Text-only clients (Claude Code, Cursor) keep the classic text responses.
+
 ## Set up — paste one prompt, or one config block (keyless, no API key)
 
 ### Easiest: paste this prompt to your AI
@@ -111,7 +113,7 @@ Just ask your agent naturally:
 
 Without the optional skill, the config block alone already exposes every tool — you just describe what you want. With the skill installed, each of these is also routed to the right MCP tool with the right defaults — UGC mode picks 9:16 + sound-off + no-captions, marketplace mode enforces compliance (pure white bg, no text, no props), product photoshoot mode uses the right aspect for the platform (2:3 Pinterest, 16:9 hero banner, 1:1 IG feed), etc. The routing logic is shared with [Kolbo Code](https://github.com/Zoharvan12/kolbo-code), so the behavior is identical however you connect.
 
-## Available Tools (52)
+## Available Tools (86)
 
 **Generation**
 | Tool | Description |
@@ -210,6 +212,17 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `get_stock_asset` | Get one asset with all download variants, author, license, and attribution. |
 | `analyze_script_for_stock` | AI: turn a script into b-roll search terms (`queries[]`, `mediaType`, `keywords`). |
 | `import_stock_asset` | Copy a stock asset into the media library (CDN copy, stable URL). Free. |
+
+**Shorts Creator** (long video → viral vertical shorts, two-phase)
+| Tool | Description |
+|------|-------------|
+| `shorts_analyze` | Phase 1: analyze a long video (Kolbo media-library URL, ≤30 min) → AI-picked best moments with titles, hooks, scores, accent beats. Flat 15 credits. Polls until moments are ready (~1-3 min). |
+| `shorts_list_presets` | List restyle presets (identifier, name, preview video, default mode/subtitle style). |
+| `shorts_get_transcript` | Word-level Scribe transcript of the source video (`words`, `language`, `sourceDuration`) — the base for the Review & Edit workflow (build `delete_ranges` cuts + edited `srt_content`). |
+| `shorts_estimate` | Price a selection before rendering — free. Per-short credits + chunk counts. `delete_ranges` cuts shorten the effective duration (cheaper). |
+| `shorts_render` | Phase 2: render up to 5 shorts (15-90s each) from picked moments — `accents` mode (restyle strongest beats, cheaper) or `full` (restyle everything), optional burned-in subtitles. Per short: optional `delete_ranges` (cut dead air, absolute source seconds, ≥8s must remain) and `srt_content` (user-edited SRT, cut-timeline times, ≤200KB). Polls until done (~5-20 min), returns final URLs. Failed shorts auto-refund. |
+| `shorts_status` | One-shot job state read (moments / shorts / phase) — resume after a timeout. |
+| `shorts_cancel` | Cancel a job and refund unused credits. |
 
 **Discovery & Account**
 | Tool | Description |

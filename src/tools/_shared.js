@@ -291,6 +291,78 @@ async function inlineImageBlocks(urls, opts = {}) {
   return blocks.filter(Boolean);
 }
 
+// ─── MCP Apps generation widget helpers ──────────────────────────────────────
+// When the host renders MCP Apps (claude.ai via the remote connector, Claude
+// Desktop over stdio), generation tools return IMMEDIATELY after submit and the
+// ui://kolbo/generation.html widget takes over: live progress, inline result,
+// action buttons. Text-only hosts never enter this path — their blocking
+// behavior and response bytes are UNCHANGED.
+const { UI, uiResult, appsEnabled, modelIcon } = require('../apps');
+
+/**
+ * Build the "submitted — widget is live" tool result for a UI host.
+ * @param {object} p
+ *   tool           MCP tool name (e.g. 'generate_image')
+ *   kind           'image' | 'video' | 'audio' | '3d' | 'scenes'
+ *   gen            the submit response ({ generation_id, poll_interval_hint })
+ *   client         KolboClient (for model icon lookup)
+ *   model, prompt, count, settings, reference_image, estimated_seconds
+ *   poll_tool      widget-side status tool (default 'get_generation_status')
+ *   status_args    args for poll_tool (default { generation_id })
+ */
+async function uiGenerating(p) {
+  const icon = await modelIcon(p.client, p.model).catch(() => null);
+  const structured = {
+    phase: 'generating',
+    widget: 'generation',
+    kind: p.kind,
+    tool: p.tool,
+    generation_id: p.gen.generation_id,
+    poll_tool: p.poll_tool || 'get_generation_status',
+    status_args: p.status_args,
+    model: p.model || 'Smart Select',
+    model_icon: icon,
+    prompt: p.prompt,
+    count: p.count || 1,
+    settings: p.settings || {},
+    reference_image: p.reference_image,
+    estimated_seconds: p.estimated_seconds,
+  };
+  const text = JSON.stringify({
+    status: 'submitted',
+    generation_id: p.gen.generation_id,
+    _widget_note: 'A live Kolbo widget is rendering this generation for the user (progress + final result + action buttons). Tell the user it is generating and the card above will update — do NOT poll in a loop. If you later need the output URLs (e.g. for a follow-up edit), call get_generation_status once with this generation_id.',
+  }, null, 2);
+  return uiResult(UI.generation, text, structured);
+}
+
+/**
+ * Wrap an already-completed generation result with the widget (used by tools
+ * that stay blocking even on UI hosts, e.g. creative director).
+ */
+async function uiCompleted(p, textPayload) {
+  const icon = await modelIcon(p.client, p.model).catch(() => null);
+  const structured = {
+    phase: 'completed',
+    widget: 'generation',
+    kind: p.kind,
+    tool: p.tool,
+    model: p.model || 'Smart Select',
+    model_icon: icon,
+    prompt: p.prompt,
+    count: p.count || 1,
+    settings: p.settings || {},
+    reference_image: p.reference_image,
+    urls: p.urls,
+    thumbnail_url: p.thumbnail_url,
+    title: p.title,
+    duration: p.duration,
+    scenes: p.scenes,
+    credits_used: p.credits_used,
+  };
+  return uiResult(UI.generation, textPayload, structured);
+}
+
 module.exports = {
   MAX_FILE_BYTES,
   VISUAL_DNA_MAX_BYTES,
@@ -303,4 +375,7 @@ module.exports = {
   creditFields,
   projectIdField,
   inlineImageBlocks,
+  uiGenerating,
+  uiCompleted,
+  appsEnabled,
 };

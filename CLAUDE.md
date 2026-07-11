@@ -94,7 +94,38 @@ CI in kolbo-code (`.github/workflows/validate-skill.yml`) enforces frontmatter, 
 
 ```
 Claude Code/Desktop → stdio → @kolbo/mcp → HTTP (X-API-Key) → api.kolbo.ai/api/v1/*
+claude.ai (web)     → HTTPS → api.kolbo.ai/mcp (OAuth) → createServer({ apps:true }) per request
 ```
+
+## MCP Apps — Interactive Kolbo Widgets (v1.30.0)
+
+Tool results render as branded, live-updating mini-apps inside claude.ai and Claude
+Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Quick facts:
+
+- **Gating**: `appsEnabled(server, options)` — `opts.apps === true` (set by the kolbo-api
+  remote connector) OR the stdio client declared the `io.modelcontextprotocol/ui`
+  capability. `KOLBO_MCP_APPS=1|0` env overrides for local testing. **Text-only hosts
+  (Claude Code, Cursor, old cached installs) take the exact pre-widget code path —
+  byte-identical responses.** This is load-bearing for backward compat.
+- **Generation tools on UI hosts return IMMEDIATELY** after submit ("submitted" text +
+  `structuredContent.phase: 'generating'`); the `ui://kolbo/generation.html` widget polls
+  `get_generation_status` (or `shorts_status`) through the host bridge and morphs into the
+  result gallery with Animate / Edit / Recreate / Download buttons (buttons pre-fill user
+  messages via `ui/message`; completion pushes URLs into model context via
+  `ui/update-model-context`).
+- **Sync list/search tools** attach `ui://kolbo/media-grid.html` / `catalog.html` /
+  `transcript.html` with the SAME text payload.
+- **Files**: `src/apps/index.js` (registrar + `uiResult`/`appsEnabled`/`modelIcon`),
+  `src/apps/bridge.js` (hand-rolled 120-line iframe JSON-RPC bridge — do NOT swap for the
+  337KB official browser bundle without reason), `src/apps/theme.js` (Kolbo Liquid Glass
+  tokens from kolbo-map — keep in sync with the frontend design system),
+  `src/apps/widgets/*.js` (generation, mediaGrid, catalog, transcript),
+  `src/tools/_shared.js` (`uiGenerating`/`uiCompleted`).
+- **When adding a generation tool**: submit → `if (ui()) return uiGenerating({...})` →
+  blocking poll fallback. When adding a list tool: build text → `if (ui()) return
+  uiResult(UI.mediaGrid, text, structured)`. Never let the widget path change the text.
+- **kolbo-api side**: `src/modules/mcpConnector/mcp.js` passes `apps: true`. After
+  publishing a new @kolbo/mcp version, bump the dependency there and redeploy.
 
 ## File Structure
 
@@ -124,11 +155,13 @@ src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
 src/tools/projects.js    — Project discovery (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool)
 src/tools/music_library.js — Stock/production music catalog (search, analyze-script, browse, facets, track audio/related/lyrics)
 src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
+src/tools/shorts_creator.js — Shorts Creator two-phase job flow (shorts_analyze, shorts_list_presets,
+                            shorts_get_transcript, shorts_estimate, shorts_render, shorts_status, shorts_cancel)
 scripts/smoke.js         — Load-time smoke test (no network)
 scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 ```
 
-## Available Tools (52)
+## Available Tools (86)
 
 Every generation tool below also accepts an optional `project_id` arg that routes the generation into a specific project (owner + edit/full shares). Call `list_projects` to discover IDs. Omit to fall back to the user's auto-created "API Generations" project.
 
@@ -231,6 +264,19 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `get_stock_asset` | `GET /v1/stock/asset/:source/:id` | One asset + download variants + author/license/attribution. |
 | `analyze_script_for_stock` | `POST /v1/stock/analyze-script` | Script → `{ queries[], mediaType, keywords }` via cheap LLM call. |
 | `import_stock_asset` | `POST /v1/stock/import` | Copy asset → media library (CDN copy). Free. Music not importable here. |
+
+**Shorts Creator** (`src/tools/shorts_creator.js`) — long video → AI-picked moments → restyled vertical shorts. Two-phase job flow (NOT the generic generation state machine): analyze → AWAITING_SELECTION → render → COMPLETED/PARTIALLY_COMPLETED. All routes return `{ status: true, data: job }`.
+| Tool | Route | Timeout | Notes |
+|------|-------|---------|-------|
+| `shorts_analyze` | `POST /v1/generate/shorts/analyze` → polls status | 300s (poll 10s) | Flat 15 credits. `video_url` MUST be a Kolbo media-library URL (`upload_media` first). Source 30s–30 min. Returns `moments[]` (start/end/title/hook/score/accentBeats) when phase hits AWAITING_SELECTION. Errors: 402 INSUFFICIENT_CREDITS, 429 JOB_ALREADY_ACTIVE, 400 VIDEO_REQUIRED / SOURCE_TOO_LONG / SOURCE_TOO_SHORT. |
+| `shorts_list_presets` | `GET /v1/generate/shorts/presets` | — | Style presets (identifier, default_mode, default_veed_preset, preview video). Also surfaced via `GET /v1/presets?type=shorts`. |
+| `shorts_get_transcript` | `GET /v1/generate/shorts/:jobId/transcript` | — | Word-level Scribe transcript of the source video: `{ words, language, sourceDuration }` (word times = absolute source seconds). Base for the Review & Edit workflow (`delete_ranges` + edited `srt_content`). |
+| `shorts_estimate` | `POST /v1/generate/shorts/:jobId/estimate` | — | Free pricing preview: totalCredits + perShort chunk counts. Pricing = 200 credits per restyled chunk (accents = 1-3 chunks, full = length/10s) + VEED subtitles 40cr/min (60s min). `delete_ranges` cuts reduce effective duration → cheaper. |
+| `shorts_render` | `POST /v1/generate/shorts/:jobId/render` → polls status | 1500s (poll 12s) | Max 5 shorts, 15-90s each. Per short optional: `delete_ranges` ({start,end}[] absolute source seconds, server enforces ≥8s remaining) and `srt_content` (user-edited SRT, cut-timeline times, ≤200KB → `subtitles.srtContent`). Credits reserved up-front; failed shorts auto-refund. Terminal phases: COMPLETED / PARTIALLY_COMPLETED (returns successes + failures) / FAILED / CANCELLED. |
+| `shorts_status` | `GET /v1/generate/shorts/:jobId/status` | — | Single job-state read — the recover path after a polling timeout. |
+| `shorts_cancel` | `POST /v1/generate/shorts/:jobId/cancel` | — | Cancels + refunds unused credits. |
+
+Selection arg shape (both estimate + render): `shorts: [{ moment_index, preset_identifier, mode?, subtitles_enabled?, subtitles_preset?, start?, end? }]` — mapped internally to the backend's camelCase (`momentIndex`, `presetIdentifier`, `subtitles: { enabled, veedPreset }`).
 
 **Discovery & Account** (`src/tools/models.js`, `src/tools/projects.js`)
 | Tool | Route |

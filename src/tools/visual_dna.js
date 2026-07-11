@@ -6,6 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { resolveToBuffer: sharedResolveToBuffer, VISUAL_DNA_MAX_BYTES } = require('./_shared');
+const { UI, uiResult, appsEnabled } = require('../apps');
 
 // Visual DNA caps reference media at 25MB per file (stricter than the
 // default _shared.resolveToBuffer cap — DNA profiles only need enough
@@ -14,7 +15,8 @@ function resolveToBuffer(source, kind) {
   return sharedResolveToBuffer(source, kind, { maxBytes: VISUAL_DNA_MAX_BYTES });
 }
 
-function registerVisualDnaTools(server, client) {
+function registerVisualDnaTools(server, client, options = {}) {
+  const ui = () => appsEnabled(server, options);
   // ─── create_visual_dna ─────────────────────────────────────
   server.tool(
     'create_visual_dna',
@@ -91,15 +93,30 @@ function registerVisualDnaTools(server, client) {
       if (tags) params.set('tags', tags);
       const qs = params.toString();
       const result = await client.get(`/v1/visual-dna${qs ? '?' + qs : ''}`);
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            visual_dnas: result.visual_dnas || [],
-            count: result.count || 0
-          }, null, 2)
-        }]
-      };
+      const dnas = result.visual_dnas || [];
+      const text = JSON.stringify({
+        visual_dnas: dnas,
+        count: result.count || 0
+      }, null, 2);
+
+      if (ui()) {
+        return uiResult(UI.mediaGrid, text, {
+          widget: 'media-grid',
+          title: 'Visual DNA Profiles',
+          items: dnas.slice(0, 24).map(d => ({
+            id: d.id,
+            title: d.name,
+            subtitle: (d.dna_type || '') + (Array.isArray(d.tags) && d.tags.length ? ' · ' + d.tags.slice(0, 3).join(', ') : ''),
+            thumbnail: d.thumbnail,
+            media_type: 'image',
+            use_hint: 'Use Visual DNA "{TITLE}" (id: {ID}) in my next generation for character/style consistency.'
+          })),
+          total: result.count || dnas.length,
+          has_more: dnas.length > 24
+        });
+      }
+
+      return { content: [{ type: 'text', text }] };
     }
   );
 
