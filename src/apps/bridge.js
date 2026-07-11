@@ -94,12 +94,18 @@ const BRIDGE_JS = `
     readyFns.forEach(function (f) { try { f(hostContext); } catch (e) {} });
   }).catch(function () { /* host without apps support — widget stays static */ });
 
+  var fsMode = false; // fullscreen: the HOST owns layout — size reports there
+                      // made the inline iframe balloon over the chat composer.
   function notifySize() {
+    if (fsMode) return;
     // Measure the widget card itself — documentElement.scrollHeight over-reports
     // in some hosts and leaves a huge empty iframe below the card.
     var card = document.querySelector('.k-card');
     var rect = card ? card.getBoundingClientRect() : null;
     var height = rect ? Math.ceil(rect.bottom + 8) : document.documentElement.scrollHeight;
+    // Never ask the host for more than a viewport of inline height — a card
+    // taller than the screen overlaps Claude's prompt area.
+    height = Math.min(height, Math.max(window.innerHeight || 900, 500));
     notify('ui/notifications/size-changed', {
       width: document.documentElement.scrollWidth, height: height
     });
@@ -151,6 +157,12 @@ const BRIDGE_JS = `
       return request('ui/request-display-mode', { mode: mode });
     },
     notifySize: notifySize,
+    // Toggle fullscreen mode: suppresses size reports while the host owns the
+    // layout, and re-syncs the inline size on exit.
+    setFullscreen: function (on) {
+      fsMode = !!on;
+      if (!on) queueSize(60);
+    },
     hostContext: function () { return hostContext; }
   };
 })();
