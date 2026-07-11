@@ -92,7 +92,7 @@ function renderChips(sc) {
   if (s.voice) h += chip('🎤 ' + esc(s.voice));
   if (s.mode) h += chip(esc(s.mode));
   if (sc.count > 1) h += chip('×' + sc.count);
-  if (sc.reference_image) h += '<img class="k-ref-thumb" src="' + esc(sc.reference_image) + '" alt="" title="Reference image" onerror="this.style.display=\'none\'">';
+  if (sc.reference_image) h += '<img class="k-ref-thumb" src="' + esc(sc.reference_image) + '" alt="" title="Reference image" onerror="this.style.display=\\'none\\'">';
   el('chips').innerHTML = h;
 }
 function chip(inner) { return '<span class="k-chip">' + inner + '</span>'; }
