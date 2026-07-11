@@ -1,85 +1,117 @@
 /* ⛔ BACKWARD COMPATIBILITY: Tool names and arg names below are a PUBLIC
- * CONTRACT. Never rename, remove, or break an existing tool/arg. Full rules: ../index.js top-of-file. */
+ * CONTRACT. Never rename, remove, or break an existing tool/arg. Full rules: ../index.js top-of-file.
+ *
+ * DEPRECATED FAMILY (2026-07-11): these tools originally fronted the dedicated
+ * Synci-only /v1/music-library/* routes. The Synci partner key expired and the
+ * unified STOCK LIBRARY covers music anyway (kolbo-ai catalog + Coverr + Synci
+ * when its key is live), so every tool here is now a thin adapter over
+ * /v1/stock/* — same tool names/args, better backend, and old cached installs
+ * keep working. New integrations should use search_stock_media /
+ * get_stock_asset with mediaType "music" directly.
+ */
 
 const { z } = require('zod');
 const { UI, uiResult, appsEnabled } = require('../apps');
 
-// Format a normalized track into a compact human-readable line.
-function trackLine(t) {
+const DEPRECATION_NOTE = '[Deprecated — served by the unified Stock Library now; prefer search_stock_media / get_stock_asset with mediaType "music".] ';
+
+// Format a stock music asset into a compact human-readable line.
+function assetTrackLine(a) {
   const meta = [
-    t.durationSeconds != null ? `${Math.round(t.durationSeconds)}s` : null,
-    t.bpm != null ? `${t.bpm} BPM` : null,
-    t.musicalKey || null,
-    Array.isArray(t.genres) && t.genres.length ? t.genres.join('/') : t.genre,
-    Array.isArray(t.moodTags) && t.moodTags.length ? t.moodTags.slice(0, 3).join(', ') : null,
+    a.durationSeconds != null ? `${Math.round(a.durationSeconds)}s` : null,
+    a.author?.name || null,
+    a.source,
   ].filter(Boolean).join(' · ');
-  const flags = [t.hasStems ? 'stems' : null, t.hasLyrics ? 'lyrics' : null].filter(Boolean).join(', ');
-  return `${t.id} — ${t.title}${t.artist ? ` by ${t.artist}` : ''}\n   ${meta}${flags ? `  [${flags}]` : ''}${t.audioUrl ? `\n   preview: ${t.audioUrl}` : ''}`;
+  const preview = a.previewUrl || a.downloadVariants?.[0]?.url || null;
+  return `${a.source}:${a.sourceId} — ${a.title || '(untitled)'}\n   ${meta}${preview ? `\n   preview: ${preview}` : ''}`;
 }
 
-// Map a normalized track onto the media-grid widget item contract.
-function trackItem(t) {
+// Map a stock music asset onto the media-grid widget item contract.
+function assetTrackItem(a) {
   return {
-    id: t.id,
-    title: t.title,
+    id: `${a.source}:${a.sourceId}`,
+    title: a.title || '(untitled)',
     subtitle: [
-      t.artist,
-      t.durationSeconds != null ? Math.round(t.durationSeconds) + 's' : null,
-      Array.isArray(t.genres) && t.genres.length ? t.genres.slice(0, 2).join('/') : (t.genre || null)
+      a.author?.name || null,
+      a.durationSeconds != null ? Math.round(a.durationSeconds) + 's' : null,
+      a.source,
     ].filter(Boolean).join(' · '),
-    thumbnail: t.artworkUrl || null,
+    thumbnail: a.thumbnailUrl || null,
     media_type: 'audio',
-    preview_audio: t.audioUrl || t.audioUrl128 || null,
+    preview_audio: a.previewUrl || a.downloadVariants?.[0]?.url || null,
     use_hint: 'Get download links for track "{TITLE}" (id: {ID}) via get_music_track_audio.'
   };
 }
 
+// Search the unified stock library for music. `query` may be empty (browse).
+async function stockMusicSearch(client, query, limit, offset) {
+  const params = new URLSearchParams();
+  if (query) params.set('query', query);
+  params.set('mediaType', 'music');
+  params.set('source', 'all');
+  params.set('perPage', String(Math.min(Math.max(limit || 20, 1), 40)));
+  if (offset) params.set('page', String(Math.floor(offset / (limit || 20)) + 1));
+  const result = await client.get(`/v1/stock/search?${params.toString()}`);
+  return { assets: result.assets || [], total: result.total };
+}
+
+// "source:sourceId" (new) or a bare legacy id (assume synci — the old backend).
+function parseTrackId(trackId) {
+  const i = String(trackId).indexOf(':');
+  if (i > 0) return { source: trackId.slice(0, i), id: trackId.slice(i + 1) };
+  return { source: 'synci', id: trackId };
+}
+
+function musicResult(ui, args, assets, total, emptyText) {
+  if (assets.length === 0) {
+    return { content: [{ type: 'text', text: emptyText }] };
+  }
+  const head = `Found ${assets.length} track${assets.length === 1 ? '' : 's'}${total ? ` (of ${total})` : ''}:`;
+  const text = `${head}\n\n${assets.map(assetTrackLine).join('\n\n')}\n\nUse the track id with get_music_track_audio to get downloadable URLs (or get_stock_asset directly).`;
+  if (ui()) {
+    return uiResult(UI.mediaGrid, text, {
+      widget: 'media-grid',
+      title: 'Music Library' + (args && args.query ? ' — "' + args.query + '"' : ''),
+      items: assets.slice(0, 20).map(assetTrackItem),
+      total: total != null ? total : assets.length
+    });
+  }
+  return { content: [{ type: 'text', text }] };
+}
+
 function registerMusicLibraryTools(server, client, options = {}) {
   const ui = () => appsEnabled(server, options);
-  // ─── search_music_library ─────────────────────────────────────
+
+  // ─── search_music_library (adapter → stock search) ─────────────
   server.tool(
     'search_music_library',
-    'Search the Kolbo stock / production music library (licensed background tracks) by keyword with optional filters. Use this to FIND an existing ready-made track to score a video, ad, or voiceover — distinct from generate_music, which composes a brand-new song with Suno. Returns matching tracks with id, title, artist, duration, BPM, key, genres, moods, and preview/download URLs (128/320/wav). To turn a script into a good query first, call analyze_script_for_music.',
+    DEPRECATION_NOTE + 'Search stock/production music by keyword. Mood/genre are folded into the semantic query (the Kolbo catalog matches by vibe, e.g. "uplifting corporate", "tense cinematic"). Returns tracks with id, title, duration, and preview/download URLs. For scripts, call analyze_script_for_music first.',
     {
-      query: z.string().max(200).optional().describe('Keyword search, e.g. "uplifting corporate", "tense cinematic", "lofi hip hop". If omitted, falls back to the mood/genre filter as the search term.'),
-      mood: z.string().optional().describe('Mood filter, e.g. "Emotional", "Energetic", "Tense". Use get_music_library_facets to see valid values.'),
-      genre: z.string().optional().describe('Genre filter, e.g. "Soundtrack", "Corporate", "Hip Hop". Use get_music_library_facets to see valid values.'),
-      bpmMin: z.number().optional().describe('Minimum beats-per-minute.'),
-      bpmMax: z.number().optional().describe('Maximum beats-per-minute.'),
-      durationMin: z.number().optional().describe('Minimum track duration in seconds.'),
-      durationMax: z.number().optional().describe('Maximum track duration in seconds.'),
-      hasStems: z.boolean().optional().describe('Only return tracks that have separated stems.'),
-      hasLyrics: z.boolean().optional().describe('Only return tracks that have lyrics.'),
-      sort: z.enum(['duration-asc', 'duration-desc', 'bpm-asc', 'bpm-desc', 'title']).optional().describe('Optional sort order. Omit for relevance order.'),
+      query: z.string().max(200).optional().describe('Keyword/vibe search, e.g. "uplifting corporate", "tense cinematic", "lofi hip hop". If omitted, falls back to the mood/genre filter as the search term.'),
+      mood: z.string().optional().describe('Mood keyword, folded into the search query (e.g. "Emotional", "Energetic").'),
+      genre: z.string().optional().describe('Genre keyword, folded into the search query (e.g. "Corporate", "Hip Hop").'),
+      bpmMin: z.number().optional().describe('Legacy filter — accepted but no longer applied.'),
+      bpmMax: z.number().optional().describe('Legacy filter — accepted but no longer applied.'),
+      durationMin: z.number().optional().describe('Legacy filter — accepted but no longer applied.'),
+      durationMax: z.number().optional().describe('Legacy filter — accepted but no longer applied.'),
+      hasStems: z.boolean().optional().describe('Legacy filter — accepted but no longer applied.'),
+      hasLyrics: z.boolean().optional().describe('Legacy filter — accepted but no longer applied.'),
+      sort: z.enum(['duration-asc', 'duration-desc', 'bpm-asc', 'bpm-desc', 'title']).optional().describe('Legacy sort — accepted but no longer applied (relevance order).'),
       limit: z.number().int().min(1).max(40).optional().describe('Results per page (max 40, default 20).'),
       offset: z.number().int().min(0).optional().describe('Pagination offset for loading more results.')
     },
     async (args) => {
-      const result = await client.post('/v1/music-library/search', args);
-      const tracks = result.tracks || [];
-      if (tracks.length === 0) {
-        return { content: [{ type: 'text', text: 'No tracks found matching those filters. Try a broader query or call get_music_library_facets for valid genres/moods.' }] };
-      }
-      const head = `Found ${tracks.length} track${tracks.length === 1 ? '' : 's'}${result.total ? ` (of ${result.total} sorted)` : ''}:`;
-      const text = `${head}\n\n${tracks.map(trackLine).join('\n\n')}\n\nUse the track id with get_music_track_audio to get the downloadable 128/320/wav URLs.`;
-
-      if (ui()) {
-        return uiResult(UI.mediaGrid, text, {
-          widget: 'media-grid',
-          title: 'Music Library' + (args.query ? ' — "' + args.query + '"' : ''),
-          items: tracks.slice(0, 20).map(trackItem),
-          total: result.total != null ? result.total : tracks.length
-        });
-      }
-
-      return { content: [{ type: 'text', text }] };
+      const query = [args.query, args.mood, args.genre].filter(Boolean).join(' ').trim();
+      const { assets, total } = await stockMusicSearch(client, query, args.limit, args.offset);
+      return musicResult(ui, args, assets, total,
+        'No tracks found matching that query. Try a broader vibe description, or use search_stock_media with mediaType="music".');
     }
   );
 
-  // ─── analyze_script_for_music ─────────────────────────────────
+  // ─── analyze_script_for_music (unchanged — doesn't touch Synci) ─
   server.tool(
     'analyze_script_for_music',
-    'AI helper that turns a video or voiceover script into a music search. Returns { query, mood, genre, keywords } you can pass straight into search_music_library to find a fitting background track. Use this first when the user gives you a script/scene description rather than explicit music keywords.',
+    'AI helper that turns a video or voiceover script into a music search. Returns { query, mood, genre, keywords } you can pass straight into search_music_library (or search_stock_media with mediaType="music") to find a fitting background track. Use this first when the user gives you a script/scene description rather than explicit music keywords.',
     {
       script: z.string().min(1).describe('The video or voiceover script / scene description to analyze (up to ~8000 chars).')
     },
@@ -93,127 +125,112 @@ function registerMusicLibraryTools(server, client, options = {}) {
             mood: result.mood,
             genre: result.genre,
             keywords: result.keywords,
-            _followup_hint: 'Pass query + mood + genre into search_music_library.'
+            _followup_hint: 'Pass query + mood + genre into search_music_library (or search_stock_media mediaType="music").'
           }, null, 2)
         }]
       };
     }
   );
 
-  // ─── browse_music_library ─────────────────────────────────────
+  // ─── browse_music_library (adapter → stock browse feed) ────────
   server.tool(
     'browse_music_library',
-    'Browse the music library catalog without a search query (stable paginated listing). Use when the user just wants to see what is available. For a targeted search use search_music_library instead.',
+    DEPRECATION_NOTE + 'Browse the music catalog without a search query (paginated feed). For targeted search use search_music_library or search_stock_media.',
     {
-      sort: z.enum(['duration-asc', 'duration-desc', 'bpm-asc', 'bpm-desc', 'title']).optional().describe('Optional sort order.'),
-      limit: z.number().int().min(1).max(50).optional().describe('Results per page (max 50, default 50).'),
+      sort: z.enum(['duration-asc', 'duration-desc', 'bpm-asc', 'bpm-desc', 'title']).optional().describe('Legacy sort — accepted but no longer applied (feed order).'),
+      limit: z.number().int().min(1).max(50).optional().describe('Results per page (max 40 now, default 20).'),
       offset: z.number().int().min(0).optional().describe('Pagination offset for loading more results.')
     },
-    async ({ sort, limit, offset }) => {
-      const params = new URLSearchParams();
-      if (sort) params.set('sort', sort);
-      if (limit != null) params.set('limit', String(limit));
-      if (offset != null) params.set('offset', String(offset));
-      const path = `/v1/music-library/catalog${params.toString() ? '?' + params.toString() : ''}`;
-      const result = await client.get(path);
-      const tracks = result.tracks || [];
-      if (tracks.length === 0) {
-        return { content: [{ type: 'text', text: 'No tracks returned.' }] };
-      }
-      const text = `Catalog (${tracks.length} track${tracks.length === 1 ? '' : 's'}):\n\n${tracks.map(trackLine).join('\n\n')}`;
-
-      if (ui()) {
-        return uiResult(UI.mediaGrid, text, {
-          widget: 'media-grid',
-          title: 'Music Library',
-          items: tracks.slice(0, 20).map(trackItem),
-          total: result.total != null ? result.total : tracks.length
-        });
-      }
-
-      return { content: [{ type: 'text', text }] };
+    async ({ limit, offset }) => {
+      const { assets, total } = await stockMusicSearch(client, '', limit, offset);
+      return musicResult(ui, null, assets, total, 'No tracks returned.');
     }
   );
 
-  // ─── get_music_library_facets ─────────────────────────────────
+  // ─── get_music_library_facets (adapter → stock categories) ─────
   server.tool(
     'get_music_library_facets',
-    'List the distinct genres, moods, and instruments available in the music library, plus the BPM and duration ranges. Use these values to build precise search_music_library filters.',
+    DEPRECATION_NOTE + 'List the music category/genre chips available in the stock library. The catalog matches semantically, so any natural-language vibe also works as a query.',
     {},
     async () => {
-      const result = await client.get('/v1/music-library/facets');
+      let categories = [];
+      try {
+        const result = await client.get('/v1/stock/categories?mediaType=music');
+        categories = (result.categories || []).map(c => c.name || c.providerParam).filter(Boolean);
+      } catch (_) { /* categories are best-effort */ }
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
-            genres: result.genres || [],
-            moods: result.moods || [],
-            instruments: result.instruments || [],
-            bpmRange: result.bpmRange || null,
-            durationRange: result.durationRange || null
+            genres: categories,
+            moods: [],
+            instruments: [],
+            bpmRange: null,
+            durationRange: null,
+            _note: 'Semantic search: any natural-language mood/vibe works as a query — exact facet values are no longer required.'
           }, null, 2)
         }]
       };
     }
   );
 
-  // ─── get_music_track_audio ────────────────────────────────────
+  // ─── get_music_track_audio (adapter → stock asset) ──────────────
   server.tool(
     'get_music_track_audio',
-    'Get the downloadable audio URLs (128 kbps / 320 kbps / WAV) for a single music-library track by id. Call this after the user picks a track from search_music_library or browse_music_library.',
+    DEPRECATION_NOTE + 'Get the downloadable audio URLs for a music track by id ("source:sourceId" from search results).',
     {
-      track_id: z.string().describe('The track id returned by search_music_library / browse_music_library.')
+      track_id: z.string().describe('Track id from search_music_library / browse_music_library (format "source:sourceId").')
     },
     async ({ track_id }) => {
-      const result = await client.get(`/v1/music-library/track/${encodeURIComponent(track_id)}/audio`);
+      const { source, id } = parseTrackId(track_id);
+      // mediaType hint required for sources that share ids across types (kolbo-ai).
+      const result = await client.get(`/v1/stock/asset/${encodeURIComponent(source)}/${encodeURIComponent(id)}?mediaType=music`);
+      const a = result.asset || result;
+      const urls = {};
+      (a.downloadVariants || []).forEach(v => { if (v.url) urls[v.label || 'audio'] = v.url; });
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify({ id: result.id, urls: result.urls }, null, 2)
+          text: JSON.stringify({ id: track_id, title: a.title, urls }, null, 2)
         }]
       };
     }
   );
 
-  // ─── get_music_track_related ──────────────────────────────────
+  // ─── get_music_track_related (graceful stub — no stock equivalent) ─
   server.tool(
     'get_music_track_related',
-    'Get the stems and alternate versions of a music-library master track by id (e.g. instrumental, 30s cut, looped).',
+    DEPRECATION_NOTE + 'Stems/alternate versions are not exposed by the unified stock library. Returns an empty set with guidance.',
     {
       track_id: z.string().describe('The master track id.')
     },
-    async ({ track_id }) => {
-      const result = await client.get(`/v1/music-library/track/${encodeURIComponent(track_id)}/related`);
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({ stems: result.stems || [], versions: result.versions || [] }, null, 2)
-        }]
-      };
-    }
+    async ({ track_id }) => ({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          stems: [], versions: [],
+          _note: `Stems/alternate versions are not available via the stock library. Use get_music_track_audio ("${track_id}") for the downloadable variants, or generate_music to compose a custom track.`
+        }, null, 2)
+      }]
+    })
   );
 
-  // ─── get_music_track_lyrics ───────────────────────────────────
+  // ─── get_music_track_lyrics (graceful stub — no stock equivalent) ─
   server.tool(
     'get_music_track_lyrics',
-    'Get the lyrics text, lyrical theme, and explicit flag for a single music-library track by id.',
+    DEPRECATION_NOTE + 'Lyrics metadata is not exposed by the unified stock library. Returns hasLyrics: false with guidance.',
     {
       track_id: z.string().describe('The track id.')
     },
-    async ({ track_id }) => {
-      const result = await client.get(`/v1/music-library/track/${encodeURIComponent(track_id)}/lyrics`);
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            hasLyrics: result.hasLyrics,
-            lyrics: result.lyrics,
-            lyricalTheme: result.lyricalTheme,
-            explicit: result.explicit
-          }, null, 2)
-        }]
-      };
-    }
+    async () => ({
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          hasLyrics: false, lyrics: null, lyricalTheme: null, explicit: null,
+          _note: 'Lyrics metadata is not available via the stock library. For a song with specific lyrics, use generate_music with the lyrics field.'
+        }, null, 2)
+      }]
+    })
   );
 }
 
