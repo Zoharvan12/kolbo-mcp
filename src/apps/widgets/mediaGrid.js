@@ -118,7 +118,12 @@ function useItem(i) {
 
 window.kolbo.onToolResult(function (result) {
   var sc = result.structuredContent || structured(result);
-  if (sc) boot(sc);
+  if (sc && sc.items) return boot(sc);
+  // No grid data (empty result set, error, or timeout path returned plain
+  // text) — collapse instead of showing a dead "Loading…" card forever.
+  var card = document.querySelector('.k-card');
+  if (card) card.style.display = 'none';
+  window.kolbo.notifySize();
 });
 `;
 

@@ -171,7 +171,7 @@ function renderImages(sc, urls) {
   selected = Math.min(selected, urls.length - 1);
   // If the host CSP still blocks the image, degrade to open-in-browser rows
   // instead of a broken empty viewer.
-  var viewer = '<div class="k-viewer"><img id="main-img" src="' + esc(urls[selected]) + '" alt="" onerror="window.__imgFail && window.__imgFail()"></div>';
+  var viewer = '<div class="k-viewer"><img id="main-img" src="' + esc(urls[selected]) + '" alt="" onerror="window.__imgFail && window.__imgFail()">' + dlBtnHTML(urls[selected]) + '</div>';
   window.__imgFail = function () { renderLinks(urls); window.kolbo.notifySize(); };
   // Click → expand into an in-Claude fullscreen viewer (all actions stay
   // available); click again (or Exit) collapses back. Hosts that refuse
@@ -187,10 +187,14 @@ function renderImages(sc, urls) {
     }).join('') + '</div>';
   }
   el('stage').innerHTML = viewer + thumbs;
+  wireDlButtons(el('stage'));
   Array.prototype.forEach.call(el('stage').querySelectorAll('.k-thumb'), function (t) {
     t.onclick = function () {
       selected = +t.getAttribute('data-i');
       el('main-img').src = state.urls[selected];
+      // Keep the viewer's hover download pointing at the newly selected image.
+      var dl = el('stage').querySelector('.k-viewer .k-dl');
+      if (dl) dl.setAttribute('data-dl', state.urls[selected]);
       Array.prototype.forEach.call(el('stage').querySelectorAll('.k-thumb'), function (x) { x.classList.remove('active'); });
       t.classList.add('active');
     };
@@ -199,7 +203,9 @@ function renderImages(sc, urls) {
 
 function renderVideo(sc, urls) {
   el('stage').innerHTML = '<div class="k-viewer"><video id="main-video" src="' + esc(urls[0]) + '"' +
-    (sc.thumbnail_url ? ' poster="' + esc(sc.thumbnail_url) + '"' : '') + ' controls playsinline></video></div>';
+    (sc.thumbnail_url ? ' poster="' + esc(sc.thumbnail_url) + '"' : '') + ' controls playsinline></video>' +
+    dlBtnHTML(urls[0]) + '</div>';
+  wireDlButtons(el('stage'));
 }
 
 function renderAudio(sc, urls) {
@@ -238,17 +244,32 @@ function renderLinks(urls) {
   });
 }
 
+// Small hover download button attached to a media cell (per-item downloads —
+// batch grids and CD scenes have no single "current" url for the action row).
+function dlBtnHTML(u) {
+  return '<button class="k-dl" data-dl="' + esc(u) + '" title="Download" aria-label="Download">⬇</button>';
+}
+function wireDlButtons(root) {
+  Array.prototype.forEach.call((root || document).querySelectorAll('.k-dl[data-dl]'), function (b) {
+    b.onclick = function (e) {
+      e.stopPropagation();
+      window.kolbo.openLink(downloadUrl(b.getAttribute('data-dl')));
+    };
+  });
+}
+
 function renderScenes(sc) {
   el('stage').innerHTML = sc.scenes.map(function (scene) {
     var media = (scene.video_urls || []).map(function (u) {
-      return '<div class="k-media"><video src="' + esc(u) + '" controls playsinline></video></div>';
+      return '<div class="k-media"><video src="' + esc(u) + '" controls playsinline></video>' + dlBtnHTML(u) + '</div>';
     }).join('') + (scene.image_urls || []).map(function (u) {
-      return '<div class="k-media"><img src="' + esc(u) + '" alt=""></div>';
+      return '<div class="k-media"><img src="' + esc(u) + '" alt="">' + dlBtnHTML(u) + '</div>';
     }).join('');
     return '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">Scene ' +
       esc(scene.scene_number) + (scene.title ? ' — ' + esc(scene.title) : '') + '</div>' +
       '<div class="k-gen-grid n2">' + media + '</div></div>';
   }).join('');
+  wireDlButtons(el('stage'));
   renderActions(sc);
 }
 
@@ -311,6 +332,7 @@ function currentUrl() {
 
 function renderActions(sc) {
   var a = [];
+  var hasSingleUrl = !!(sc.urls && sc.urls.length);
   if (sc.kind === 'image') {
     a.push('<button class="k-btn primary" id="btn-animate">🎬 Animate</button>');
     a.push('<button class="k-btn" id="btn-edit">✏️ Edit</button>');
@@ -318,7 +340,9 @@ function renderActions(sc) {
   if (sc.kind === 'video') {
     a.push('<button class="k-btn primary" id="btn-download">⬇ Download</button>');
     a.push('<button class="k-btn" id="btn-analyze">📊 Analyze</button>');
-  } else {
+  } else if (hasSingleUrl) {
+    // Scenes (Creative Director) have no single "current" url — per-item hover
+    // download buttons cover them instead.
     a.push('<button class="k-btn" id="btn-download">⬇ Download</button>');
   }
   a.push('<button class="k-btn" id="btn-recreate">↻ Recreate</button>');
