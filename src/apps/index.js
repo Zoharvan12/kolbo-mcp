@@ -125,6 +125,23 @@ function uiResult(uri, text, structured) {
 const ICON_TTL_MS = 10 * 60 * 1000;
 const infoCache = new Map(); // apiBase → { at, byKey: Map<lowername, {icon, eta}> }
 
+/**
+ * Resolve a Model.avatar value to an absolute URL. Avatars are bare filenames
+ * (sometimes with spaces) living in the BACKEND's public assets folder —
+ * `<api origin>/assets/<file>`. Do NOT use app.kolbo.ai for this: it's the SPA,
+ * whose catch-all returns 200 text/html for any missing file, which renders as
+ * a broken image in widgets.
+ */
+function resolveAvatarUrl(avatar, apiBase) {
+  if (!avatar) return null;
+  if (/^https?:\/\//i.test(avatar)) return avatar;
+  let origin = 'https://api.kolbo.ai';
+  try {
+    origin = new URL(apiBase || 'https://api.kolbo.ai/api').origin;
+  } catch (_) { /* keep default */ }
+  return `${origin}/assets/${encodeURIComponent(avatar)}`;
+}
+
 async function modelInfoMap(client) {
   const cacheKey = client.apiBase || 'default';
   const hit = infoCache.get(cacheKey);
@@ -135,13 +152,7 @@ async function modelInfoMap(client) {
     const models = res?.models || res?.data?.models || [];
     for (const m of models) {
       if (!m) continue;
-      // The API usually resolves avatars to absolute URLs; bare filenames (older
-      // deployments / internal calls) resolve against the app's public icon dir.
-      const icon = m.avatar
-        ? (/^https?:\/\//i.test(m.avatar)
-          ? m.avatar
-          : `https://app.kolbo.ai/models_icons/${encodeURIComponent(m.avatar)}`)
-        : null;
+      const icon = resolveAvatarUrl(m.avatar, client.apiBase);
       // Real p75 wall-clock estimate mined from production creditUsages —
       // the same source the in-app countdowns use. No estimate → no ETA shown.
       const eta = Number(m.estimatedDurationSeconds || m.estimated_duration_seconds) || null;
@@ -232,5 +243,6 @@ module.exports = {
   modelIcon,
   modelInfo,
   modelInfoMap,
+  resolveAvatarUrl,
   widgetHtml, // exported for smoke tests
 };
