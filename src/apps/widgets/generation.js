@@ -173,6 +173,11 @@ function renderImages(sc, urls) {
   // instead of a broken empty viewer.
   var viewer = '<div class="k-viewer"><img id="main-img" src="' + esc(urls[selected]) + '" alt="" onerror="window.__imgFail && window.__imgFail()"></div>';
   window.__imgFail = function () { renderLinks(urls); window.kolbo.notifySize(); };
+  // Constrained viewer → click opens the original full-size.
+  setTimeout(function () {
+    var img = el('main-img');
+    if (img) img.onclick = function () { window.kolbo.openLink(state.urls[selected]); };
+  }, 0);
   var thumbs = '';
   if (urls.length > 1) {
     thumbs = '<div class="k-thumbs">' + urls.map(function (u, i) {
