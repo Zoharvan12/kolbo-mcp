@@ -33,7 +33,7 @@ const BRIDGE_JS = `
   var initialized = false;
   var queue = [];        // deferred host-bound sends until initialized
   var hostContext = null;
-  var readyFns = [], toolResultFns = [], themeFns = [];
+  var readyFns = [], toolResultFns = [], themeFns = [], toolInputFns = [];
 
   function post(msg) { window.parent.postMessage(msg, '*'); }
 
@@ -66,6 +66,10 @@ const BRIDGE_JS = `
     }
     if (m.method === 'ui/notifications/tool-result') {
       toolResultFns.forEach(function (f) { try { f(m.params || {}); } catch (e) {} });
+    } else if (m.method === 'ui/notifications/tool-input' || m.method === 'ui/notifications/tool-input-partial') {
+      // Fires while the tool is still RUNNING — lets widgets show a real
+      // "preparing" state instead of a blank card until the result lands.
+      toolInputFns.forEach(function (f) { try { f((m.params && m.params.arguments) || {}); } catch (e) {} });
     } else if (m.method === 'ui/notifications/host-context-changed') {
       hostContext = (m.params && m.params.hostContext) || m.params || hostContext;
       themeFns.forEach(function (f) { try { f(hostContext); } catch (e) {} });
@@ -132,6 +136,7 @@ const BRIDGE_JS = `
   window.kolbo = {
     ready: function (f) { if (initialized) f(hostContext); else readyFns.push(f); },
     onToolResult: function (f) { toolResultFns.push(f); },
+    onToolInput: function (f) { toolInputFns.push(f); },
     onThemeChange: function (f) { themeFns.push(f); },
     callTool: function (name, args) { return request('tools/call', { name: name, arguments: args || {} }); },
     sendMessage: function (text) {

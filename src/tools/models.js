@@ -96,9 +96,13 @@ function registerModelTools(server, client, options = {}) {
     'List available AI models on Kolbo. Filter by `type` to narrow to a generation type, and pass `format: "json"` to get the raw model documents (every constraint field, useful for programmatic comparison / cap validation before submitting a generation). Default `format: "text"` returns the human-readable summary.',
     {
       type: z.string().optional().describe('Filter by DB type name: "text_to_img", "image_editing", "text_to_video", "img_to_video", "draw_to_video", "video_to_video", "elements", "firstlastgenerations", "lipsync-image", "lipsync-video", "music_gen", "text_to_speech", "text_to_sound", "stt", "text". Legacy aliases also accepted: "image", "image_edit", "video", "video_from_image", "video_from_video", "music", "speech", "sound", "chat", "lipsync" (both lipsync types), "three_d" (all 3D types), "first_last_frame", "transcription". Omit for all models.'),
-      format: z.enum(['text', 'json']).optional().describe('Output format. "text" (default) returns a human-readable summary with the most-used caps. "json" returns the raw model documents from the API — use this when you need to programmatically verify caps (max_reference_images, max_visual_dna, max_video_duration, supported_aspect_ratios, etc.) before passing an array/value that might exceed a model-specific limit. The JSON form is the source of truth; the text form is a convenience preview.')
+      format: z.enum(['text', 'json']).optional().describe('Output format. "text" (default) returns a human-readable summary with the most-used caps. "json" returns the raw model documents from the API — use this when you need to programmatically verify caps (max_reference_images, max_visual_dna, max_video_duration, supported_aspect_ratios, etc.) before passing an array/value that might exceed a model-specific limit. The JSON form is the source of truth; the text form is a convenience preview.'),
+      display_catalog: z.boolean().optional().describe('Set true ONLY when the USER explicitly asked to see/browse the available models — it renders a visual model catalog to them. Leave unset for internal lookups (verifying a model name, checking caps before a generation): those should stay invisible to the user.')
     },
-    async ({ type, format }) => {
+    async ({ type, format, display_catalog }) => {
+      // Widget only when the user asked to browse — internal validation
+      // lookups were spamming the chat with a full catalog card.
+      const showCatalog = display_catalog === true;
       const path = type ? `/v1/models?type=${encodeURIComponent(type)}` : '/v1/models';
       const result = await client.get(path);
 
@@ -108,7 +112,7 @@ function registerModelTools(server, client, options = {}) {
       // resolution multipliers, supports_* flags, prompt-length limits, etc.).
       if (format === 'json') {
         const text = JSON.stringify({ count: result.count, models: result.models }, null, 2);
-        if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type));
+        if (ui() && showCatalog) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type));
         return { content: [{ type: 'text', text }] };
       }
 
@@ -279,7 +283,7 @@ function registerModelTools(server, client, options = {}) {
       }
 
       const text = `Available models (${result.count}):\n\n${sections.join('\n\n')}\n\nUse the "identifier" value as the "model" parameter in generate tools. For programmatic cap validation, re-call with format: "json".`;
-      if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type));
+      if (ui() && showCatalog) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type));
       return { content: [{ type: 'text', text }] };
     }
   );

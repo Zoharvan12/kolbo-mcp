@@ -259,7 +259,8 @@ function renderError(msg) {
   el('stage').innerHTML = '<div class="k-error">⚠ ' + esc(msg) + '</div>';
   el('actions').innerHTML = '<button class="k-btn" id="retry-btn">↻ Try Again</button>';
   el('retry-btn').onclick = function () {
-    window.kolbo.sendMessage('Please retry that ' + (TOOL_TITLES[state.tool] || 'generation').toLowerCase() + ' — it failed with: ' + msg);
+    var what = (state && TOOL_TITLES[state.tool]) || 'generation';
+    window.kolbo.sendMessage('Please retry that ' + what.toLowerCase() + ' — it failed with: ' + msg);
   };
   window.kolbo.notifySize();
 }
@@ -367,17 +368,41 @@ function openPromptRow(placeholder, onSend) {
   window.kolbo.notifySize();
 }
 
+/* ---------- pre-result "Preparing" state ----------
+   The host mounts this iframe as soon as the tool is CALLED; the result can
+   take many seconds (model resolution, file upload, submit). Show a live
+   shell immediately instead of a blank card. */
+function bootPre(toolName, args) {
+  if (state) return; // real data already arrived
+  el('tool-title').textContent = TOOL_TITLES[toolName] || 'Generation';
+  if (args && (args.prompt || args.text)) {
+    el('prompt').textContent = args.prompt || args.text;
+    el('prompt').style.display = '';
+  }
+  setPhaseChip('Preparing', true);
+  if (!el('stage').innerHTML) {
+    el('stage').innerHTML = '<div class="k-gen-grid n1"><div class="k-skel video" style="min-height:100px;max-height:140px"></div></div>';
+  }
+  window.kolbo.notifySize();
+}
+
 /* ---------- wire host events ---------- */
 window.kolbo.onToolResult(function (result) {
   var sc = result.structuredContent || structured(result);
-  if (sc) boot(sc);
+  if (sc && (sc.phase || sc.widget)) return boot(sc);
+  // Tool errored (or returned plain text): show it instead of a dead blank card.
+  var txt = '';
+  try { txt = (result.content || []).filter(function (c) { return c.type === 'text'; }).map(function (c) { return c.text; }).join(' '); } catch (e) {}
+  if (result.isError || /error|failed/i.test(txt)) {
+    renderError((txt || 'The request failed.').slice(0, 300));
+  }
 });
+window.kolbo.onToolInput(function (args) { bootPre(null, args); });
 window.kolbo.ready(function (ctx) {
-  // Some hosts deliver the initial result via hostContext.toolInfo; the
-  // tool-result notification is the primary path.
-  if (!state && ctx && ctx.toolInfo && ctx.toolInfo.result) {
-    var sc = ctx.toolInfo.result.structuredContent;
-    if (sc) boot(sc);
+  var info = ctx && ctx.toolInfo;
+  if (!state && info) {
+    if (info.result && info.result.structuredContent) return boot(info.result.structuredContent);
+    bootPre(info.tool && info.tool.name, null);
   }
 });
 `;
