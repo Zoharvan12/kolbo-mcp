@@ -159,6 +159,18 @@ body {
 .k-media img, .k-media video { display: block; width: 100%; height: 100%; object-fit: cover; }
 .k-media.selected { outline: 2px solid var(--brand); outline-offset: 1px; }
 
+/* ---- Per-item hover download button (multi-image grids, CD scenes, viewer) ---- */
+.k-dl {
+  position: absolute; top: 8px; right: 8px; z-index: 3;
+  width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 14px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; opacity: 0; transition: opacity 150ms var(--smooth), background 150ms var(--smooth);
+}
+.k-media:hover .k-dl, .k-viewer:hover .k-dl { opacity: 1; }
+.k-dl:hover { background: var(--brand); border-color: var(--brand); }
+.k-viewer { position: relative; }
+
 /* Keep the whole completed card under the host's iframe height cap (~800px):
    header + prompt + chips + viewer + thumbs + actions + footer must all fit,
    or claude.ai adds an inner scrollbar. Click the image to expand in-Claude. */

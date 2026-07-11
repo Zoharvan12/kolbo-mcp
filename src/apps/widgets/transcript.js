@@ -97,7 +97,23 @@ function poll() {
 
 window.kolbo.onToolResult(function (result) {
   var sc = result.structuredContent || structured(result);
-  if (sc) boot(sc);
+  // Only boot on a real widget contract (phase present). A text-JSON
+  // fallback like { status: 'submitted' } has no phase and would render a
+  // bogus "(empty transcript)" completed view.
+  if (sc && (sc.phase || sc.widget === 'transcript')) return boot(sc);
+  var txt = '';
+  try { txt = (result.content || []).filter(function (c) { return c.type === 'text'; }).map(function (c) { return c.text; }).join(' '); } catch (e) {}
+  if (result.isError || /error|failed/i.test(txt)) {
+    el('phase-chip').style.display = 'none';
+    el('stage').classList.remove('k-empty');
+    el('stage').innerHTML = '<div class="k-error">⚠ ' + esc((txt || 'Transcription failed').slice(0, 300)) + '</div>';
+    window.kolbo.notifySize();
+    return;
+  }
+  // No usable data — collapse instead of a dead "Loading…" card.
+  var card = document.querySelector('.k-card');
+  if (card) card.style.display = 'none';
+  window.kolbo.notifySize();
 });
 `;
 

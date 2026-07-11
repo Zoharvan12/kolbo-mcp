@@ -184,9 +184,23 @@ async function resolveToBuffer(source, kind, opts = {}) {
   }
 
   if (!path.isAbsolute(source)) {
-    throw new Error(`Local file paths must be absolute: ${source}`);
+    throw new Error(
+      `Local file paths must be absolute: ${source}. ` +
+      `If you are using Kolbo over a remote connector (e.g. claude.ai), local files are not reachable — ` +
+      `pass a public https:// URL instead (upload the file somewhere first, or use a URL from list_media).`
+    );
   }
-  const stat = fs.statSync(source);
+  let stat;
+  try {
+    stat = fs.statSync(source);
+  } catch (err) {
+    throw new Error(
+      `Local file not found or unreadable: ${source}. ` +
+      `If you are using Kolbo over a remote connector (e.g. claude.ai), local file paths are not reachable — ` +
+      `pass a public https:// URL instead (upload the file somewhere first, or use a URL from list_media).` +
+      (err && err.code ? ` [${err.code}]` : '')
+    );
+  }
   if (stat.size > maxBytes) {
     throw new Error(`File ${source} (${stat.size} bytes) exceeds ${maxBytes}-byte limit`);
   }
