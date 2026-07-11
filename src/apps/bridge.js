@@ -102,10 +102,28 @@ const BRIDGE_JS = `
   }
 
   var sizeTimer = null;
-  new MutationObserver(function () {
+  function queueSize(delay) {
     clearTimeout(sizeTimer);
-    sizeTimer = setTimeout(notifySize, 120);
-  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+    sizeTimer = setTimeout(notifySize, delay || 120);
+  }
+  new MutationObserver(function () { queueSize(120); })
+    .observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+  // DOM mutations don't fire when an <img>/<video> finishes loading and reflows
+  // the card — without this the host keeps the pre-image height and the card
+  // gets an inner scrollbar. ResizeObserver catches every layout change.
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(function () { queueSize(60); });
+    ro.observe(document.documentElement);
+    ro.observe(document.body);
+    var card = document.querySelector('.k-card');
+    if (card) ro.observe(card);
+  }
+  // Belt and suspenders: media load events bubble as capture-phase 'load'.
+  document.addEventListener('load', function (e) {
+    var t = e.target && e.target.tagName;
+    if (t === 'IMG' || t === 'VIDEO') queueSize(60);
+  }, true);
+  document.addEventListener('loadedmetadata', function () { queueSize(60); }, true);
 
   window.kolbo = {
     ready: function (f) { if (initialized) f(hostContext); else readyFns.push(f); },
