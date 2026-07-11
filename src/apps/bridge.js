@@ -141,6 +141,10 @@ const BRIDGE_JS = `
     updateModelContext: function (text) {
       return request('ui/update-model-context', { content: [{ type: 'text', text: text }] });
     },
+    // Resolves with the mode the host ACTUALLY granted ('inline'|'fullscreen'|'pip').
+    requestDisplayMode: function (mode) {
+      return request('ui/request-display-mode', { mode: mode });
+    },
     notifySize: notifySize,
     hostContext: function () { return hostContext; }
   };

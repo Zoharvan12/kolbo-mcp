@@ -173,10 +173,12 @@ function renderImages(sc, urls) {
   // instead of a broken empty viewer.
   var viewer = '<div class="k-viewer"><img id="main-img" src="' + esc(urls[selected]) + '" alt="" onerror="window.__imgFail && window.__imgFail()"></div>';
   window.__imgFail = function () { renderLinks(urls); window.kolbo.notifySize(); };
-  // Constrained viewer → click opens the original full-size.
+  // Click → expand into an in-Claude fullscreen viewer (all actions stay
+  // available); click again (or Exit) collapses back. Hosts that refuse
+  // fullscreen fall back to opening the original in a new tab.
   setTimeout(function () {
     var img = el('main-img');
-    if (img) img.onclick = function () { window.kolbo.openLink(state.urls[selected]); };
+    if (img) img.onclick = toggleFullscreen;
   }, 0);
   var thumbs = '';
   if (urls.length > 1) {
@@ -259,6 +261,38 @@ function renderError(msg) {
   el('retry-btn').onclick = function () {
     window.kolbo.sendMessage('Please retry that ' + (TOOL_TITLES[state.tool] || 'generation').toLowerCase() + ' — it failed with: ' + msg);
   };
+  window.kolbo.notifySize();
+}
+
+/* ---------- fullscreen viewer ---------- */
+var isFullscreen = false;
+function toggleFullscreen() {
+  var want = isFullscreen ? 'inline' : 'fullscreen';
+  window.kolbo.requestDisplayMode(want).then(function (res) {
+    var granted = res && res.mode;
+    if (granted === 'fullscreen') { isFullscreen = true; applyFullscreen(true); }
+    else if (granted === 'inline' || isFullscreen) { isFullscreen = false; applyFullscreen(false); }
+    else if (!isFullscreen) {
+      // Host refused fullscreen — degrade to opening the original file.
+      window.kolbo.openLink(state.urls && state.urls[selected]);
+    }
+  }).catch(function () {
+    if (!isFullscreen) window.kolbo.openLink(state.urls && state.urls[selected]);
+  });
+}
+function applyFullscreen(on) {
+  document.documentElement.classList.toggle('k-fullscreen', on);
+  var c = el('phase-chip');
+  if (on) {
+    c.style.display = '';
+    c.innerHTML = '✕ ' + esc('Exit');
+    c.style.cursor = 'pointer';
+    c.onclick = toggleFullscreen;
+  } else {
+    c.style.display = 'none';
+    c.onclick = null;
+    c.style.cursor = '';
+  }
   window.kolbo.notifySize();
 }
 
