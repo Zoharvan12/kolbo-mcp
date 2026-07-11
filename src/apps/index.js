@@ -169,14 +169,24 @@ async function modelInfoMap(client) {
       // Real p75 wall-clock estimate mined from production creditUsages —
       // the same source the in-app countdowns use. No estimate → no ETA shown.
       const eta = Number(m.estimatedDurationSeconds || m.estimated_duration_seconds) || null;
-      const info = { icon, eta };
-      if (m.name) byKey.set(String(m.name).toLowerCase(), info);
+      const info = { icon, eta, id: m.identifier || null };
+      // Display names collide across variants ("Nano Banana 2" names both the
+      // t2i model and its editing sibling) — on collision keep the model with
+      // the SHORTEST identifier (the base model), deterministically.
+      const setName = (k) => {
+        const prev = byKey.get(k);
+        if (!prev || !prev.id || (info.id && info.id.length < prev.id.length)) byKey.set(k, info);
+      };
+      if (m.name) setName(String(m.name).toLowerCase());
       if (m.identifier) byKey.set(String(m.identifier).toLowerCase(), info);
     }
   } catch (_) {
     /* fail open — widgets fall back to monogram chips, no ETA */
   }
-  infoCache.set(cacheKey, { at: Date.now(), byKey });
+  // Never cache an empty map: the first request in a fresh worker (typical
+  // right after a deploy restart) can fail transiently, and caching that
+  // failure blanks every model icon for the TTL window.
+  if (byKey.size > 0) infoCache.set(cacheKey, { at: Date.now(), byKey });
   return byKey;
 }
 
@@ -190,6 +200,31 @@ async function modelInfo(client, modelName) {
 /** Back-compat shim (used by uiCompleted and older call sites). */
 async function modelIcon(client, modelName) {
   return (await modelInfo(client, modelName)).icon;
+}
+
+/**
+ * Lenient model-identifier resolution for LLM-supplied model args.
+ * Users say "z-image"; the real identifier is "z-image/turbo" — the backend
+ * has no fuzzy matching on generation routes and fails deep in credit
+ * reservation. Resolve here: exact name/identifier hit → its identifier;
+ * else a UNIQUE identifier prefix match ("z-image" → "z-image/turbo");
+ * ambiguous or unknown → pass through unchanged (API stays source of truth).
+ */
+async function canonicalModelId(client, input) {
+  if (!input || typeof input !== 'string') return input;
+  try {
+    const map = await modelInfoMap(client);
+    const key = input.toLowerCase().trim();
+    const hit = map.get(key) || map.get(key.replace(/\s+/g, '-'));
+    if (hit && hit.id) return hit.id;
+    const ids = new Set();
+    for (const info of map.values()) {
+      const id = (info.id || '').toLowerCase();
+      if (id && (id.startsWith(key + '/') || id.startsWith(key + '-'))) ids.add(info.id);
+    }
+    if (ids.size === 1) return [...ids][0];
+  } catch (_) { /* fail open */ }
+  return input;
 }
 
 /* ------------------------------------------------------------------ */
@@ -256,6 +291,7 @@ module.exports = {
   modelIcon,
   modelInfo,
   modelInfoMap,
+  canonicalModelId,
   resolveAvatarUrl,
   widgetHtml, // exported for smoke tests
 };
