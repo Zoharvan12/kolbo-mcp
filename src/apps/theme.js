@@ -131,7 +131,9 @@ body {
   position: absolute; top: 10px; left: 10px; z-index: 2;
   display: inline-flex; align-items: center; gap: 6px;
   padding: 4px 10px; border-radius: 999px;
-  background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.65); /* no backdrop-filter: nested blur over the
+    animating k-sweep skeleton forced per-frame backdrop re-sampling on phones;
+    0.65 black over the shimmer reads identically without it */
   border: 1px solid rgba(255, 255, 255, 0.14);
   font-size: 11px; font-weight: 600; color: #fff;
 }
