@@ -311,6 +311,7 @@ const { UI, uiResult, appsEnabled, modelIcon } = require('../apps');
  *   status_args    args for poll_tool (default { generation_id })
  */
 async function uiGenerating(p) {
+  // No ETAs anywhere — just a spinner until the poll flips to completed.
   const icon = await modelIcon(p.client, p.model).catch(() => null);
   const structured = {
     phase: 'generating',
@@ -326,7 +327,6 @@ async function uiGenerating(p) {
     count: p.count || 1,
     settings: p.settings || {},
     reference_image: p.reference_image,
-    estimated_seconds: p.estimated_seconds,
   };
   const text = JSON.stringify({
     status: 'submitted',

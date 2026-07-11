@@ -12,7 +12,7 @@ const { widgetPage } = require('../html');
  *   tool: 'generate_image',            // originating MCP tool name
  *   generation_id, poll_tool,          // when phase === 'generating'
  *   status_args,                       // extra args for the poll tool (optional)
- *   estimated_seconds,                 // optional ETA hint
+
  *   model, model_icon, prompt, count,
  *   settings: { duration, resolution, aspect_ratio, audio, voice, mode },
  *   reference_image,                   // thumbnail URL (optional)
@@ -35,10 +35,6 @@ const BODY = `
     <div class="k-prompt" id="prompt"></div>
     <div class="k-chips" id="chips"></div>
     <div id="stage"></div>
-    <div class="k-progress" id="progress" style="display:none"><i id="progress-fill"></i></div>
-    <div class="k-status-line" id="status-line" style="display:none">
-      <span id="status-text">Generating…</span><span id="eta"></span>
-    </div>
     <div class="k-prompt-row" id="prompt-row">
       <input class="k-input" id="action-input" placeholder="">
       <button class="k-btn primary" id="action-send">Send</button>
@@ -57,8 +53,6 @@ const SCRIPT = `
 var state = null;          // current structuredContent
 var selected = 0;          // selected result index
 var pollTimer = null;
-var progressTimer = null;
-var startedAt = Date.now();
 
 el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
 el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai'); };
@@ -117,23 +111,8 @@ function renderGenerating(sc) {
       (i === 0 ? '<span class="k-gen-badge"><span class="k-spin"></span>Generating</span>' : '') + '</div>';
   }
   el('stage').innerHTML = '<div class="k-gen-grid n' + n + '">' + cells + '</div>';
-  el('progress').style.display = '';
-  el('status-line').style.display = '';
   el('actions').innerHTML = '';
-  startProgress(sc.estimated_seconds || defaultEta(sc.kind));
   schedulePoll(sc);
-}
-function defaultEta(kind) { return { image: 25, video: 120, audio: 45, '3d': 300, scenes: 240 }[kind] || 60; }
-
-function startProgress(etaSec) {
-  clearInterval(progressTimer);
-  progressTimer = setInterval(function () {
-    var t = (Date.now() - startedAt) / 1000;
-    var pct = Math.min(92, 100 * (1 - Math.exp(-t / (etaSec * 0.55))));
-    el('progress-fill').style.width = pct.toFixed(1) + '%';
-    var remain = Math.max(0, etaSec - t);
-    el('eta').textContent = remain > 1 ? '~' + fmtDur(remain) + ' left' : 'finishing…';
-  }, 500);
 }
 
 function schedulePoll(sc) {
@@ -147,7 +126,7 @@ function poll(sc) {
     var stateName = st.state || st.phase || st.status;
     if (stateName === 'completed') {
       var r = st.result || st;
-      finishProgress();
+
       var done = Object.assign({}, sc, r, {
         phase: 'completed',
         urls: r.urls || st.urls || [],
@@ -170,16 +149,11 @@ function poll(sc) {
     }
   }).catch(function () { schedulePoll(sc); });
 }
-function finishProgress() {
-  clearInterval(progressTimer);
-  el('progress-fill').style.width = '100%';
-  setTimeout(function () { el('progress').style.display = 'none'; el('status-line').style.display = 'none'; }, 450);
-}
 
 /* ---------- results ---------- */
 function renderResult(sc) {
-  clearTimeout(pollTimer); clearInterval(progressTimer);
-  el('progress').style.display = 'none'; el('status-line').style.display = 'none';
+  clearTimeout(pollTimer);
+
   setPhaseChip('', false);
   if (sc.kind === 'scenes' && sc.scenes && sc.scenes.length) return renderScenes(sc);
   var urls = sc.urls || [];
@@ -272,8 +246,8 @@ function renderScenes(sc) {
 }
 
 function renderError(msg) {
-  clearTimeout(pollTimer); clearInterval(progressTimer);
-  el('progress').style.display = 'none'; el('status-line').style.display = 'none';
+  clearTimeout(pollTimer);
+
   setPhaseChip('Failed', false);
   el('stage').innerHTML = '<div class="k-error">⚠ ' + esc(msg) + '</div>';
   el('actions').innerHTML = '<button class="k-btn" id="retry-btn">↻ Try Again</button>';

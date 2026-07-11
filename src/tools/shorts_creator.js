@@ -263,7 +263,6 @@ function registerShortsCreatorTools(server, client, options = {}) {
         settings: { mode: 'shorts' },
         poll_tool: 'shorts_status',
         status_args: { job_id },
-        estimated_seconds: 240
       });
 
       let job;
