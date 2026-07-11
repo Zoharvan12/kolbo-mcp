@@ -258,23 +258,43 @@ function wireDlButtons(root) {
   });
 }
 
+// CD scenes render as the SAME viewer+thumbnail carousel as image batches —
+// a stacked column of full-size scenes buried the card (and the chat).
+function sceneItems(sc) {
+  var items = [];
+  (sc.scenes || []).forEach(function (scene) {
+    var label = 'Scene ' + scene.scene_number + (scene.title ? ' — ' + scene.title : '');
+    (scene.image_urls || []).forEach(function (u) { items.push({ url: u, type: 'image', label: label }); });
+    (scene.video_urls || []).forEach(function (u) { items.push({ url: u, type: 'video', label: label }); });
+  });
+  return items;
+}
+
 function renderScenes(sc) {
-  el('stage').innerHTML = sc.scenes.map(function (scene) {
-    var media = (scene.video_urls || []).map(function (u) {
-      return '<div class="k-media"><video src="' + esc(u) + '" controls playsinline></video>' + dlBtnHTML(u) + '</div>';
-    }).join('') + (scene.image_urls || []).map(function (u) {
-      return '<div class="k-media" data-focus="' + esc(u) + '"><img src="' + esc(u) + '" alt="">' + dlBtnHTML(u) + '</div>';
-    }).join('');
-    return '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">Scene ' +
-      esc(scene.scene_number) + (scene.title ? ' — ' + esc(scene.title) : '') + '</div>' +
-      '<div class="k-gen-grid n2">' + media + '</div></div>';
-  }).join('');
+  var items = sceneItems(sc);
+  if (!items.length) return renderError('No completed scenes received');
+  selected = Math.min(selected, items.length - 1);
+  var it = items[selected];
+  var mediaHtml = it.type === 'video'
+    ? '<video id="scene-main" src="' + esc(it.url) + '" controls playsinline></video>'
+    : '<img id="scene-main" src="' + esc(it.url) + '" alt="" style="cursor:zoom-in">';
+  var thumbs = '<div class="k-thumbs">' + items.map(function (t, i) {
+    var inner = t.type === 'video'
+      ? '<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:rgba(255,255,255,0.06);font-size:14px">▶</span>'
+      : '<img src="' + esc(t.url) + '" alt="" loading="lazy">';
+    return '<div class="k-thumb' + (i === selected ? ' active' : '') + '" data-i="' + i + '" title="' + esc(t.label) + '">' + inner + '</div>';
+  }).join('') + '</div>';
+  el('stage').innerHTML =
+    '<div class="k-viewer">' + mediaHtml + dlBtnHTML(it.url) + '</div>' +
+    '<div style="font-size:11px;color:var(--text-faint);margin:2px 2px 0">' + esc(it.label) + '</div>' +
+    thumbs;
   wireDlButtons(el('stage'));
-  // Click a scene image → fullscreen focus on THAT image (videos keep their
-  // native controls; clicking them shouldn't hijack playback).
-  Array.prototype.forEach.call(el('stage').querySelectorAll('.k-media[data-focus]'), function (m) {
-    m.style.cursor = 'zoom-in';
-    m.onclick = function () { focusMedia(m.getAttribute('data-focus')); };
+  if (it.type === 'image') {
+    var main = el('scene-main');
+    if (main) main.onclick = function () { focusMedia(it.url); };
+  }
+  Array.prototype.forEach.call(el('stage').querySelectorAll('.k-thumb'), function (t) {
+    t.onclick = function () { selected = +t.getAttribute('data-i'); renderScenes(sc); window.kolbo.notifySize(); };
   });
   renderActions(sc);
 }
@@ -331,6 +351,7 @@ function toggleFullscreen() {
 }
 function applyFullscreen(on, exitHandler) {
   document.documentElement.classList.toggle('k-fullscreen', on);
+  if (window.kolbo.setFullscreen) window.kolbo.setFullscreen(on);
   var c = el('phase-chip');
   if (on) {
     c.style.display = '';
