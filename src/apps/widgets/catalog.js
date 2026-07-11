@@ -64,7 +64,12 @@ function boot(sc) {
 
 window.kolbo.onToolResult(function (result) {
   var sc = result.structuredContent || structured(result);
-  if (sc) boot(sc);
+  if (sc && sc.groups) return boot(sc);
+  // Internal lookup (Claude checking constraints mid-task) — no catalog data
+  // was attached on purpose. Collapse instead of showing a dead card.
+  var card = document.querySelector('.k-card');
+  if (card) card.style.display = 'none';
+  window.kolbo.notifySize();
 });
 `;
 
