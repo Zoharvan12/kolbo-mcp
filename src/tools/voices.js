@@ -2,8 +2,10 @@
  * CONTRACT. Never rename, remove, or break an existing tool/arg. Full rules: ../index.js top-of-file. */
 
 const { z } = require('zod');
+const { UI, uiResult, appsEnabled } = require('../apps');
 
-function registerVoiceTools(server, client) {
+function registerVoiceTools(server, client, options = {}) {
+  const ui = () => appsEnabled(server, options);
   // ─── list_voices ──────────────────────────────────────────────
   server.tool(
     'list_voices',
@@ -36,12 +38,26 @@ function registerVoiceTools(server, client) {
         return `${v.voice_id} — ${v.name} (${v.provider})${v3}\n   ${tags}${styles}${v.description ? `\n   ${v.description}` : ''}`;
       });
 
-      return {
-        content: [{
-          type: 'text',
-          text: `Available voices (${voices.length}):\n\n${lines.join('\n\n')}\n\nUse the "voice_id" value in generate_speech calls.`
-        }]
-      };
+      const text = `Available voices (${voices.length}):\n\n${lines.join('\n\n')}\n\nUse the "voice_id" value in generate_speech calls.`;
+
+      if (ui()) {
+        return uiResult(UI.mediaGrid, text, {
+          widget: 'media-grid',
+          title: 'Voices',
+          items: voices.slice(0, 24).map(v => ({
+            id: v.voice_id,
+            title: v.name,
+            subtitle: [v.provider, v.language, v.gender, v.accent].filter(Boolean).join(' · '),
+            media_type: 'audio',
+            preview_audio: v.preview_url,
+            use_hint: 'Use voice "{TITLE}" (voice_id: {ID}) for text-to-speech — ask me what text to speak.'
+          })),
+          total: voices.length,
+          has_more: voices.length > 24
+        });
+      }
+
+      return { content: [{ type: 'text', text }] };
     }
   );
 }

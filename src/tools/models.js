@@ -4,8 +4,72 @@
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
 const { z } = require('zod');
+const { UI, uiResult, appsEnabled } = require('../apps');
 
-function registerModelTools(server, client) {
+// type name → human group label for the catalog widget
+const TYPE_GROUPS = {
+  text_to_img: 'Image Generation',
+  text_to_video: 'Video Generation',
+  img_to_video: 'Video Generation',
+  music_gen: 'Music',
+  text_to_speech: 'Voice',
+  image_editing: 'Image Editing',
+  video_to_video: 'Video to Video',
+  elements: 'Elements',
+};
+
+function groupNameFor(m) {
+  const t = (Array.isArray(m.types) && m.types[0]) || m.type || '';
+  if (TYPE_GROUPS[t]) return TYPE_GROUPS[t];
+  if (t === 'three_d' || String(t).startsWith('3d_')) return '3D';
+  return 'Other';
+}
+
+function modelChips(m) {
+  const chips = [];
+  if (Array.isArray(m.supported_resolutions) && m.supported_resolutions.length) {
+    const highest = [...m.supported_resolutions]
+      .sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0))
+      .pop();
+    if (highest) chips.push(String(highest));
+  }
+  if (Array.isArray(m.supported_durations) && m.supported_durations.length) {
+    const ds = [...m.supported_durations].sort((a, b) => a - b);
+    chips.push(ds.length > 1 ? `${ds[0]}-${ds[ds.length - 1]}s` : `${ds[0]}s`);
+  }
+  if (m.supports_visual_dna) chips.push('DNA');
+  if (m.new_model || m.newModel) chips.push('NEW');
+  return chips.slice(0, 3);
+}
+
+// structuredContent for ui://kolbo/catalog.html — see src/apps/widgets/catalog.js
+function buildCatalogStructured(models, type) {
+  const groups = [];
+  const byName = new Map();
+  for (const m of models) {
+    const name = groupNameFor(m);
+    let g = byName.get(name);
+    if (!g) { g = { name, models: [] }; byName.set(name, g); groups.push(g); }
+    if (g.models.length >= 12) continue; // cap per group (≤60 total across groups)
+    g.models.push({
+      name: m.name,
+      icon: m.avatar
+        ? (/^https?:\/\//i.test(m.avatar) ? m.avatar : `https://app.kolbo.ai/models_icons/${m.avatar}`)
+        : null,
+      description: String(m.smartSelect_StrengthsSummary || m.summary || m.description || '').slice(0, 90),
+      chips: modelChips(m),
+      use_hint: `Generate with the "${m.name}" model — ask me what I want to create first.`,
+    });
+  }
+  return {
+    widget: 'catalog',
+    title: 'Kolbo AI Models' + (type ? ' — ' + type : ''),
+    groups,
+  };
+}
+
+function registerModelTools(server, client, options = {}) {
+  const ui = () => appsEnabled(server, options);
   // ─── list_models ───────────────────────────────────────────
   server.tool(
     'list_models',
@@ -23,12 +87,9 @@ function registerModelTools(server, client) {
       // a request lives here (durations, reference caps, audio/video min/max,
       // resolution multipliers, supports_* flags, prompt-length limits, etc.).
       if (format === 'json') {
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({ count: result.count, models: result.models }, null, 2)
-          }]
-        };
+        const text = JSON.stringify({ count: result.count, models: result.models }, null, 2);
+        if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type));
+        return { content: [{ type: 'text', text }] };
       }
 
       // Split into auto-selectable (has summary) and named-only (no summary)
@@ -197,12 +258,9 @@ function registerModelTools(server, client) {
         sections.push(`Named-only models (${withoutSummary.length}) — only use if the user explicitly requests by name:\n${withoutSummary.map(formatModel).join('\n')}`);
       }
 
-      return {
-        content: [{
-          type: 'text',
-          text: `Available models (${result.count}):\n\n${sections.join('\n\n')}\n\nUse the "identifier" value as the "model" parameter in generate tools. For programmatic cap validation, re-call with format: "json".`
-        }]
-      };
+      const text = `Available models (${result.count}):\n\n${sections.join('\n\n')}\n\nUse the "identifier" value as the "model" parameter in generate tools. For programmatic cap validation, re-call with format: "json".`;
+      if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type));
+      return { content: [{ type: 'text', text }] };
     }
   );
 

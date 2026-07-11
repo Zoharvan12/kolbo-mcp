@@ -2,6 +2,7 @@
  * CONTRACT. Never rename, remove, or break an existing tool/arg. Full rules: ../index.js top-of-file. */
 
 const { z } = require('zod');
+const { UI, uiResult, appsEnabled } = require('../apps');
 
 // Format a normalized track into a compact human-readable line.
 function trackLine(t) {
@@ -16,7 +17,25 @@ function trackLine(t) {
   return `${t.id} — ${t.title}${t.artist ? ` by ${t.artist}` : ''}\n   ${meta}${flags ? `  [${flags}]` : ''}${t.audioUrl ? `\n   preview: ${t.audioUrl}` : ''}`;
 }
 
-function registerMusicLibraryTools(server, client) {
+// Map a normalized track onto the media-grid widget item contract.
+function trackItem(t) {
+  return {
+    id: t.id,
+    title: t.title,
+    subtitle: [
+      t.artist,
+      t.durationSeconds != null ? Math.round(t.durationSeconds) + 's' : null,
+      Array.isArray(t.genres) && t.genres.length ? t.genres.slice(0, 2).join('/') : (t.genre || null)
+    ].filter(Boolean).join(' · '),
+    thumbnail: t.artworkUrl || null,
+    media_type: 'audio',
+    preview_audio: t.audioUrl || t.audioUrl128 || null,
+    use_hint: 'Get download links for track "{TITLE}" (id: {ID}) via get_music_track_audio.'
+  };
+}
+
+function registerMusicLibraryTools(server, client, options = {}) {
+  const ui = () => appsEnabled(server, options);
   // ─── search_music_library ─────────────────────────────────────
   server.tool(
     'search_music_library',
@@ -42,7 +61,18 @@ function registerMusicLibraryTools(server, client) {
         return { content: [{ type: 'text', text: 'No tracks found matching those filters. Try a broader query or call get_music_library_facets for valid genres/moods.' }] };
       }
       const head = `Found ${tracks.length} track${tracks.length === 1 ? '' : 's'}${result.total ? ` (of ${result.total} sorted)` : ''}:`;
-      return { content: [{ type: 'text', text: `${head}\n\n${tracks.map(trackLine).join('\n\n')}\n\nUse the track id with get_music_track_audio to get the downloadable 128/320/wav URLs.` }] };
+      const text = `${head}\n\n${tracks.map(trackLine).join('\n\n')}\n\nUse the track id with get_music_track_audio to get the downloadable 128/320/wav URLs.`;
+
+      if (ui()) {
+        return uiResult(UI.mediaGrid, text, {
+          widget: 'media-grid',
+          title: 'Music Library' + (args.query ? ' — "' + args.query + '"' : ''),
+          items: tracks.slice(0, 20).map(trackItem),
+          total: result.total != null ? result.total : tracks.length
+        });
+      }
+
+      return { content: [{ type: 'text', text }] };
     }
   );
 
@@ -90,7 +120,18 @@ function registerMusicLibraryTools(server, client) {
       if (tracks.length === 0) {
         return { content: [{ type: 'text', text: 'No tracks returned.' }] };
       }
-      return { content: [{ type: 'text', text: `Catalog (${tracks.length} track${tracks.length === 1 ? '' : 's'}):\n\n${tracks.map(trackLine).join('\n\n')}` }] };
+      const text = `Catalog (${tracks.length} track${tracks.length === 1 ? '' : 's'}):\n\n${tracks.map(trackLine).join('\n\n')}`;
+
+      if (ui()) {
+        return uiResult(UI.mediaGrid, text, {
+          widget: 'media-grid',
+          title: 'Music Library',
+          items: tracks.slice(0, 20).map(trackItem),
+          total: result.total != null ? result.total : tracks.length
+        });
+      }
+
+      return { content: [{ type: 'text', text }] };
     }
   );
 

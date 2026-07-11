@@ -72,6 +72,8 @@ const { registerProjectTools } = require('./tools/projects');
 const { registerVoiceTools } = require('./tools/voices');
 const { registerMusicLibraryTools } = require('./tools/music_library');
 const { registerStockLibraryTools } = require('./tools/stock_library');
+const { registerShortsCreatorTools } = require('./tools/shorts_creator');
+const { registerApps } = require('./apps');
 
 /**
  * Build a fully-configured Kolbo MCP server (all tool groups registered)
@@ -83,6 +85,11 @@ const { registerStockLibraryTools } = require('./tools/stock_library');
  * @param {object} [opts]
  * @param {string} [opts.apiKey]   Per-instance Kolbo API key (overrides env).
  * @param {string} [opts.apiBase]  API base URL override.
+ * @param {boolean} [opts.apps]    Force-enable MCP Apps widget results. Set by
+ *                                 the kolbo-api remote connector (claude.ai),
+ *                                 whose stateless transport hides client
+ *                                 capabilities. stdio hosts are auto-detected
+ *                                 from the initialize handshake instead.
  * @returns {McpServer} a server ready to `.connect(transport)`.
  */
 function createServer(opts = {}) {
@@ -95,20 +102,27 @@ function createServer(opts = {}) {
 
   // Register all tools. `inlineImages` (off by default) is opt-in: only the
   // remote HTTP host enables it, so stdio clients (Kolbo Code / Desktop / Cursor)
-  // keep identical text-URL output.
-  registerGenerateTools(server, client, { inlineImages: !!opts.inlineImages });
-  registerModelTools(server, client);
-  registerVoiceTools(server, client);
-  registerChatTools(server, client);
-  registerVisualDnaTools(server, client);
-  registerMoodboardTools(server, client);
-  registerMediaTools(server, client);
-  registerPresetTools(server, client);
-  registerAppBuilderTools(server, client);
-  registerArtifactTools(server, client);
-  registerProjectTools(server, client);
-  registerMusicLibraryTools(server, client);
-  registerStockLibraryTools(server, client);
+  // keep identical text-URL output. `apps` gates interactive widget results
+  // (MCP Apps) the same way — see src/apps/index.js.
+  const toolOptions = { inlineImages: !!opts.inlineImages, apps: !!opts.apps };
+  registerGenerateTools(server, client, toolOptions);
+  registerModelTools(server, client, toolOptions);
+  registerVoiceTools(server, client, toolOptions);
+  registerChatTools(server, client, toolOptions);
+  registerVisualDnaTools(server, client, toolOptions);
+  registerMoodboardTools(server, client, toolOptions);
+  registerMediaTools(server, client, toolOptions);
+  registerPresetTools(server, client, toolOptions);
+  registerAppBuilderTools(server, client, toolOptions);
+  registerArtifactTools(server, client, toolOptions);
+  registerProjectTools(server, client, toolOptions);
+  registerMusicLibraryTools(server, client, toolOptions);
+  registerStockLibraryTools(server, client, toolOptions);
+  registerShortsCreatorTools(server, client, toolOptions);
+
+  // MCP Apps widget resources (ui://kolbo/*). Registering resources is inert
+  // for text-only hosts — they never fetch them.
+  registerApps(server);
 
   return server;
 }

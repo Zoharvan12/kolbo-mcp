@@ -2,6 +2,7 @@
  * CONTRACT. Never rename, remove, or break an existing tool/arg. Full rules: ../index.js top-of-file. */
 
 const { z } = require('zod');
+const { UI, uiResult, appsEnabled } = require('../apps');
 
 // Compact one-line render of a normalized stock asset.
 function assetLine(a) {
@@ -21,7 +22,16 @@ function buildQuery(obj) {
   return p.toString();
 }
 
-function registerStockLibraryTools(server, client) {
+// Map provider mediaType values onto the widget's 4-value contract.
+function widgetMediaType(mediaType) {
+  if (mediaType === 'music' || mediaType === 'sfx' || mediaType === 'audio') return 'audio';
+  if (mediaType === 'video') return 'video';
+  if (mediaType === '3d') return '3d';
+  return 'image'; // image / photo / illustration / vector
+}
+
+function registerStockLibraryTools(server, client, options = {}) {
+  const ui = () => appsEnabled(server, options);
   // ─── search_stock_media ───────────────────────────────────────
   server.tool(
     'search_stock_media',
@@ -47,7 +57,32 @@ function registerStockLibraryTools(server, client) {
       const assets = result.assets || [];
       if (!assets.length) return { content: [{ type: 'text', text: 'No assets found. Try a broader query, a different source/mediaType, or call get_stock_sources.' }] };
       const head = `Found ${assets.length} asset${assets.length === 1 ? '' : 's'}${result.total ? ` (≈${result.total} total)` : ''}${result.hasMore ? ' — more available (increment page)' : ''}:`;
-      return { content: [{ type: 'text', text: `${head}\n\n${assets.map(assetLine).join('\n\n')}\n\nUse [source:sourceId] with get_stock_asset for full variants, or import_stock_asset to copy it into the media library.` }] };
+      const text = `${head}\n\n${assets.map(assetLine).join('\n\n')}\n\nUse [source:sourceId] with get_stock_asset for full variants, or import_stock_asset to copy it into the media library.`;
+
+      if (ui()) {
+        const items = assets.slice(0, 24).map((a) => {
+          const mt = widgetMediaType(a.mediaType);
+          return {
+            id: a.source + ':' + a.sourceId,
+            title: a.title,
+            subtitle: (a.author?.name ? a.author.name + ' · ' : '') + a.source,
+            thumbnail: a.thumbnailUrl,
+            media_type: mt,
+            url: (a.downloadVariants?.[0]?.url) || a.thumbnailUrl,
+            preview_audio: mt === 'audio' ? (a.previewUrl || a.downloadVariants?.[0]?.url) : undefined,
+            use_hint: 'Import this stock asset into my media library: import_stock_asset source="' + a.source + '" id="' + a.sourceId + '" ("{TITLE}")'
+          };
+        });
+        return uiResult(UI.mediaGrid, text, {
+          widget: 'media-grid',
+          title: 'Stock — "' + (args.query || 'browse') + '"',
+          items,
+          total: result.total != null ? result.total : assets.length,
+          has_more: !!result.hasMore
+        });
+      }
+
+      return { content: [{ type: 'text', text }] };
     }
   );
 
@@ -88,7 +123,29 @@ function registerStockLibraryTools(server, client) {
     async (args) => {
       const q = buildQuery(args);
       const result = await client.get(`/v1/stock/collections${q ? '?' + q : ''}`);
-      return { content: [{ type: 'text', text: JSON.stringify({ count: result.count, collections: result.collections }, null, 2) }] };
+      const text = JSON.stringify({ count: result.count, collections: result.collections }, null, 2);
+
+      if (ui()) {
+        const collections = result.collections || [];
+        const items = collections.slice(0, 24).map((c) => ({
+          id: c.id,
+          title: c.title,
+          subtitle: [c.kind, c.mediaType].filter(Boolean).join(' · '),
+          thumbnail: c.coverUrl || null,
+          media_type: 'image',
+          url: c.coverUrl || null,
+          use_hint: 'Browse this stock collection: search_stock_media source="kolbo-ai" '
+            + (c.kind === 'pack' ? 'packId' : 'collectionId') + '="{ID}" ("{TITLE}")'
+        }));
+        return uiResult(UI.mediaGrid, text, {
+          widget: 'media-grid',
+          title: 'Stock Collections',
+          items,
+          total: result.count != null ? result.count : collections.length
+        });
+      }
+
+      return { content: [{ type: 'text', text }] };
     }
   );
 
