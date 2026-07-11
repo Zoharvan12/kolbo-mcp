@@ -8,7 +8,8 @@ const { widgetPage } = require('../html');
  * structuredContent: {
  *   widget: 'transcript', phase: 'completed'|'generating'|'failed',
  *   generation_id, poll_tool, text, duration, audio_url, srt_url,
- *   word_by_word_srt_url, txt_url, credits_used, error
+ *   word_by_word_srt_url, txt_url, credits_used, error,
+ *   open_url  // "Open in Kolbo" session deep link (optional)
  * }
  */
 
@@ -34,7 +35,7 @@ const BODY = `
 
 const SCRIPT = `
 el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
-el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai'); };
+el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink((state && state.open_url) || 'https://app.kolbo.ai'); };
 var state = null, pollTimer = null;
 
 function boot(sc) {
