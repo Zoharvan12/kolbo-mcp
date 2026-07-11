@@ -34,20 +34,22 @@ function boot(sc) {
   if (!sc || !sc.groups) return;
   state = sc;
   el('title').textContent = sc.title || 'AI Models';
-  var total = sc.groups.reduce(function (n, g) { return n + g.models.length; }, 0);
+  var shown = sc.groups.reduce(function (n, g) { return n + g.models.length; }, 0);
   el('count-chip').style.display = '';
-  el('count-chip').textContent = total + ' models';
+  el('count-chip').textContent = sc.total_available && sc.total_available > shown
+    ? 'top picks · ' + sc.total_available + ' total'
+    : shown + ' models';
   el('stage').innerHTML = sc.groups.map(function (g, gi) {
-    return '<div style="margin-bottom:14px">' +
-      '<div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">' + esc(g.name) + '</div>' +
+    return '<div style="margin-bottom:10px">' +
+      '<div style="font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px">' + esc(g.name) + '</div>' +
       g.models.map(function (m, mi) {
-        return '<div class="k-audio-row" data-g="' + gi + '" data-m="' + mi + '" style="cursor:pointer">' +
-          (m.icon ? '<img class="k-audio-art" style="width:32px;height:32px" src="' + esc(m.icon) + '" onerror="this.outerHTML=monogram(\\'' + esc(m.name).replace(/'/g, '') + '\\')">'
+        return '<div class="k-audio-row" data-g="' + gi + '" data-m="' + mi + '" style="cursor:pointer;padding:6px 8px;margin-bottom:4px">' +
+          (m.icon ? '<img class="k-audio-art" style="width:24px;height:24px;border-radius:6px" src="' + esc(m.icon) + '" onerror="this.outerHTML=monogram(\\'' + esc(m.name).replace(/'/g, '') + '\\')">'
                   : '<span style="flex:none">' + monogram(m.name) + '</span>') +
-          '<div class="k-audio-meta"><div class="k-audio-title">' + esc(m.name) + '</div>' +
-          (m.description ? '<div class="k-audio-sub">' + esc(m.description) + '</div>' : '') + '</div>' +
+          '<div class="k-audio-meta"><div class="k-audio-title" style="font-size:12px">' + esc(m.name) + '</div>' +
+          (m.description ? '<div class="k-audio-sub" style="font-size:10.5px">' + esc(m.description) + '</div>' : '') + '</div>' +
           '<div style="display:flex;gap:4px;flex:none">' + (m.chips || []).slice(0, 3).map(function (c) {
-            return '<span class="k-chip">' + esc(c) + '</span>';
+            return '<span class="k-chip" style="padding:2px 7px;font-size:10px">' + esc(c) + '</span>';
           }).join('') + '</div></div>';
       }).join('') + '</div>';
   }).join('');
