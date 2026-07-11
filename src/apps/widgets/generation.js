@@ -387,7 +387,6 @@ function renderActions(sc) {
   }
   if (sc.kind === 'video') {
     a.push('<button class="k-btn primary" id="btn-download">⬇ Download</button>');
-    a.push('<button class="k-btn" id="btn-analyze">📊 Analyze</button>');
   } else if (hasSingleUrl) {
     // Scenes (Creative Director) have no single "current" url — per-item hover
     // download buttons cover them instead.
@@ -420,9 +419,6 @@ function renderActions(sc) {
         '\\n🖼 Reference image: ' + currentUrl() +
         '\\nEdit instruction: ' + text);
     });
-  });
-  bind('btn-analyze', function () {
-    window.kolbo.sendMessage('Analyze this video and give me an engagement/virality read — hook strength, pacing, retention risks, and concrete improvement tips:\\n' + currentUrl());
   });
 }
 function bind(id, fn) { var b = el(id); if (b) b.onclick = fn; }
