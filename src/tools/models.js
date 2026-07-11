@@ -43,14 +43,34 @@ function modelChips(m) {
 }
 
 // structuredContent for ui://kolbo/catalog.html — see src/apps/widgets/catalog.js
+// Deliberately CURATED, not exhaustive: the widget is a picker, not a database.
+// Smart Select is pinned first, each group shows the recommended/new models
+// (max 6), and the total count chip tells the user how many exist overall.
 function buildCatalogStructured(models, type) {
   const groups = [];
   const byName = new Map();
-  for (const m of models) {
+  const isAuto = (m) => /^auto$|smart.select/i.test(String(m.name || '')) || /smart-select|k_auto/i.test(String(m.identifier || ''));
+
+  // Pinned Smart Select entry (replaces the confusing "Other / Auto" row).
+  const smartSelect = {
+    name: 'Smart Select',
+    icon: null,
+    description: 'Recommended — automatically routes to the best model for your prompt, quality and cost.',
+    chips: ['AUTO'],
+    use_hint: 'Generate with Smart Select (omit the model) — ask me what I want to create first.',
+  };
+
+  // Recommended + new models float to the top of each group.
+  const ranked = [...models].filter((m) => !isAuto(m)).sort((a, b) => {
+    const score = (m) => (m.recommended ? 2 : 0) + (m.new_model || m.newModel ? 1 : 0);
+    return score(b) - score(a);
+  });
+
+  for (const m of ranked) {
     const name = groupNameFor(m);
     let g = byName.get(name);
     if (!g) { g = { name, models: [] }; byName.set(name, g); groups.push(g); }
-    if (g.models.length >= 12) continue; // cap per group (≤60 total across groups)
+    if (g.models.length >= 6) continue; // curated cap — full list lives in the text payload
     g.models.push({
       name: m.name,
       icon: m.avatar
@@ -61,10 +81,12 @@ function buildCatalogStructured(models, type) {
       use_hint: `Generate with the "${m.name}" model — ask me what I want to create first.`,
     });
   }
+  groups.sort((a, b) => (a.name === 'Other' ? 1 : b.name === 'Other' ? -1 : 0));
   return {
     widget: 'catalog',
     title: 'Kolbo AI Models' + (type ? ' — ' + type : ''),
-    groups,
+    total_available: models.length,
+    groups: [{ name: 'Recommended', models: [smartSelect] }, ...groups],
   };
 }
 
