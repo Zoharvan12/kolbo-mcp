@@ -4,8 +4,10 @@
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
 const { z } = require('zod');
+const { UI, uiResult, appsEnabled } = require('../apps');
 
-function registerMoodboardTools(server, client) {
+function registerMoodboardTools(server, client, options = {}) {
+  const ui = () => appsEnabled(server, options);
   // ─── list_moodboards ───────────────────────────────────────
   server.tool(
     'list_moodboards',
@@ -18,15 +20,29 @@ function registerMoodboardTools(server, client) {
       if (scope && scope !== 'all') params.set('scope', scope);
       const qs = params.toString();
       const result = await client.get(`/v1/moodboards${qs ? '?' + qs : ''}`);
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            moodboards: result.moodboards || [],
-            count: result.count || 0
-          }, null, 2)
-        }]
-      };
+      const moodboards = result.moodboards || [];
+      const text = JSON.stringify({
+        moodboards,
+        count: result.count || 0
+      }, null, 2);
+
+      if (ui()) {
+        return uiResult(UI.mediaGrid, text, {
+          widget: 'media-grid',
+          title: 'Moodboards',
+          items: moodboards.slice(0, 24).map(mb => ({
+            id: mb.id,
+            title: mb.name,
+            thumbnail: mb.thumbnail || (Array.isArray(mb.image_urls) ? mb.image_urls[0] : undefined),
+            media_type: 'image',
+            use_hint: 'Apply moodboard "{TITLE}" (moodboard_id: {ID}) to my next generation.'
+          })),
+          total: result.count || moodboards.length,
+          has_more: moodboards.length > 24
+        });
+      }
+
+      return { content: [{ type: 'text', text }] };
     }
   );
 

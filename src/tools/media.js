@@ -6,8 +6,10 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { resolveToBuffer } = require('./_shared');
+const { UI, uiResult, appsEnabled } = require('../apps');
 
-function registerMediaTools(server, client) {
+function registerMediaTools(server, client, options = {}) {
+  const ui = () => appsEnabled(server, options);
   // ─── upload_media ──────────────────────────────────────────
   server.tool(
     'upload_media',
@@ -72,13 +74,32 @@ function registerMediaTools(server, client) {
       const qs = params.toString();
       const result = await client.get(`/v1/media${qs ? '?' + qs : ''}`);
 
+      const media = result.media || [];
+      const pagination = result.pagination || null;
+      const text = JSON.stringify({ media, pagination }, null, 2);
+
+      if (ui()) {
+        const items = media.slice(0, 24).map((m) => ({
+          id: m.id,
+          title: m.filename,
+          subtitle: m.media_type + (m.size ? ' · ' + Math.round(m.size / 1024) + 'KB' : ''),
+          thumbnail: m.media_type === 'image' ? m.url : (m.thumbnail_url || null),
+          media_type: m.media_type,
+          url: m.url,
+          use_hint: 'Use this media library asset in my next step:\nURL: {URL}\n(id: {ID})'
+        }));
+        return uiResult(UI.mediaGrid, text, {
+          widget: 'media-grid',
+          title: 'Media Library',
+          items,
+          total: pagination && pagination.total != null ? pagination.total : media.length
+        });
+      }
+
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify({
-            media: result.media || [],
-            pagination: result.pagination || null
-          }, null, 2)
+          text
         }]
       };
     }
