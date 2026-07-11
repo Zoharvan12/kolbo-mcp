@@ -45,7 +45,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_image', kind: 'image', gen, client, model, prompt,
         count: num_images, settings: { resolution, aspect_ratio },
-        reference_image: reference_images?.[0], estimated_seconds: 25
+        reference_image: reference_images?.[0]
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -95,7 +95,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_image_edit', kind: 'image', gen, client, model, prompt,
         count: num_images, settings: { resolution, aspect_ratio },
-        reference_image: source_images?.[0], estimated_seconds: 40
+        reference_image: source_images?.[0]
       });
 
       // Multi-source compositing or DNA-anchored edits routinely exceed 120s
@@ -211,7 +211,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_video', kind: 'video', gen, client, model, prompt,
         settings: { duration, resolution, aspect_ratio },
-        reference_image: reference_images?.[0], estimated_seconds: 120
+        reference_image: reference_images?.[0]
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -259,7 +259,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_video_from_image', kind: 'video', gen, client, model, prompt,
         settings: { duration, resolution, aspect_ratio },
-        reference_image: image_url, estimated_seconds: 120
+        reference_image: image_url
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -306,7 +306,6 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_music', kind: 'audio', gen, client, model: model || 'Suno', prompt,
         settings: { mode: instrumental ? 'instrumental' : (style || undefined) },
-        estimated_seconds: 90
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -347,7 +346,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (ui()) return uiGenerating({
         tool: 'generate_speech', kind: 'audio', gen, client, model, prompt: text,
-        settings: { voice: voice || 'Rachel' }, estimated_seconds: 20
+        settings: { voice: voice || 'Rachel' }
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -387,7 +386,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (ui()) return uiGenerating({
         tool: 'generate_sound', kind: 'audio', gen, client, model, prompt,
-        settings: { duration }, estimated_seconds: 20
+        settings: { duration }
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -486,7 +485,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_elements', kind: 'video', gen: startResponse, client, model, prompt,
         settings: { duration, resolution, aspect_ratio },
-        reference_image: reference_images?.[0], estimated_seconds: 180
+        reference_image: reference_images?.[0]
       });
 
       const result = await pollUntilDone(client, startResponse.generation_id, {
@@ -564,7 +563,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_first_last_frame', kind: 'video', gen: startResponse, client, model, prompt,
         settings: { duration, resolution, aspect_ratio },
-        reference_image: first_frame_url || undefined, estimated_seconds: 120
+        reference_image: first_frame_url || undefined
       });
 
       const result = await pollUntilDone(client, startResponse.generation_id, {
@@ -674,7 +673,6 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'generate_lipsync', kind: 'video', gen: startResponse, client, model,
         prompt: text_prompt, settings: { mode: 'lipsync' },
         reference_image: sourceIsUrl && !/\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? source : undefined,
-        estimated_seconds: 180
       });
 
       const result = await pollUntilDone(client, startResponse.generation_id, {
@@ -773,7 +771,7 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'generate_video_from_video', kind: 'video', gen: startResponse, client, model,
         prompt: prompt || (preset ? `Subtitles preset: ${preset}` : undefined),
         settings: { duration, resolution, aspect_ratio, mode: preset ? 'subtitles' : 'restyle' },
-        reference_image: reference_images?.[0], estimated_seconds: 240
+        reference_image: reference_images?.[0]
       });
 
       const result = await pollUntilDone(client, startResponse.generation_id, {
@@ -890,7 +888,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_3d', kind: '3d', gen: startResponse, client, model, prompt,
         settings: { mode: mode || (reference_images?.length > 1 ? 'multi' : reference_images?.length === 1 ? 'single' : 'text') },
-        reference_image: reference_images?.[0], estimated_seconds: 300
+        reference_image: reference_images?.[0]
       });
 
       const result = await pollUntilDone(client, startResponse.generation_id, {
@@ -940,7 +938,7 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'edit_image', kind: 'image', gen, client, model,
         prompt: prompt || operation,
         settings: { mode: operation, aspect_ratio },
-        reference_image: image_url, estimated_seconds: 40
+        reference_image: image_url
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -997,7 +995,7 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'edit_video', kind: 'video', gen, client, model,
         prompt: prompt || operation,
         settings: { mode: operation, duration, aspect_ratio },
-        reference_image: image_url, estimated_seconds: 180
+        reference_image: image_url
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {

@@ -123,38 +123,49 @@ function uiResult(uri, text, structured) {
 /* ------------------------------------------------------------------ */
 
 const ICON_TTL_MS = 10 * 60 * 1000;
-const iconCache = new Map(); // apiBase → { at, byKey: Map<lowername, url> }
+const infoCache = new Map(); // apiBase → { at, byKey: Map<lowername, {icon, eta}> }
 
-async function modelIconMap(client) {
+async function modelInfoMap(client) {
   const cacheKey = client.apiBase || 'default';
-  const hit = iconCache.get(cacheKey);
+  const hit = infoCache.get(cacheKey);
   if (hit && Date.now() - hit.at < ICON_TTL_MS) return hit.byKey;
   const byKey = new Map();
   try {
     const res = await client.request('GET', '/v1/models');
     const models = res?.models || res?.data?.models || [];
     for (const m of models) {
-      if (!m || !m.avatar) continue;
+      if (!m) continue;
       // The API usually resolves avatars to absolute URLs; bare filenames (older
       // deployments / internal calls) resolve against the app's public icon dir.
-      const url = /^https?:\/\//i.test(m.avatar)
-        ? m.avatar
-        : `https://app.kolbo.ai/models_icons/${encodeURIComponent(m.avatar)}`;
-      if (m.name) byKey.set(String(m.name).toLowerCase(), url);
-      if (m.identifier) byKey.set(String(m.identifier).toLowerCase(), url);
+      const icon = m.avatar
+        ? (/^https?:\/\//i.test(m.avatar)
+          ? m.avatar
+          : `https://app.kolbo.ai/models_icons/${encodeURIComponent(m.avatar)}`)
+        : null;
+      // Real p75 wall-clock estimate mined from production creditUsages —
+      // the same source the in-app countdowns use. No estimate → no ETA shown.
+      const eta = Number(m.estimatedDurationSeconds || m.estimated_duration_seconds) || null;
+      const info = { icon, eta };
+      if (m.name) byKey.set(String(m.name).toLowerCase(), info);
+      if (m.identifier) byKey.set(String(m.identifier).toLowerCase(), info);
     }
   } catch (_) {
-    /* fail open — widgets fall back to monogram chips */
+    /* fail open — widgets fall back to monogram chips, no ETA */
   }
-  iconCache.set(cacheKey, { at: Date.now(), byKey });
+  infoCache.set(cacheKey, { at: Date.now(), byKey });
   return byKey;
 }
 
-/** Resolve one model's icon URL; null → widget renders a monogram. */
+/** Resolve one model's { icon, eta }; missing → { icon: null, eta: null }. */
+async function modelInfo(client, modelName) {
+  if (!modelName) return { icon: null, eta: null };
+  const map = await modelInfoMap(client);
+  return map.get(String(modelName).toLowerCase()) || { icon: null, eta: null };
+}
+
+/** Back-compat shim (used by uiCompleted and older call sites). */
 async function modelIcon(client, modelName) {
-  if (!modelName) return null;
-  const map = await modelIconMap(client);
-  return map.get(String(modelName).toLowerCase()) || null;
+  return (await modelInfo(client, modelName)).icon;
 }
 
 /* ------------------------------------------------------------------ */
@@ -219,6 +230,7 @@ module.exports = {
   uiResult,
   appsEnabled,
   modelIcon,
-  modelIconMap,
+  modelInfo,
+  modelInfoMap,
   widgetHtml, // exported for smoke tests
 };
