@@ -1,7 +1,7 @@
 'use strict';
 
 const { BRIDGE_JS } = require('./bridge');
-const { KOLBO_CSS, KOLBO_LOGO_SVG } = require('./theme');
+const { KOLBO_CSS, KOLBO_LOGO_SVG, KOLBO_LOGO_IMG } = require('./theme');
 
 /**
  * Assemble a self-contained widget page. No build step — each widget module
@@ -25,7 +25,8 @@ ${body}
 <script>${BRIDGE_JS}</script>
 <script>
 // ---- shared widget runtime ----
-var KOLBO_LOGO = ${JSON.stringify(KOLBO_LOGO_SVG)};
+var KOLBO_LOGO_FALLBACK = ${JSON.stringify(KOLBO_LOGO_SVG)};
+var KOLBO_LOGO = ${JSON.stringify(KOLBO_LOGO_IMG)};
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];

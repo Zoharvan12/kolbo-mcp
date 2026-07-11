@@ -115,7 +115,7 @@ body {
 .k-skel {
   position: relative; border-radius: 10px; overflow: hidden;
   background: var(--surface-2); border: 1px solid var(--border);
-  min-height: 120px;
+  min-height: 120px; max-height: 300px;
 }
 .k-skel.video { aspect-ratio: 16 / 9; }
 .k-skel.square { aspect-ratio: 1; }
@@ -157,9 +157,13 @@ body {
 .k-media img, .k-media video { display: block; width: 100%; height: 100%; object-fit: cover; }
 .k-media.selected { outline: 2px solid var(--brand); outline-offset: 1px; }
 
+/* Keep the whole completed card under the host's iframe height cap (~800px):
+   header + prompt + chips + viewer + thumbs + actions + footer must all fit,
+   or claude.ai adds an inner scrollbar. Click the image to open it full-size. */
 .k-viewer { margin-bottom: 10px; }
-.k-viewer img, .k-viewer video { display: block; width: 100%; max-height: 480px; object-fit: contain;
-  border-radius: 12px; background: #000; border: 1px solid var(--border); }
+.k-viewer img, .k-viewer video { display: block; width: 100%; max-height: 340px; object-fit: contain;
+  border-radius: 12px; background: #000; border: 1px solid var(--border); cursor: zoom-in; }
+.k-viewer video { cursor: default; }
 .k-thumbs { display: flex; gap: 6px; margin: 10px 0 2px; }
 .k-thumbs .k-thumb { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; cursor: pointer;
   border: 2px solid transparent; opacity: 0.75; transition: all 150ms var(--smooth); flex: none; }
@@ -241,7 +245,11 @@ body {
 .k-credits { margin-left: auto; font-family: 'JetBrains Mono', monospace; }
 `;
 
-/** Kolbo mark (simplified inline SVG, brand blue). */
+/**
+ * Kolbo mark — the real app icon from the CDN (the host CSP allows it), with
+ * the simplified inline SVG only as the onerror fallback.
+ */
 const KOLBO_LOGO_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="24" height="24" rx="6" fill="#3b82f6"/><path d="M7 5.5v13M7 12l6.5-6.5M7 12l7 6.5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const KOLBO_LOGO_IMG = `<img src="https://kolbo-general-media.fra1.cdn.digitaloceanspaces.com/models_icons/kolbo-ai.png" alt="Kolbo" style="width:18px;height:18px;border-radius:5px;display:block" onerror="this.outerHTML=KOLBO_LOGO_FALLBACK">`;
 
-module.exports = { KOLBO_CSS, KOLBO_LOGO_SVG };
+module.exports = { KOLBO_CSS, KOLBO_LOGO_SVG, KOLBO_LOGO_IMG };
