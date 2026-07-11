@@ -98,7 +98,7 @@ function renderChips(sc) {
   if (s.voice) h += chip('🎤 ' + esc(s.voice));
   if (s.mode) h += chip(esc(s.mode));
   if (sc.count > 1) h += chip('×' + sc.count);
-  if (sc.reference_image) h += '<img class="k-ref-thumb" src="' + esc(sc.reference_image) + '" alt="ref" title="Reference image">';
+  if (sc.reference_image) h += '<img class="k-ref-thumb" src="' + esc(sc.reference_image) + '" alt="" title="Reference image" onerror="this.style.display=\'none\'">';
   el('chips').innerHTML = h;
 }
 function chip(inner) { return '<span class="k-chip">' + inner + '</span>'; }
@@ -166,7 +166,6 @@ function poll(sc) {
     } else if (stateName === 'failed' || stateName === 'error' || stateName === 'cancelled') {
       renderError(st.error || 'Generation ' + stateName);
     } else {
-      if (st.progress != null) el('status-text').textContent = 'Generating… ' + Math.round(st.progress) + '%';
       schedulePoll(sc);
     }
   }).catch(function () { schedulePoll(sc); });
@@ -196,7 +195,10 @@ function renderResult(sc) {
 
 function renderImages(sc, urls) {
   selected = Math.min(selected, urls.length - 1);
-  var viewer = '<div class="k-viewer"><img id="main-img" src="' + esc(urls[selected]) + '" alt=""></div>';
+  // If the host CSP still blocks the image, degrade to open-in-browser rows
+  // instead of a broken empty viewer.
+  var viewer = '<div class="k-viewer"><img id="main-img" src="' + esc(urls[selected]) + '" alt="" onerror="window.__imgFail && window.__imgFail()"></div>';
+  window.__imgFail = function () { renderLinks(urls); window.kolbo.notifySize(); };
   var thumbs = '';
   if (urls.length > 1) {
     thumbs = '<div class="k-thumbs">' + urls.map(function (u, i) {

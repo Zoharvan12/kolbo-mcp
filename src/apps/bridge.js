@@ -91,9 +91,13 @@ const BRIDGE_JS = `
   }).catch(function () { /* host without apps support — widget stays static */ });
 
   function notifySize() {
-    var el = document.documentElement;
+    // Measure the widget card itself — documentElement.scrollHeight over-reports
+    // in some hosts and leaves a huge empty iframe below the card.
+    var card = document.querySelector('.k-card');
+    var rect = card ? card.getBoundingClientRect() : null;
+    var height = rect ? Math.ceil(rect.bottom + 8) : document.documentElement.scrollHeight;
     notify('ui/notifications/size-changed', {
-      width: el.scrollWidth, height: el.scrollHeight
+      width: document.documentElement.scrollWidth, height: height
     });
   }
 

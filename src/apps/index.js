@@ -42,6 +42,26 @@ function widgetHtml(uri) {
   return htmlCache.get(uri);
 }
 
+// Hosts apply a deny-by-default CSP to widget iframes — without this
+// declaration EVERY external asset (generated images/videos on the CDN, model
+// icons, Google Fonts) is silently blocked. resourceDomains maps to
+// img/script/style/font/media-src; connectDomains to connect-src.
+const WIDGET_CSP = {
+  resourceDomains: [
+    'https://*.kolbo.ai',                       // media.kolbo.ai CDN + app.kolbo.ai model icons
+    'https://*.digitaloceanspaces.com',         // DO Spaces buckets (all envs)
+    'https://*.cdn.digitaloceanspaces.com',     // DO Spaces CDN endpoints
+    'https://fonts.googleapis.com',             // Inter / JetBrains Mono stylesheet
+    'https://fonts.gstatic.com',                // font files
+    'https://images.pexels.com',                // stock thumbnails
+    'https://*.pexels.com',
+    'https://*.pixabay.com',
+    'https://*.sketchfab.com',
+    'https://*.cloudfront.net',                 // provider-hosted previews
+  ],
+  connectDomains: [],
+};
+
 /** Register all Kolbo widget resources on an McpServer. */
 function registerApps(server) {
   for (const [uri, name] of [
@@ -50,9 +70,16 @@ function registerApps(server) {
     [UI.catalog, 'Kolbo Model Catalog Widget'],
     [UI.transcript, 'Kolbo Transcription Widget'],
   ]) {
-    registerAppResource(server, name, uri, { mimeType: RESOURCE_MIME_TYPE }, async () => ({
-      contents: [{ uri, mimeType: RESOURCE_MIME_TYPE, text: widgetHtml(uri) }],
-    }));
+    registerAppResource(
+      server, name, uri,
+      { mimeType: RESOURCE_MIME_TYPE, _meta: { csp: WIDGET_CSP, ui: { csp: WIDGET_CSP } } },
+      async () => ({
+        contents: [{
+          uri, mimeType: RESOURCE_MIME_TYPE, text: widgetHtml(uri),
+          _meta: { csp: WIDGET_CSP, ui: { csp: WIDGET_CSP } },
+        }],
+      })
+    );
   }
 }
 
