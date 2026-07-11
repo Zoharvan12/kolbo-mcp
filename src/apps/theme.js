@@ -180,17 +180,21 @@ body {
   border-radius: 12px; background: #000; border: 1px solid var(--border); cursor: zoom-in; }
 .k-viewer video { cursor: default; }
 
-/* ---- Fullscreen (ui/request-display-mode granted) ---- */
-html.k-fullscreen, html.k-fullscreen body { height: 100%; }
-html.k-fullscreen .k-card { height: 100%; display: flex; flex-direction: column; border-radius: 0; }
-html.k-fullscreen .k-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-html.k-fullscreen .k-viewer { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+/* ---- Fullscreen (ui/request-display-mode granted) ----
+   position:fixed pins the card to the iframe viewport regardless of document
+   flow/host sizing quirks — the media physically cannot exceed the screen. */
+html.k-fullscreen, html.k-fullscreen body { height: 100%; overflow: hidden; }
+html.k-fullscreen .k-card { position: fixed; inset: 0; display: flex; flex-direction: column; border-radius: 0; }
+html.k-fullscreen .k-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+html.k-fullscreen .k-prompt, html.k-fullscreen .k-chips { flex: none; }
+html.k-fullscreen #stage { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+html.k-fullscreen .k-viewer { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
 html.k-fullscreen .k-viewer img, html.k-fullscreen .k-viewer video {
-  /* hard viewport cap — the image must NEVER exceed the screen or cover the
-     host's chrome, whatever the host's iframe sizing does */
-  max-height: min(100%, calc(100dvh - 130px)); max-width: 100%;
+  max-height: 100%; max-width: 100%; height: auto;
   width: auto; margin: 0 auto; cursor: zoom-out; object-fit: contain; }
-html.k-fullscreen .k-thumbs .k-thumb { width: 64px; height: 64px; }
+html.k-fullscreen .k-thumbs { flex: none; }
+html.k-fullscreen .k-thumbs .k-thumb { width: 56px; height: 56px; }
+html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
 .k-expand-hint { display: none; }
 .k-thumbs { display: flex; gap: 6px; margin: 10px 0 2px; }
 .k-thumbs .k-thumb { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; cursor: pointer;

@@ -305,6 +305,56 @@ async function inlineImageBlocks(urls, opts = {}) {
   return blocks.filter(Boolean);
 }
 
+// ─── "Open in Kolbo" deep links ───────────────────────────────────────────────
+// kolbo-api submit responses include `session_id` + `project_id`. Map each MCP
+// tool to the frontend page + tool slug whose session view can RESUME that
+// session (mirrors kolbo-map src/constants/sessionTypes.js resumeUrl map — the
+// route must match the SESSION MODEL the SDK created, per sdkSessionManager):
+//   ImageSession → /image-tools?tool=text-to-image
+//   imgEditSession (image_edit AND edit_image/global_image_edit) → /image-tools?tool=image-editing
+//   textToVideoSession → /video-tools?tool=text-to-video
+//   imgToVideoSession (video_from_image, elements, first_last_frame) → /video-tools?tool=image-to-video
+//   videoToVideoSession → /video-tools?tool=video-to-video
+//   lipsyncSession → /video-tools?tool=lipsync
+//   MusicGeneratorSession / TextToSpeechSession / textToSoundSession /
+//   speechToTextSession → /audio-tools with the matching slug
+//   CreativeDirectorSession → /creative-director?session=... (no tool param)
+// Intentionally ABSENT (no deep-linkable session page — widget falls back to
+// plain https://app.kolbo.ai): edit_video (GlobalVideoEditSession has no
+// session deep-link), generate_3d (project-scoped, no session), shorts render.
+const APP_BASE_URL = 'https://app.kolbo.ai';
+const OPEN_URL_ROUTES = {
+  generate_image:             { path: '/image-tools', tool: 'text-to-image' },
+  generate_image_edit:        { path: '/image-tools', tool: 'image-editing' },
+  edit_image:                 { path: '/image-tools', tool: 'image-editing' },
+  generate_video:             { path: '/video-tools', tool: 'text-to-video' },
+  generate_video_from_image:  { path: '/video-tools', tool: 'image-to-video' },
+  generate_elements:          { path: '/video-tools', tool: 'image-to-video' },
+  generate_first_last_frame:  { path: '/video-tools', tool: 'image-to-video' },
+  generate_video_from_video:  { path: '/video-tools', tool: 'video-to-video' },
+  generate_lipsync:           { path: '/video-tools', tool: 'lipsync' },
+  generate_music:             { path: '/audio-tools', tool: 'music-generator' },
+  generate_speech:            { path: '/audio-tools', tool: 'text-to-speech' },
+  generate_sound:             { path: '/audio-tools', tool: 'text-to-sound' },
+  transcribe_audio:           { path: '/audio-tools', tool: 'speech-to-text' },
+  generate_creative_director: { path: '/creative-director' },
+};
+
+/**
+ * Build the "Open in Kolbo" deep link for a generation's actual session.
+ * Returns undefined (widget falls back to app.kolbo.ai) when the tool has no
+ * deep-linkable page or the submit response carried no session_id (older
+ * kolbo-api, shorts render, 3D).
+ */
+function buildOpenUrl(tool, gen) {
+  const route = OPEN_URL_ROUTES[tool];
+  if (!route || !gen || !gen.session_id) return undefined;
+  let url = `${APP_BASE_URL}${route.path}?session=${encodeURIComponent(gen.session_id)}`;
+  if (route.tool) url += `&tool=${route.tool}`;
+  if (gen.project_id) url += `&project=${encodeURIComponent(gen.project_id)}`;
+  return url;
+}
+
 // ─── MCP Apps generation widget helpers ──────────────────────────────────────
 // When the host renders MCP Apps (claude.ai via the remote connector, Claude
 // Desktop over stdio), generation tools return IMMEDIATELY after submit and the
@@ -341,6 +391,7 @@ async function uiGenerating(p) {
     count: p.count || 1,
     settings: p.settings || {},
     reference_image: p.reference_image,
+    open_url: buildOpenUrl(p.tool, p.gen),
   };
   const text = JSON.stringify({
     status: 'submitted',
@@ -373,6 +424,7 @@ async function uiCompleted(p, textPayload) {
     duration: p.duration,
     scenes: p.scenes,
     credits_used: p.credits_used,
+    open_url: buildOpenUrl(p.tool, p.gen),
   };
   return uiResult(UI.generation, textPayload, structured);
 }
@@ -389,6 +441,7 @@ module.exports = {
   creditFields,
   projectIdField,
   inlineImageBlocks,
+  buildOpenUrl,
   uiGenerating,
   uiCompleted,
   appsEnabled,

@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone } = require('../polling');
-const { resolveToBuffer, creditFields, projectIdField, inlineImageBlocks, uiGenerating, uiCompleted, appsEnabled } = require('./_shared');
+const { resolveToBuffer, creditFields, projectIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, uiCompleted, appsEnabled } = require('./_shared');
 const { UI, uiResult, canonicalModelId } = require('../apps');
 
 function registerGenerateTools(server, client, options = {}) {
@@ -178,7 +178,7 @@ function registerGenerateTools(server, client, options = {}) {
       // through get_generation_status, so it stays blocking on UI hosts too and
       // renders the completed scene gallery.
       if (ui()) return uiCompleted({
-        tool: 'generate_creative_director', kind: 'scenes', client, model, prompt,
+        tool: 'generate_creative_director', kind: 'scenes', gen, client, model, prompt,
         settings: { duration, resolution, mode: workflow_type }, scenes,
         credits_used: creditFields(result).credits_used
       }, cdText);
@@ -839,6 +839,7 @@ function registerGenerateTools(server, client, options = {}) {
           generation_id: startResponse.generation_id,
           poll_tool: 'get_generation_status',
           audio_url: isUrl ? source : undefined,
+          open_url: buildOpenUrl('transcribe_audio', startResponse),
         });
       }
 
