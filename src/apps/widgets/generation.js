@@ -263,14 +263,41 @@ function renderScenes(sc) {
     var media = (scene.video_urls || []).map(function (u) {
       return '<div class="k-media"><video src="' + esc(u) + '" controls playsinline></video>' + dlBtnHTML(u) + '</div>';
     }).join('') + (scene.image_urls || []).map(function (u) {
-      return '<div class="k-media"><img src="' + esc(u) + '" alt="">' + dlBtnHTML(u) + '</div>';
+      return '<div class="k-media" data-focus="' + esc(u) + '"><img src="' + esc(u) + '" alt="">' + dlBtnHTML(u) + '</div>';
     }).join('');
     return '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px">Scene ' +
       esc(scene.scene_number) + (scene.title ? ' — ' + esc(scene.title) : '') + '</div>' +
       '<div class="k-gen-grid n2">' + media + '</div></div>';
   }).join('');
   wireDlButtons(el('stage'));
+  // Click a scene image → fullscreen focus on THAT image (videos keep their
+  // native controls; clicking them shouldn't hijack playback).
+  Array.prototype.forEach.call(el('stage').querySelectorAll('.k-media[data-focus]'), function (m) {
+    m.style.cursor = 'zoom-in';
+    m.onclick = function () { focusMedia(m.getAttribute('data-focus')); };
+  });
   renderActions(sc);
+}
+
+// Fullscreen a single item out of a multi-item grid (Creative Director
+// scenes). Exit restores the grid.
+function focusMedia(url) {
+  window.kolbo.requestDisplayMode('fullscreen').then(function (res) {
+    if (!(res && res.mode === 'fullscreen')) return window.kolbo.openLink(url);
+    isFullscreen = true;
+    el('stage').innerHTML = '<div class="k-viewer"><img id="focus-img" src="' + esc(url) + '" alt="" style="cursor:zoom-out">' + dlBtnHTML(url) + '</div>';
+    wireDlButtons(el('stage'));
+    el('focus-img').onclick = exitFocus;
+    applyFullscreen(true, exitFocus);
+    window.kolbo.notifySize();
+  }).catch(function () { window.kolbo.openLink(url); });
+}
+function exitFocus() {
+  window.kolbo.requestDisplayMode('inline').catch(function () {});
+  isFullscreen = false;
+  applyFullscreen(false);
+  renderScenes(state); // restore the grid
+  window.kolbo.notifySize();
 }
 
 function renderError(msg) {
@@ -302,14 +329,14 @@ function toggleFullscreen() {
     if (!isFullscreen) window.kolbo.openLink(state.urls && state.urls[selected]);
   });
 }
-function applyFullscreen(on) {
+function applyFullscreen(on, exitHandler) {
   document.documentElement.classList.toggle('k-fullscreen', on);
   var c = el('phase-chip');
   if (on) {
     c.style.display = '';
     c.innerHTML = '✕ ' + esc('Exit');
     c.style.cursor = 'pointer';
-    c.onclick = toggleFullscreen;
+    c.onclick = exitHandler || toggleFullscreen;
   } else {
     c.style.display = 'none';
     c.onclick = null;
