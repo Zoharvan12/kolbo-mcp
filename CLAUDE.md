@@ -327,6 +327,12 @@ Selection arg shape (both estimate + render): `shorts: [{ moment_index, preset_i
 | `move_session` | `PATCH /v1/sessions/:sessionId/project` |
 | `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | `POST/GET /v1/docs`, `GET/PUT/DELETE /v1/docs/:id`, `PATCH /v1/docs/:id/share` |
 | `*_visual_dna_folder` (5 tools) | `GET/POST /v1/visual-dna/folders`, `PUT/DELETE /v1/visual-dna/folders/:folderId`, `PUT /v1/visual-dna/:id/folder` |
+| `create_project` / `update_project` / `archive_project` / `unarchive_project` | `POST /v1/projects`, `PUT /v1/projects/:id(/archive|/unarchive)` |
+| `list_sessions` | `GET /v1/sessions` |
+| `add_project_context` / `list_project_context` / `delete_project_context` / `get_project_profile` / `regenerate_project_profile` | `POST/GET/DELETE /v1/projects/:id/context*`, `GET/POST /v1/projects/:id/profile*` |
+| `create_moodboard` / `update_moodboard` / `delete_moodboard` | `POST /v1/moodboards`, `PUT/DELETE /v1/moodboards/:id` |
+| `clone_voice` / `import_elevenlabs_voice` / `delete_voice` | `POST /v1/voices/clone`, `POST /v1/voices/import-elevenlabs`, `DELETE /v1/voices/:id` |
+| `trim_video` | `POST /v1/video/trim` + `GET /v1/video/trim/:jobId` |
 | `check_credits` | `GET /v1/account/credits` |
 
 **Generation flow**: POST → get `generation_id` → poll `/v1/generate/:id/status` → return `result` when `state === 'completed'`.
