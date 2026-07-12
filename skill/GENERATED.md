@@ -1,7 +1,7 @@
 # AUTO-GENERATED — do not edit
 
 This skill/ tree is mirrored from kolbo-code (the single source of truth)
-by .github/workflows/sync-skill-to-plugin.yml — synced from kolbo-code@53720a8.
+by .github/workflows/sync-skill-to-plugin.yml — synced from kolbo-code@17e585e.
 
 It is the skill that 'npx @kolbo/mcp install' deploys into the user's agent.
 To change it, edit packages/opencode/skills/kolbo/ in kolbo-code and push;
