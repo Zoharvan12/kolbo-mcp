@@ -396,7 +396,7 @@ async function uiGenerating(p) {
   const text = JSON.stringify({
     status: 'submitted',
     generation_id: p.gen.generation_id,
-    _widget_note: 'A live Kolbo widget is rendering this generation for the user (progress + final result + action buttons). Tell the user it is generating and the card above will update — do NOT poll in a loop. If you later need the output URLs (e.g. for a follow-up edit), call get_generation_status once with this generation_id.',
+    _widget_note: 'A live Kolbo widget is rendering this generation for the user (progress + final result + action buttons). Tell the user it is generating and the card above will update — do NOT poll in a loop. If you need the output URLs (e.g. for a follow-up edit or a report), call get_generation_status ONCE with wait=true — it blocks until done. Tracking several generations? Pass ALL their ids in generation_ids in that one call.',
   }, null, 2);
   return uiResult(UI.generation, text, structured);
 }
