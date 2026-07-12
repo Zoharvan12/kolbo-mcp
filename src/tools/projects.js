@@ -56,6 +56,145 @@ function registerProjectTools(server, client) {
       };
     }
   );
+  // ─── create_project ────────────────────────────────────────
+  server.tool(
+    'create_project',
+    'Create a new Kolbo project. Use when the user starts a new body of work ("new project for film X", "set up a workspace for the campaign"). After creating, pass the returned id as `project_id` on EVERY subsequent generation/upload/doc call for that work. Plan limits apply (server rejects when the plan\'s project cap is reached).',
+    {
+      name: z.string().describe('Project name.'),
+      description: z.string().optional().describe('Optional description (max 10k chars, markdown OK). Great place for the brief/logline — it also feeds the project\'s AI profile.')
+    },
+    async ({ name, description }) => {
+      const body = { name };
+      if (description) body.description = description;
+      const result = await client.post('/v1/projects', body);
+      return { content: [{ type: 'text', text: JSON.stringify({ project: result.project, _hint: 'Pass this id as project_id on every subsequent call for this work.' }, null, 2) }] };
+    }
+  );
+
+  // ─── update_project ────────────────────────────────────────
+  server.tool(
+    'update_project',
+    'Rename a project and/or update its description. Changing the description also refreshes the project\'s AI profile in the background.',
+    {
+      project_id: z.string().describe('Project ObjectId (from list_projects).'),
+      name: z.string().optional().describe('New name.'),
+      description: z.string().optional().describe('New description (replaces the old one).')
+    },
+    async ({ project_id, name, description }) => {
+      const body = {};
+      if (name !== undefined) body.name = name;
+      if (description !== undefined) body.description = description;
+      const result = await client.put(`/v1/projects/${encodeURIComponent(project_id)}`, body);
+      return { content: [{ type: 'text', text: JSON.stringify(result.project, null, 2) }] };
+    }
+  );
+
+  // ─── archive_project / unarchive_project ───────────────────
+  server.tool(
+    'archive_project',
+    'Archive a project — hides it from the default project list without deleting anything. Fully reversible with `unarchive_project`. (Permanent project DELETION is intentionally not available via the API — it cascades to all content and stays an in-app action.)',
+    { project_id: z.string().describe('Project ObjectId to archive.') },
+    async ({ project_id }) => {
+      const result = await client.put(`/v1/projects/${encodeURIComponent(project_id)}/archive`, {});
+      return { content: [{ type: 'text', text: JSON.stringify(result.project, null, 2) }] };
+    }
+  );
+  server.tool(
+    'unarchive_project',
+    'Restore an archived project back to the active list.',
+    { project_id: z.string().describe('Project ObjectId to unarchive.') },
+    async ({ project_id }) => {
+      const result = await client.put(`/v1/projects/${encodeURIComponent(project_id)}/unarchive`, {});
+      return { content: [{ type: 'text', text: JSON.stringify(result.project, null, 2) }] };
+    }
+  );
+
+  // ─── list_sessions ─────────────────────────────────────────
+  server.tool(
+    'list_sessions',
+    'List the user\'s sessions across ALL generation types (image, video, music, chat, transcription…), newest-activity first. Use to answer "what\'s in this project?", to find a session_id for `move_session`, or to locate past work. Filter by `project_id` and/or `type`.',
+    {
+      project_id: z.string().optional().describe('Restrict to one project (ObjectId from list_projects).'),
+      type: z.string().optional().describe('Restrict to one session type: image, video, video_from_image, music, speech, sound, image_edit, creative_director, chat, elements, first_last_frame, lipsync, video_from_video, transcription, global_image_edit, global_video_edit, shorts.'),
+      page: z.number().optional().describe('Page number, 1-indexed. Default: 1'),
+      limit: z.number().optional().describe('Results per page, max 50. Default: 20')
+    },
+    async ({ project_id, type, page, limit }) => {
+      const params = new URLSearchParams();
+      if (project_id) params.set('project_id', project_id);
+      if (type) params.set('type', type);
+      if (page) params.set('page', String(page));
+      if (limit) params.set('limit', String(limit));
+      const qs = params.toString();
+      const result = await client.get(`/v1/sessions${qs ? '?' + qs : ''}`);
+      return { content: [{ type: 'text', text: JSON.stringify({ sessions: result.sessions || [], pagination: result.pagination || null }, null, 2) }] };
+    }
+  );
+
+  // ─── Project context / knowledge base (NotebookLM-style) ───
+  server.tool(
+    'add_project_context',
+    'Feed knowledge into a project\'s AI knowledge base (RAG): a website URL or pasted text (script, brief, research, brand facts). The server analyzes it in the background (source returns status "analyzing" and settles on its own) and synthesizes everything into the project\'s living profile. Use when the user says "add this to the project", "here\'s the script", "the project should know about X". Provide exactly ONE of url / text.',
+    {
+      project_id: z.string().describe('Project ObjectId (from list_projects).'),
+      url: z.string().optional().describe('Website URL to fetch and analyze as a source.'),
+      text: z.string().optional().describe('Raw text to store as a source (script, notes, research). Kept verbatim for RAG; an AI summary is generated for display.'),
+      title: z.string().optional().describe('Optional title for a text source.')
+    },
+    async ({ project_id, url, text, title }) => {
+      if (!url && !text) throw new Error('Provide url or text');
+      const path = url
+        ? `/v1/projects/${encodeURIComponent(project_id)}/context/url`
+        : `/v1/projects/${encodeURIComponent(project_id)}/context/text`;
+      const body = url ? { url } : { text, ...(title ? { title } : {}) };
+      const result = await client.post(path, body);
+      return { content: [{ type: 'text', text: JSON.stringify({ source: result.source, _hint: 'Analysis runs in the background — no need to poll; the project profile updates on its own.' }, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'list_project_context',
+    'List a project\'s knowledge-base sources (URLs, texts, files) with their AI summaries and analysis status.',
+    { project_id: z.string().describe('Project ObjectId.') },
+    async ({ project_id }) => {
+      const result = await client.get(`/v1/projects/${encodeURIComponent(project_id)}/context`);
+      return { content: [{ type: 'text', text: JSON.stringify({ sources: result.sources || [], count: result.count || 0 }, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'delete_project_context',
+    'Remove one source from a project\'s knowledge base by its file_key (from list_project_context).',
+    {
+      project_id: z.string().describe('Project ObjectId.'),
+      file_key: z.string().describe('The source\'s file_key (URL-encode is handled for you).')
+    },
+    async ({ project_id, file_key }) => {
+      const result = await client.delete(`/v1/projects/${encodeURIComponent(project_id)}/context/${encodeURIComponent(file_key)}`);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'get_project_profile',
+    'Read a project\'s synthesized AI profile — the living markdown brief the platform maintains from the project\'s description, context sources, and activity. Use it to ground your work in what the project is about before generating.',
+    { project_id: z.string().describe('Project ObjectId.') },
+    async ({ project_id }) => {
+      const result = await client.get(`/v1/projects/${encodeURIComponent(project_id)}/profile`);
+      return { content: [{ type: 'text', text: JSON.stringify(result.profile, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'regenerate_project_profile',
+    'Force-regenerate a project\'s AI profile from its current context sources (also clears any manual-edit lock). Use after adding several new sources when the user wants the brief refreshed now.',
+    { project_id: z.string().describe('Project ObjectId.') },
+    async ({ project_id }) => {
+      const result = await client.post(`/v1/projects/${encodeURIComponent(project_id)}/profile/regenerate`, {});
+      return { content: [{ type: 'text', text: JSON.stringify(result.profile || result, null, 2) }] };
+    }
+  );
 }
 
 module.exports = { registerProjectTools };

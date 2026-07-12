@@ -2,6 +2,8 @@
  * CONTRACT. Never rename, remove, or break an existing tool/arg. Full rules: ../index.js top-of-file. */
 
 const { z } = require('zod');
+const FormData = require('form-data');
+const { resolveToBuffer } = require('./_shared');
 const { UI, uiResult, appsEnabled } = require('../apps');
 
 function registerVoiceTools(server, client, options = {}) {
@@ -58,6 +60,57 @@ function registerVoiceTools(server, client, options = {}) {
       }
 
       return { content: [{ type: 'text', text }] };
+    }
+  );
+
+  // ─── clone_voice ───────────────────────────────────────────
+  server.tool(
+    'clone_voice',
+    'Clone a custom TTS voice from an audio sample (the user\'s voice or any voice they own the rights to). Costs credits (provider-dependent) — confirm with the user before firing. Providers: "elevenlabs" (recommended, 2s–180s sample) or "deepdub" (2s–300s). After cloning, the voice appears in `list_voices` and can be used with generate_speech. Free plan caps at 3 custom voices.',
+    {
+      audio: z.string().describe('URL or absolute local path of the voice sample audio (any common format; converted server-side).'),
+      voice_name: z.string().describe('Name for the cloned voice.'),
+      provider: z.enum(['elevenlabs', 'deepdub']).optional().describe('Cloning provider. Default: elevenlabs (recommended).'),
+      language: z.string().optional().describe('Optional language hint (auto-detected when omitted).'),
+      project_id: z.string().optional().describe('Project to associate the voice with (from list_projects). Omit for the default project.')
+    },
+    async ({ audio, voice_name, provider, language, project_id }) => {
+      const resolved = await resolveToBuffer(audio, 'audio');
+      const form = new FormData();
+      form.append('audioFile', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });
+      form.append('voiceName', voice_name);
+      form.append('provider', provider || 'elevenlabs');
+      if (language) form.append('language', language);
+      if (project_id) form.append('project_id', project_id);
+      const result = await client.postMultipart('/v1/voices/clone', form);
+      return { content: [{ type: 'text', text: JSON.stringify({ voice: result.voice || result, _hint: 'Use this voice with generate_speech (find it via list_voices).' }, null, 2) }] };
+    }
+  );
+
+  // ─── import_elevenlabs_voice ───────────────────────────────
+  server.tool(
+    'import_elevenlabs_voice',
+    'Import a voice from the ElevenLabs voice library into the user\'s Kolbo voices by its ElevenLabs voice ID. Use when the user already has/knows a specific ElevenLabs voice they want available for generate_speech.',
+    {
+      elevenlabs_voice_id: z.string().describe('The ElevenLabs voice ID to import.'),
+      project_id: z.string().optional().describe('Project to associate the voice with. Omit for the default project.')
+    },
+    async ({ elevenlabs_voice_id, project_id }) => {
+      const body = { elevenLabsVoiceId: elevenlabs_voice_id };
+      if (project_id) body.project_id = project_id;
+      const result = await client.post('/v1/voices/import-elevenlabs', body);
+      return { content: [{ type: 'text', text: JSON.stringify(result.voice || result, null, 2) }] };
+    }
+  );
+
+  // ─── delete_voice ──────────────────────────────────────────
+  server.tool(
+    'delete_voice',
+    'Delete one of the user\'s custom cloned voices (owner only, soft delete). Preset/platform voices cannot be deleted. Confirm with the user first.',
+    { voice_id: z.string().describe('The custom voice id to delete (from list_voices — custom voices only).') },
+    async ({ voice_id }) => {
+      const result = await client.delete(`/v1/voices/${encodeURIComponent(voice_id)}`);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
   );
 }
