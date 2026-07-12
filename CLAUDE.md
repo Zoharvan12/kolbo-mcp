@@ -97,35 +97,75 @@ Claude Code/Desktop → stdio → @kolbo/mcp → HTTP (X-API-Key) → api.kolbo.
 claude.ai (web)     → HTTPS → api.kolbo.ai/mcp (OAuth) → createServer({ apps:true }) per request
 ```
 
-## MCP Apps — Interactive Kolbo Widgets (v1.30.0)
+## MCP Apps — Interactive Kolbo Widgets (v1.30+, live since 2026-07-11)
 
 Tool results render as branded, live-updating mini-apps inside claude.ai and Claude
-Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Quick facts:
+Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
 
-- **Gating**: `appsEnabled(server, options)` — `opts.apps === true` (set by the kolbo-api
-  remote connector) OR the stdio client declared the `io.modelcontextprotocol/ui`
-  capability. `KOLBO_MCP_APPS=1|0` env overrides for local testing. **Text-only hosts
-  (Claude Code, Cursor, old cached installs) take the exact pre-widget code path —
-  byte-identical responses.** This is load-bearing for backward compat.
-- **Generation tools on UI hosts return IMMEDIATELY** after submit ("submitted" text +
-  `structuredContent.phase: 'generating'`); the `ui://kolbo/generation.html` widget polls
-  `get_generation_status` (or `shorts_status`) through the host bridge and morphs into the
-  result gallery with Animate / Edit / Recreate / Download buttons (buttons pre-fill user
-  messages via `ui/message`; completion pushes URLs into model context via
-  `ui/update-model-context`).
-- **Sync list/search tools** attach `ui://kolbo/media-grid.html` / `catalog.html` /
-  `transcript.html` with the SAME text payload.
-- **Files**: `src/apps/index.js` (registrar + `uiResult`/`appsEnabled`/`modelIcon`),
-  `src/apps/bridge.js` (hand-rolled 120-line iframe JSON-RPC bridge — do NOT swap for the
-  337KB official browser bundle without reason), `src/apps/theme.js` (Kolbo Liquid Glass
-  tokens from kolbo-map — keep in sync with the frontend design system),
-  `src/apps/widgets/*.js` (generation, mediaGrid, catalog, transcript),
-  `src/tools/_shared.js` (`uiGenerating`/`uiCompleted`).
-- **When adding a generation tool**: submit → `if (ui()) return uiGenerating({...})` →
-  blocking poll fallback. When adding a list tool: build text → `if (ui()) return
-  uiResult(UI.mediaGrid, text, structured)`. Never let the widget path change the text.
-- **kolbo-api side**: `src/modules/mcpConnector/mcp.js` passes `apps: true`. After
-  publishing a new @kolbo/mcp version, bump the dependency there and redeploy.
+- **Gating**: `appsEnabled(server, options)` — `opts.apps === true` (kolbo-api remote
+  connector) OR stdio client declares `io.modelcontextprotocol/ui`. `KOLBO_MCP_APPS=1|0`
+  overrides locally. **Text hosts (Claude Code/Cursor) get byte-identical pre-widget
+  responses — load-bearing for backward compat.**
+- **Two `_meta` layers, BOTH required**: claude.ai decides to mount the iframe from the
+  TOOL DECLARATION meta in tools/list (`attachToolWidgetMeta()` mutates
+  `server._registeredTools` post-registration — legacy `server.tool()` has no _meta
+  param) AND the RESULT carries `_meta['ui/resourceUri']` + `structuredContent`.
+  New widget tool ⇒ add it to the `TOOL_WIDGETS` map in `src/apps/index.js`.
+- **Generation tools on UI hosts return IMMEDIATELY** after submit; the widget polls
+  `get_generation_status` (shorts: `shorts_status`) through the host bridge. Pattern:
+  submit → `if (ui()) return uiGenerating({...})` → blocking-poll fallback. List tools:
+  build text → `if (ui()) return uiResult(UI.mediaGrid, text, structured)`. The widget
+  path must NEVER change the text payload.
+- **Every result path of a TOOL_WIDGETS tool must attach structuredContent**, or rely
+  on the widgets' graceful fallback (all four collapse/error on a missing contract —
+  keep it that way; missing contracts used to render an eternal blank card).
+- **CSP**: widget iframes are deny-by-default. External assets must be allowlisted in
+  `WIDGET_CSP.resourceDomains` (`src/apps/index.js`) — EXACT hosts first, wildcards
+  second (not all hosts honor wildcards). New CDN bucket ⇒ add it there AND to the
+  download-proxy allowlist in kolbo-api `src/modules/mcpConnector/download.js`.
+- **Model icons**: bare `Model.avatar` filenames resolve to
+  `kolbo-general-media.fra1.cdn.digitaloceanspaces.com/models_icons/` — the ONLY host
+  claude.ai's sandbox loads (api.kolbo.ai is blocked by our own Cloudflare bot rules;
+  app.kolbo.ai's SPA catch-all returns 200 text/html for missing files). Mirroring is
+  automatic: kolbo-api `src/jobs/modelIconsCdnSync.js` runs on every startup.
+- **Downloads**: widget Download buttons route through
+  `GET api.kolbo.ai/mcp/download?url=` (forces Content-Disposition attachment — plain
+  CDN URLs open media inline). Per-item hover ⬇ button on every media cell.
+- **Fullscreen** (`ui/request-display-mode`): the card goes `position:fixed inset:0`
+  so media can never exceed the viewport; size-changed reports are SUPPRESSED while
+  fullscreen (`kolbo.setFullscreen`) — they used to balloon the inline iframe over
+  Claude's composer — and inline height is clamped to one viewport.
+- **Deep links**: submit responses carry `session_id`/`project_id`; `buildOpenUrl()` in
+  `_shared.js` maps tool → app route (hyphen slugs verified against kolbo-map pages;
+  ProjectContext switches project from `?project=`). Tools with no session page fall
+  back to app.kolbo.ai — never invent URLs.
+- **Widget JS lives in template literals**: `\'` collapses to `'` and ships a syntax
+  error = blank card. `npm run smoke` new-Function-parses every widget script and is
+  publish-blocking. Never put `*/` inside widget block comments.
+- **Zohar rules**: no ETAs/progress percentages in widgets (spinner + skeletons only);
+  no tool/model COUNTS in any user-facing copy — use-case language.
+- **Files**: `src/apps/index.js` (registrar, TOOL_WIDGETS, CSP, icon resolution,
+  `canonicalModelId` lenient model names), `src/apps/bridge.js` (hand-rolled iframe
+  JSON-RPC bridge — do NOT swap for the 337KB official bundle), `src/apps/theme.js`
+  (Kolbo Liquid Glass tokens — keep in sync with kolbo-map), `src/apps/widgets/*.js`,
+  `src/tools/_shared.js` (`uiGenerating` / `uiCompleted` / `buildOpenUrl`).
+
+## Release Pipeline (the ONLY way changes reach users)
+
+Full runbook: the `kolbo-mcp-release` skill
+(`C:\Users\Zohar\.agents\skills\kolbo-mcp-release\SKILL.md`). Short form:
+
+1. `npm pkg set version=X.Y.Z` → `npm run smoke` (publish gate) → commit →
+   `git tag vX.Y.Z` → push main + tag.
+2. The tag push triggers the GitHub Action → npm publish with provenance.
+3. In kolbo-api: `npm install @kolbo/mcp@X.Y.Z --save` → push master (auto-deploys).
+4. Verify prod: `/var/www/kolbo-api-prodution/node_modules/@kolbo/mcp/package.json`
+   via prod-ssh (NOT `/var/www/kolbo-api` — wrong dir).
+
+Operational notes: claude.ai caches a connector's tools/list — tool-declaration changes
+need the user to disconnect/reconnect the connector. Widget HTML is fetched fresh per
+render, BUT already-rendered cards in old chats keep their old code. The skill-sync bot
+pushes `chore(skill)` commits to main — rebase before pushing.
 
 ## File Structure
 
