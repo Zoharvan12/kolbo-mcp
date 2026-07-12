@@ -158,6 +158,76 @@ function registerVisualDnaTools(server, client, options = {}) {
       };
     }
   );
+
+  // ─── Visual DNA folders (organize characters) ──────────────
+  // Folders are user-scoped and flat. Only PERSONAL Visual DNAs can live in
+  // folders — global/organization presets are rejected by the server.
+
+  server.tool(
+    'list_visual_dna_folders',
+    'List the user\'s Visual DNA folders with per-folder item counts. Use to organize large character casts: find the right folder before moving a DNA, or show the user how their characters are grouped. To list the DNAs INSIDE a folder, call `list_visual_dnas` and filter by the `folder_id` field on each profile.',
+    {},
+    async () => {
+      const result = await client.get('/v1/visual-dna/folders');
+      return { content: [{ type: 'text', text: JSON.stringify({ folders: result.folders || [], count: result.count || 0 }, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'create_visual_dna_folder',
+    'Create a Visual DNA folder for organizing characters (e.g. "Main Cast", "Villains", "Film X Characters"). Folder names are unique per user (409 on duplicates). Then use `move_visual_dna_to_folder` to file DNAs into it.',
+    {
+      name: z.string().describe('Folder name (max 100 chars, unique per user).'),
+      color: z.string().optional().describe('Optional hex color for the folder chip, e.g. "#FF5733".')
+    },
+    async ({ name, color }) => {
+      const body = { name };
+      if (color) body.color = color;
+      const result = await client.post('/v1/visual-dna/folders', body);
+      return { content: [{ type: 'text', text: JSON.stringify(result.folder, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'update_visual_dna_folder',
+    'Rename and/or recolor a Visual DNA folder.',
+    {
+      folder_id: z.string().describe('The folder id (from list_visual_dna_folders).'),
+      name: z.string().describe('New folder name (required by the server — pass the current name to keep it).'),
+      color: z.string().optional().describe('New hex color, e.g. "#00AA00".')
+    },
+    async ({ folder_id, name, color }) => {
+      const body = { name };
+      if (color !== undefined) body.color = color;
+      const result = await client.put(`/v1/visual-dna/folders/${encodeURIComponent(folder_id)}`, body);
+      return { content: [{ type: 'text', text: JSON.stringify(result.folder, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'delete_visual_dna_folder',
+    'Delete a Visual DNA folder. The DNAs inside are NOT deleted — they move back to the root level (response includes items_moved_to_root). Safe to call without confirmation for empty folders; mention the contents-move when the folder has items.',
+    {
+      folder_id: z.string().describe('The folder id to delete.')
+    },
+    async ({ folder_id }) => {
+      const result = await client.delete(`/v1/visual-dna/folders/${encodeURIComponent(folder_id)}`);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'move_visual_dna_to_folder',
+    'Move a Visual DNA into a folder, or back to root. Personal DNAs only — global presets must be imported first, and organization DNAs cannot go in personal folders. When creating many characters for a project, create a folder first and file each DNA as you go.',
+    {
+      visual_dna_id: z.string().describe('The Visual DNA profile id to move.'),
+      folder_id: z.string().nullable().describe('Target folder id (from list_visual_dna_folders), or null to move the DNA back to root.')
+    },
+    async ({ visual_dna_id, folder_id }) => {
+      const result = await client.put(`/v1/visual-dna/${encodeURIComponent(visual_dna_id)}/folder`, { folder_id: folder_id ?? null });
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    }
+  );
 }
 
 module.exports = { registerVisualDnaTools };
