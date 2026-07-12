@@ -103,6 +103,18 @@ function createServer(opts = {}) {
     // Connector avatar for hosts that render server icons (claude.ai tool
     // headers show this instead of a letter monogram).
     icons: [{ src: 'https://api.kolbo.ai/assets/kolbo-ai.png', mimeType: 'image/png', sizes: ['512x512'] }]
+  }, {
+    // Server-level instructions surfaced to the host model on initialize.
+    // The single most common failure mode is project confusion — spell out
+    // the project contract here so every client gets it without a skill file.
+    instructions: [
+      'PROJECT CONTRACT (read this before generating anything):',
+      'Everything in Kolbo lives inside a PROJECT — sessions, generations, and media are all project-scoped.',
+      '1. When the user names a project ("in my Acme project", "for the summer campaign"), call `list_projects` ONCE to resolve the name to an id, then pass that id as `project_id` on EVERY subsequent generate_* / chat_send_message / upload_media call in the conversation. The target project is per-call, NOT sticky — any call that omits `project_id` silently lands in the default "API Generations" bucket (flagged is_default:true), which users experience as their work going to the wrong project.',
+      '2. `list_projects` lists the user\'s platform projects (for generations/media/chat). `app_builder_list_projects` is a DIFFERENT tool that scopes App Builder coding sessions only — never use one where the other is meant.',
+      '3. Misplaced work is fixable: `move_media` / `bulk_move_media` / `move_folder_contents` move media items between projects; `move_session` moves a whole session (plus its media) to another project. If the user says a generation landed in the wrong project, move it rather than regenerating.',
+      '4. If the user has not mentioned any project, omit `project_id` — the default bucket is correct in that case. Do not ask which project to use unless the user\'s intent is ambiguous.'
+    ].join('\n')
   });
 
   // Register all tools. `inlineImages` (off by default) is opt-in: only the

@@ -70,15 +70,17 @@ function registerChatTools(server, client) {
   // ─── chat_list_conversations ───────────────────────────────
   server.tool(
     'chat_list_conversations',
-    'List your SDK chat conversations, most-recent first. Returns session_id, name, and activity timestamps.',
+    'List the user\'s chat conversations across ALL projects, most-recent first. Returns session_id, name, project_id, and activity timestamps. Pass `project_id` to narrow to one project (resolve names via `list_projects`).',
     {
       page: z.number().optional().describe('Page number, 1-indexed. Default: 1'),
-      limit: z.number().optional().describe('Results per page, max 50. Default: 20')
+      limit: z.number().optional().describe('Results per page, max 50. Default: 20'),
+      project_id: z.string().optional().describe('Restrict to conversations in one project (Mongo ObjectId from `list_projects`). Omit to list across all projects.')
     },
-    async ({ page, limit }) => {
+    async ({ page, limit, project_id }) => {
       const params = new URLSearchParams();
       if (page) params.set('page', String(page));
       if (limit) params.set('limit', String(limit));
+      if (project_id) params.set('project_id', project_id);
 
       const qs = params.toString();
       const result = await client.get(`/v1/chat/conversations${qs ? '?' + qs : ''}`);

@@ -16,9 +16,10 @@ function registerMediaTools(server, client, options = {}) {
     'Upload a local file (or remote URL) to the user\'s Kolbo media library and get back a stable Kolbo CDN URL. Use this when the user wants to reference a local file in multiple subsequent generation calls — upload once, then pass the returned URL to generate_image / generate_video / visual_dna / etc. Auto-detects media type (image / video / audio) from the file extension. For a single-use reference where you already have a public URL, you can skip this and pass the URL directly to the generation tool.',
     {
       source: z.string().describe('URL or absolute local path to the file to upload. For local files this is the primary mode; for URLs, this re-hosts the file on Kolbo CDN for stability.'),
-      description: z.string().optional().describe('Optional description / caption for the uploaded media')
+      description: z.string().optional().describe('Optional description / caption for the uploaded media'),
+      project_id: z.string().optional().describe('Project ObjectId to file the upload into. Call `list_projects` to resolve a name → id. When the user is working in a named project, pass it here too — omitting it files the upload outside that project.')
     },
-    async ({ source, description }) => {
+    async ({ source, description, project_id }) => {
       if (!source) throw new Error('source is required (URL or absolute local path)');
 
       // Even for URL input we download-and-reupload — that's the whole point
@@ -32,6 +33,7 @@ function registerMediaTools(server, client, options = {}) {
       const form = new FormData();
       form.append('file', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });
       if (description) form.append('description', description);
+      if (project_id) form.append('project_id', project_id);
 
       const result = await client.postMultipart('/v1/media/upload', form);
 
@@ -49,7 +51,7 @@ function registerMediaTools(server, client, options = {}) {
     'list_media',
     'Browse the user\'s Kolbo media library — both uploaded files AND AI-generated outputs they have saved. Powerful filtering: scope to a single project (`project_id`), a user folder (`folder_id`), a "section" / category (`category`: ai / uploaded / edited / favorites / training-lab), a media type (`type`: image / video / audio), or generation provenance (`source_type`). Combine filters freely. Use this to discover what the user already has before generating something new, to retrieve a specific past creation, or to list everything in a project for downstream batch work.',
     {
-      project_id: z.string().optional().describe('Restrict to a single project (Mongo ObjectId). Use `app_builder_list_projects` to discover IDs. Omit to list across all the user\'s media.'),
+      project_id: z.string().optional().describe('Restrict to a single project (Mongo ObjectId). Use `list_projects` to discover IDs (NOT `app_builder_list_projects` — that is App Builder only). Omit to list across all the user\'s media.'),
       folder_id: z.string().optional().describe('Restrict to a user folder (Mongo ObjectId). Discover folder IDs via `list_media_folders`. Takes precedence over project_id when both are set.'),
       type: z.enum(['image', 'video', 'audio', 'all']).optional().describe('Filter by media type. Default: all types.'),
       category: z.enum(['ai', 'uploaded', 'edited', 'favorites', 'training-lab', 'all']).optional().describe('Filter by "section" (matches the Kolbo desktop app sidebar): `ai` = AI-generated, `uploaded` = files the user uploaded, `edited` = AI-edited variants, `favorites` = items the user starred, `training-lab` = training-lab assets. Default: all sections.'),
@@ -320,7 +322,7 @@ function registerMediaTools(server, client, options = {}) {
     'Move a media item to a different project. Caller must own the item AND have access to the target project. Items in shared projects from other members cannot be moved by you. Use this when the user says "move this to project X" or wants to reorganize.',
     {
       media_id: z.string().describe('MediaLibraryItem id to move.'),
-      project_id: z.string().describe('Target project id (use `app_builder_list_projects` to discover ids).')
+      project_id: z.string().describe('Target project id (use `list_projects` to discover ids — NOT `app_builder_list_projects`).')
     },
     async ({ media_id, project_id }) => {
       const result = await client.patch(
