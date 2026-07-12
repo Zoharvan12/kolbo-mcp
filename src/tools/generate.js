@@ -1035,8 +1035,8 @@ function registerGenerateTools(server, client, options = {}) {
     'Apply a targeted AI edit to an existing video. Operations: upscale (4K resolution boost), reframe (change aspect ratio), generate_audio (add AI-generated sound/music from a prompt), remove_watermark, face_swap (replace faces using a reference image URL), extend (lengthen at start or end), magic_edit (restyle/transform with a prompt), lipsync (sync an audio track to a face in the video). Returns the edited video URL when complete.',
     {
       video_url: z.string().describe('URL of the source video to edit'),
-      operation: z.enum(['upscale', 'reframe', 'generate_audio', 'remove_watermark', 'face_swap', 'extend', 'magic_edit', 'lipsync'])
-        .describe('Edit operation: "upscale", "reframe" (requires aspect_ratio), "generate_audio" (requires prompt), "remove_watermark", "face_swap" (requires image_url), "extend" (requires duration), "magic_edit" (requires prompt), "lipsync" (requires audio_url)'),
+      operation: z.enum(['upscale', 'reframe', 'generate_audio', 'remove_watermark', 'face_swap', 'extend', 'magic_edit', 'lipsync', 'remove_background'])
+        .describe('Edit operation: "upscale", "reframe" (requires aspect_ratio), "generate_audio" (requires prompt), "remove_watermark", "face_swap" (requires image_url), "extend" (requires duration), "magic_edit" (requires prompt), "lipsync" (requires audio_url), "remove_background" (removes/greenscreens the video background)'),
       model: z.string().optional().describe('Model identifier override. Omit to use the default model for the operation.'),
       aspect_ratio: z.string().optional().describe('Target aspect ratio (e.g., "16:9", "9:16"). Required for operation="reframe".'),
       scale: z.number().optional().describe('Upscale factor. Only used when operation="upscale".'),
@@ -1083,6 +1083,44 @@ function registerGenerateTools(server, client, options = {}) {
             edit_type: result.result?.edit_type || null,
             duration: result.result?.duration || null,
             model: result.result?.model || null
+          }, null, 2)
+        }]
+      };
+    }
+  );
+
+  // ─── trim_video ────────────────────────────────────────────
+  server.tool(
+    'trim_video',
+    'Cut a section out of a video by start/end time (frame-accurate server-side trim, no credits for AI generation — pure processing). Source must be a Kolbo-hosted video URL (generated output or upload_media result). The tool waits for the job to finish (usually seconds) and returns the trimmed video URL.',
+    {
+      video_url: z.string().describe('Kolbo-hosted URL of the source video.'),
+      start_time: z.number().describe('Trim start, in seconds (>= 0).'),
+      end_time: z.number().describe('Trim end, in seconds (> start_time, max 3600).'),
+      project_id: z.string().optional().describe('Project to file the trimmed video into (from list_projects).')
+    },
+    async ({ video_url, start_time, end_time, project_id }) => {
+      const body = { video_url, start_time, end_time };
+      if (project_id) body.project_id = project_id;
+      const submit = await client.post('/v1/video/trim', body);
+      const jobId = submit.jobId || submit.generationId;
+      if (!jobId) return { content: [{ type: 'text', text: JSON.stringify(submit, null, 2) }] };
+      // Poll the dedicated trim progress endpoint until done (~seconds).
+      const deadline = Date.now() + 180000;
+      let last = submit;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 4000));
+        last = await client.get(`/v1/video/trim/${encodeURIComponent(jobId)}`);
+        if (last.status === 'completed' || last.url || last.videoUrl) break;
+        if (last.status === 'failed') break;
+      }
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            job_id: jobId,
+            status: last.status || 'processing',
+            video_url: last.url || last.videoUrl || null
           }, null, 2)
         }]
       };
