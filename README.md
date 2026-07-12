@@ -234,6 +234,12 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `move_session` | Move a session (generation, chat, transcription…) and ALL its media to another project |
 | `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | AI Docs (Magic Pad): author project-scoped HTML documents, edit them, get public share links |
 | `list_visual_dna_folders` / `create_visual_dna_folder` / `update_visual_dna_folder` / `delete_visual_dna_folder` / `move_visual_dna_to_folder` | Organize Visual DNA characters into user folders (create/rename/recolor/delete + move DNAs in/out) |
+| `create_project` / `update_project` / `archive_project` / `unarchive_project` | Project lifecycle (create/rename/describe/archive; deletion stays in-app) |
+| `list_sessions` | Enumerate sessions across all types, filterable by project and type |
+| `add_project_context` / `list_project_context` / `delete_project_context` / `get_project_profile` / `regenerate_project_profile` | Project knowledge base (RAG): feed scripts/URLs/notes, read the synthesized living brief |
+| `create_moodboard` / `update_moodboard` / `delete_moodboard` | Build/edit moodboards from image URLs (AI style analysis → master prompt) |
+| `clone_voice` / `import_elevenlabs_voice` / `delete_voice` | Custom voices: clone from an audio sample, import by ElevenLabs ID, delete |
+| `trim_video` | Frame-accurate server-side trim of a Kolbo-hosted video (async job, tool waits) |
 | `check_credits` | Check credit balance |
 | `get_generation_status` | Check one or many generations (`generation_ids`); `wait=true` blocks server-side until done — replaces client polling loops |
 
