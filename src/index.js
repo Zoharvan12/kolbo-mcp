@@ -69,6 +69,7 @@ const { registerPresetTools } = require('./tools/presets');
 const { registerAppBuilderTools } = require('./tools/app_builder');
 const { registerArtifactTools } = require('./tools/artifacts');
 const { registerProjectTools } = require('./tools/projects');
+const { registerDocTools } = require('./tools/docs');
 const { registerVoiceTools } = require('./tools/voices');
 const { registerMusicLibraryTools } = require('./tools/music_library');
 const { registerStockLibraryTools } = require('./tools/stock_library');
@@ -113,7 +114,8 @@ function createServer(opts = {}) {
       '1. When the user names a project ("in my Acme project", "for the summer campaign"), call `list_projects` ONCE to resolve the name to an id, then pass that id as `project_id` on EVERY subsequent generate_* / chat_send_message / upload_media call in the conversation. The target project is per-call, NOT sticky — any call that omits `project_id` silently lands in the default "API Generations" bucket (flagged is_default:true), which users experience as their work going to the wrong project.',
       '2. `list_projects` lists the user\'s platform projects (for generations/media/chat). `app_builder_list_projects` is a DIFFERENT tool that scopes App Builder coding sessions only — never use one where the other is meant.',
       '3. Misplaced work is fixable: `move_media` / `bulk_move_media` / `move_folder_contents` move media items between projects; `move_session` moves a whole session (plus its media) to another project. If the user says a generation landed in the wrong project, move it rather than regenerating.',
-      '4. If the user has not mentioned any project, omit `project_id` — the default bucket is correct in that case. Do not ask which project to use unless the user\'s intent is ambiguous.'
+      '4. If the user has not mentioned any project, omit `project_id` — the default bucket is correct in that case. Do not ask which project to use unless the user\'s intent is ambiguous.',
+      '5. Written deliverables (plans, briefs, scripts, research summaries) can live in Kolbo too: author them as AI Docs with `create_doc` (project-scoped, editable in the app, shareable via `share_doc`).'
     ].join('\n')
   });
 
@@ -133,6 +135,7 @@ function createServer(opts = {}) {
   registerAppBuilderTools(server, client, toolOptions);
   registerArtifactTools(server, client, toolOptions);
   registerProjectTools(server, client, toolOptions);
+  registerDocTools(server, client, toolOptions);
   registerMusicLibraryTools(server, client, toolOptions);
   registerStockLibraryTools(server, client, toolOptions);
   registerShortsCreatorTools(server, client, toolOptions);

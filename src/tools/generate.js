@@ -418,17 +418,71 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── get_generation_status ─────────────────────────────────
   server.tool(
     'get_generation_status',
-    'Check the status of a generation. Use this as a FALLBACK when a generation tool returned a timeout error — the generation is probably still running on the server. Pass the generation_id from the timeout error (or from any prior generation response).',
+    'Check the status of one or more generations. Use after a generation tool returned "submitted" (widget hosts) or timed out. Tracking SEVERAL concurrent generations? Pass them ALL in generation_ids — one call returns an all_done summary. Need the final result? Set wait=true and the server blocks until every generation finishes (up to ~3 min). NEVER call this tool repeatedly in a loop — one wait=true call replaces the whole loop.',
     {
-      generation_id: z.string().describe('The generation ID to check')
+      generation_id: z.string().optional().describe('A single generation ID to check'),
+      generation_ids: z.array(z.string()).optional().describe('Multiple generation IDs to check in ONE call. Returns { all_done, pending, generations[] } — always prefer this over checking IDs one by one.'),
+      wait: z.boolean().optional().describe('If true, block until every generation reaches a terminal state (completed/failed), up to ~3 minutes, then return the final results. Use this instead of re-calling the tool in a loop.')
     },
-    async ({ generation_id }) => {
-      const result = await client.get(`/v1/generate/${encodeURIComponent(generation_id)}/status`);
+    async ({ generation_id, generation_ids, wait }) => {
+      const ids = (generation_ids && generation_ids.length > 0)
+        ? generation_ids
+        : (generation_id ? [generation_id] : []);
+      if (ids.length === 0) throw new Error('Provide generation_id or generation_ids');
+
+      // One status check (or blocking poll) per id. Never let one bad id
+      // reject the whole batch — surface it as a failed entry instead.
+      const checkOne = async (id) => {
+        try {
+          if (wait) {
+            const result = await pollUntilDone(client, id, { interval: 5000, timeout: 180000 });
+            return { generation_id: id, ...result };
+          }
+          const result = await client.get(`/v1/generate/${encodeURIComponent(id)}/status`);
+          return { generation_id: id, ...result };
+        } catch (err) {
+          if (err.timedOut) {
+            return { generation_id: id, state: 'processing', note: 'Still running after 3 min of waiting — call get_generation_status again with wait=true.' };
+          }
+          if (err.name === 'GenerationFailedError') {
+            return { generation_id: id, state: 'failed', error: err.message };
+          }
+          return { generation_id: id, state: 'unknown', error: err.message };
+        }
+      };
+
+      const results = await Promise.all(ids.map(checkOne));
+
+      const pending = results.filter(r => r.state !== 'completed' && r.state !== 'failed' && r.state !== 'cancelled');
+      const doneHint = 'ALL generations are in a final state — do NOT poll again. Report the results to the user.';
+      const pendingHint = wait
+        ? 'Some generations are still running after the wait window. Call get_generation_status ONCE more with wait=true and the remaining generation_ids — do not spin without wait.'
+        : 'Some generations are still processing. Do NOT re-call this tool in a loop — call it ONCE with wait=true (and all pending generation_ids) to block until they finish.';
+
+      // Single-id calls keep the original flat shape — the generation widget
+      // polls this tool with { generation_id } and reads state/result at the
+      // top level.
+      if (!generation_ids || generation_ids.length === 0) {
+        const single = results[0];
+        single._hint = pending.length === 0
+          ? 'This generation is in a FINAL state — do not poll it again.'
+          : pendingHint;
+        return {
+          content: [{ type: 'text', text: JSON.stringify(single, null, 2) }]
+        };
+      }
 
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify(result, null, 2)
+          text: JSON.stringify({
+            all_done: pending.length === 0,
+            completed: results.filter(r => r.state === 'completed').length,
+            failed: results.filter(r => r.state === 'failed' || r.state === 'cancelled').length,
+            still_processing: pending.map(r => r.generation_id),
+            _hint: pending.length === 0 ? doneHint : pendingHint,
+            generations: results
+          }, null, 2)
         }]
       };
     }
@@ -833,7 +887,7 @@ function registerGenerateTools(server, client, options = {}) {
         return uiResult(UI.transcript, JSON.stringify({
           status: 'submitted',
           generation_id: startResponse.generation_id,
-          _widget_note: 'A live Kolbo transcription widget is rendering above — it shows progress, the transcript text, and SRT/TXT download buttons. Tell the user it is transcribing. If you need the transcript text for a follow-up step, call get_generation_status with this generation_id once done.',
+          _widget_note: 'A live Kolbo transcription widget is rendering above — it shows progress, the transcript text, and SRT/TXT download buttons. Tell the user it is transcribing. If you need the transcript text for a follow-up step, call get_generation_status ONCE with this generation_id and wait=true — it blocks until done; do NOT poll in a loop.',
         }, null, 2), {
           widget: 'transcript', phase: 'generating',
           generation_id: startResponse.generation_id,

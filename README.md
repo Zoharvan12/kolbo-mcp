@@ -232,8 +232,9 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `list_presets` | Generation presets across image/video/music/text-to-video catalogs |
 | `list_projects` | List owned + shared projects (id, name, role, is_default) — call first to resolve a project name into the `project_id` you pass to generation tools |
 | `move_session` | Move a session (generation, chat, transcription…) and ALL its media to another project |
+| `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | AI Docs (Magic Pad): author project-scoped HTML documents, edit them, get public share links |
 | `check_credits` | Check credit balance |
-| `get_generation_status` | Poll a generation by ID (fallback if a tool times out) |
+| `get_generation_status` | Check one or many generations (`generation_ids`); `wait=true` blocks server-side until done — replaces client polling loops |
 
 ## Environment Variables
 

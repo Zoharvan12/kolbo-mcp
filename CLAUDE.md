@@ -192,6 +192,7 @@ src/tools/media.js       — Media library: upload_media, list_media, get_media,
                             unshare_media_folder
 src/tools/presets.js     — Preset discovery (list_presets — unified across catalogs)
 src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
+src/tools/docs.js        — AI Docs / Magic Pad (create_doc, list_docs, get_doc, update_doc, share_doc, delete_doc)
 src/tools/projects.js    — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool; move_session — move a session + its media between projects)
 src/tools/music_library.js — Stock/production music catalog (search, analyze-script, browse, facets, track audio/related/lyrics)
 src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
@@ -223,7 +224,7 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `generate_sound` | `POST /v1/generate/sound` | 120s | `duration` |
 | `generate_3d` | `POST /v1/generate/3d` | 900s | `reference_images`, `mode` (text/single/multi), `topology`, `enable_pbr` |
 | `transcribe_audio` | `POST /v1/transcribe` | 1800s | `source` (URL or local audio/video) |
-| `get_generation_status` | `GET /v1/generate/:id/status` | — | fallback for polling timeouts — error message includes `generation_id` |
+| `get_generation_status` | `GET /v1/generate/:id/status` | 180s w/ `wait` | single id or `generation_ids[]` batch (returns `all_done`/`still_processing`); `wait=true` blocks via pollUntilDone; single-id no-wait shape unchanged (widget contract) |
 | `list_voices` | `GET /v1/voices` | — | filters: `provider`, `language`, `gender` |
 
 **Media Library** (`src/tools/media.js`)
@@ -324,6 +325,7 @@ Selection arg shape (both estimate + render): `shorts: [{ moment_index, preset_i
 | `list_models` | `GET /v1/models` |
 | `list_projects` | `GET /v1/projects` |
 | `move_session` | `PATCH /v1/sessions/:sessionId/project` |
+| `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | `POST/GET /v1/docs`, `GET/PUT/DELETE /v1/docs/:id`, `PATCH /v1/docs/:id/share` |
 | `check_credits` | `GET /v1/account/credits` |
 
 **Generation flow**: POST → get `generation_id` → poll `/v1/generate/:id/status` → return `result` when `state === 'completed'`.
