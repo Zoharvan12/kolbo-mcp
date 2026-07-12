@@ -192,7 +192,7 @@ src/tools/media.js       — Media library: upload_media, list_media, get_media,
                             unshare_media_folder
 src/tools/presets.js     — Preset discovery (list_presets — unified across catalogs)
 src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
-src/tools/projects.js    — Project discovery (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool)
+src/tools/projects.js    — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool; move_session — move a session + its media between projects)
 src/tools/music_library.js — Stock/production music catalog (search, analyze-script, browse, facets, track audio/related/lyrics)
 src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
 src/tools/shorts_creator.js — Shorts Creator two-phase job flow (shorts_analyze, shorts_list_presets,
@@ -203,7 +203,7 @@ scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 
 ## Available Tools (86)
 
-Every generation tool below also accepts an optional `project_id` arg that routes the generation into a specific project (owner + edit/full shares). Call `list_projects` to discover IDs. Omit to fall back to the user's auto-created "API Generations" project.
+Every generation tool below also accepts an optional `project_id` arg that routes the generation into a specific project (owner + edit/full shares). Call `list_projects` to discover IDs. Omit to fall back to the user's auto-created "API Generations" project. `project_id` is per-call, NOT sticky — pass it on every call once the user names a working project. Misplaced work is recoverable via `move_media` / `move_session`.
 
 
 **Generation** (`src/tools/generate.js`)
@@ -323,6 +323,7 @@ Selection arg shape (both estimate + render): `shorts: [{ moment_index, preset_i
 |------|-------|
 | `list_models` | `GET /v1/models` |
 | `list_projects` | `GET /v1/projects` |
+| `move_session` | `PATCH /v1/sessions/:sessionId/project` |
 | `check_credits` | `GET /v1/account/credits` |
 
 **Generation flow**: POST → get `generation_id` → poll `/v1/generate/:id/status` → return `result` when `state === 'completed'`.
