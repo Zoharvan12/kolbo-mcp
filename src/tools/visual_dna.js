@@ -20,16 +20,17 @@ function registerVisualDnaTools(server, client, options = {}) {
   // ─── create_visual_dna ─────────────────────────────────────
   server.tool(
     'create_visual_dna',
-    'Create a Visual DNA profile from reference media. Each item in images/video/audio can be a public URL or an absolute local file path. Max 4 images, 1 video, 1 audio. Files capped at 25MB each.',
+    'Create a Visual DNA profile from reference media. Each item in images/video/audio can be a public URL or an absolute local file path. Max 4 images, 1 video, 1 audio. Files capped at 25MB each. For CHARACTER DNAs, a multi-angle character sheet dramatically improves consistency — offer to generate one with `generate_character_sheet` first, then pass its URL as `character_sheet_url` here (see that tool).',
     {
       name: z.string().describe('Name of the Visual DNA profile. **Pick a short, lowercase, no-space single token** (e.g. `maya`, `tokyo_neon`, `brand_red`, `esther_model`) — never names with spaces (`Sarah Johnson` ❌). The user/LLM types this as `@<name>` inside generation prompts, and the @ parser stops at the first space, so `@Sarah Johnson` matches only `Sarah` and the binding silently drops. Multi-word concepts should use underscores or be a single token. Names are case-insensitive on lookup, but **reserved** values rejected on creation: `Image1`, `Image2`, …, `Video1`, …, `Audio1`, … (any-language characters allowed; max 100 chars).'),
       dna_type: z.string().optional().describe('Type: "character", "style", "product", "scene", "environment". Default: "character"'),
       prompt_helper: z.string().optional().describe('Optional description/notes to guide DNA extraction'),
       images: z.array(z.string()).optional().describe('Array of image sources (URLs or absolute local paths). Max 4.'),
       video: z.string().optional().describe('Optional video source (URL or absolute local path)'),
-      audio: z.string().optional().describe('Optional audio source (URL or absolute local path)')
+      audio: z.string().optional().describe('Optional audio source (URL or absolute local path)'),
+      character_sheet_url: z.string().optional().describe('URL of a multi-angle character sheet (from `generate_character_sheet`) to set as the DNA\'s primary reference. Strongly recommended for character DNAs — it is the single biggest consistency booster. Omit for non-character DNAs or when the user declines.')
     },
-    async ({ name, dna_type, prompt_helper, images, video, audio }) => {
+    async ({ name, dna_type, prompt_helper, images, video, audio, character_sheet_url }) => {
       if (!name || !name.trim()) {
         throw new Error('name is required');
       }
@@ -53,6 +54,7 @@ function registerVisualDnaTools(server, client, options = {}) {
       form.append('name', name);
       if (dna_type) form.append('dnaType', dna_type);
       if (prompt_helper) form.append('promptHelper', prompt_helper);
+      if (character_sheet_url) form.append('characterSheetUrl', character_sheet_url);
 
       for (const f of imageFiles) {
         form.append('images', f.buffer, { filename: f.filename, contentType: f.contentType });
@@ -153,6 +155,28 @@ function registerVisualDnaTools(server, client, options = {}) {
           text: JSON.stringify({
             success: true,
             message: result.message || 'Visual DNA deleted'
+          }, null, 2)
+        }]
+      };
+    }
+  );
+
+  // ─── generate_character_sheet ──────────────────────────────
+  server.tool(
+    'generate_character_sheet',
+    'Generate a multi-angle character sheet (turnaround) from 1+ reference image URLs — the same step the in-app Visual DNA wizard offers. The sheet is the single strongest consistency booster for a character DNA. CHARGES CREDITS, so when the user is about to create a character DNA, OFFER this first ("want me to generate a character sheet for stronger consistency? it costs a few credits") and only run it on a yes. Returns `character_sheet_url` — pass it as `character_sheet_url` to `create_visual_dna`.',
+    {
+      image_urls: z.array(z.string()).min(1).describe('Reference image URLs of the character (front/side/varied angles work best). Use generated-image URLs or upload_media output.')
+    },
+    async ({ image_urls }) => {
+      const result = await client.post('/v1/visual-dna/character-sheet', { image_urls });
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            character_sheet_url: result.character_sheet_url,
+            credits_used: result.credits_used,
+            _hint: 'Show the sheet to the user, then pass character_sheet_url to create_visual_dna as that DNA\'s reference.'
           }, null, 2)
         }]
       };

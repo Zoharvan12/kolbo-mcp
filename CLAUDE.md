@@ -326,6 +326,7 @@ Selection arg shape (both estimate + render): `shorts: [{ moment_index, preset_i
 | `list_projects` | `GET /v1/projects` |
 | `move_session` | `PATCH /v1/sessions/:sessionId/project` |
 | `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | `POST/GET /v1/docs`, `GET/PUT/DELETE /v1/docs/:id`, `PATCH /v1/docs/:id/share` |
+| `generate_character_sheet` | `POST /v1/visual-dna/character-sheet` |
 | `*_visual_dna_folder` (5 tools) | `GET/POST /v1/visual-dna/folders`, `PUT/DELETE /v1/visual-dna/folders/:folderId`, `PUT /v1/visual-dna/:id/folder` |
 | `create_project` / `update_project` / `archive_project` / `unarchive_project` | `POST /v1/projects`, `PUT /v1/projects/:id(/archive|/unarchive)` |
 | `list_sessions` | `GET /v1/sessions` |
