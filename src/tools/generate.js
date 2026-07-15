@@ -9,6 +9,34 @@ const { pollUntilDone } = require('../polling');
 const { resolveToBuffer, creditFields, projectIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, uiCompleted, appsEnabled } = require('./_shared');
 const { UI, uiResult, canonicalModelId } = require('../apps');
 
+// ─── Cinematic Dimensions schema (shared by generate_image + generate_image_edit) ───
+// Kolbo's "Cinema mode": eight independent photographic dimensions, each an OPTIONAL
+// preset id fetched from list_cinematic_presets. Any dimension left unset = "Auto" (the
+// enhancer decides). Applies ONLY when the user explicitly wants a deliberate cinematic
+// look — omit the whole object for a normal generation. Ids are validated server-side
+// against their dimension (passing a lighting id in the camera slot is a 400). The
+// selected fragments are woven into the prompt before enhancement.
+// NOTE: dimensions are data-driven — always call list_cinematic_presets for the live set
+// and valid ids; the keys below mirror the current catalog (Genre was removed).
+const cinematicDim = (label) => z.string().nullable().optional()
+  .describe(`${label} preset id from list_cinematic_presets. Omit or null for Auto.`);
+const CINEMATIC_SCHEMA = z.object({
+  camera:        cinematicDim('Camera body/format (e.g. ARRI Alexa, 16mm film, smartphone)'),
+  lens:          cinematicDim('Lens character (e.g. anamorphic, vintage prime, macro)'),
+  focal_length:  cinematicDim('Focal length / field of view (e.g. 24mm wide, 85mm portrait)'),
+  aperture:      cinematicDim('Aperture / depth of field (e.g. f/1.4 shallow, f/8 deep)'),
+  angle:         cinematicDim('Camera angle (e.g. low angle, birds-eye, eye level)'),
+  shot_type:     cinematicDim('Shot type / framing (e.g. close-up, wide shot, full shot)'),
+  color_palette: cinematicDim('Color grade (e.g. teal & orange, technicolor, classic B&W)'),
+  lighting:      cinematicDim('Lighting technique (e.g. rim light, golden hour, low-key)'),
+}).optional().describe(
+  'Cinema mode — an optional deliberate photographic treatment. Pass preset ids obtained from ' +
+  'list_cinematic_presets (at most one per dimension). Only include a dimension the user actually ' +
+  'wants; every omitted/null dimension is Auto (the enhancer completes the look in the spirit of the ' +
+  'ones you set). Omit the whole object entirely for an ordinary, non-cinematic generation. Ids are ' +
+  'validated against their dimension server-side. Dimensions are data-driven — never hardcode ids.'
+);
+
 function registerGenerateTools(server, client, options = {}) {
   // Only enabled by hosts that explicitly opt in (the remote HTTP connector).
   // stdio hosts (Kolbo Code, Claude Desktop, Cursor) leave this false, so their
@@ -34,13 +62,14 @@ function registerGenerateTools(server, client, options = {}) {
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding for the prompt (useful for current events, brand references, real-world accuracy). Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolution_multipliers on the same model to predict credit cost. Omit to use the model default.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="image" to apply a saved style preset to this generation.'),
+      cinematic: CINEMATIC_SCHEMA,
       project_id: projectIdField
     },
-    async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, project_id }) => {
+    async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, cinematic, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/image', {
         prompt, model, aspect_ratio, enhance_prompt, num_images,
-        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, project_id
+        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, cinematic, project_id
       });
 
       if (ui()) return uiGenerating({
@@ -85,13 +114,14 @@ function registerGenerateTools(server, client, options = {}) {
       moodboard_id: z.string().optional().describe('Moodboard ID whose master_prompt and style_guide should be applied.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding. Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" / "2K" / "3K" / "4K". Model-dependent — call list_models and read supported_resolutions. Default: "1K" for most edit models.'),
+      cinematic: CINEMATIC_SCHEMA,
       project_id: projectIdField
     },
-    async ({ prompt, model, source_images, aspect_ratio, enhance_prompt, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, project_id }) => {
+    async ({ prompt, model, source_images, aspect_ratio, enhance_prompt, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/image-edit', {
         prompt, model, source_images, aspect_ratio, enhance_prompt, num_images,
-        visual_dna_ids, moodboard_id, enable_web_search, resolution, project_id
+        visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, project_id
       });
 
       if (ui()) return uiGenerating({
@@ -151,11 +181,43 @@ function registerGenerateTools(server, client, options = {}) {
         enhance_prompt, reference_images, visual_dna_ids, moodboard_id, moodboard_ids, resolution, project_id
       });
 
-      const result = await pollUntilDone(client, gen.generation_id, {
-        interval: (gen.poll_interval_hint || 5) * 1000,
-        timeout: 600000,
-        statusUrl: `/v1/generate/creative-director/${gen.generation_id}/status`
-      });
+      const cdStatusUrl = `/v1/generate/creative-director/${gen.generation_id}/status`;
+      // Video mode runs N scenes as parallel video generations, each of which
+      // can take several minutes — a whole batch routinely exceeds the 10-min
+      // image window. Give video batches 30 min (the server watchdog finalizes
+      // stuck batches around 15-30 min, so this aligns client + server).
+      const cdTimeout = workflow_type === 'video' ? 1800000 : 600000;
+
+      let result;
+      try {
+        result = await pollUntilDone(client, gen.generation_id, {
+          interval: (gen.poll_interval_hint || 5) * 1000,
+          timeout: cdTimeout,
+          statusUrl: cdStatusUrl
+        });
+      } catch (err) {
+        // On a client-side poll timeout the batch is almost always STILL
+        // running (or already finished) on the server. Don't lose the work:
+        // return whatever scenes have landed plus the exact re-check path,
+        // instead of throwing an opaque timeout at the agent.
+        if (err && err.timedOut) {
+          let partial = null;
+          try { partial = await client.get(cdStatusUrl); } catch (_) { /* ignore */ }
+          const doneScenes = (partial?.scenes || []).filter(s => s.status === 'completed').map(s => ({
+            scene_number: s.scene_number, title: s.title, image_urls: s.image_urls, video_urls: s.video_urls
+          }));
+          return { content: [{ type: 'text', text: JSON.stringify({
+            state: partial?.state || 'processing',
+            generation_id: gen.generation_id,
+            scenes: doneScenes,
+            total_scenes: partial?.scenes?.length || 0,
+            completed_scenes: doneScenes.length,
+            _timed_out: true,
+            _hint: `Still running after the poll window. Call get_creative_director_status with generation_id="${gen.generation_id}" to keep checking until state="completed" — do NOT re-run generate_creative_director.`
+          }, null, 2) }] };
+        }
+        throw err;
+      }
 
       const scenes = (result.scenes || [])
         .filter(s => s.status === 'completed')
@@ -187,6 +249,42 @@ function registerGenerateTools(server, client, options = {}) {
     }
   );
 
+  // ─── get_creative_director_status ──────────────────────────
+  // Creative Director uses a DEDICATED status route (per-scene state + all
+  // scene image/video URLs). The generic get_generation_status hits
+  // /v1/generate/:id/status and CANNOT read a CD batch — so a long or
+  // backgrounded CD run (especially parallel VIDEO scenes that exceed the
+  // blocking poll window) needs this tool to be re-checked until done.
+  server.tool(
+    'get_creative_director_status',
+    'Check the status of a Creative Director batch (from generate_creative_director) by its generation_id. Returns overall state ("processing" until EVERY scene is terminal, then "completed"/"failed") plus each scene\'s number, title, per-scene status, and image_urls/video_urls. Use this to resume checking a batch that was still running when generate_creative_director returned `_timed_out: true` — poll it until state="completed" to collect ALL parallel scene outputs at once. Do NOT use the generic get_generation_status for Creative Director ids; it points at the wrong endpoint.',
+    {
+      generation_id: z.string().describe('The Creative Director generation_id returned by generate_creative_director.')
+    },
+    async ({ generation_id }) => {
+      const status = await client.get(`/v1/generate/creative-director/${encodeURIComponent(generation_id)}/status`);
+      const scenes = (status.scenes || []).map(s => ({
+        scene_number: s.scene_number,
+        status: s.status,
+        title: s.title,
+        image_urls: s.image_urls || null,
+        video_urls: s.video_urls || null
+      }));
+      const completed = scenes.filter(s => s.status === 'completed').length;
+      return { content: [{ type: 'text', text: JSON.stringify({
+        state: status.state,
+        generation_id,
+        progress: status.progress,
+        scenes,
+        total_scenes: scenes.length,
+        completed_scenes: completed,
+        _hint: status.state === 'completed'
+          ? 'All scenes terminal. Every completed scene\'s image_urls/video_urls are final.'
+          : 'Still running — call get_creative_director_status again in a few seconds until state="completed".'
+      }, null, 2) }] };
+    }
+  );
+
   // ─── generate_video ────────────────────────────────────────
   // NOTE: text-to-video does NOT support Visual DNA — the textToVideoGeneration
   // controller in kolbo-api never reads visualDnaIds. For character-consistent
@@ -204,12 +302,13 @@ function registerGenerateTools(server, client, options = {}) {
       reference_images: z.array(z.string()).optional().describe('Array of image URLs used as visual references (style / composition / subject). **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolution_multipliers to predict cost.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" to apply a saved motion/style preset to this generation.'),
+      sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Only honored by models with `sound_generation_type: "native"` from list_models (e.g. Veo 3.1, Kling V3/2.6, PixVerse V6). On `sound_generation_type: "none"` models the flag has no effect. Omit to use the model\'s `sound_enabled_by_default`. Pass `false` when the user says no sound / silent / mute / without audio. Enabling sound may apply `sound_credit_multiplier` to cost.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, project_id }) => {
+    async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/video', {
-        prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, project_id
+        prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, project_id
       });
 
       if (ui()) return uiGenerating({
@@ -252,13 +351,14 @@ function registerGenerateTools(server, client, options = {}) {
       duration: z.number().optional().describe('Duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the motion prompt. Default: true'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to maintain consistency with prior characters / styles. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false` the model ignores DNA entirely.**'),
-      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolution_multipliers to predict cost.'),
+      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions.'),
+      sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Only honored by models with `sound_generation_type: "native"` from list_models (e.g. Veo 3.1 Lite, Kling V3 4K, PixVerse V6, Kling 2.6/v3). On `sound_generation_type: "none"` models the flag has no effect. Omit to use the model\'s `sound_enabled_by_default`. Pass `false` when the user says no sound / silent / mute / without audio. Enabling sound may apply `sound_credit_multiplier` to cost.'),
       project_id: projectIdField
     },
-    async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, project_id }) => {
+    async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/video/from-image', {
-        image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, project_id
+        image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled, project_id
       });
 
       if (ui()) return uiGenerating({

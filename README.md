@@ -230,12 +230,15 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `list_models` | Current model catalog with costs and capabilities |
 | `list_voices` | TTS voices (presets + cloned) |
 | `list_presets` | Generation presets across image/video/music/text-to-video catalogs |
+| `list_cinematic_presets` | "Cinema mode" presets grouped by dimension (camera, lens, focal_length, aperture, angle, shot_type, color_palette, lighting) — pass ids via the `cinematic` arg on `generate_image` / `generate_image_edit`. Only when the user wants a specific cinematic look |
 | `list_projects` | List owned + shared projects (id, name, role, is_default) — call first to resolve a project name into the `project_id` you pass to generation tools |
 | `move_session` | Move a session (generation, chat, transcription…) and ALL its media to another project |
 | `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | AI Docs (Magic Pad): author project-scoped HTML documents, edit them, get public share links |
 | `generate_character_sheet` | Generate a multi-angle character sheet from reference images (credits) → pass URL to create_visual_dna for stronger character consistency |
 | `list_visual_dna_folders` / `create_visual_dna_folder` / `update_visual_dna_folder` / `delete_visual_dna_folder` / `move_visual_dna_to_folder` | Organize Visual DNA characters into user folders (create/rename/recolor/delete + move DNAs in/out) |
 | `create_project` / `update_project` / `archive_project` / `unarchive_project` | Project lifecycle (create/rename/describe/archive; deletion stays in-app) |
+| `list_agents` / `create_agent` / `update_agent` / `delete_agent` | Custom chat agents (reusable named personas; `description` is the system instruction) |
+| `get_creative_director_status` | Re-check a Creative Director batch by generation_id until all parallel scenes finish (use after a `_timed_out` Director run) |
 | `list_sessions` | Enumerate sessions across all types, filterable by project and type |
 | `add_project_context` / `list_project_context` / `delete_project_context` / `get_project_profile` / `regenerate_project_profile` | Project knowledge base (RAG): feed scripts/URLs/notes, read the synthesized living brief |
 | `create_moodboard` / `update_moodboard` / `delete_moodboard` | Build/edit moodboards from image URLs (AI style analysis → master prompt) |
