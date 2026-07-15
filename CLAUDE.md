@@ -193,7 +193,8 @@ src/tools/media.js       — Media library: upload_media, list_media, get_media,
 src/tools/presets.js     — Preset discovery (list_presets — unified across catalogs)
 src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
 src/tools/docs.js        — AI Docs / Magic Pad (create_doc, list_docs, get_doc, update_doc, share_doc, delete_doc)
-src/tools/projects.js    — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool; move_session — move a session + its media between projects)
+src/tools/projects.js   — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool; move_session — move a session + its media between projects)
+src/tools/app_builder.js — App Builder: full React app generation (preview) — create session, generate app, edit, get build status, get GitHub/Supabase credentials, list/delete sessions. Auto-provisions GitHub repo + Supabase DB + live deployment URL on first build. See `skill/references/workflows/app-builder.md` for the 4-layer mental model (project → session → app → end-users).
 src/tools/agents.js      — Custom chat agents CRUD (list_agents, create_agent, update_agent, delete_agent — reusable named personas; `description` is the system instruction)
 src/tools/music_library.js — Stock/production music catalog (search, analyze-script, browse, facets, track audio/related/lyrics)
 src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
@@ -275,6 +276,19 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `list_visual_dnas` | `GET /v1/visual-dna` | — |
 | `get_visual_dna` | `GET /v1/visual-dna/:id` | — |
 | `delete_visual_dna` | `DELETE /v1/visual-dna/:id` | — |
+
+**App Builder (preview)** (`src/tools/app_builder.js`) — full React app generation, auto-provisions GitHub repo + Supabase DB + live deployment. **Different surface from generation tools — read `skill/references/workflows/app-builder.md` for the 4-layer mental model (project → session → app → end-users) before the first turn.**
+| Tool | Route | Notes |
+|------|-------|-------|
+| `app_builder_list_projects` | `GET /project/lightweight` | Returns the SAME Kolbo projects as `list_projects` but via a different endpoint — use when scoping an App Builder session. NOT a substitute for `list_projects` (different shape). |
+| `app_builder_create_session` | `POST /app-builder/session/:projectId` | Creates an App Builder session inside a Kolbo project. Returns a `session_id` distinct from chat/generation session ids. |
+| `app_builder_generate_app` | `POST /app-builder/generation/:sessionId` → polls build-status | First build auto-generates app name, URL slug, GitHub repo, Supabase DB (when needed), and a live deployment URL. Polls until `build_status === "deployed"` (~5 min). ALWAYS surface `deployment_url` on success. |
+| `app_builder_edit_app` | `PUT /app-builder/generation/:sessionId/:generationId` | Natural-language edit of an existing build. Needs the latest `generation_id` from `app_builder_list_generations`. Polls until redeployed. |
+| `app_builder_get_build_status` | `GET /app-builder/:sessionId/build-status` | Manual poll — use after a `generate_app` / `edit_app` timeout or to resume a stuck build. |
+| `app_builder_get_session` | `GET /app-builder/session/:sessionId` | Returns GitHub repo URL + Supabase URL + anon key for local dev. |
+| `app_builder_list_sessions` | `GET /app-builder/sessions/:projectId` | All App Builder sessions in a Kolbo project. |
+| `app_builder_list_generations` | `GET /app-builder/generations/:sessionId` | All builds/edits for an App Builder session, newest first — grab the latest `generation_id` before editing. |
+| `app_builder_delete_session` | `DELETE /app-builder/session/:sessionId` | **IRREVERSIBLE** — wipes GitHub repo, Supabase DB (unless user-connected), deployed files, generation history. ALWAYS confirm with the user first. |
 
 **Moodboards** (`src/tools/moodboards.js`)
 | Tool | Route |
