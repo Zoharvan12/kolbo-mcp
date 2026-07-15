@@ -194,6 +194,7 @@ src/tools/presets.js     — Preset discovery (list_presets — unified across c
 src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
 src/tools/docs.js        — AI Docs / Magic Pad (create_doc, list_docs, get_doc, update_doc, share_doc, delete_doc)
 src/tools/projects.js    — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool; move_session — move a session + its media between projects)
+src/tools/agents.js      — Custom chat agents CRUD (list_agents, create_agent, update_agent, delete_agent — reusable named personas; `description` is the system instruction)
 src/tools/music_library.js — Stock/production music catalog (search, analyze-script, browse, facets, track audio/related/lyrics)
 src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
 src/tools/shorts_creator.js — Shorts Creator two-phase job flow (shorts_analyze, shorts_list_presets,
@@ -210,10 +211,10 @@ Every generation tool below also accepts an optional `project_id` arg that route
 **Generation** (`src/tools/generate.js`)
 | Tool | Route | Timeout | Composition args |
 |------|-------|---------|-----------------|
-| `generate_image` | `POST /v1/generate/image` | 120s | `visual_dna_ids`, `moodboard_id`, `reference_images`, `num_images`, `enable_web_search`, `resolution` |
-| `generate_image_edit` | `POST /v1/generate/image-edit` | 120s | `source_images`, `visual_dna_ids`, `moodboard_id`, `enable_web_search`, `resolution` |
-| `generate_video` | `POST /v1/generate/video` | 300s | `visual_dna_ids`, `reference_images`, `resolution` |
-| `generate_video_from_image` | `POST /v1/generate/video/from-image` | 300s | `image_url`, `visual_dna_ids`, `aspect_ratio`, `resolution` |
+| `generate_image` | `POST /v1/generate/image` | 120s | `visual_dna_ids`, `moodboard_id`, `reference_images`, `num_images`, `enable_web_search`, `resolution`, `cinematic` |
+| `generate_image_edit` | `POST /v1/generate/image-edit` | 120s | `source_images`, `visual_dna_ids`, `moodboard_id`, `enable_web_search`, `resolution`, `cinematic` |
+| `generate_video` | `POST /v1/generate/video` | 300s | `visual_dna_ids`, `reference_images`, `resolution`, `sound_enabled` |
+| `generate_video_from_image` | `POST /v1/generate/video/from-image` | 300s | `image_url`, `visual_dna_ids`, `aspect_ratio`, `resolution`, `sound_enabled` |
 | `generate_video_from_video` | `POST /v1/generate/video-from-video` | 600s | `source_video` (URL or local), optional `prompt`, `visual_dna_ids`, `resolution`; VEED Subtitles: `preset` / `source_language` / `translation_language` / `srt_content` / `srt_file_url` / `vocabulary` / `customization` |
 | `generate_elements` | `POST /v1/generate/elements` | 600s | `reference_images`, `files`, `visual_dna_ids`, `motion`, `preset_id`, `resolution` |
 | `generate_first_last_frame` | `POST /v1/generate/first-last-frame` | 300s | URLs OR local paths for `first_frame`/`last_frame`, `visual_dna_ids`, `resolution` |
@@ -258,6 +259,7 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | Tool | Route | Notes |
 |------|-------|-------|
 | `list_presets` | `GET /v1/presets` | Unified across image/video/music/text_to_video; filter with `type` |
+| `list_cinematic_presets` | `GET /v1/cinematic-presets` | "Cinema mode" presets grouped by dimension; ids feed the optional `cinematic` object on `generate_image` / `generate_image_edit` |
 
 **Chat** (`src/tools/chat.js`)
 | Tool | Route | Timeout | Notes |

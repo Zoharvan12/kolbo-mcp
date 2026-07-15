@@ -69,6 +69,7 @@ const { registerPresetTools } = require('./tools/presets');
 const { registerAppBuilderTools } = require('./tools/app_builder');
 const { registerArtifactTools } = require('./tools/artifacts');
 const { registerProjectTools } = require('./tools/projects');
+const { registerAgentTools } = require('./tools/agents');
 const { registerDocTools } = require('./tools/docs');
 const { registerVoiceTools } = require('./tools/voices');
 const { registerMusicLibraryTools } = require('./tools/music_library');
@@ -115,7 +116,9 @@ function createServer(opts = {}) {
       '2. `list_projects` lists the user\'s platform projects (for generations/media/chat). `app_builder_list_projects` is a DIFFERENT tool that scopes App Builder coding sessions only — never use one where the other is meant.',
       '3. Misplaced work is fixable: `move_media` / `bulk_move_media` / `move_folder_contents` move media items between projects; `move_session` moves a whole session (plus its media) to another project. If the user says a generation landed in the wrong project, move it rather than regenerating.',
       '4. If the user has not mentioned any project, omit `project_id` — the default bucket is correct in that case. Do not ask which project to use unless the user\'s intent is ambiguous.',
-      '5. Written deliverables (plans, briefs, scripts, research summaries) can live in Kolbo too: author them as AI Docs with `create_doc` (project-scoped, editable in the app, shareable via `share_doc`).'
+      '5. Written deliverables (plans, briefs, scripts, research summaries) can live in Kolbo too: author them as AI Docs with `create_doc` (project-scoped, editable in the app, shareable via `share_doc`).',
+      '6. DIRECTOR / BATCH JOBS: generate_creative_director runs its scenes (image OR video) in parallel and only reports state="completed" once EVERY scene is terminal. Video batches can take many minutes. If the tool returns `_timed_out:true`, the batch is STILL RUNNING on the server — call `get_creative_director_status` with the returned generation_id and keep checking until state="completed" to collect all scene outputs. NEVER conclude a Director run failed and fall back to plain generate_image/generate_video without first checking status — doing so wastes the user\'s credits by paying twice. If scenes already carry image_urls/video_urls, they are done; do not regenerate.',
+      '7. SESSION CONTINUITY: keep one workflow in ONE session. chat_send_message and the generation tools return a `session_id` — for follow-ups, refinements, retries, or additional steps on the SAME task/theme, pass that same `session_id` back on the next call instead of starting fresh. Only OMIT session_id (start a new session) when the user genuinely switches to an unrelated task. Do not open a new conversation/session for every message of the same workflow — it fragments the user\'s history and loses context.'
     ].join('\n')
   });
 
@@ -135,6 +138,7 @@ function createServer(opts = {}) {
   registerAppBuilderTools(server, client, toolOptions);
   registerArtifactTools(server, client, toolOptions);
   registerProjectTools(server, client, toolOptions);
+  registerAgentTools(server, client, toolOptions);
   registerDocTools(server, client, toolOptions);
   registerMusicLibraryTools(server, client, toolOptions);
   registerStockLibraryTools(server, client, toolOptions);

@@ -50,6 +50,35 @@ function registerPresetTools(server, client, options = {}) {
       return { content: [{ type: 'text', text }] };
     }
   );
+
+  // ─── list_cinematic_presets ────────────────────────────────
+  server.tool(
+    'list_cinematic_presets',
+    'List Kolbo "Cinema mode" presets for image generation/editing — a deliberate photographic ' +
+    'treatment layered onto the prompt. Returns presets grouped by DIMENSION (data-driven from the ' +
+    'live catalog; today: camera, lens, focal_length, aperture, angle, shot_type, color_palette, ' +
+    'lighting). Each preset has id, name, description, thumbnail. ONLY call this when the user wants a ' +
+    'specific cinematic look; then pass the chosen ids via the `cinematic` arg of generate_image / ' +
+    'generate_image_edit — at most one id per dimension. "Auto" is the absence of a selection: omit a ' +
+    'dimension (or the whole `cinematic` object) to let the enhancer decide. For an ordinary generation ' +
+    'do not call this at all. Never hardcode ids — dimensions and presets change; always fetch here.',
+    {},
+    async () => {
+      const result = await client.get('/v1/cinematic-presets');
+      // The public route serves the raw grouped map ({ camera:[...], lens:[...] });
+      // the SDK envelope wraps it as { dimensions:{...} }. Accept either shape.
+      const dimensions = (result && result.dimensions) || result || {};
+      const text = JSON.stringify({
+        dimensions,
+        available_dimensions: Object.keys(dimensions),
+        _usage_hint: 'Include ONLY the dimensions the user actually wants; pass their ids as the ' +
+          '`cinematic` arg on generate_image / generate_image_edit, e.g. {"camera":"<id>","lighting":"<id>"}. ' +
+          'Every omitted/null dimension is Auto — the enhancer completes the look in the spirit of the ones ' +
+          'you set. Omit the whole object for a non-cinematic generation. Ids are validated per-dimension server-side.'
+      }, null, 2);
+      return { content: [{ type: 'text', text }] };
+    }
+  );
 }
 
 module.exports = { registerPresetTools };
