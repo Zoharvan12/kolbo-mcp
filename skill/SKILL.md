@@ -1,5 +1,5 @@
 ---
-version: 0.7.1
+version: 0.7.2
 name: kolbo
 description: |
   Generate, edit, or analyze creative media via the Kolbo AI MCP server:
@@ -274,9 +274,6 @@ Chat renders markdown natively. `![alt](url)` = inline image. `[label](url)` = l
 - **Conversational replies** ("4 shots ready"): keep prose short; canvas chip already shows gallery.
 
 Avoid bare URL dumps and HTML `<table>` grids — canvas already provides a gallery.
-
-- **3D models (`generate_3d`)**: NEVER paste the raw GLB/FBX/OBJ/USDZ file URLs as a link list. The result renders as a card with a live 3D preview + Download buttons ("View in Canvas"). Just say the model is ready and describe it — the user grabs formats from the card.
-- **NEVER surface a raw provider domain** (e.g. `*.fal.media`, `replicate.delivery`) in chat or `.kolbo/production.md`. All Kolbo outputs are Kolbo-hosted; if you ever see a provider URL in a result, treat it as a bug — report it, don't echo it.
 
 **After `generate_creative_director` completes** — share results as individual URLs, one per scene. Do NOT create an HTML grid artifact.
 
