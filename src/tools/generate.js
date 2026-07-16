@@ -92,7 +92,7 @@ function registerGenerateTools(server, client, options = {}) {
             urls: result.result.urls,
             model: result.result.model,
             prompt_used: result.result.prompt_used,
-            _followup_hint: 'If the user asks to edit/change/modify this image next, pass urls[0] to generate_image_edit (free-form edits) or edit_image (upscale/reframe/removebg/enhance_skin/magic_edit). Do NOT call generate_image again.'
+            _followup_hint: 'If the user asks to edit/change/modify this image next (scene, lighting, objects, style, color — any content edit), pass urls[0] to generate_image_edit. Use edit_image ONLY for mechanical ops (upscale/reframe/removebg/enhance_skin). Do NOT call generate_image again.'
           }, null, 2)
         }, ...images]
       };
@@ -102,7 +102,7 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_image_edit ──────────────────────────────────
   server.tool(
     'generate_image_edit',
-    'Edit or transform an existing image using AI. Provide the source image URL(s) in `source_images` and describe the edit in `prompt` (e.g., "remove the background", "change the car color to red", "add sunglasses to the person"). Supports Visual DNA profiles and moodboards for style-consistent edits. For creating a brand new image from scratch, use generate_image. Returns the edited image URL(s) when complete.',
+    'THE tool for ANY prompt-driven / content edit of an existing image — changing the scene ("make it night", "change the sky to sunset"), adding/removing/replacing objects, restyling, recoloring, compositing, or any "edit this image to…" request. This is the image-editing equivalent of generate_image and runs on strong dedicated editing models (nano-banana-2, gpt-image-2). Provide the source image URL(s) in `source_images` and the instruction in `prompt`. Supports Visual DNA profiles and moodboards for style-consistent edits. Do NOT use `edit_image` for these — that tool is only for mechanical enhancements (upscale/reframe/remove-background/skin). For a brand-new image from scratch, use generate_image. Returns the edited image URL(s) when complete.',
     {
       prompt: z.string().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset")'),
       model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific editing model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current default: "nano-banana-2" (best general prompt-driven editor) or "gpt-image-2" for photoreal edits. Call list_models type="image_editing" to see all options and pick per the user\'s intent.'),
@@ -1081,17 +1081,17 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── edit_image ────────────────────────────────────────────
   server.tool(
     'edit_image',
-    'Apply a targeted AI edit to an existing image. Use for upscaling resolution, changing aspect ratio (reframe), removing the background, portrait skin enhancement, or a text-guided edit (magic_edit). Faster and cheaper than generate_image_edit for these specific operations because it routes to specialized models. Returns the edited image URL when complete.',
+    'Apply a MECHANICAL enhancement to an existing image: upscale resolution, reframe (change aspect ratio), remove background, or portrait skin retouching. ⚠️ For any PROMPT-DRIVEN / CONTENT edit — changing the scene, lighting, or time of day, adding/removing/replacing objects, restyling, recoloring — use `generate_image_edit` instead (stronger dedicated editing models, better results). Do NOT use this tool for "make it night / add sunglasses / change the background to X"-type edits. Returns the edited image URL when complete.',
     {
       image_url: z.string().describe('URL of the source image to edit'),
       operation: z.enum(['upscale', 'reframe', 'removebg', 'enhance_skin', 'magic_edit'])
-        .describe('Edit operation to apply: "upscale" (increase resolution 2×–4×), "reframe" (change aspect ratio), "removebg" (remove background), "enhance_skin" (portrait retouching), "magic_edit" (text-guided edit — requires prompt)'),
+        .describe('Mechanical edit operation: "upscale" (increase resolution 2×–4×), "reframe" (change aspect ratio), "removebg" (remove background), "enhance_skin" (portrait retouching). NOTE: "magic_edit" (text-guided content edit) is DEPRECATED here — use `generate_image_edit` for prompt-driven edits instead; it produces better results on stronger models.'),
       model: z.string().optional().describe('Model identifier override. Omit to use the default model for the operation.'),
       scale: z.number().optional().describe('Upscale factor: 2, 3, or 4. Only used when operation="upscale". Default: 2.'),
       aspect_ratio: z.string().optional().describe('Target aspect ratio (e.g., "16:9", "9:16", "1:1"). Required for operation="reframe".'),
       skin_strength: z.enum(['subtle', 'realistic', 'pimple', 'freckle']).optional()
         .describe('Skin enhancement style. Only used when operation="enhance_skin". Default: "realistic".'),
-      prompt: z.string().optional().describe('Text instruction for the edit. Required for operation="magic_edit" (e.g., "add sunglasses", "change the sky to sunset").'),
+      prompt: z.string().optional().describe('Text instruction — only for the deprecated operation="magic_edit". Prefer `generate_image_edit` for prompt-driven edits.'),
       project_id: projectIdField
     },
     async ({ image_url, operation, model, scale, aspect_ratio, skin_strength, prompt, project_id }) => {
