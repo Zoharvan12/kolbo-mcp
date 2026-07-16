@@ -38,7 +38,7 @@ const BODY = `
     <div class="k-prompt-row" id="prompt-row">
       <input class="k-input" id="action-input" placeholder="">
       <button class="k-btn primary" id="action-send">Send</button>
-      <button class="k-btn ghost" id="action-cancel">✕</button>
+      <button class="k-btn ghost" id="action-cancel" aria-label="Cancel"></button>
     </div>
     <div class="k-actions" id="actions"></div>
   </div>
@@ -55,6 +55,7 @@ var selected = 0;          // selected result index
 var pollTimer = null;
 
 el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
+el('action-cancel').innerHTML = ICONS.x;
 el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai'); };
 
 var TOOL_TITLES = {
@@ -85,11 +86,11 @@ function renderChips(sc) {
   var h = modelChipHTML(sc.model, sc.model_icon);
   var s = sc.settings || {};
   if (sc.kind) h += chip(iconFor(sc.kind) + ' ' + sc.kind);
-  if (s.duration) h += chip('⏱ ' + fmtDur(s.duration));
+  if (s.duration) h += chip(ICONS.clock + ' ' + fmtDur(s.duration));
   if (s.resolution) h += chip(esc(s.resolution));
   if (s.aspect_ratio) h += chip(esc(s.aspect_ratio));
-  if (s.audio) h += chip('🔊 audio');
-  if (s.voice) h += chip('🎤 ' + esc(s.voice));
+  if (s.audio) h += chip(ICONS.sound + ' audio');
+  if (s.voice) h += chip(ICONS.mic + ' ' + esc(s.voice));
   if (s.mode) h += chip(esc(s.mode));
   if (sc.count > 1) h += chip('×' + sc.count);
   if (sc.reference_image) h += '<img class="k-ref-thumb" src="' + esc(sc.reference_image) + '" alt="" title="Reference image" onerror="this.style.display=\\'none\\'">';
@@ -97,7 +98,13 @@ function renderChips(sc) {
 }
 function chip(inner) { return '<span class="k-chip">' + inner + '</span>'; }
 function iconFor(kind) {
-  return { image: '🖼', video: '🎬', audio: '🎵', '3d': '🧊', scenes: '🎞' }[kind] || '✨';
+  switch (kind) {
+    case 'image': return ICONS.image;
+    case 'video': case 'scenes': return ICONS.video;
+    case 'audio': return ICONS.audio;
+    case '3d': return ICONS.cube;
+    default: return ICONS.sparkle;
+  }
 }
 
 /* ---------- generating ---------- */
@@ -247,7 +254,7 @@ function renderLinks(urls) {
 // Small hover download button attached to a media cell (per-item downloads —
 // batch grids and CD scenes have no single "current" url for the action row).
 function dlBtnHTML(u) {
-  return '<button class="k-dl" data-dl="' + esc(u) + '" title="Download" aria-label="Download">⬇</button>';
+  return '<button class="k-dl" data-dl="' + esc(u) + '" title="Download" aria-label="Download">' + ICONS.download + '</button>';
 }
 function wireDlButtons(root) {
   Array.prototype.forEach.call((root || document).querySelectorAll('.k-dl[data-dl]'), function (b) {
@@ -280,7 +287,7 @@ function renderScenes(sc) {
     : '<img id="scene-main" src="' + esc(it.url) + '" alt="" style="cursor:zoom-in">';
   var thumbs = '<div class="k-thumbs">' + items.map(function (t, i) {
     var inner = t.type === 'video'
-      ? '<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:rgba(255,255,255,0.06);font-size:14px">▶</span>'
+      ? '<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:rgba(255,255,255,0.06);font-size:22px">' + ICONS.play + '</span>'
       : '<img src="' + esc(t.url) + '" alt="" loading="lazy">';
     return '<div class="k-thumb' + (i === selected ? ' active' : '') + '" data-i="' + i + '" title="' + esc(t.label) + '">' + inner + '</div>';
   }).join('') + '</div>';
@@ -324,8 +331,8 @@ function renderError(msg) {
   clearTimeout(pollTimer);
 
   setPhaseChip('Failed', false);
-  el('stage').innerHTML = '<div class="k-error">⚠ ' + esc(msg) + '</div>';
-  el('actions').innerHTML = '<button class="k-btn" id="retry-btn">↻ Try Again</button>';
+  el('stage').innerHTML = '<div class="k-error">' + ICONS.warn + ' ' + esc(msg) + '</div>';
+  el('actions').innerHTML = '<button class="k-btn" id="retry-btn">' + ICONS.retry + ' Try Again</button>';
   el('retry-btn').onclick = function () {
     var what = (state && TOOL_TITLES[state.tool]) || 'generation';
     window.kolbo.sendMessage('Please retry that ' + what.toLowerCase() + ' — it failed with: ' + msg);
@@ -355,7 +362,7 @@ function applyFullscreen(on, exitHandler) {
   var c = el('phase-chip');
   if (on) {
     c.style.display = '';
-    c.innerHTML = '✕ ' + esc('Exit');
+    c.innerHTML = ICONS.x + ' ' + esc('Exit');
     c.style.cursor = 'pointer';
     c.onclick = exitHandler || toggleFullscreen;
   } else {
@@ -382,18 +389,18 @@ function renderActions(sc) {
   var a = [];
   var hasSingleUrl = !!(sc.urls && sc.urls.length);
   if (sc.kind === 'image') {
-    a.push('<button class="k-btn primary" id="btn-animate">🎬 Animate</button>');
-    a.push('<button class="k-btn" id="btn-edit">✏️ Edit</button>');
+    a.push('<button class="k-btn primary" id="btn-animate">' + ICONS.video + ' Animate</button>');
+    a.push('<button class="k-btn" id="btn-edit">' + ICONS.edit + ' Edit</button>');
   }
   if (sc.kind === 'video') {
-    a.push('<button class="k-btn primary" id="btn-download">⬇ Download</button>');
+    a.push('<button class="k-btn primary" id="btn-download">' + ICONS.download + ' Download</button>');
   } else if (hasSingleUrl) {
     // Scenes (Creative Director) have no single "current" url — per-item hover
     // download buttons cover them instead.
-    a.push('<button class="k-btn" id="btn-download">⬇ Download</button>');
+    a.push('<button class="k-btn" id="btn-download">' + ICONS.download + ' Download</button>');
   }
-  a.push('<button class="k-btn" id="btn-recreate">↻ Recreate</button>');
-  a.push('<button class="k-btn ghost" id="btn-open">Open in Kolbo ↗</button>');
+  a.push('<button class="k-btn" id="btn-recreate">' + ICONS.retry + ' Recreate</button>');
+  a.push('<button class="k-btn ghost" id="btn-open">Open in Kolbo ' + ICONS.open + '</button>');
   el('actions').innerHTML = a.join('');
 
   bind('btn-download', function () { window.kolbo.openLink(downloadUrl(currentUrl())); });
@@ -405,7 +412,7 @@ function renderActions(sc) {
       '\\n(from the ' + (TOOL_TITLES[state.tool] || 'generation') + ' widget)');
   });
   bind('btn-animate', function () {
-    openPromptRow('Describe the motion (optional — Smart Select picks the best video model)…', function (text) {
+    openPromptRow('Describe the motion (optional)…', function (text) {
       window.kolbo.sendMessage('Animate this image into a short video' +
         '\\n🎬 Reference image: ' + currentUrl() +
         '\\nModel: smart select — pick the best image-to-video model' +

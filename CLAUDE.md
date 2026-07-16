@@ -119,6 +119,20 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
 - **Every result path of a TOOL_WIDGETS tool must attach structuredContent**, or rely
   on the widgets' graceful fallback (all four collapse/error on a missing contract —
   keep it that way; missing contracts used to render an eternal blank card).
+- **Icons: NEVER use emoji in widget UI.** Emoji (⬇🖼🎬📄⚠✓ …) render as tofu boxes in
+  many host iframes. Use the shared inline-SVG set instead: `ICONS.<name>` (download,
+  upload, play, pause, check, x, warn, retry, edit, open, arrowRight, sparkle, clock,
+  sound, mic, image, video, audio, document, cube, file) and `kindIcon(mediaType)`, both
+  defined in the shared runtime in `src/apps/html.js` (currentColor, 1em, `.k-ic` CSS in
+  theme.js). ICONS is available in every widget SCRIPT block. For icons in a static BODY
+  template, leave the element empty and set `el(id).innerHTML = ICONS.x` in the script.
+  Emoji is OK ONLY inside chat-message text sent via `sendMessage` (renders in Claude's
+  markdown, not the iframe).
+- **Model selection: steer the LLM to pass a specific `model`, never Smart Select.**
+  Connector instruction #9 (`src/index.js`) + each generation tool's `model` description
+  tell the model to pick a concrete model (call list_models if unsure) rather than
+  omitting → auto-pick. Backend still SUPPORTS omitting (K_AUTO); we just don't encourage
+  it from the MCP. Concrete provider defaults (music→Suno, TTS→eleven_v3) are fine to keep.
 - **CSP**: widget iframes are deny-by-default. External assets must be allowlisted in
   `WIDGET_CSP.resourceDomains` (`src/apps/index.js`) — EXACT hosts first, wildcards
   second (not all hosts honor wildcards). New CDN bucket ⇒ add it there AND to the
