@@ -90,7 +90,8 @@ function boot(sc) {
   var exts = [];
   kinds.forEach(function (k) { if (KINDS[k]) exts = exts.concat(KINDS[k].exts); });
   el('picker').setAttribute('accept', exts.map(function (e) { return '.' + e; }).join(','));
-  el('accept-hint').textContent = kinds.join(' · ') + ' — up to ' + (sc.max_files || 10) + ' files';
+  var maxN = sc.max_files || 10;
+  el('accept-hint').textContent = kinds.join(' · ') + (maxN === 1 ? ' — one file' : ' — up to ' + maxN + ' files');
   if (expired()) return showExpired();
   window.kolbo.notifySize();
 }
