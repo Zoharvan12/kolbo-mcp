@@ -65,8 +65,8 @@ function cellHTML(item, i) {
   var idx = state.items.indexOf(item);
   var media = item.thumbnail
     ? '<img src="' + esc(item.thumbnail) + '" loading="lazy" alt="">'
-    : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-faint);font-size:20px">' +
-      ({ video: '🎬', '3d': '🧊' }[item.media_type] || '🖼') + '</div>';
+    : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-faint);font-size:22px">' +
+      kindIcon(item.media_type) + '</div>';
   return '<div class="k-cell" data-i="' + idx + '">' +
     '<div class="k-cell-media">' + media + '</div>' +
     '<div class="k-cell-label">' + esc(item.title || '') + '</div>' +
@@ -81,7 +81,7 @@ function audioRowHTML(item) {
     '<div class="k-audio-meta"><div class="k-audio-title">' + esc(item.title || '') + '</div>' +
     '<div class="k-audio-sub">' + esc(item.subtitle || '') + '</div></div>' +
     (item.preview_audio || item.url
-      ? '<button class="k-play" data-play="' + esc(item.preview_audio || item.url) + '">▶</button>' : '') +
+      ? '<button class="k-play" data-play="' + esc(item.preview_audio || item.url) + '">' + ICONS.play + '</button>' : '') +
     '<button class="k-btn" data-use="' + idx + '">Use</button></div>';
 }
 
@@ -96,13 +96,13 @@ function wire() {
     b.onclick = function (e) {
       e.stopPropagation();
       var url = b.getAttribute('data-play');
-      if (playing && playing.src === url && !playing.paused) { playing.pause(); b.textContent = '▶'; return; }
+      if (playing && playing.src === url && !playing.paused) { playing.pause(); b.innerHTML = ICONS.play; return; }
       if (playing) playing.pause();
-      Array.prototype.forEach.call(document.querySelectorAll('[data-play]'), function (x) { x.textContent = '▶'; });
+      Array.prototype.forEach.call(document.querySelectorAll('[data-play]'), function (x) { x.innerHTML = ICONS.play; });
       playing = new Audio(url);
       playing.play();
-      b.textContent = '⏸';
-      playing.onended = function () { b.textContent = '▶'; };
+      b.innerHTML = ICONS.pause;
+      playing.onended = function () { b.innerHTML = ICONS.play; };
     };
   });
 }

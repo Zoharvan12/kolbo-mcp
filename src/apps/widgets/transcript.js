@@ -54,7 +54,7 @@ function boot(sc) {
   }
   if (sc.phase === 'failed') {
     el('phase-chip').style.display = 'none';
-    el('stage').innerHTML = '<div class="k-error">⚠ ' + esc(sc.error || 'Transcription failed') + '</div>';
+    el('stage').innerHTML = '<div class="k-error">' + ICONS.warn + ' ' + esc(sc.error || 'Transcription failed') + '</div>';
     return;
   }
   el('phase-chip').style.display = '';
@@ -67,9 +67,9 @@ function boot(sc) {
     'background:var(--surface);border:1px solid var(--border);font-size:12.5px;color:var(--text-muted);white-space:pre-wrap">' +
     esc(sc.text || '(empty transcript)') + '</div>';
   var a = [];
-  if (sc.srt_url) a.push('<button class="k-btn primary" data-url="' + esc(sc.srt_url) + '">⬇ SRT</button>');
-  if (sc.word_by_word_srt_url) a.push('<button class="k-btn" data-url="' + esc(sc.word_by_word_srt_url) + '">⬇ Word-by-word SRT</button>');
-  if (sc.txt_url) a.push('<button class="k-btn" data-url="' + esc(sc.txt_url) + '">⬇ TXT</button>');
+  if (sc.srt_url) a.push('<button class="k-btn primary" data-url="' + esc(sc.srt_url) + '">' + ICONS.download + ' SRT</button>');
+  if (sc.word_by_word_srt_url) a.push('<button class="k-btn" data-url="' + esc(sc.word_by_word_srt_url) + '">' + ICONS.download + ' Word-by-word SRT</button>');
+  if (sc.txt_url) a.push('<button class="k-btn" data-url="' + esc(sc.txt_url) + '">' + ICONS.download + ' TXT</button>');
   a.push('<button class="k-btn ghost" id="btn-copy">Copy text</button>');
   el('actions').innerHTML = a.join('');
   Array.prototype.forEach.call(el('actions').querySelectorAll('[data-url]'), function (b) {
@@ -77,7 +77,7 @@ function boot(sc) {
   });
   var copyBtn = el('btn-copy');
   if (copyBtn) copyBtn.onclick = function () {
-    try { navigator.clipboard.writeText(state.text || ''); copyBtn.textContent = 'Copied ✓'; } catch (e) {}
+    try { navigator.clipboard.writeText(state.text || ''); copyBtn.innerHTML = 'Copied ' + ICONS.check; } catch (e) {}
   };
   window.kolbo.notifySize();
 }
@@ -107,7 +107,7 @@ window.kolbo.onToolResult(function (result) {
   if (result.isError || /error|failed/i.test(txt)) {
     el('phase-chip').style.display = 'none';
     el('stage').classList.remove('k-empty');
-    el('stage').innerHTML = '<div class="k-error">⚠ ' + esc((txt || 'Transcription failed').slice(0, 300)) + '</div>';
+    el('stage').innerHTML = '<div class="k-error">' + ICONS.warn + ' ' + esc((txt || 'Transcription failed').slice(0, 300)) + '</div>';
     window.kolbo.notifySize();
     return;
   }
