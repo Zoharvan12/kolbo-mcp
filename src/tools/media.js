@@ -10,17 +10,94 @@ const { UI, uiResult, appsEnabled } = require('../apps');
 
 function registerMediaTools(server, client, options = {}) {
   const ui = () => appsEnabled(server, options);
+
+  // ─── media_upload_widget ───────────────────────────────────
+  server.tool(
+    'media_upload_widget',
+    'Open an interactive file-upload card in the chat so the user can upload LOCAL files (images, videos, audio, documents) into their Kolbo media library. USE THIS IMMEDIATELY whenever a claude.ai (browser/mobile) user wants to use a local file, or references a file they attached to the chat — remote MCP tools CANNOT read chat attachments, so the user must re-upload through this widget; do not ask them to re-attach the file in chat. Each uploaded file gets a stable Kolbo CDN URL that arrives in a follow-up user message — then pass those URLs to generation tools (generate_image_edit, generate_video_from_image, generate_lipsync, transcribe_audio, visual DNA, etc.). On Claude Desktop / Claude Code with filesystem access, prefer `upload_media` with the local path instead.',
+    {
+      purpose: z.string().optional().describe('Short title shown on the card, e.g. "Upload the photo to animate". Helps the user know what to drop.'),
+      media_types: z.array(z.enum(['image', 'video', 'audio', 'document'])).optional().describe('Restrict which file kinds the widget accepts. Omit to accept all types.'),
+      max_files: z.number().optional().describe('Maximum number of files (default 10, max 20).'),
+      project_id: z.string().optional().describe('Project ObjectId to file the uploads into (resolve names via `list_projects`).')
+    },
+    async ({ purpose, media_types, max_files, project_id }) => {
+      const ticket = await client.post('/v1/media/upload-ticket', {});
+      if (!ticket || !ticket.token) throw new Error('Could not create an upload ticket — try again.');
+
+      const info = {
+        status: 'upload_widget_opened',
+        instructions: 'An upload card is now shown to the user. WAIT for them to upload — the uploaded file URLs will arrive in a follow-up message (or in the model context). Do not guess URLs.',
+        accepted: ticket.accepted,
+        expires_in_seconds: ticket.expires_in,
+      };
+
+      if (ui()) {
+        return uiResult(UI.upload, JSON.stringify(info, null, 2), {
+          widget: 'upload',
+          title: purpose || 'Upload media',
+          upload_url: ticket.upload_url,
+          token: ticket.token,
+          expires_at: Date.now() + (ticket.expires_in || 900) * 1000,
+          kinds: media_types && media_types.length ? media_types : undefined,
+          max_files: Math.min(Math.max(Number(max_files) || 10, 1), 20),
+          max_mb: ticket.max_file_mb || { image: 50, video: 500, audio: 200, document: 50 },
+          ...(project_id ? { project_id } : {}),
+        });
+      }
+
+      // Text-only host: no iframe to render — steer to upload_media.
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            status: 'widget_unavailable',
+            hint: 'This host cannot render the upload widget. Use the upload_media tool with a URL or absolute local file path instead.'
+          }, null, 2)
+        }]
+      };
+    }
+  );
+
   // ─── upload_media ──────────────────────────────────────────
   server.tool(
     'upload_media',
     'Upload a local file (or remote URL) to the user\'s Kolbo media library and get back a stable Kolbo CDN URL. Use this when the user wants to reference a local file in multiple subsequent generation calls — upload once, then pass the returned URL to generate_image / generate_video / visual_dna / etc. Auto-detects media type (image / video / audio) from the file extension. For a single-use reference where you already have a public URL, you can skip this and pass the URL directly to the generation tool.',
     {
-      source: z.string().describe('URL or absolute local path to the file to upload. For local files this is the primary mode; for URLs, this re-hosts the file on Kolbo CDN for stability.'),
+      source: z.string().optional().describe('URL or absolute local path to the file to upload. For local files this is the primary mode; for URLs, this re-hosts the file on Kolbo CDN for stability. Provide this OR source_base64.'),
+      source_base64: z.string().optional().describe('Raw file content as base64 (no data: prefix) — fallback for hosts with no filesystem or public URL (e.g. small images on claude.ai when the upload widget is unavailable). Requires `filename`. Keep under ~10MB; for larger files use media_upload_widget.'),
+      filename: z.string().optional().describe('Original filename WITH extension (e.g. photo.png) — required with source_base64; the extension determines the media type.'),
       description: z.string().optional().describe('Optional description / caption for the uploaded media'),
       project_id: z.string().optional().describe('Project ObjectId to file the upload into. Call `list_projects` to resolve a name → id. When the user is working in a named project, pass it here too — omitting it files the upload outside that project.')
     },
-    async ({ source, description, project_id }) => {
-      if (!source) throw new Error('source is required (URL or absolute local path)');
+    async ({ source, source_base64, filename, description, project_id }) => {
+      if (!source && !source_base64) throw new Error('Provide source (URL or absolute local path) OR source_base64 (+ filename)');
+
+      if (source_base64) {
+        if (!filename || !/\.[a-z0-9]{2,5}$/i.test(filename)) {
+          throw new Error('source_base64 requires a `filename` with an extension (e.g. photo.png)');
+        }
+        const buffer = Buffer.from(source_base64, 'base64');
+        if (!buffer.length) throw new Error('source_base64 decoded to an empty file');
+        // Backend routes by mimetype (video/audio must NOT hit the image
+        // optimizer) — derive it from the extension, never octet-stream.
+        const ext = filename.split('.').pop().toLowerCase();
+        const MIME = {
+          jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', heic: 'image/heic', avif: 'image/avif',
+          mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm', m4v: 'video/x-m4v', mkv: 'video/x-matroska',
+          mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg', flac: 'audio/flac',
+          pdf: 'application/pdf', txt: 'text/plain', md: 'text/markdown', csv: 'text/csv', json: 'application/json',
+          docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        };
+        const form = new FormData();
+        form.append('file', buffer, { filename, contentType: MIME[ext] || 'application/octet-stream' });
+        if (description) form.append('description', description);
+        if (project_id) form.append('project_id', project_id);
+        const result = await client.postMultipart('/v1/media/upload', form);
+        return { content: [{ type: 'text', text: JSON.stringify(result.media || result, null, 2) }] };
+      }
 
       // Even for URL input we download-and-reupload — that's the whole point
       // of upload_media (getting a stable Kolbo-owned URL). For ephemeral

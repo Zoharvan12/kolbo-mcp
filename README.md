@@ -163,7 +163,8 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 **Media Library**
 | Tool | Description |
 |------|-------------|
-| `upload_media` | Upload a local file (or remote URL) → stable Kolbo CDN URL for reuse |
+| `media_upload_widget` | Open an in-chat upload card so claude.ai users can upload LOCAL files (image / video / audio / document) — chat attachments are unreachable from remote MCP, so this is the way to bring them in. Returns stable CDN URLs |
+| `upload_media` | Upload a local file (path or URL), or inline `source_base64` + `filename`, → stable Kolbo CDN URL for reuse |
 | `list_media` | Browse media library — filter by `project_id`, `folder_id`, `type`, `category` (ai / uploaded / edited / favorites / training-lab), `source_type`, `sort`, `search`, pagination |
 | `list_media_folders` | List the user's media folders (owned + shared) — discover `folder_id` values to pass to `list_media` |
 | `create_media_folder` | Create a new folder (name, optional description / color / icon) |
