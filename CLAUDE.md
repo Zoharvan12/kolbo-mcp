@@ -183,7 +183,7 @@ src/tools/models.js      — Discovery tools (list_models, check_credits)
 src/tools/chat.js        — Chat tools (send, list conversations, get messages)
 src/tools/visual_dna.js  — Visual DNA CRUD (thin wrapper that imports from _shared)
 src/tools/moodboards.js  — Moodboard discovery (list, get)
-src/tools/media.js       — Media library: upload_media, list_media, get_media, delete_media, restore_media,
+src/tools/media.js       — Media library: media_upload_widget, upload_media, list_media, get_media, delete_media, restore_media,
                             permanently_delete_media, move_media, bulk_delete_media, bulk_restore_media,
                             bulk_permanently_delete_media, bulk_move_media, get_media_stats,
                             favorite_media, unfavorite_media, list_media_folders, create_media_folder,
@@ -232,7 +232,8 @@ Every generation tool below also accepts an optional `project_id` arg that route
 **Media Library** (`src/tools/media.js`)
 | Tool | Route | Notes |
 |------|-------|-------|
-| `upload_media` | `POST /v1/media/upload` (multipart) | Upload a local file (or remote URL re-host) and get a stable Kolbo CDN URL |
+| `media_upload_widget` | `POST /v1/media/upload-ticket` → widget POSTs files to `/mcp/upload` | Renders an in-chat upload card (MCP App) for claude.ai users to upload local files — remote MCP can't read chat attachments. Ticket-auth (short-lived, upload-only); supports image/video/audio/document, multi-file. On stdio hosts falls back to steering toward `upload_media`. |
+| `upload_media` | `POST /v1/media/upload` (multipart) | Upload a local file (path or URL re-host), or inline `source_base64` + `filename`, and get a stable Kolbo CDN URL |
 | `list_media` | `GET /v1/media` | Filters: `project_id`, `folder_id`, `type`, `category` (ai / uploaded / edited / favorites / training-lab), `source_type`, `sort`, `page`, `page_size`, `search` |
 | `list_media_folders` | `GET /v1/media/folders` | List the user's media folders (owned + shared) |
 | `create_media_folder` | `POST /v1/media/folders` | Create a folder (name + optional description / color / icon) |
