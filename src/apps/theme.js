@@ -222,6 +222,8 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
 .k-btn.ghost { background: transparent; box-shadow: none; border-color: transparent; color: var(--text-muted); }
 .k-btn.ghost:hover { color: var(--text); background: var(--surface-2); }
 .k-btn svg { width: 13px; height: 13px; }
+/* Inline SVG icons (replace emoji) — align with text, inherit color, never shrink. */
+.k-ic { width: 1em; height: 1em; vertical-align: -0.14em; flex: none; }
 .k-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* ---- Inline prompt input (Animate / Edit flows) ---- */

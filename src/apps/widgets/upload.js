@@ -33,7 +33,7 @@ const BODY = `
   </div>
   <div class="k-body">
     <div id="drop" style="border:1.5px dashed var(--border);border-radius:12px;padding:26px 16px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s">
-      <div style="font-size:22px;margin-bottom:6px">⬆</div>
+      <div id="drop-icon" style="font-size:26px;line-height:1;margin-bottom:8px;color:var(--text-muted)"></div>
       <div style="font-size:13px;font-weight:600">Click or drop files here</div>
       <div id="accept-hint" style="font-size:11.5px;color:var(--text-muted);margin-top:4px"></div>
     </div>
@@ -51,6 +51,7 @@ const BODY = `
 
 const SCRIPT = `
 el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
+el('drop-icon').innerHTML = ICONS.upload;
 el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai/media-library'); };
 
 var state = null;
@@ -61,10 +62,10 @@ var active = 0;
 var sent = false;
 
 var KINDS = {
-  image: { exts: ['jpg','jpeg','png','webp','gif','heic','heif','avif','bmp','tif','tiff'], icon: '🖼' },
-  video: { exts: ['mp4','mov','webm','m4v','mkv','avi'], icon: '🎬' },
-  audio: { exts: ['mp3','wav','m4a','aac','ogg','flac'], icon: '🎵' },
-  document: { exts: ['pdf','txt','md','csv','json','docx','xlsx','pptx','doc','xls'], icon: '📄' }
+  image: { exts: ['jpg','jpeg','png','webp','gif','heic','heif','avif','bmp','tif','tiff'], icon: ICONS.image },
+  video: { exts: ['mp4','mov','webm','m4v','mkv','avi'], icon: ICONS.video },
+  audio: { exts: ['mp3','wav','m4a','aac','ogg','flac'], icon: ICONS.audio },
+  document: { exts: ['pdf','txt','md','csv','json','docx','xlsx','pptx','doc','xls'], icon: ICONS.document }
 };
 
 function classify(name) {
@@ -98,7 +99,7 @@ function showExpired() {
   el('drop').style.pointerEvents = 'none';
   el('drop').style.opacity = '0.5';
   el('notice').style.display = '';
-  el('notice').innerHTML = '⏱ This upload window expired. Ask Claude to open a new upload widget.';
+  el('notice').innerHTML = ICONS.clock + ' This upload window expired. Ask Claude to open a new upload widget.';
   window.kolbo.notifySize();
 }
 
@@ -190,12 +191,12 @@ function upload(it) {
 
 // ---- rendering ----
 function rowHtml(it) {
-  var icon = it.kind && KINDS[it.kind] ? KINDS[it.kind].icon : '📎';
+  var icon = it.kind && KINDS[it.kind] ? KINDS[it.kind].icon : ICONS.file;
   var right = '';
   if (it.status === 'queued') right = '<span style="color:var(--text-muted)">queued</span>';
   else if (it.status === 'uploading') right = '<span style="color:var(--text-muted)">' + it.pct + '%</span>';
-  else if (it.status === 'done') right = '<span style="color:#4ade80">✓ uploaded</span>';
-  else right = '<span class="k-error" style="padding:0;border:0;background:none">✕ ' + esc(it.err || 'failed') + '</span> <a href="#" data-retry="' + it.id + '" style="font-size:11px">retry</a>';
+  else if (it.status === 'done') right = '<span style="color:#4ade80">' + ICONS.check + ' uploaded</span>';
+  else right = '<span class="k-error" style="padding:0;border:0;background:none">' + ICONS.x + ' ' + esc(it.err || 'failed') + '</span> <a href="#" data-retry="' + it.id + '" style="font-size:11px">retry</a>';
   var bar = it.status === 'uploading'
     ? '<div style="height:3px;border-radius:2px;background:var(--surface);margin-top:5px;overflow:hidden"><div id="bar-' + it.id + '" style="height:100%;width:' + it.pct + '%;background:var(--accent,#7c6cff);transition:width .2s"></div></div>'
     : '';
@@ -241,7 +242,7 @@ function render() {
       sent = true;
       var lines = done.map(function (i, idx) { return (idx + 1) + '. ' + i.file.name + ' (' + i.kind + '): ' + i.url; });
       window.kolbo.sendMessage('I uploaded ' + done.length + ' file(s) to my Kolbo media library:\\n' + lines.join('\\n') + '\\nContinue with these files.');
-      el('actions').innerHTML = '<span style="font-size:12px;color:var(--text-muted)">✓ Sent to Claude — continuing…</span>';
+      el('actions').innerHTML = '<span style="font-size:12px;color:var(--text-muted)">' + ICONS.check + ' Sent to Claude — continuing…</span>';
       window.kolbo.notifySize();
     };
     el('btn-more').onclick = function () { el('picker').click(); };
