@@ -295,7 +295,7 @@ function registerGenerateTools(server, client, options = {}) {
     'Generate a video from a text prompt using Kolbo AI. For animating an existing still image into motion, use generate_video_from_image instead. For a coordinated multi-scene video campaign, use generate_creative_director with workflow_type="video". Supports reference images (for style/composition guidance). Does NOT support Visual DNA — for character-consistent video use generate_elements or animate a DNA-locked still via generate_video_from_image. Returns the final video URL when complete.',
     {
       prompt: z.string().describe('Text description of the video to generate'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="text_to_video" to see options. Check supported_durations and supported_aspect_ratios.'),
+      model: z.string().optional().describe('Model identifier — pick a SPECIFIC model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults: "seedance-2" (versatile) or "veo3" (Veo 3.1, cinematic + native audio); the Kling family (call list_models for exact ids like kling-video/v3/pro/text-to-video) is strongest for motion. Call list_models type="text_to_video" to see all options + check supported_durations / supported_aspect_ratios, and choose per the user\'s intent.'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "16:9"'),
       duration: z.number().optional().describe('Duration in seconds. Must be a value in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration` (whichever the model exposes). Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
@@ -346,7 +346,7 @@ function registerGenerateTools(server, client, options = {}) {
     {
       image_url: z.string().describe('URL of the source image to animate'),
       prompt: z.string().describe('Text description of the desired MOTION (e.g., "camera slowly pans right while the character walks forward")'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="img_to_video" to see options.'),
+      model: z.string().optional().describe('Model identifier — pick a SPECIFIC model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults: "seedance-2" (versatile) or "veo3" (Veo 3.1, cinematic + native audio); the Kling family (call list_models for exact ids like kling-video/v3/pro/image-to-video) is strongest for motion. Call list_models type="img_to_video" to see all options and choose per the user\'s intent.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "16:9"'),
       duration: z.number().optional().describe('Duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the motion prompt. Default: true'),
