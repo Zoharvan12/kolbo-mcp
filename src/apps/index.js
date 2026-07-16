@@ -20,12 +20,14 @@ const { generationWidgetHtml } = require('./widgets/generation');
 const { mediaGridWidgetHtml } = require('./widgets/mediaGrid');
 const { catalogWidgetHtml } = require('./widgets/catalog');
 const { transcriptWidgetHtml } = require('./widgets/transcript');
+const { uploadWidgetHtml } = require('./widgets/upload');
 
 const UI = {
   generation: 'ui://kolbo/generation.html',
   mediaGrid: 'ui://kolbo/media-grid.html',
   catalog: 'ui://kolbo/catalog.html',
   transcript: 'ui://kolbo/transcript.html',
+  upload: 'ui://kolbo/upload.html',
 };
 
 const WIDGET_BUILDERS = {
@@ -33,6 +35,7 @@ const WIDGET_BUILDERS = {
   [UI.mediaGrid]: mediaGridWidgetHtml,
   [UI.catalog]: catalogWidgetHtml,
   [UI.transcript]: transcriptWidgetHtml,
+  [UI.upload]: uploadWidgetHtml,
 };
 
 // Widgets are pure functions of source — build once per process.
@@ -72,7 +75,14 @@ const WIDGET_CSP = {
     'https://*.sketchfab.com',
     'https://*.cloudfront.net',
   ],
-  connectDomains: [],
+  // connect-src — XHR/fetch FROM widget iframes. Used by the upload widget to
+  // POST files to /mcp/upload with its short-lived ticket.
+  connectDomains: [
+    'https://api.kolbo.ai',
+    'https://api-staging.kolbo.ai',
+    'https://api-dev.kolbo.ai',
+    'https://*.kolbo.ai',
+  ],
 };
 
 /** Register all Kolbo widget resources on an McpServer. */
@@ -82,6 +92,7 @@ function registerApps(server) {
     [UI.mediaGrid, 'Kolbo Library Widget'],
     [UI.catalog, 'Kolbo Model Catalog Widget'],
     [UI.transcript, 'Kolbo Transcription Widget'],
+    [UI.upload, 'Kolbo Upload Widget'],
   ]) {
     registerAppResource(
       server, name, uri,
@@ -269,6 +280,8 @@ const TOOL_WIDGETS = {
   list_visual_dnas: UI.mediaGrid,
   list_moodboards: UI.mediaGrid,
   shorts_analyze: UI.mediaGrid,
+  // upload widget
+  media_upload_widget: UI.upload,
 };
 
 function attachToolWidgetMeta(server) {
