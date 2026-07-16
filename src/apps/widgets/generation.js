@@ -122,16 +122,35 @@ function renderGenerating(sc) {
   schedulePoll(sc);
 }
 
+// Poll ceilings so the card never spins "Generating" forever. A generation
+// that genuinely stalls, or a status call that keeps failing (e.g. the record
+// can't be resolved), surfaces an error + Try Again instead of hanging.
+var MAX_POLL_MS = 12 * 60 * 1000;   // hard wall-clock ceiling (covers slow 4K video)
+var MAX_POLL_ERRORS = 12;           // ~48s of consecutive status-call failures → give up
+var pollStart = 0, pollErrors = 0;
+
 function schedulePoll(sc) {
+  if (!pollStart) pollStart = Date.now();
   clearTimeout(pollTimer);
   pollTimer = setTimeout(function () { poll(sc); }, 4000);
 }
 function poll(sc) {
+  if (pollStart && (Date.now() - pollStart) > MAX_POLL_MS) {
+    return renderError('This is taking longer than expected and may have stalled. Try again — if it keeps happening the model may be busy. Any finished result will also appear in your Kolbo library.');
+  }
   var args = sc.status_args || { generation_id: sc.generation_id };
   window.kolbo.callTool(sc.poll_tool || 'get_generation_status', args).then(function (res) {
     var st = structured(res) || {};
     var stateName = st.state || st.phase || st.status;
+    // A failed status CALL (tool error / not-found / {success:false}) is not a
+    // generation state — count it toward the consecutive-error cap so a record
+    // that can't be resolved errors out fast instead of polling forever.
+    if ((res && res.isError) || st.success === false || (st.error && !stateName)) {
+      if (++pollErrors >= MAX_POLL_ERRORS) return renderError(st.error || 'Could not track this generation. Please try again.');
+      return schedulePoll(sc);
+    }
     if (stateName === 'completed') {
+      pollErrors = 0;
       var r = st.result || st;
 
       var done = Object.assign({}, sc, r, {
@@ -152,9 +171,13 @@ function poll(sc) {
     } else if (stateName === 'failed' || stateName === 'error' || stateName === 'cancelled') {
       renderError(st.error || 'Generation ' + stateName);
     } else {
+      pollErrors = 0; // a valid in-progress response resets the failure streak
       schedulePoll(sc);
     }
-  }).catch(function () { schedulePoll(sc); });
+  }).catch(function () {
+    if (++pollErrors >= MAX_POLL_ERRORS) return renderError('Lost connection while tracking this generation. Please try again.');
+    schedulePoll(sc);
+  });
 }
 
 /* ---------- results ---------- */

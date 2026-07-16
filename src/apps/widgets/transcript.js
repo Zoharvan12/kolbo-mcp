@@ -82,18 +82,31 @@ function boot(sc) {
   window.kolbo.notifySize();
 }
 
+var pollStart = 0, pollErrors = 0;
+var MAX_POLL_MS = 12 * 60 * 1000, MAX_POLL_ERRORS = 12;
 function poll() {
+  if (!pollStart) pollStart = Date.now();
+  if ((Date.now() - pollStart) > MAX_POLL_MS) {
+    return boot(Object.assign({}, state, { phase: 'failed', error: 'Transcription is taking longer than expected and may have stalled — please try again.' }));
+  }
   window.kolbo.callTool(state.poll_tool || 'get_generation_status', { generation_id: state.generation_id })
     .then(function (res) {
       var st = structured(res) || {};
       var s = st.state || st.phase;
+      if ((res && res.isError) || st.success === false || (st.error && !s)) {
+        if (++pollErrors >= MAX_POLL_ERRORS) return boot(Object.assign({}, state, { phase: 'failed', error: st.error || 'Could not track this transcription. Please try again.' }));
+        pollTimer = setTimeout(poll, 5000); return;
+      }
       if (s === 'completed') {
         var r = st.result || st;
         boot(Object.assign({}, state, r, { phase: 'completed', credits_used: st.credits_used }));
       } else if (s === 'failed' || s === 'cancelled') {
         boot(Object.assign({}, state, { phase: 'failed', error: st.error }));
-      } else { pollTimer = setTimeout(poll, 5000); }
-    }).catch(function () { pollTimer = setTimeout(poll, 5000); });
+      } else { pollErrors = 0; pollTimer = setTimeout(poll, 5000); }
+    }).catch(function () {
+      if (++pollErrors >= MAX_POLL_ERRORS) return boot(Object.assign({}, state, { phase: 'failed', error: 'Lost connection while tracking this transcription. Please try again.' }));
+      pollTimer = setTimeout(poll, 5000);
+    });
 }
 
 window.kolbo.onToolResult(function (result) {
