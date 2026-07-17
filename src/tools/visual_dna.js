@@ -20,7 +20,7 @@ function registerVisualDnaTools(server, client, options = {}) {
   // ─── create_visual_dna ─────────────────────────────────────
   server.tool(
     'create_visual_dna',
-    'Create a Visual DNA profile from reference media. Each item in images/video/audio can be a public URL or an absolute local file path. Max 4 images, 1 video, 1 audio. Files capped at 25MB each. For CHARACTER DNAs, a multi-angle character sheet dramatically improves consistency — offer to generate one with `generate_character_sheet` first, then pass its URL as `character_sheet_url` here (see that tool).',
+    'Create a Visual DNA profile from reference media. Each item in images/video/audio can be a public URL or an absolute local file path. Max 4 images, 1 video, 1 audio. Files capped at 25MB each. For EVERY DNA type, a reference sheet dramatically improves consistency (character turnaround / product details / location angles / style board) — offer to generate one with `generate_character_sheet` (matching `sheet_type`) first, then pass its URL as `character_sheet_url` here (see that tool).',
     {
       name: z.string().describe('Name of the Visual DNA profile. **Pick a short, lowercase, no-space single token** (e.g. `maya`, `tokyo_neon`, `brand_red`, `esther_model`) — never names with spaces (`Sarah Johnson` ❌). The user/LLM types this as `@<name>` inside generation prompts, and the @ parser stops at the first space, so `@Sarah Johnson` matches only `Sarah` and the binding silently drops. Multi-word concepts should use underscores or be a single token. Names are case-insensitive on lookup, but **reserved** values rejected on creation: `Image1`, `Image2`, …, `Video1`, …, `Audio1`, … (any-language characters allowed; max 100 chars).'),
       dna_type: z.string().optional().describe('Type: "character", "style", "product", "scene", "environment". Default: "character"'),
@@ -28,7 +28,7 @@ function registerVisualDnaTools(server, client, options = {}) {
       images: z.array(z.string()).optional().describe('Array of image sources (URLs or absolute local paths). Max 4.'),
       video: z.string().optional().describe('Optional video source (URL or absolute local path)'),
       audio: z.string().optional().describe('Optional audio source (URL or absolute local path)'),
-      character_sheet_url: z.string().optional().describe('URL of a multi-angle character sheet (from `generate_character_sheet`) to set as the DNA\'s primary reference. Strongly recommended for character DNAs — it is the single biggest consistency booster. Omit for non-character DNAs or when the user declines.')
+      character_sheet_url: z.string().optional().describe('URL of a reference sheet (from `generate_character_sheet`, any sheet_type) to set as the DNA\'s primary reference. Works for ALL DNA types — character turnaround, product detail sheet, location sheet, or style board — and is the single biggest consistency booster. Omit only when the user declines.')
     },
     async ({ name, dna_type, prompt_helper, images, video, audio, character_sheet_url }) => {
       if (!name || !name.trim()) {
@@ -164,12 +164,13 @@ function registerVisualDnaTools(server, client, options = {}) {
   // ─── generate_character_sheet ──────────────────────────────
   server.tool(
     'generate_character_sheet',
-    'Generate a multi-angle character sheet (turnaround) from 1+ reference image URLs — the same step the in-app Visual DNA wizard offers. The sheet is the single strongest consistency booster for a character DNA. CHARGES CREDITS, so when the user is about to create a character DNA, OFFER this first ("want me to generate a character sheet for stronger consistency? it costs a few credits") and only run it on a yes. Returns `character_sheet_url` — pass it as `character_sheet_url` to `create_visual_dna`.',
+    'Generate a reference sheet for a Visual DNA from 1+ reference image URLs — the same step the in-app Visual DNA wizard offers, for EVERY DNA type via `sheet_type`: character = multi-angle turnaround, product = angles + branding/material/construction close-ups, environment = location angles + one signature detail, style = a style board (the same look applied to six varied subjects). The sheet is the single strongest consistency booster for a DNA, and it always preserves the reference\'s original art style (2D stays 2D, photo stays photo). CHARGES CREDITS, so when the user is about to create a DNA, OFFER this first ("want me to generate a reference sheet for stronger consistency? it costs a few credits") and only run it on a yes. Returns `character_sheet_url` — pass it as `character_sheet_url` to `create_visual_dna` with the matching `dna_type`.',
     {
-      image_urls: z.array(z.string()).min(1).describe('Reference image URLs of the character (front/side/varied angles work best). Use generated-image URLs or upload_media output.')
+      image_urls: z.array(z.string()).min(1).describe('Reference image URLs of the subject (for characters: front/side/varied angles work best). Use generated-image URLs or upload_media output.'),
+      sheet_type: z.enum(['character', 'product', 'environment', 'style']).optional().describe('Which sheet layout to generate — match the DNA type it will be attached to. Defaults to character.')
     },
-    async ({ image_urls }) => {
-      const result = await client.post('/v1/visual-dna/character-sheet', { image_urls });
+    async ({ image_urls, sheet_type }) => {
+      const result = await client.post('/v1/visual-dna/character-sheet', { image_urls, ...(sheet_type ? { sheet_type } : {}) });
       return {
         content: [{
           type: 'text',
