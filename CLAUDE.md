@@ -235,11 +235,11 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `generate_first_last_frame` | `POST /v1/generate/first-last-frame` | 300s | URLs OR local paths for `first_frame`/`last_frame`, `visual_dna_ids`, `resolution` |
 | `generate_lipsync` | `POST /v1/generate/lipsync` | 600s | `source` (URL or local), `audio` (URL or local), `bounding_box_target`; Sync-3 only: `sync_mode`, `model_mode`, `emotion`, `temperature`, `occlusion_detection_enabled`, `active_speaker_detection` |
 | `generate_creative_director` | `POST /v1/generate/creative-director` | 600s | `visual_dna_ids`, `moodboard_id`, `moodboard_ids`, `reference_images`, `scene_count`, `workflow_type`, `resolution` |
-| `generate_music` | `POST /v1/generate/music` | 300s | `lyrics`, `style`, `instrumental`, `vocal_gender` |
-| `generate_speech` | `POST /v1/generate/speech` | 120s | `voice` (id OR display name), `language` |
-| `generate_sound` | `POST /v1/generate/sound` | 120s | `duration` |
+| `generate_music` | `POST /v1/generate/music` | 300s | `lyrics`, `style`, `instrumental`, `vocal_gender`, `title`, `negative_tags`, `duration_seconds`; Suno fine-controls: `style_weight`, `weirdness`, `audio_weight`, `persona_id`, `use_composition_plan`, `singing_dna_id`, `singing_voice_id` |
+| `generate_speech` | `POST /v1/generate/speech` | 120s | `voice` (id OR display name), `language`; expressive/style controls (provider-specific, engine ignores non-applicable): `style_instructions` (Google/Gemini free-form direction), `selected_style` (DeepDub styles / MiniMax emotion), `emotion` (MiniMax), `speaking_speed`; ElevenLabs `similarity_boost`/`style`/`use_speaker_boost`; DeepDub `variance`/`tempo`/`promptBoost`/`seed`/`accentControl`/`voiceTitle`; MiniMax `minimax_pitch`/`minimax_vol`/`minimax_intensity`/`minimax_timbre` |
+| `generate_sound` | `POST /v1/generate/sound` | 120s | `duration`, `prompt_influence`; provider-specific (engine ignores non-applicable): `cfg_strength` (Stable Audio); `sound_loop`/`sound_tempo`/`sound_key` (Kie); Seed-Audio `seed_voice`/`seed_speed`/`seed_volume`/`seed_pitch`/`seed_reference_audio_urls`/`seed_reference_image_url` |
 | `generate_3d` | `POST /v1/generate/3d` | 900s | `reference_images`, `mode` (text/single/multi), `topology`, `enable_pbr` |
-| `transcribe_audio` | `POST /v1/transcribe` | 1800s | `source` (URL or local audio/video) |
+| `transcribe_audio` | `POST /v1/transcribe` | 1800s | `source` (URL or local audio/video); `language`, `diarize` (speaker labels), `tag_audio_events`, `remove_punctuation`; SRT formatting: `generate_srt`, `words_per_line`, `lines_per_subtitle`, `stretch_captions` |
 | `get_generation_status` | `GET /v1/generate/:id/status` | 180s w/ `wait` | single id or `generation_ids[]` batch (returns `all_done`/`still_processing`); `wait=true` blocks via pollUntilDone; single-id no-wait shape unchanged (widget contract) |
 | `list_voices` | `GET /v1/voices` | — | filters: `provider`, `language`, `gender` |
 
