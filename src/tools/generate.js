@@ -391,22 +391,36 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_music ────────────────────────────────────────
   server.tool(
     'generate_music',
-    'Generate music from a text description using Kolbo AI. Supports instrumental mode, custom lyrics, style direction, and vocal gender. Default model is Suno. Returns the final audio URL when complete.',
+    'Generate music from a text description using Kolbo AI. Supports instrumental mode, custom lyrics, style direction, vocal gender, negative tags, song length, and Suno fine-controls (style weight, weirdness, audio weight, persona/singing voice). Default model is Suno. Some controls are Suno-only; the engine ignores controls that do not apply to the chosen model. Returns the final audio URL when complete.',
     {
       prompt: z.string().describe('Text description of the music to generate (e.g., "upbeat electronic dance track with synthesizers")'),
       model: z.string().optional().describe('Model identifier. Use list_models type="music_gen" to see options. Omit for Suno (default).'),
       style: z.string().optional().describe('Music style / genre (e.g., "pop", "rock", "lo-fi", "electronic", "jazz")'),
+      title: z.string().optional().describe('Song title. If omitted, one is generated.'),
       instrumental: z.boolean().optional().describe('Generate instrumental only, no vocals. Default: false'),
       lyrics: z.string().optional().describe('Custom lyrics for the song. If omitted, lyrics are generated automatically from the prompt unless instrumental is true.'),
       vocal_gender: z.string().optional().describe('Preferred vocal gender: "male" or "female". Only applies when instrumental is false.'),
+      negative_tags: z.string().optional().describe('Styles / sounds to EXCLUDE, comma-separated (e.g. "heavy metal, screaming, distortion"). Suno.'),
+      duration_seconds: z.number().optional().describe('Target song length in seconds (length-capable models like ElevenLabs Music). Clamped 5–300. Omit for the model default.'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="music" to apply a saved music style preset.'),
+      // ── Suno fine controls ──
+      style_weight: z.number().optional().describe('Suno: how strongly the style/genre is applied, 0–1.'),
+      weirdness: z.number().optional().describe('Suno: creativity / weirdness constraint, 0–1. Higher = more experimental.'),
+      audio_weight: z.number().optional().describe('Suno: influence of an audio/persona reference, 0–1.'),
+      persona_id: z.string().optional().describe('Suno persona id — reuse a saved singing voice/persona.'),
+      use_composition_plan: z.boolean().optional().describe('Suno: enable structured composition planning (verse/chorus structure).'),
+      singing_dna_id: z.string().optional().describe('Visual DNA character id whose singing voice to use (must be owned by the caller).'),
+      singing_voice_id: z.string().optional().describe('Custom cloned singing-voice id (must be owned by the caller).'),
       project_id: projectIdField
     },
-    async ({ prompt, model, style, instrumental, lyrics, vocal_gender, enhance_prompt, preset_id, project_id }) => {
+    async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/music', {
-        prompt, model, style, instrumental, lyrics, vocal_gender, enhance_prompt, preset_id, project_id
+        prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags,
+        duration_seconds, enhance_prompt, preset_id,
+        style_weight, weirdness, audio_weight, persona_id, use_composition_plan,
+        singing_dna_id, singing_voice_id, project_id
       });
 
       if (ui()) return uiGenerating({
@@ -437,23 +451,53 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_speech ───────────────────────────────────────
   server.tool(
     'generate_speech',
-    'Convert text to speech using Kolbo AI. Default provider is ElevenLabs. To pick a specific voice by language/gender, call list_voices first and pass the returned voice_id (or a voice display name — both work). Returns the final audio URL when complete.',
+    'Convert text to speech using Kolbo AI. Default provider is ElevenLabs. To pick a specific voice by language/gender, call list_voices first and pass the returned voice_id (or a voice display name — both work). Every voice belongs to a provider (ElevenLabs, DeepDub, MiniMax, Google/Gemini, OpenAI, Zonos) and each provider exposes its own expressive/style controls below — the engine ignores any control that does not apply to the chosen voice\'s provider, so it is safe to pass only what you need. Returns the final audio URL when complete.',
     {
       text: z.string().describe('The text to convert to speech'),
       voice: z.string().optional().describe('Voice ID (from list_voices) or voice display name (e.g., "Rachel", "Adam"). Default: "Rachel"'),
       model: z.string().optional().describe('Model identifier. Use list_models type="text_to_speech" to see options. Default: eleven_v3'),
       language: z.string().optional().describe('Language code (e.g., "en-US", "he-IL", "es-ES"). Default: "en-US"'),
+      // ── Expressive style / emotion (provider-specific) ──
+      style_instructions: z.string().optional().describe('Google/Gemini voices ONLY. Free-form natural-language voice direction, e.g. "whisper conspiratorially, slightly amused" or "excited sports announcer". Max 500 chars. Ignored by other providers.'),
+      selected_style: z.string().optional().describe('DeepDub & MiniMax voices. Preset expressive style/emotion. DeepDub supports: reading, conversational, angry, breathy, panic, amused, sad, whisper, singing, shout, scream, mumbling, excited. Ignored by other providers.'),
+      emotion: z.string().optional().describe('MiniMax voices. Emotion: happy, sad, angry, fearful, disgusted, surprised, calm, fluent, whisper.'),
+      speaking_speed: z.number().optional().describe('Speech speed 0.5 (slow) – 2.0 (fast). Default 1.0. Applies to ElevenLabs / OpenAI / Google.'),
+      // ── ElevenLabs voice settings ──
+      similarity_boost: z.number().optional().describe('ElevenLabs voice similarity, 0–1. Default 0.75. Higher hews closer to the original voice.'),
+      style: z.number().optional().describe('ElevenLabs style exaggeration, 0–1. Default 0.5. Higher = more expressive/dramatic.'),
+      use_speaker_boost: z.boolean().optional().describe('ElevenLabs speaker boost. Default true.'),
+      // ── DeepDub controls ──
+      variance: z.number().optional().describe('DeepDub voice variance, 0–1. Default 0.2. Higher = more takes/variation.'),
+      tempo: z.number().optional().describe('DeepDub tempo multiplier, 0–2. Default 1.0.'),
+      promptBoost: z.boolean().optional().describe('DeepDub prompt-fidelity boost. Default true.'),
+      seed: z.number().optional().describe('Reproducibility seed (DeepDub / Zonos). Same seed + inputs → same output.'),
+      accentControl: z.object({
+        accentBaseLocale: z.string().describe('Base accent locale, e.g. "en-US".'),
+        accentLocale: z.string().describe('Target accent locale, e.g. "en-GB".'),
+        accentRatio: z.number().optional().describe('Blend ratio 0–1. Default 0.5.')
+      }).optional().describe('DeepDub accent steering. Provide both base and target locale to blend an accent.'),
+      voiceTitle: z.string().optional().describe('DeepDub display title for a custom/cloned voice.'),
+      // ── MiniMax fine controls ──
+      minimax_pitch: z.number().optional().describe('MiniMax pitch, −12 to 12. Default 0.'),
+      minimax_vol: z.number().optional().describe('MiniMax volume, 0–10. Default 1.'),
+      minimax_intensity: z.number().optional().describe('MiniMax voice intensity.'),
+      minimax_timbre: z.number().optional().describe('MiniMax voice timbre.'),
       project_id: projectIdField
     },
-    async ({ text, voice, model, language, project_id }) => {
+    async ({ text, voice, model, language, style_instructions, selected_style, emotion, speaking_speed, similarity_boost, style, use_speaker_boost, variance, tempo, promptBoost, seed, accentControl, voiceTitle, minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/speech', {
-        text, voice, model, language, project_id
+        text, voice, model, language,
+        style_instructions, selected_style, emotion, speaking_speed,
+        similarity_boost, style, use_speaker_boost,
+        variance, tempo, promptBoost, seed, accentControl, voiceTitle,
+        minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre,
+        project_id
       });
 
       if (ui()) return uiGenerating({
         tool: 'generate_speech', kind: 'audio', gen, client, model, prompt: text,
-        settings: { voice: voice || 'Rachel' }
+        settings: { voice: voice || 'Rachel', style: selected_style || emotion || style_instructions }
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
@@ -478,18 +522,34 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_sound ────────────────────────────────────────
   server.tool(
     'generate_sound',
-    'Generate sound effects (not music, not speech) from a text description using Kolbo AI. Use this for ambient sounds, foley, impacts, atmospheres, UI sounds, etc. For music use generate_music; for voice use generate_speech. Returns the final audio URL when complete.',
+    'Generate sound effects (not music, not speech) from a text description using Kolbo AI. Use this for ambient sounds, foley, impacts, atmospheres, UI sounds, etc. For music use generate_music; for voice use generate_speech. Beyond the core prompt/duration, per-provider controls are available (Stable Audio guidance, Kie loop/tempo/key, Seed-Audio voice/speed/volume/pitch + reference audio/image); the engine ignores controls that do not apply to the chosen model. Returns the final audio URL when complete.',
     {
       prompt: z.string().describe('Text description of the sound effect (e.g., "thunder clap with rain", "door creaking open", "futuristic UI beep")'),
       model: z.string().optional().describe('Model identifier. Use list_models type="text_to_sound" to see options. Default: elevenlabs-sound-effects-v1'),
       duration: z.number().optional().describe('Duration in seconds. Omit for automatic duration.'),
-      prompt_influence: z.number().optional().describe('How strongly the prompt guides the generation (0–1). Default: 0.5. Lower values give the model more creative freedom; higher values follow the prompt more literally.'),
+      prompt_influence: z.number().optional().describe('ElevenLabs: how strongly the prompt guides the generation (0–1). Default: 0.5. Lower = more creative freedom; higher = more literal.'),
+      // ── FAL Stable Audio / mmaudio ──
+      cfg_strength: z.number().optional().describe('FAL (Stable Audio 3 / mmaudio): classifier-free guidance strength. Higher hews closer to the prompt.'),
+      // ── Kie ──
+      sound_loop: z.boolean().optional().describe('Kie: generate a seamlessly looping sound.'),
+      sound_tempo: z.number().optional().describe('Kie: tempo control.'),
+      sound_key: z.string().optional().describe('Kie: musical key / scale.'),
+      // ── FAL Seed Audio ──
+      seed_voice: z.string().optional().describe('FAL Seed-Audio: voice to use.'),
+      seed_speed: z.number().optional().describe('FAL Seed-Audio: speed multiplier, 0.5–2.0.'),
+      seed_volume: z.number().optional().describe('FAL Seed-Audio: volume, 0–1.'),
+      seed_pitch: z.number().optional().describe('FAL Seed-Audio: pitch shift in semitones.'),
+      seed_reference_audio_urls: z.array(z.string()).optional().describe('FAL Seed-Audio: up to 3 reference audio URLs to condition the sound.'),
+      seed_reference_image_url: z.string().optional().describe('FAL Seed-Audio: a reference image URL to condition the sound.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, duration, prompt_influence, project_id }) => {
+    async ({ prompt, model, duration, prompt_influence, cfg_strength, sound_loop, sound_tempo, sound_key, seed_voice, seed_speed, seed_volume, seed_pitch, seed_reference_audio_urls, seed_reference_image_url, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/sound', {
-        prompt, model, duration, prompt_influence, project_id
+        prompt, model, duration, prompt_influence,
+        cfg_strength, sound_loop, sound_tempo, sound_key,
+        seed_voice, seed_speed, seed_volume, seed_pitch,
+        seed_reference_audio_urls, seed_reference_image_url, project_id
       });
 
       if (ui()) return uiGenerating({
@@ -963,23 +1023,39 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── transcribe_audio ──────────────────────────────────────
   server.tool(
     'transcribe_audio',
-    'Transcribe audio or video into text + SRT subtitles. Source can be a URL or an absolute local file path. Returns the full text, SRT content, duration, and download URLs for .srt/.txt files. Works on both audio-only files (mp3, wav, m4a) and videos with audio tracks (mp4, mov, webm).',
+    'Transcribe audio or video into text + SRT subtitles. Source can be a URL or an absolute local file path. Returns the full text, SRT content, duration, and download URLs for .srt/.txt files. Works on both audio-only files (mp3, wav, m4a) and videos with audio tracks (mp4, mov, webm). Supports language selection, speaker diarization, audio-event tagging, and SRT subtitle formatting controls.',
     {
       source: z.string().describe('URL or absolute local path to the audio / video file to transcribe'),
+      language: z.string().optional().describe('Language code of the speech (e.g. "en", "he", "es"). Omit to auto-detect.'),
+      diarize: z.boolean().optional().describe('Detect and label distinct speakers. Default: false.'),
+      tag_audio_events: z.boolean().optional().describe('Tag non-speech audio events (laughter, applause, music) in the transcript. Default: false.'),
+      remove_punctuation: z.boolean().optional().describe('Strip punctuation from the transcript. Default: false.'),
+      generate_srt: z.boolean().optional().describe('Produce SRT + word-by-word SRT subtitle files. Default: true.'),
+      words_per_line: z.number().optional().describe('SRT: max words per subtitle line, 1–18. Default: 12.'),
+      lines_per_subtitle: z.number().optional().describe('SRT: max lines per subtitle cue, 1–4. Default: 2.'),
+      stretch_captions: z.boolean().optional().describe('SRT: extend each cue\'s end time to the next cue\'s start (gap-free subtitles). Default: true.'),
       project_id: projectIdField
     },
-    async ({ source, project_id }) => {
+    async ({ source, language, diarize, tag_audio_events, remove_punctuation, generate_srt, words_per_line, lines_per_subtitle, stretch_captions, project_id }) => {
       if (!source) throw new Error('source is required (URL or absolute local path)');
+
+      // Advanced transcription controls forwarded when provided (undefined keys are dropped by the client).
+      const opts = {
+        language, diarize, tag_audio_events, remove_punctuation,
+        generate_srt, words_per_line, lines_per_subtitle, stretch_captions, project_id
+      };
 
       const isUrl = /^https?:\/\//i.test(source);
       let startResponse;
       if (isUrl) {
-        startResponse = await client.post('/v1/transcribe', { audio_url: source, project_id });
+        startResponse = await client.post('/v1/transcribe', { audio_url: source, ...opts });
       } else {
         const resolved = await resolveToBuffer(source, 'audio');
         const form = new FormData();
         form.append('file', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });
-        if (project_id) form.append('project_id', project_id);
+        for (const [k, v] of Object.entries(opts)) {
+          if (v !== undefined && v !== null) form.append(k, typeof v === 'boolean' ? String(v) : v);
+        }
         startResponse = await client.postMultipart('/v1/transcribe', form);
       }
 

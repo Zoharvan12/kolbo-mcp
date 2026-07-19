@@ -103,9 +103,9 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `generate_elements` | Reference-driven video. **Primary route for DNA → video.** |
 | `generate_first_last_frame` | Keyframe interpolation between two frames. |
 | `generate_lipsync` | Lipsync audio to an image or video face. |
-| `generate_music` | Music generation (Suno + variants). |
-| `generate_speech` | TTS. Use `list_voices` to pick a voice. |
-| `generate_sound` | Sound effects. |
+| `generate_music` | Music generation (Suno + variants). Controls: `style`, `title`, `lyrics`, `instrumental`, `vocal_gender`, `negative_tags`, `duration_seconds`, plus Suno fine-controls (`style_weight`, `weirdness`, `audio_weight`, `persona_id`, `singing_dna_id`/`singing_voice_id`). |
+| `generate_speech` | TTS. Use `list_voices` to pick a voice, then steer delivery with per-provider style/emotion controls — see `references/models/voice-tts.md`. |
+| `generate_sound` | Sound effects. Controls: `duration`, `prompt_influence`, plus provider-specific `cfg_strength` (Stable Audio), `sound_loop`/`sound_tempo`/`sound_key` (Kie), and Seed-Audio `seed_*` params. |
 | `generate_3d` | 3D models from text / single image / multi-view. Returns GLB/FBX/OBJ/USDZ. |
 
 ### Discovery, Library, Visual DNA, Moodboards, Chat, App Builder, Publishing
@@ -162,6 +162,7 @@ A user-named tool — in any language — overrides every other rule. Recognized
    - User named one → use it. Model identifiers resolve leniently — shorthand like `"z-image"` or `"nano banana 2"` auto-resolves to the exact identifier, so don't over-engineer exact-id lookups (`list_models` is still authoritative for constraints, caps, and pricing).
    - Auto-select → only from "Auto-selectable" section (models with a `summary`). Cheapest fit. Prefer `[RECOMMENDED]` when cost is similar.
    - Never auto-select from "Named-only" section.
+   - **ALWAYS pass an explicit `model` — never omit it.** Omitting routes to the backend "Smart Select" auto-router, which we deliberately avoid: it hides the model choice and the generation used to show just "Auto" instead of the model that ran. YOU pick the specific model (steps above); only omit `model` when the user explicitly asks for auto-pick, or for chat media analysis (video/audio `media_urls`, which routes to Gemini vision).
 4. **Validate inputs** against model caps — see `references/workflows/cost-and-validation.md`.
 5. **How calls work**: each tool blocks until generation is fully complete. Images: seconds. Video: minutes. Multiple tool calls in one response run concurrently. On hosts with live widgets the tool instead returns `submitted` instantly — the card updates on its own; you only need `get_generation_status` when a follow-up step needs the output URLs.
 6. **Checking status — NEVER poll in a loop**: `get_generation_status` takes `wait=true` (blocks server-side until done, ~3 min) and `generation_ids` (check MANY generations in ONE call — returns `all_done` + which are still running). One `wait=true` call replaces any polling loop. If it comes back with some still processing, call it ONCE more with `wait=true` and the remaining ids.

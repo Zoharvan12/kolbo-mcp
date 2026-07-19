@@ -127,11 +127,11 @@ Without the optional skill, the config block alone already exposes every tool �
 | `generate_first_last_frame` | First frame + last frame → interpolated video |
 | `generate_lipsync` | Source image/video + audio → lipsynced video (Sync-3 adds active-speaker selection, emotion, model mode, temperature) |
 | `generate_creative_director` | One brief → N coordinated scenes (image or video) |
-| `generate_music` | Text (+ optional lyrics) → song |
-| `generate_speech` | Text + voice → spoken audio |
-| `generate_sound` | Text → sound effect |
+| `generate_music` | Text (+ optional lyrics) → song. Style, title, negative tags, length, and Suno fine-controls (style weight, weirdness, audio weight, persona / singing voice) |
+| `generate_speech` | Text + voice → spoken audio. Full expressive/style control: free-form voice direction (Google/Gemini), preset styles + emotions (DeepDub / MiniMax), speed, and per-provider voice settings (ElevenLabs stability/similarity/style, DeepDub accent/variance/tempo, MiniMax pitch/volume/intensity/timbre) |
+| `generate_sound` | Text → sound effect. Duration, prompt influence, and per-provider controls (Stable Audio guidance, Kie loop/tempo/key, Seed-Audio voice/speed/volume/pitch + reference audio/image) |
 | `generate_3d` | Text or reference images → 3D model (GLB/FBX/OBJ/USDZ) |
-| `transcribe_audio` | Audio/video URL or file → text + SRT subtitles |
+| `transcribe_audio` | Audio/video URL or file → text + SRT subtitles. Language, speaker diarization, audio-event tagging, and SRT formatting (words/line, lines/subtitle, caption stretch) |
 
 Every image/video/creative-director tool accepts `visual_dna_ids` and `moodboard_id` for character/style consistency across outputs — you can compose `create_visual_dna` → `generate_image` (with the DNA applied server-side) in a single agent turn. `generate_creative_director` also accepts `moodboard_ids` plural for blending.
 
