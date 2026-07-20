@@ -5,6 +5,7 @@
 
 const { z } = require('zod');
 const { UI, uiResult, appsEnabled } = require('../apps');
+const { projectScopeReadField } = require('./_shared');
 
 function registerMoodboardTools(server, client, options = {}) {
   const ui = () => appsEnabled(server, options);
@@ -13,11 +14,13 @@ function registerMoodboardTools(server, client, options = {}) {
     'list_moodboards',
     'List moodboards. By default returns ALL (personal + system presets + organization). Use "scope" to filter: "personal" (user\'s own), "preset" or "global" (system presets), or "organization" (org-shared). Returns id, name, master_prompt, thumbnail, and image URLs for each.',
     {
-      scope: z.enum(['all', 'personal', 'preset', 'global', 'organization']).optional().describe('Filter by scope. Default: "all" (everything accessible). "personal" = only your own. "preset"/"global" = system presets. "organization" = org-shared.')
+      scope: z.enum(['all', 'personal', 'preset', 'global', 'organization']).optional().describe('Filter by scope. Default: "all" (everything accessible). "personal" = only your own. "preset"/"global" = system presets. "organization" = org-shared.'),
+      project_id: projectScopeReadField
     },
-    async ({ scope } = {}) => {
+    async ({ scope, project_id } = {}) => {
       const params = new URLSearchParams();
       if (scope && scope !== 'all') params.set('scope', scope);
+      if (project_id) params.set('project_id', project_id);
       const qs = params.toString();
       const result = await client.get(`/v1/moodboards${qs ? '?' + qs : ''}`);
       const moodboards = result.moodboards || [];
