@@ -1157,38 +1157,109 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── edit_image ────────────────────────────────────────────
   server.tool(
     'edit_image',
-    'Apply a MECHANICAL enhancement to an existing image: upscale resolution, reframe (change aspect ratio), remove background, or portrait skin retouching. ⚠️ For any PROMPT-DRIVEN / CONTENT edit — changing the scene, lighting, or time of day, adding/removing/replacing objects, restyling, recoloring — use `generate_image_edit` instead (stronger dedicated editing models, better results). Do NOT use this tool for "make it night / add sunglasses / change the background to X"-type edits. Returns the edited image URL when complete.',
+    'Apply a targeted AI edit to an existing image. Covers mechanical enhancements (upscale, reframe, remove background, skin retouching) AND creative operations (inpaint, erase, face swap, background replace, camera angle, zoom out, multi-shot grid, split/upscale). ⚠️ For open-ended PROMPT-DRIVEN content edits — "make it night", restyling, adding/removing objects — use `generate_image_edit` instead; it runs on stronger dedicated editing models and produces better results.',
     {
-      image_url: z.string().describe('URL of the source image to edit'),
-      operation: z.enum(['upscale', 'reframe', 'removebg', 'enhance_skin', 'magic_edit'])
-        .describe('Mechanical edit operation: "upscale" (increase resolution 2×–4×), "reframe" (change aspect ratio), "removebg" (remove background), "enhance_skin" (portrait retouching). NOTE: "magic_edit" (text-guided content edit) is DEPRECATED here — use `generate_image_edit` for prompt-driven edits instead; it produces better results on stronger models.'),
-      model: z.string().optional().describe('Model identifier override. Omit to use the default model for the operation.'),
-      scale: z.number().optional().describe('Upscale factor: 2, 3, or 4. Only used when operation="upscale". Default: 2.'),
-      aspect_ratio: z.string().optional().describe('Target aspect ratio (e.g., "16:9", "9:16", "1:1"). Required for operation="reframe".'),
+      image_url: z.string().describe('URL of the primary source image to edit.'),
+
+      operation: z.enum([
+        'upscale', 'clarity_upscale',
+        'reframe', 'zoom_out',
+        'removebg', 'background_replace',
+        'enhance_skin',
+        'inpaint', 'erase',
+        'face_swap',
+        'camera_angle',
+        'split', 'split_upscale',
+        'multi_shot',
+        'magic_edit'
+      ]).describe([
+        'Edit operation:',
+        '"upscale" — increase resolution by 2×, 3×, or 4× (use `scale`). "clarity_upscale" — AI-powered clarity upscale with detail enhancement (use `resolution`).',
+        '"reframe" — change aspect ratio (requires `aspect_ratio`, e.g. "16:9" or "9:16").',
+        '"zoom_out" — expand the image outward, filling new areas with AI-generated content.',
+        '"removebg" — remove the image background, output is transparent PNG.',
+        '"background_replace" — remove background and replace it with AI-generated content from `prompt`.',
+        '"enhance_skin" — portrait skin retouching (use `skin_strength`: "subtle" | "realistic" | "pimple" | "freckle").',
+        '"inpaint" — paint over a masked area using `mask_image_url` (B&W mask, white = fill area) and optional `prompt`. Add reference images via `additional_images`.',
+        '"erase" — erase an object defined by `mask_image_url` (white = erase area).',
+        '"face_swap" — swap the face in `image_url` with the face from `mask_image_url` (required).',
+        '"camera_angle" — generate the image from a different camera angle. Set `generate_all_angles=true` for a full set. Use `prompt` to guide the angle.',
+        '"split" — split the image into a 3×3 grid of tiles. "split_upscale" — split into a grid and upscale each tile.',
+        '"multi_shot" — generate a 3×3 multi-shot grid of scenes (uses `additional_images` as reference shots). Use `resolution` for output quality.',
+        '"magic_edit" (DEPRECATED) — prompt-driven content edit. Prefer `generate_image_edit` for better results.',
+      ].join(' ')),
+
+      model: z.string().optional()
+        .describe('Model identifier override. Omit to use the platform default for the operation.'),
+
+      // ── upscale ────────────────────────────────────────────
+      scale: z.number().optional()
+        .describe('Upscale factor: 2, 3, or 4. Used with operation="upscale". Default: 2.'),
+
+      resolution: z.string().optional()
+        .describe('Target output resolution (e.g. "4k", "2k", "1080p"). Used with "clarity_upscale", "split_upscale", "multi_shot".'),
+
+      // ── reframe ────────────────────────────────────────────
+      aspect_ratio: z.string().optional()
+        .describe('Target aspect ratio (e.g. "16:9", "9:16", "1:1", "4:3"). Required for operation="reframe".'),
+
+      // ── enhance_skin ───────────────────────────────────────
       skin_strength: z.enum(['subtle', 'realistic', 'pimple', 'freckle']).optional()
-        .describe('Skin enhancement style. Only used when operation="enhance_skin". Default: "realistic".'),
-      prompt: z.string().optional().describe('Text instruction — only for the deprecated operation="magic_edit". Prefer `generate_image_edit` for prompt-driven edits.'),
+        .describe('Skin enhancement preset. Used with operation="enhance_skin". Default: "realistic".'),
+
+      // ── inpaint / erase / face_swap / background_replace / zoom_out / camera_angle / magic_edit ──
+      prompt: z.string().optional()
+        .describe('Text instruction guiding the edit. Required for "background_replace". Used with "inpaint", "zoom_out", "camera_angle", and the deprecated "magic_edit".'),
+
+      mask_image_url: z.string().optional()
+        .describe('URL of a mask image (black & white; white = affected area). Required for "inpaint" and "erase". For "face_swap", this is the face reference image.'),
+
+      additional_images: z.array(z.string()).optional()
+        .describe('Extra reference image URLs (up to 8). For "inpaint": reference images that guide style/content. For "multi_shot": the set of scene reference shots. For "magic_edit": additional source images for composite edits.'),
+
+      // ── camera_angle ───────────────────────────────────────
+      generate_all_angles: z.boolean().optional()
+        .describe('When true, generates a full set of camera angles instead of just one. Only used with operation="camera_angle".'),
+
+      // ── quality / prompt enhancement ───────────────────────
+      quality: z.string().optional()
+        .describe('Output quality preset (e.g. "high", "standard"). Applies where the underlying model supports quality tiers.'),
+
+      ai_optimize: z.boolean().optional()
+        .describe('Whether to let Kolbo AI enhance your prompt before sending to the model. Default: true. Set false to use your prompt exactly as written.'),
+
       project_id: projectIdField
     },
-    async ({ image_url, operation, model, scale, aspect_ratio, skin_strength, prompt, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
-      if (operation === 'magic_edit' && !prompt) throw new Error('prompt is required for magic_edit operation');
-      if (operation === 'reframe' && !aspect_ratio) throw new Error('aspect_ratio is required for reframe operation');
+    async ({
+      image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
+      mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize,
+      project_id
+    }) => {
+      model = await canonicalModelId(client, model);
+
+      // Basic validation
+      if (operation === 'reframe' && !aspect_ratio) throw new Error('aspect_ratio is required for reframe');
+      if (operation === 'background_replace' && !prompt) throw new Error('prompt is required for background_replace');
+      if (operation === 'face_swap' && !mask_image_url && !(additional_images && additional_images.length > 0)) {
+        throw new Error('mask_image_url (face reference) is required for face_swap');
+      }
 
       const gen = await client.post('/v1/edit/image', {
-        image_url, operation, model, scale, aspect_ratio, skin_strength, prompt, project_id
+        image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
+        mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize,
+        project_id
       });
 
       if (ui()) return uiGenerating({
         tool: 'edit_image', kind: 'image', gen, client, model,
         prompt: prompt || operation,
-        settings: { mode: operation, aspect_ratio },
+        settings: { mode: operation, aspect_ratio, scale, resolution },
         reference_image: image_url
       });
 
       const result = await pollUntilDone(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 5) * 1000,
-        timeout: 180000
+        timeout: 300000 // 5 min — split_upscale and multi_shot can take longer
       });
 
       return {
@@ -1208,39 +1279,139 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── edit_video ────────────────────────────────────────────
   server.tool(
     'edit_video',
-    'Apply a targeted AI edit to an existing video. Operations: upscale (4K resolution boost), reframe (change aspect ratio), generate_audio (add AI-generated sound/music from a prompt), remove_watermark, face_swap (replace faces using a reference image URL), extend (lengthen at start or end), magic_edit (restyle/transform with a prompt), lipsync (sync an audio track to a face in the video). Returns the edited video URL when complete.',
+    'Apply a targeted AI edit to an existing video. Covers both mechanical edits (upscale, reframe, remove watermark, remove background) and creative operations (generate audio, face swap, extend, lipsync, inpaint, retake, magic edit). Returns the edited video URL when complete.',
     {
-      video_url: z.string().describe('URL of the source video to edit'),
-      operation: z.enum(['upscale', 'reframe', 'generate_audio', 'remove_watermark', 'face_swap', 'extend', 'magic_edit', 'lipsync', 'remove_background'])
-        .describe('Edit operation: "upscale", "reframe" (requires aspect_ratio), "generate_audio" (requires prompt), "remove_watermark", "face_swap" (requires image_url), "extend" (requires duration), "magic_edit" (requires prompt), "lipsync" (requires audio_url), "remove_background" (removes/greenscreens the video background)'),
-      model: z.string().optional().describe('Model identifier override. Omit to use the default model for the operation.'),
-      aspect_ratio: z.string().optional().describe('Target aspect ratio (e.g., "16:9", "9:16"). Required for operation="reframe".'),
-      scale: z.number().optional().describe('Upscale factor. Only used when operation="upscale".'),
-      prompt: z.string().optional().describe('Text prompt. Required for operation="magic_edit" and "generate_audio". Optional hint for "extend".'),
-      image_url: z.string().optional().describe('URL of the reference face image. Required for operation="face_swap".'),
-      audio_url: z.string().optional().describe('URL of the audio track to sync. Required for operation="lipsync".'),
-      duration: z.number().optional().describe('Seconds of video to generate. Required for operation="extend". Typical range: 1–20.'),
-      mode: z.string().optional().describe('Where to extend: "start" or "end". Only used when operation="extend". Default: "end".'),
+      video_url: z.string().describe('URL of the source video to edit.'),
+
+      operation: z.enum([
+        'upscale', 'reframe',
+        'generate_audio', 'remove_watermark',
+        'face_swap', 'extend', 'magic_edit',
+        'lipsync', 'remove_background',
+        'inpaint', 'retake'
+      ]).describe([
+        'Edit operation:',
+        '"upscale" — boost to 4K/2K resolution (use `scale` for factor, `resolution` for target, `target_fps` for frame rate).',
+        '"reframe" — change aspect ratio (requires `aspect_ratio`; use `grid_position_x`/`grid_position_y` to control where the original sits).',
+        '"generate_audio" — add AI-generated audio from `prompt`. Optionally split into `sound_effect_prompt` and `background_music_prompt`. Set `original_sound=true` to keep original audio alongside.',
+        '"remove_watermark" — AI-powered watermark removal.',
+        '"face_swap" — replace the face in the video with the face from `image_url` (required).',
+        '"extend" — lengthen the video at `mode` ("start" or "end") by `duration` seconds. Optional `prompt` and `context` guide the generated content.',
+        '"magic_edit" — restyle or transform the video with `prompt` (required).',
+        '"lipsync" — sync a face to audio. Provide `audio_url` (audio file) OR `text_prompt` (will synthesize speech).',
+        '"remove_background" — remove or greenscreen the video background. Use `refine_edges=true` for cleaner cutouts, `subject_is_person=true` for portrait-optimized mode.',
+        '"inpaint" — replace a region of the video. Provide `mask_video_url` (B&W mask, white=fill area), `prompt` for what to generate, and optionally `object_prompt` (what to replace) and `video_strength` (0–1, how strongly to follow the original).',
+        '"retake" — regenerate a segment of the video. Use `start_time` (seconds) + `duration` + optional `prompt`.',
+      ].join(' ')),
+
+      model: z.string().optional()
+        .describe('Model identifier override. Omit to use the platform default for the operation.'),
+
+      // ── upscale ────────────────────────────────────────────
+      scale: z.number().optional()
+        .describe('Upscale factor (e.g. 2, 4). Used with operation="upscale".'),
+      resolution: z.string().optional()
+        .describe('Target resolution (e.g. "4k", "2k", "1080p"). Used with "upscale" and "reframe".'),
+      target_fps: z.number().optional()
+        .describe('Target frame rate (e.g. 24, 30, 60). Used with operation="upscale".'),
+
+      // ── reframe ────────────────────────────────────────────
+      aspect_ratio: z.string().optional()
+        .describe('Target aspect ratio (e.g. "16:9", "9:16", "1:1"). Required for operation="reframe".'),
+      grid_position_x: z.number().optional()
+        .describe('Horizontal position (0.0–1.0) of the original content within the reframed canvas. Used with "reframe". Default: 0.5 (center).'),
+      grid_position_y: z.number().optional()
+        .describe('Vertical position (0.0–1.0) of the original content within the reframed canvas. Used with "reframe". Default: 0.5 (center).'),
+
+      // ── generate_audio ─────────────────────────────────────
+      prompt: z.string().optional()
+        .describe('Text prompt. Required for "magic_edit". Used with "generate_audio", "extend", "inpaint", "retake", and optionally "lipsync" (for text-to-speech instead of audio_url).'),
+      sound_effect_prompt: z.string().optional()
+        .describe('Separate prompt for sound effects layer. Used with operation="generate_audio" when you want to specify SFX and music independently.'),
+      background_music_prompt: z.string().optional()
+        .describe('Separate prompt for background music layer. Used with operation="generate_audio" alongside `sound_effect_prompt`.'),
+      original_sound: z.boolean().optional()
+        .describe('When true, keeps the original video audio and mixes in the generated audio. Used with "generate_audio". Default: false.'),
+      cfg_strength: z.number().optional()
+        .describe('Guidance strength for audio generation (higher = follows prompt more strictly). Used with "generate_audio".'),
+
+      // ── face_swap ──────────────────────────────────────────
+      image_url: z.string().optional()
+        .describe('URL of the reference face image. Required for operation="face_swap".'),
+
+      // ── extend ─────────────────────────────────────────────
+      duration: z.number().optional()
+        .describe('Seconds of content to generate. Used with "extend" (required) and "retake" (optional). Typical range: 1–20.'),
+      mode: z.string().optional()
+        .describe('Extension direction: "start" or "end". Used with "extend". For "retake": replacement mode (default: "replace_audio_and_video"). Default: "end".'),
+      context: z.string().optional()
+        .describe('Additional context to guide what gets generated in the extended segment. Used with "extend".'),
+
+      // ── lipsync ────────────────────────────────────────────
+      audio_url: z.string().optional()
+        .describe('URL of the audio track to sync to the face. Required for "lipsync" unless `text_prompt` is provided.'),
+      text_prompt: z.string().optional()
+        .describe('Text to synthesize as speech and sync to the face. Used with "lipsync" as an alternative to `audio_url`.'),
+
+      // ── remove_background ──────────────────────────────────
+      refine_edges: z.boolean().optional()
+        .describe('Apply edge refinement for cleaner background removal. Used with "remove_background". Default: false.'),
+      subject_is_person: z.boolean().optional()
+        .describe('Optimize background removal for a human subject (portrait mode). Used with "remove_background". Default: false.'),
+
+      // ── inpaint ────────────────────────────────────────────
+      mask_video_url: z.string().optional()
+        .describe('URL of a mask video (B&W; white = area to fill). Used with operation="inpaint".'),
+      object_prompt: z.string().optional()
+        .describe('Description of the object being replaced (helps the model understand what to remove). Used with "inpaint".'),
+      video_strength: z.number().optional()
+        .describe('How closely to follow the original video (0.0–1.0; higher = closer to original). Used with "inpaint".'),
+
+      // ── retake ─────────────────────────────────────────────
+      start_time: z.number().optional()
+        .describe('Start time in seconds of the segment to retake. Used with operation="retake".'),
+
       project_id: projectIdField
     },
-    async ({ video_url, operation, model, aspect_ratio, scale, prompt, image_url, audio_url, duration, mode, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
-      if (operation === 'magic_edit' && !prompt) throw new Error('prompt is required for magic_edit');
-      if (operation === 'generate_audio' && !prompt) throw new Error('prompt is required for generate_audio');
-      if (operation === 'reframe' && !aspect_ratio) throw new Error('aspect_ratio is required for reframe');
-      if (operation === 'face_swap' && !image_url) throw new Error('image_url (reference face) is required for face_swap');
-      if (operation === 'lipsync' && !audio_url) throw new Error('audio_url is required for lipsync');
-      if (operation === 'extend' && !duration) throw new Error('duration is required for extend');
+    async ({
+      video_url, operation, model, aspect_ratio, scale, prompt,
+      image_url, audio_url, duration, mode,
+      target_fps, resolution,
+      grid_position_x, grid_position_y,
+      sound_effect_prompt, background_music_prompt, original_sound, cfg_strength,
+      refine_edges, subject_is_person,
+      text_prompt, context,
+      mask_video_url, object_prompt, video_strength,
+      start_time,
+      project_id
+    }) => {
+      model = await canonicalModelId(client, model);
+
+      // Validation
+      if (operation === 'magic_edit'    && !prompt)      throw new Error('prompt is required for magic_edit');
+      if (operation === 'generate_audio'&& !prompt)      throw new Error('prompt is required for generate_audio');
+      if (operation === 'reframe'       && !aspect_ratio)throw new Error('aspect_ratio is required for reframe');
+      if (operation === 'face_swap'     && !image_url)   throw new Error('image_url (reference face) is required for face_swap');
+      if (operation === 'lipsync' && !audio_url && !text_prompt) throw new Error('audio_url or text_prompt is required for lipsync');
+      if (operation === 'extend'        && !duration)    throw new Error('duration is required for extend');
 
       const gen = await client.post('/v1/edit/video', {
         video_url, operation, model, aspect_ratio, scale, prompt,
-        image_url, audio_url, duration, mode, project_id
+        image_url, audio_url, duration, mode,
+        target_fps, resolution,
+        grid_position_x, grid_position_y,
+        sound_effect_prompt, background_music_prompt, original_sound, cfg_strength,
+        refine_edges, subject_is_person,
+        text_prompt, context,
+        mask_video_url, object_prompt, video_strength,
+        start_time,
+        project_id
       });
 
       if (ui()) return uiGenerating({
         tool: 'edit_video', kind: 'video', gen, client, model,
         prompt: prompt || operation,
-        settings: { mode: operation, duration, aspect_ratio },
+        settings: { mode: operation, duration, aspect_ratio, resolution },
         reference_image: image_url
       });
 

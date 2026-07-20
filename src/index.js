@@ -66,7 +66,6 @@ const { registerVisualDnaTools } = require('./tools/visual_dna');
 const { registerMoodboardTools } = require('./tools/moodboards');
 const { registerMediaTools } = require('./tools/media');
 const { registerPresetTools } = require('./tools/presets');
-const { registerAppBuilderTools } = require('./tools/app_builder');
 const { registerArtifactTools } = require('./tools/artifacts');
 const { registerProjectTools } = require('./tools/projects');
 const { registerAgentTools } = require('./tools/agents');
@@ -74,7 +73,6 @@ const { registerDocTools } = require('./tools/docs');
 const { registerVoiceTools } = require('./tools/voices');
 const { registerMusicLibraryTools } = require('./tools/music_library');
 const { registerStockLibraryTools } = require('./tools/stock_library');
-const { registerShortsCreatorTools } = require('./tools/shorts_creator');
 const { registerApps, attachToolWidgetMeta } = require('./apps');
 
 /**
@@ -113,13 +111,13 @@ function createServer(opts = {}) {
       'PROJECT CONTRACT (read this before generating anything):',
       'Everything in Kolbo lives inside a PROJECT — sessions, generations, and media are all project-scoped.',
       '1. When the user names a project ("in my Acme project", "for the summer campaign"), call `list_projects` ONCE to resolve the name to an id, then pass that id as `project_id` on EVERY subsequent generate_* / chat_send_message / upload_media call in the conversation. The target project is per-call, NOT sticky — any call that omits `project_id` silently lands in the default "API Generations" bucket (flagged is_default:true), which users experience as their work going to the wrong project.',
-      '2. `list_projects` lists the user\'s platform projects (for generations/media/chat). `app_builder_list_projects` is a DIFFERENT tool that scopes App Builder coding sessions only — never use one where the other is meant (both return the same projects but via different endpoints, different shapes). The App Builder surface (project → session → deployed app with GitHub+Supabase+live URL → end-users who hit `/api/apps/:appId/ai/*`) is a SEPARATE world from the generation tools — `app_builder_generate_app` is NOT a media-generation call, and an App Builder `session_id` is NOT interchangeable with a chat/generation `session_id`. Read `skill/references/workflows/app-builder.md` before the first App Builder turn; App Builder is preview-only, do not proactively advertise it.',
+      '2. `list_projects` lists the user\'s platform projects (for generations/media/chat). Do not confuse a generation `session_id` with any other session type — they are not interchangeable.',
       '3. Misplaced work is fixable: `move_media` / `bulk_move_media` / `move_folder_contents` move media items between projects; `move_session` moves a whole session (plus its media) to another project. If the user says a generation landed in the wrong project, move it rather than regenerating.',
       '4. If the user has not mentioned any project, omit `project_id` — the default bucket is correct in that case. Do not ask which project to use unless the user\'s intent is ambiguous.',
       '5. Written deliverables (plans, briefs, scripts, research summaries) can live in Kolbo too: author them as AI Docs with `create_doc` (project-scoped, editable in the app, shareable via `share_doc`).',
       '6. DIRECTOR / BATCH JOBS: generate_creative_director runs its scenes (image OR video) in parallel and only reports state="completed" once EVERY scene is terminal. Video batches can take many minutes. If the tool returns `_timed_out:true`, the batch is STILL RUNNING on the server — call `get_creative_director_status` with the returned generation_id and keep checking until state="completed" to collect all scene outputs. NEVER conclude a Director run failed and fall back to plain generate_image/generate_video without first checking status — doing so wastes the user\'s credits by paying twice. If scenes already carry image_urls/video_urls, they are done; do not regenerate.',
       '7. SESSION CONTINUITY: keep one workflow in ONE session. chat_send_message and the generation tools return a `session_id` — for follow-ups, refinements, retries, or additional steps on the SAME task/theme, pass that same `session_id` back on the next call instead of starting fresh. Only OMIT session_id (start a new session) when the user genuinely switches to an unrelated task. Do not open a new conversation/session for every message of the same workflow — it fragments the user\'s history and loses context.',
-      '8. LOCAL FILES / CHAT ATTACHMENTS: remote MCP tools CANNOT read files the user attached to the chat. When a claude.ai (browser/mobile) user has a local image/video/audio/document to use as a generation input, IMMEDIATELY call `media_upload_widget` — an upload card appears in the chat, they upload, and stable Kolbo CDN URLs come back in a follow-up message. Never ask them to re-attach the file in chat and never invent a URL. On Claude Desktop/Code with filesystem access, use `upload_media` with the absolute local path instead.',
+      '8. LOCAL FILES / REFERENCE MEDIA — HOW TO HANDLE EVERY CASE: (A) User has a LOCAL file (audio, video, image, document) on their machine: if you have filesystem access (Claude Desktop / Code / IDE / any stdio MCP client) → call `upload_media` with the absolute local path OR pass the path directly to tools like `transcribe_audio` which accept local paths natively. If you have NO filesystem access (claude.ai browser/mobile) → call `media_upload_widget` IMMEDIATELY, an upload card appears, the user uploads, and a `media.kolbo.ai` CDN URL comes back — use that URL for any follow-up tool call. (B) You already have a public URL (media.kolbo.ai, any CDN, any direct link) → pass it directly to the tool. All Kolbo tools accept public URLs. NEVER search for DO Spaces keys, DigitalOcean credentials, or server-side upload credentials. NEVER ask the user to put the file on Google Drive, Dropbox, or Loom. NEVER invent or guess a URL. NEVER base64 a large file — use upload_media instead.',
       '9. MODEL SELECTION: ALWAYS pass a specific `model` on every generation tool — do NOT omit it. Omitting falls back to "Smart Select" auto-routing, which we deliberately avoid because it hides the model choice from the user and often picks a generic default. Choose the model that best fits the task and the user\'s intent (quality, speed, style, capability). If you are unsure which model to use for a given type, call `list_models` with the matching `type` and pick the recommended/flagship one, then pass its `identifier`. Only use Smart Select (omit `model`) if the user EXPLICITLY asks you to auto-pick.',
       '10. IMAGE EDITING: for ANY prompt-driven / content edit of an existing image — "make it night", changing scene/lighting/colors, adding/removing/replacing objects, restyling — use `generate_image_edit` (it runs on strong dedicated editing models, same as image generation). Do NOT use `edit_image` for content edits — `edit_image` is ONLY for mechanical enhancements (upscale, reframe, remove-background, skin retouch). Its `magic_edit` operation is deprecated in favor of `generate_image_edit`.'
     ].join('\n')
@@ -138,14 +136,12 @@ function createServer(opts = {}) {
   registerMoodboardTools(server, client, toolOptions);
   registerMediaTools(server, client, toolOptions);
   registerPresetTools(server, client, toolOptions);
-  registerAppBuilderTools(server, client, toolOptions);
   registerArtifactTools(server, client, toolOptions);
   registerProjectTools(server, client, toolOptions);
   registerAgentTools(server, client, toolOptions);
   registerDocTools(server, client, toolOptions);
   registerMusicLibraryTools(server, client, toolOptions);
   registerStockLibraryTools(server, client, toolOptions);
-  registerShortsCreatorTools(server, client, toolOptions);
 
   // MCP Apps widget resources (ui://kolbo/*). Registering resources is inert
   // for text-only hosts — they never fetch them.
