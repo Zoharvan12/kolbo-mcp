@@ -5,7 +5,7 @@
 
 const { z } = require('zod');
 const FormData = require('form-data');
-const { resolveToBuffer: sharedResolveToBuffer, VISUAL_DNA_MAX_BYTES } = require('./_shared');
+const { resolveToBuffer: sharedResolveToBuffer, VISUAL_DNA_MAX_BYTES, projectScopeReadField } = require('./_shared');
 const { UI, uiResult, appsEnabled } = require('../apps');
 
 // Visual DNA caps reference media at 25MB per file (stricter than the
@@ -85,14 +85,16 @@ function registerVisualDnaTools(server, client, options = {}) {
       scope: z.enum(['all', 'personal', 'global', 'organization']).optional().describe('Filter by scope. Default: "all" (everything accessible). "personal" = only your own. "global" = system presets/cast. "organization" = org-shared.'),
       search: z.string().optional().describe('Search by name, tags, or description (case-insensitive)'),
       collection: z.string().optional().describe('Filter global presets by collection: cast, influencers, props, locations, styles, glamour, street'),
-      tags: z.string().optional().describe('Comma-separated tags to filter by (OR logic)')
+      tags: z.string().optional().describe('Comma-separated tags to filter by (OR logic)'),
+      project_id: projectScopeReadField
     },
-    async ({ scope, search, collection, tags } = {}) => {
+    async ({ scope, search, collection, tags, project_id } = {}) => {
       const params = new URLSearchParams();
       if (scope && scope !== 'all') params.set('scope', scope);
       if (search) params.set('search', search);
       if (collection) params.set('collection', collection);
       if (tags) params.set('tags', tags);
+      if (project_id) params.set('project_id', project_id);
       const qs = params.toString();
       const result = await client.get(`/v1/visual-dna${qs ? '?' + qs : ''}`);
       const dnas = result.visual_dnas || [];
@@ -125,12 +127,14 @@ function registerVisualDnaTools(server, client, options = {}) {
   // ─── get_visual_dna ────────────────────────────────────────
   server.tool(
     'get_visual_dna',
-    'Fetch a single Visual DNA profile by ID. Returns the full profile including system_prompt and all reference images.',
+    'Fetch a single Visual DNA profile by ID. Returns the full profile including system_prompt and all reference images. To fetch a teammate\'s Visual DNA that lives in a shared project, pass project_id (you need edit+ on it).',
     {
-      visual_dna_id: z.string().describe('The Visual DNA profile ID')
+      visual_dna_id: z.string().describe('The Visual DNA profile ID'),
+      project_id: projectScopeReadField
     },
-    async ({ visual_dna_id }) => {
-      const result = await client.get(`/v1/visual-dna/${encodeURIComponent(visual_dna_id)}`);
+    async ({ visual_dna_id, project_id }) => {
+      const suffix = project_id ? `?project_id=${encodeURIComponent(project_id)}` : '';
+      const result = await client.get(`/v1/visual-dna/${encodeURIComponent(visual_dna_id)}` + suffix);
       return {
         content: [{
           type: 'text',

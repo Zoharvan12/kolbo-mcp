@@ -254,6 +254,14 @@ const projectIdField = z.string().optional().describe(
   'Project ObjectId to drop this generation into. Call `list_projects` to discover IDs (the API has no concept of project names — only ObjectIds). IMPORTANT: this is per-call, NOT sticky — once the user has named a working project, pass its id on EVERY generation call in the conversation; any call that omits it silently lands in the default "API Generations" project instead. Requires owner / edit / full permission on the project; view-only is rejected.'
 );
 
+// Read-scope variant for list/get tools that can surface a SHARED project's
+// assets (a teammate's Visual DNAs / moodboards). Pass a project id you have
+// edit+ on to also see that project owner's shared assets; omit to see only your
+// own + global/org. View-only members and non-members get nothing extra.
+const projectScopeReadField = z.string().optional().describe(
+  "Project ObjectId (from `list_projects`) to ALSO surface that shared project's assets (a teammate's, when the project is shared with you). Requires edit / full / owner on the project — view-only members and non-members get only their own. Omit to see just your own + global/org."
+);
+
 // ─── Optional inline-image content blocks ────────────────────────────────────
 // When a host opts in (the remote HTTP connector sets inlineImages:true), turn
 // generated IMAGE urls into MCP `image` content blocks so clients render them
@@ -440,6 +448,7 @@ module.exports = {
   resolveToBuffer,
   creditFields,
   projectIdField,
+  projectScopeReadField,
   inlineImageBlocks,
   buildOpenUrl,
   uiGenerating,
