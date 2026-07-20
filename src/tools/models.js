@@ -44,21 +44,15 @@ function modelChips(m) {
 
 // structuredContent for ui://kolbo/catalog.html — see src/apps/widgets/catalog.js
 // Deliberately CURATED, not exhaustive: the widget is a picker, not a database.
-// Smart Select is pinned first, each group shows the recommended/new models
-// (max 6), and the total count chip tells the user how many exist overall.
+// Each group shows the recommended/new models (max 6), and the total count
+// chip tells the user how many exist overall. Smart Select / "Auto" rows are
+// deliberately EXCLUDED — we always want a specific model chosen (server
+// instruction #9): auto-routing hides the model choice and the generation
+// metadata used to read just "Auto".
 function buildCatalogStructured(models, type) {
   const groups = [];
   const byName = new Map();
   const isAuto = (m) => /^auto$|smart.select/i.test(String(m.name || '')) || /smart-select|k_auto/i.test(String(m.identifier || ''));
-
-  // Pinned Smart Select entry (replaces the confusing "Other / Auto" row).
-  const smartSelect = {
-    name: 'Smart Select',
-    icon: null,
-    description: 'Recommended — automatically routes to the best model for your prompt, quality and cost.',
-    chips: ['AUTO'],
-    use_hint: 'Generate with Smart Select (omit the model) — ask me what I want to create first.',
-  };
 
   // Recommended + new models float to the top of each group.
   const ranked = [...models].filter((m) => !isAuto(m)).sort((a, b) => {
@@ -84,7 +78,7 @@ function buildCatalogStructured(models, type) {
     widget: 'catalog',
     title: 'Kolbo AI Models' + (type ? ' — ' + type : ''),
     total_available: models.length,
-    groups: [{ name: 'Recommended', models: [smartSelect] }, ...groups],
+    groups,
   };
 }
 
