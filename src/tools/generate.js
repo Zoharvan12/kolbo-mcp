@@ -61,15 +61,16 @@ function registerGenerateTools(server, client, options = {}) {
       moodboard_id: z.string().optional().describe('Moodboard ID (from list_moodboards / get_moodboard) whose master_prompt and style_guide should be applied to this generation.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding for the prompt (useful for current events, brand references, real-world accuracy). Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolution_multipliers on the same model to predict credit cost. Omit to use the model default.'),
+      quality: z.string().optional().describe('Quality tier for models that support it (e.g. "low", "medium", "high", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="image" to apply a saved style preset to this generation.'),
       cinematic: CINEMATIC_SCHEMA,
       project_id: projectIdField
     },
-    async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, cinematic, project_id }) => {
+    async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/image', {
         prompt, model, aspect_ratio, enhance_prompt, num_images,
-        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, cinematic, project_id
+        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, project_id
       });
 
       if (ui()) return uiGenerating({
