@@ -438,7 +438,7 @@ function renderActions(sc) {
     openPromptRow('Describe the motion (optional)…', function (text) {
       window.kolbo.sendMessage('Animate this image into a short video' +
         '\\n🎬 Reference image: ' + currentUrl() +
-        '\\nModel: smart select — pick the best image-to-video model' +
+        '\\nModel: pick a specific image-to-video model that best fits this image (do NOT use Smart Select / auto)' +
         (text ? '\\nMotion prompt: ' + text : '\\nMotion prompt: subtle cinematic motion, slow push-in'));
     });
   });

@@ -14,7 +14,7 @@ function registerChatTools(server, client) {
     'Send a chat message to Kolbo AI. Starts a new conversation (omit session_id) or continues an existing one. Returns the assistant response when complete. Supports image/video/audio analysis via media_urls — pass public URLs and the model auto-routes to a vision-capable model (e.g. Gemini) when media is detected. Supports web search and deep think modes.',
     {
       message: z.string().describe('The user message to send'),
-      model: z.string().optional().describe('Model identifier (e.g. "gpt-4o", "claude-sonnet-4-6"). Omit for Smart Select (auto) — recommended default. When media_urls contains video or audio, Smart Select automatically routes to a Gemini vision model regardless of this field.'),
+      model: z.string().optional().describe('Model identifier (e.g. "gpt-4o", "claude-sonnet-4-6"). Prefer passing a SPECIFIC model (list_models type="text") — omitting falls back to Smart Select auto-routing, which we avoid unless the user explicitly asks for auto-pick. Exception: when media_urls contains video or audio, omitting is fine — routing goes to a Gemini vision model regardless of this field.'),
       session_id: z.string().optional().describe('Existing chat session ID to continue. Omit to start a new conversation.'),
       system_prompt: z.string().optional().describe('System prompt for the conversation. Only applied when creating a new session.'),
       web_search: z.boolean().optional().describe('Enable web search for this message. Default: false'),
