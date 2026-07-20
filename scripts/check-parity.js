@@ -40,6 +40,27 @@ const EXTRA_ROUTE_SOURCES = [
 ];
 const MCP_TOOLS_DIR = path.join(MCP_REPO, 'src', 'tools');
 
+// SDK routes intentionally NOT exposed via MCP (deprecated or internal).
+// Add a route here to silence the GAP warning without needing an MCP tool.
+const KNOWN_GAPS = new Set([
+  // Music-library routes: Synci partner key expired; adapters are deprecated.
+  // MCP users should use search_stock_media with mediaType:"music" instead.
+  'GET /v1/music-library/catalog',
+  'GET /v1/music-library/facets',
+  'GET /v1/music-library/track/:param/audio',
+  'GET /v1/music-library/track/:param/lyrics',
+  'GET /v1/music-library/track/:param/related',
+  'POST /v1/music-library/search',
+]);
+
+// MCP tool call patterns that trigger false-positive STALE warnings.
+// These arise when the path is built from a template literal with a query-string
+// variable (e.g. `/v1/agents${qs}`) which the parser normalises to `/v1/agents:param`.
+// The real SDK route is the version WITHOUT the suffix — list the normalised form here.
+const KNOWN_STALE = new Set([
+  'GET /v1/agents:param', // agents.js: client.get(`/v1/agents${qs}`) — qs is a query string, not a path segment
+]);
+
 function readFileOrBail(p) {
   if (!fs.existsSync(p)) {
     console.error(`ERROR: file not found: ${p}`);
@@ -227,7 +248,7 @@ const { calls: mcpCalls, loosePaths: mcpLoosePaths } = parseMcpToolCalls();
 const missingInMcp = [];
 for (const route of sdkRoutes) {
   const [, routePath] = route.split(' ', 2);
-  if (!mcpCalls.has(route) && !mcpLoosePaths.has(routePath)) {
+  if (!mcpCalls.has(route) && !mcpLoosePaths.has(routePath) && !KNOWN_GAPS.has(route)) {
     missingInMcp.push(route);
   }
 }
@@ -236,7 +257,7 @@ for (const route of sdkRoutes) {
 // nor any aux module exposes (truly stale references).
 const missingInSdk = [];
 for (const [route, files] of mcpCalls) {
-  if (!sdkRoutes.has(route) && !auxSdkRoutes.has(route)) {
+  if (!sdkRoutes.has(route) && !auxSdkRoutes.has(route) && !KNOWN_STALE.has(route)) {
     missingInSdk.push({ route, files: [...files] });
   }
 }
