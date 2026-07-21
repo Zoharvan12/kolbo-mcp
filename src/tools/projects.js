@@ -4,6 +4,7 @@
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
 const { z } = require('zod');
+const { buildProjectUrl } = require('./_shared');
 
 function registerProjectTools(server, client) {
   // ─── list_projects ─────────────────────────────────────────
@@ -17,7 +18,8 @@ function registerProjectTools(server, client) {
         id: p.id,
         name: p.name,
         role: p.role,
-        is_default: !!p.is_default
+        is_default: !!p.is_default,
+        open_url: buildProjectUrl(p.id, { is_default: !!p.is_default })
       }));
       return {
         content: [{
@@ -25,7 +27,7 @@ function registerProjectTools(server, client) {
           text: JSON.stringify({
             projects,
             count: projects.length,
-            _hint: 'Pass the chosen `id` as `project_id` on any generate_* tool to drop the generation into that project. Omit project_id to use the project flagged is_default:true.'
+            _hint: 'Pass the chosen `id` as `project_id` on any generate_* tool to drop the generation into that project. Omit project_id to use the project flagged is_default:true. `open_url` opens that project\'s media in the web app (share it with the user).'
           }, null, 2)
         }]
       };
@@ -68,7 +70,8 @@ function registerProjectTools(server, client) {
       const body = { name };
       if (description) body.description = description;
       const result = await client.post('/v1/projects', body);
-      return { content: [{ type: 'text', text: JSON.stringify({ project: result.project, _hint: 'Pass this id as project_id on every subsequent call for this work.' }, null, 2) }] };
+      const open_url = buildProjectUrl(result.project && result.project.id, { is_default: !!(result.project && result.project.is_default) });
+      return { content: [{ type: 'text', text: JSON.stringify({ project: result.project, open_url, _hint: 'Pass this id as project_id on every subsequent call for this work. `open_url` opens the project in the web app — share it with the user.' }, null, 2) }] };
     }
   );
 
