@@ -363,6 +363,19 @@ function buildOpenUrl(tool, gen) {
   return url;
 }
 
+/**
+ * Build the "Open in Kolbo" deep link for a PROJECT. Lands on the Media hub
+ * (all-assets view) pre-filtered to this project, where the user sees every
+ * generation/media item in it and can switch projects via the in-page selector.
+ * The media page reads `?project=<id>` on load and selects it. Returns undefined
+ * for a missing id or the default "API Generations" bucket (no useful landing —
+ * it is the catch-all, not a real workspace the user navigates to).
+ */
+function buildProjectUrl(projectId, opts = {}) {
+  if (!projectId || opts.is_default) return undefined;
+  return `${APP_BASE_URL}/media?project=${encodeURIComponent(projectId)}`;
+}
+
 // ─── MCP Apps generation widget helpers ──────────────────────────────────────
 // When the host renders MCP Apps (claude.ai via the remote connector, Claude
 // Desktop over stdio), generation tools return IMMEDIATELY after submit and the
@@ -451,6 +464,7 @@ module.exports = {
   projectScopeReadField,
   inlineImageBlocks,
   buildOpenUrl,
+  buildProjectUrl,
   uiGenerating,
   uiCompleted,
   appsEnabled,
