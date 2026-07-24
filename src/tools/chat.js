@@ -4,8 +4,7 @@
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
 const { z } = require('zod');
-const { pollUntilDone } = require('../polling');
-const { creditFields, projectIdField } = require('./_shared');
+const { pollOrTimedOut, creditFields, projectIdField } = require('./_shared');
 
 function registerChatTools(server, client) {
   // ─── chat_send_message ─────────────────────────────────────
@@ -40,10 +39,12 @@ function registerChatTools(server, client) {
       // extra time when web_search is on (may fetch + analyze multiple pages).
       const timeout = deep_think ? 600000 : (web_search ? 240000 : 120000);
 
-      const result = await pollUntilDone(client, gen.message_id, {
+      const poll = await pollOrTimedOut(client, gen.message_id, {
         interval: (gen.poll_interval_hint || 2) * 1000,
         timeout
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       // Chat status shape (from extractResult in kolbo-api sdk/controller.js):
       // { content, reasoning_content, image_urls?, video_urls?, audio_urls?, model, created_at }

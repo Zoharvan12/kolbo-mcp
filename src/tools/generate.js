@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone } = require('../polling');
-const { resolveToBuffer, creditFields, projectIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, appsEnabled } = require('./_shared');
+const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, appsEnabled } = require('./_shared');
 const { UI, uiResult, canonicalModelId } = require('../apps');
 
 // ─── Cinematic Dimensions schema (shared by generate_image + generate_image_edit) ───
@@ -79,10 +79,12 @@ function registerGenerateTools(server, client, options = {}) {
         reference_image: reference_images?.[0]
       });
 
-      const result = await pollUntilDone(client, gen.generation_id, {
+      const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 3) * 1000,
         timeout: 120000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       const images = await inlineImageBlocks(result.result.urls, { enabled: inlineImages });
       return {
@@ -135,10 +137,12 @@ function registerGenerateTools(server, client, options = {}) {
       // server-side. Extend the polling window in those cases to avoid forcing
       // every call into the timeout-and-recover path via get_generation_status.
       const heavy = (source_images && source_images.length > 1) || (visual_dna_ids && visual_dna_ids.length > 0);
-      const result = await pollUntilDone(client, gen.generation_id, {
+      const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 3) * 1000,
         timeout: heavy ? 240000 : 120000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       const images = await inlineImageBlocks(result.result.urls, { enabled: inlineImages });
       return {
@@ -337,10 +341,15 @@ function registerGenerateTools(server, client, options = {}) {
         reference_image: reference_images?.[0]
       });
 
-      const result = await pollUntilDone(client, gen.generation_id, {
+      // 15 min — Kling O3 4K, Veo 3.1 at higher durations/resolutions, Hailuo 2.3,
+      // and Seedance 2 routinely run 5-12 min under provider queue load; the old
+      // 5-min window forced routine calls into the timeout-and-recover path.
+      const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 8) * 1000,
-        timeout: 300000
+        timeout: 900000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -387,10 +396,14 @@ function registerGenerateTools(server, client, options = {}) {
         reference_image: image_url
       });
 
-      const result = await pollUntilDone(client, gen.generation_id, {
+      // 15 min — same real-world generation times as generate_video (Kling O3 4K,
+      // Veo 3.1, Hailuo 2.3, Seedance 2 at higher durations/resolutions).
+      const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 8) * 1000,
-        timeout: 300000
+        timeout: 900000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -448,10 +461,12 @@ function registerGenerateTools(server, client, options = {}) {
         settings: { mode: instrumental ? 'instrumental' : (style || undefined) },
       });
 
-      const result = await pollUntilDone(client, gen.generation_id, {
+      const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 8) * 1000,
         timeout: 300000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -520,10 +535,12 @@ function registerGenerateTools(server, client, options = {}) {
         settings: { voice: voice || 'Rachel', style: selected_style || emotion || style_instructions }
       });
 
-      const result = await pollUntilDone(client, gen.generation_id, {
+      const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 5) * 1000,
         timeout: 120000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -577,10 +594,12 @@ function registerGenerateTools(server, client, options = {}) {
         settings: { duration }
       });
 
-      const result = await pollUntilDone(client, gen.generation_id, {
+      const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 5) * 1000,
         timeout: 120000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -625,7 +644,7 @@ function registerGenerateTools(server, client, options = {}) {
           return { generation_id: id, ...result };
         } catch (err) {
           if (err.timedOut) {
-            return { generation_id: id, state: 'processing', note: 'Still running after 3 min of waiting — call get_generation_status again with wait=true.' };
+            return { generation_id: id, state: 'processing', _timed_out: true, note: 'Still running after 3 min of waiting — call get_generation_status again with wait=true.' };
           }
           if (err.name === 'GenerationFailedError') {
             return { generation_id: id, state: 'failed', error: err.message };
@@ -734,10 +753,12 @@ function registerGenerateTools(server, client, options = {}) {
         reference_image: reference_images?.[0]
       });
 
-      const result = await pollUntilDone(client, startResponse.generation_id, {
+      const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
         timeout: 600000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -813,10 +834,12 @@ function registerGenerateTools(server, client, options = {}) {
         reference_image: first_frame_url || undefined
       });
 
-      const result = await pollUntilDone(client, startResponse.generation_id, {
+      const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
         timeout: 300000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -923,10 +946,12 @@ function registerGenerateTools(server, client, options = {}) {
         reference_image: sourceIsUrl && !/\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? source : undefined,
       });
 
-      const result = await pollUntilDone(client, startResponse.generation_id, {
+      const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
         timeout: 600000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -1023,10 +1048,12 @@ function registerGenerateTools(server, client, options = {}) {
         reference_image: reference_images?.[0]
       });
 
-      const result = await pollUntilDone(client, startResponse.generation_id, {
+      const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
         timeout: 600000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -1097,10 +1124,12 @@ function registerGenerateTools(server, client, options = {}) {
         });
       }
 
-      const result = await pollUntilDone(client, startResponse.generation_id, {
+      const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 5) * 1000,
         timeout: 1800000 // 30 minutes — long podcasts are a thing
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -1159,10 +1188,12 @@ function registerGenerateTools(server, client, options = {}) {
         reference_image: reference_images?.[0]
       });
 
-      const result = await pollUntilDone(client, startResponse.generation_id, {
+      const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
         timeout: 900000 // 15 minutes — 3D generation is slow
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -1281,10 +1312,12 @@ function registerGenerateTools(server, client, options = {}) {
         reference_image: image_url
       });
 
-      const result = await pollUntilDone(client, gen.generation_id, {
+      const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 5) * 1000,
         timeout: 300000 // 5 min — split_upscale and multi_shot can take longer
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
@@ -1439,10 +1472,12 @@ function registerGenerateTools(server, client, options = {}) {
         reference_image: image_url
       });
 
-      const result = await pollUntilDone(client, gen.generation_id, {
+      const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 8) * 1000,
         timeout: 600000
       });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
 
       return {
         content: [{
