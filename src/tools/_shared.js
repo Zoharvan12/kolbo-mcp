@@ -214,6 +214,45 @@ async function resolveToBuffer(source, kind, opts = {}) {
   };
 }
 
+// ─── Universal graceful-timeout convention ───────────────────────────────────
+// pollUntilDone throws PollingTimeoutError (err.timedOut === true) when the
+// CLIENT-SIDE poll window elapses — the generation is almost always still
+// running server-side (or already done). Originally only
+// generate_creative_director caught this and returned a non-throwing
+// "_timed_out" result; every other tool let it propagate, so the MCP SDK
+// wrapped it as isError:true and recovery depended entirely on the calling
+// LLM reading hint text. pollOrTimedOut() is the one place that decision now
+// lives — every generation/chat tool routes its pollUntilDone call through
+// it instead of duplicating the try/catch. Genuine failures (state
+// failed/cancelled → GenerationFailedError) are NOT caught here; they still
+// throw and surface as a real tool error.
+const { pollUntilDone } = require('../polling');
+
+/**
+ * @returns {Promise<{result: object}|{timedOut: object}>}
+ *   Callers do: `const poll = await pollOrTimedOut(...); if (poll.timedOut) return poll.timedOut; const result = poll.result;`
+ */
+async function pollOrTimedOut(client, generationId, pollOpts) {
+  try {
+    return { result: await pollUntilDone(client, generationId, pollOpts) };
+  } catch (err) {
+    if (!err || !err.timedOut) throw err;
+    return {
+      timedOut: {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            state: 'processing',
+            generation_id: generationId,
+            _timed_out: true,
+            _hint: `Still running on the server after the poll window — this is NOT a failure, no credits were lost. Call get_generation_status with generation_id="${generationId}" (wait=true) to keep checking until state="completed". Do NOT re-run this tool.`
+          }, null, 2)
+        }]
+      }
+    };
+  }
+}
+
 /**
  * Extract real, multiplier-adjusted credit cost from a polled getStatus
  * response. kolbo-api returns `credits_used` (final number deducted) and
@@ -462,6 +501,7 @@ module.exports = {
   guessFilename,
   guessContentType,
   resolveToBuffer,
+  pollOrTimedOut,
   creditFields,
   projectIdField,
   projectScopeReadField,

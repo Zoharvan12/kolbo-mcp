@@ -232,14 +232,16 @@ scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 
 Every generation tool below also accepts an optional `project_id` arg that routes the generation into a specific project (owner + edit/full shares). Call `list_projects` to discover IDs. Omit to fall back to the user's auto-created "API Generations" project. `project_id` is per-call, NOT sticky — pass it on every call once the user names a working project. Misplaced work is recoverable via `move_media` / `move_session`.
 
+**Timeout convention (v1.50+):** every tool that polls internally (all `generate_*`/`edit_*`/`transcribe_audio`/`chat_send_message`) routes its poll through `pollOrTimedOut()` (`src/tools/_shared.js`). If the "Timeout" window below elapses before the job is terminal, the tool returns a non-throwing `{ state: 'processing', generation_id, _timed_out: true, _hint }` result instead of throwing `PollingTimeoutError` — the job is almost always still running (or already done) server-side. Callers must poll `get_generation_status(generation_id, wait: true)` to resolve it; never re-run the same tool from scratch on a timeout. This was previously exclusive to `generate_creative_director` (which still uses its own dedicated `get_creative_director_status` because a batch has partial per-scene results) — see `src/index.js` instructions item 6.
+
 
 **Generation** (`src/tools/generate.js`)
 | Tool | Route | Timeout | Composition args |
 |------|-------|---------|-----------------|
 | `generate_image` | `POST /v1/generate/image` | 120s | `visual_dna_ids`, `moodboard_id`, `reference_images`, `num_images`, `enable_web_search`, `resolution`, `cinematic` |
 | `generate_image_edit` | `POST /v1/generate/image-edit` | 120s | `source_images`, `visual_dna_ids`, `moodboard_id`, `enable_web_search`, `resolution`, `cinematic` |
-| `generate_video` | `POST /v1/generate/video` | 300s | `visual_dna_ids`, `reference_images`, `resolution`, `sound_enabled` |
-| `generate_video_from_image` | `POST /v1/generate/video/from-image` | 300s | `image_url`, `visual_dna_ids`, `aspect_ratio`, `resolution`, `sound_enabled` |
+| `generate_video` | `POST /v1/generate/video` | 900s | `visual_dna_ids`, `reference_images`, `resolution`, `sound_enabled` |
+| `generate_video_from_image` | `POST /v1/generate/video/from-image` | 900s | `image_url`, `visual_dna_ids`, `aspect_ratio`, `resolution`, `sound_enabled` |
 | `generate_video_from_video` | `POST /v1/generate/video-from-video` | 600s | `source_video` (URL or local), optional `prompt`, `visual_dna_ids`, `resolution`; VEED Subtitles: `preset` / `source_language` / `translation_language` / `srt_content` / `srt_file_url` / `vocabulary` / `customization` |
 | `generate_elements` | `POST /v1/generate/elements` | 600s | `reference_images`, `files`, `visual_dna_ids`, `motion`, `preset_id`, `resolution` |
 | `generate_first_last_frame` | `POST /v1/generate/first-last-frame` | 300s | URLs OR local paths for `first_frame`/`last_frame`, `visual_dna_ids`, `resolution` |
