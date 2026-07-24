@@ -69,7 +69,7 @@ const BRIDGE_JS = `
     } else if (m.method === 'ui/notifications/tool-input' || m.method === 'ui/notifications/tool-input-partial') {
       // Fires while the tool is still RUNNING — lets widgets show a real
       // "preparing" state instead of a blank card until the result lands.
-      toolInputFns.forEach(function (f) { try { f((m.params && m.params.arguments) || {}); } catch (e) {} });
+      toolInputFns.forEach(function (f) { try { f((m.params && m.params.arguments) || {}, m.params || {}); } catch (e) {} });
     } else if (m.method === 'ui/notifications/host-context-changed') {
       hostContext = (m.params && m.params.hostContext) || m.params || hostContext;
       themeFns.forEach(function (f) { try { f(hostContext); } catch (e) {} });

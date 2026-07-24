@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone } = require('../polling');
-const { resolveToBuffer, creditFields, projectIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, uiCompleted, appsEnabled } = require('./_shared');
+const { resolveToBuffer, creditFields, projectIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, appsEnabled } = require('./_shared');
 const { UI, uiResult, canonicalModelId } = require('../apps');
 
 // ─── Cinematic Dimensions schema (shared by generate_image + generate_image_edit) ───
@@ -43,8 +43,8 @@ function registerGenerateTools(server, client, options = {}) {
   // tool output is unchanged: a text block with the image URL.
   const inlineImages = !!options.inlineImages;
   // MCP Apps hosts (claude.ai remote connector, Claude Desktop) get an instant
-  // "submitted" response + a live ui://kolbo/generation.html widget that polls
-  // get_generation_status itself. Text-only hosts never take this branch.
+  // "submitted" response + a live ui://kolbo/generation.html widget that keeps
+  // one wait=true status call in flight. Text-only hosts never take this branch.
   const ui = () => appsEnabled(server, options);
   // ─── generate_image ────────────────────────────────────────
   server.tool(
@@ -183,6 +183,15 @@ function registerGenerateTools(server, client, options = {}) {
       });
 
       const cdStatusUrl = `/v1/generate/creative-director/${gen.generation_id}/status`;
+      if (ui()) return uiGenerating({
+        tool: 'generate_creative_director', kind: 'scenes', gen, client, model, prompt,
+        count: scene_count || 4,
+        settings: { duration, resolution, aspect_ratio, mode: workflow_type || 'image' },
+        reference_image: reference_images?.[0],
+        poll_tool: 'get_creative_director_status',
+        status_args: { generation_id: gen.generation_id, wait: true }
+      });
+
       // Video mode runs N scenes as parallel video generations, each of which
       // can take several minutes — a whole batch routinely exceeds the 10-min
       // image window. Give video batches 30 min (the server watchdog finalizes
@@ -237,15 +246,6 @@ function registerGenerateTools(server, client, options = {}) {
         _followup_hint: 'Each scene is a separate asset. If the user asks to edit one scene, find that scene by scene_number/title and pass its image_urls[0] (or video_urls[0]) to generate_image_edit / edit_image / edit_video / generate_video_from_video. Do NOT re-run generate_creative_director unless the user explicitly wants a brand-new set.'
       }, null, 2);
 
-      // Creative Director polls a dedicated status route the widget can't reach
-      // through get_generation_status, so it stays blocking on UI hosts too and
-      // renders the completed scene gallery.
-      if (ui()) return uiCompleted({
-        tool: 'generate_creative_director', kind: 'scenes', gen, client, model, prompt,
-        settings: { duration, resolution, mode: workflow_type }, scenes,
-        credits_used: creditFields(result).credits_used
-      }, cdText);
-
       return { content: [{ type: 'text', text: cdText }] };
     }
   );
@@ -258,12 +258,30 @@ function registerGenerateTools(server, client, options = {}) {
   // blocking poll window) needs this tool to be re-checked until done.
   server.tool(
     'get_creative_director_status',
-    'Check the status of a Creative Director batch (from generate_creative_director) by its generation_id. Returns overall state ("processing" until EVERY scene is terminal, then "completed"/"failed") plus each scene\'s number, title, per-scene status, and image_urls/video_urls. Use this to resume checking a batch that was still running when generate_creative_director returned `_timed_out: true` — poll it until state="completed" to collect ALL parallel scene outputs at once. Do NOT use the generic get_generation_status for Creative Director ids; it points at the wrong endpoint.',
+    'Check the status of a Creative Director batch (from generate_creative_director) by its generation_id. Returns overall state ("processing" until EVERY scene is terminal, then "completed"/"failed") plus each scene\'s number, title, per-scene status, and image_urls/video_urls. Set wait=true to block for up to ~3 minutes instead of repeatedly calling this tool. Do NOT use the generic get_generation_status for Creative Director ids; it points at the wrong endpoint.',
     {
-      generation_id: z.string().describe('The Creative Director generation_id returned by generate_creative_director.')
+      generation_id: z.string().describe('The Creative Director generation_id returned by generate_creative_director.'),
+      wait: z.boolean().optional().describe('If true, block until the batch is terminal, up to ~3 minutes. Use this instead of repeatedly checking in a loop.')
     },
-    async ({ generation_id }) => {
-      const status = await client.get(`/v1/generate/creative-director/${encodeURIComponent(generation_id)}/status`);
+    async ({ generation_id, wait }) => {
+      const statusUrl = `/v1/generate/creative-director/${encodeURIComponent(generation_id)}/status`;
+      let status;
+      if (wait) {
+        try {
+          status = await pollUntilDone(client, generation_id, {
+            interval: 15000,
+            timeout: 180000,
+            statusUrl
+          });
+        } catch (err) {
+          // A tracking timeout is not a failed paid generation. Return the
+          // latest batch state so the widget can start one new long wait.
+          if (!err?.timedOut) throw err;
+          status = await client.get(statusUrl);
+        }
+      } else {
+        status = await client.get(statusUrl);
+      }
       const scenes = (status.scenes || []).map(s => ({
         scene_number: s.scene_number,
         status: s.status,
@@ -273,6 +291,7 @@ function registerGenerateTools(server, client, options = {}) {
       }));
       const completed = scenes.filter(s => s.status === 'completed').length;
       return { content: [{ type: 'text', text: JSON.stringify({
+        ...creditFields(status),
         state: status.state,
         generation_id,
         progress: status.progress,
@@ -281,7 +300,7 @@ function registerGenerateTools(server, client, options = {}) {
         completed_scenes: completed,
         _hint: status.state === 'completed'
           ? 'All scenes terminal. Every completed scene\'s image_urls/video_urls are final.'
-          : 'Still running — call get_creative_director_status again in a few seconds until state="completed".'
+          : 'Still running. Call get_creative_director_status once with wait=true; do not poll it in a loop.'
       }, null, 2) }] };
     }
   );
@@ -596,7 +615,10 @@ function registerGenerateTools(server, client, options = {}) {
       const checkOne = async (id) => {
         try {
           if (wait) {
-            const result = await pollUntilDone(client, id, { interval: 5000, timeout: 180000 });
+            // Widgets use this long-wait path. A 15s API check cadence keeps
+            // completion responsive without multiplying backend traffic for
+            // every card left open in a host conversation.
+            const result = await pollUntilDone(client, id, { interval: 15000, timeout: 180000 });
             return { generation_id: id, ...result };
           }
           const result = await client.get(`/v1/generate/${encodeURIComponent(id)}/status`);
@@ -621,8 +643,8 @@ function registerGenerateTools(server, client, options = {}) {
         : 'Some generations are still processing. Do NOT re-call this tool in a loop — call it ONCE with wait=true (and all pending generation_ids) to block until they finish.';
 
       // Single-id calls keep the original flat shape — the generation widget
-      // polls this tool with { generation_id } and reads state/result at the
-      // top level.
+      // waits on this tool with { generation_id, wait:true } and reads
+      // state/result at the top level.
       if (!generation_ids || generation_ids.length === 0) {
         const single = results[0];
         single._hint = pending.length === 0
@@ -1069,6 +1091,7 @@ function registerGenerateTools(server, client, options = {}) {
           widget: 'transcript', phase: 'generating',
           generation_id: startResponse.generation_id,
           poll_tool: 'get_generation_status',
+          status_args: { generation_id: startResponse.generation_id, wait: true },
           audio_url: isUrl ? source : undefined,
           open_url: buildOpenUrl('transcribe_audio', startResponse),
         });

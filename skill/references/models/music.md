@@ -8,7 +8,7 @@ Load this file when the user wants AI-generated **music** — full songs, lyrics
 
 **Kolbo MCP routing:** call `generate_music`. Suno is a model option — use `list_models({ type: "music_gen" })` to see versions. Pass `instrumental` and `duration` as separate params; pass the Style/Description text as `style` and the Lyrics as `lyrics`.
 
-**Wants an EXISTING track, not a new song?** ("background music", "stock music", "royalty-free track") → don't generate. Use `search_stock_media` with `mediaType: "music"` (semantic vibe query — "tense cinematic pulse", "uplifting corporate background") → `get_stock_asset` for download URLs. Free, no credits. The older `*_music_library` tools are deprecated adapters over the stock library — prefer the stock tools.
+**Wants an EXISTING track, not a new song?** ("background music", "stock music", "royalty-free track") → don't generate. Use `search_stock_media` with `mediaType: "music"` for free Kolbo/Coverr results. For SYNCI's licensed catalog use `search_music_library`; its playback URLs are watermarked previews. Final use must call `acquire_clean_music_track` or `import_music_track_to_library`, which immediately consumes one SYNCI vendor credit and returns/imports a clean MP3/WAV. Reuse `request_id` when retrying the same action.
 
 ## CRITICAL Kolbo Platform Rules
 

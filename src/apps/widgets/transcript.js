@@ -36,7 +36,7 @@ const BODY = `
 const SCRIPT = `
 el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
 el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink((state && state.open_url) || 'https://app.kolbo.ai'); };
-var state = null, pollTimer = null;
+var state = null, pollTimer = null, originArgs = {};
 
 function boot(sc) {
   if (!sc) return;
@@ -83,30 +83,51 @@ function boot(sc) {
 }
 
 var pollStart = 0, pollErrors = 0;
-var MAX_POLL_MS = 12 * 60 * 1000, MAX_POLL_ERRORS = 12;
+var MAX_POLL_MS = 35 * 60 * 1000, MAX_POLL_ERRORS = 30;
 function poll() {
   if (!pollStart) pollStart = Date.now();
   if ((Date.now() - pollStart) > MAX_POLL_MS) {
-    return boot(Object.assign({}, state, { phase: 'failed', error: 'Transcription is taking longer than expected and may have stalled — please try again.' }));
+    return trackingIssue('This transcription is still running longer than the tracking window. Do not retry it — any completed result will appear in your Kolbo library.');
   }
-  window.kolbo.callTool(state.poll_tool || 'get_generation_status', { generation_id: state.generation_id })
+  var args = state.status_args || { generation_id: state.generation_id, wait: true };
+  window.kolbo.callTool(state.poll_tool || 'get_generation_status', args)
     .then(function (res) {
       var st = structured(res) || {};
       var s = st.state || st.phase;
       if ((res && res.isError) || st.success === false || (st.error && !s)) {
-        if (++pollErrors >= MAX_POLL_ERRORS) return boot(Object.assign({}, state, { phase: 'failed', error: st.error || 'Could not track this transcription. Please try again.' }));
-        pollTimer = setTimeout(poll, 5000); return;
+        if (++pollErrors >= MAX_POLL_ERRORS) return trackingIssue(st.error || 'Tracking paused. The transcription may still be running.');
+        pollTimer = setTimeout(poll, pollDelay()); return;
       }
       if (s === 'completed') {
         var r = st.result || st;
         boot(Object.assign({}, state, r, { phase: 'completed', credits_used: st.credits_used }));
       } else if (s === 'failed' || s === 'cancelled') {
         boot(Object.assign({}, state, { phase: 'failed', error: st.error }));
-      } else { pollErrors = 0; pollTimer = setTimeout(poll, 5000); }
+      } else { pollErrors = 0; pollTimer = setTimeout(poll, pollDelay()); }
     }).catch(function () {
-      if (++pollErrors >= MAX_POLL_ERRORS) return boot(Object.assign({}, state, { phase: 'failed', error: 'Lost connection while tracking this transcription. Please try again.' }));
-      pollTimer = setTimeout(poll, 5000);
+      if (++pollErrors >= MAX_POLL_ERRORS) return trackingIssue('Tracking paused after repeated connection errors. The transcription may still be running.');
+      pollTimer = setTimeout(poll, pollDelay());
     });
+}
+
+function pollDelay() {
+  // The call itself long-waits server-side; only briefly back off between
+  // successive wait windows.
+  return 1500;
+}
+
+function trackingIssue(msg) {
+  clearTimeout(pollTimer);
+  el('phase-chip').style.display = '';
+  el('phase-chip').textContent = 'Still working';
+  el('stage').classList.remove('k-empty');
+  el('stage').innerHTML = '<div class="k-error">' + ICONS.clock + ' ' + esc(msg) + '</div>';
+  el('actions').innerHTML = '<button class="k-btn primary" id="transcript-status">' + ICONS.clock + ' Check status</button>';
+  el('transcript-status').onclick = function () {
+    window.kolbo.sendMessage('Check the existing Kolbo transcription status without retrying it.' +
+      (state && state.generation_id ? '\\nGeneration ID: ' + state.generation_id : ''));
+  };
+  window.kolbo.notifySize();
 }
 
 window.kolbo.onToolResult(function (result) {
@@ -115,8 +136,15 @@ window.kolbo.onToolResult(function (result) {
   // fallback like { status: 'submitted' } has no phase and would render a
   // bogus "(empty transcript)" completed view.
   if (sc && (sc.phase || sc.widget === 'transcript')) return boot(sc);
+  if (sc && (typeof sc.text === 'string' || sc.srt_url || sc.txt_url)) {
+    return boot(Object.assign({}, sc, {
+      widget: 'transcript', phase: 'completed',
+      audio_url: originArgs.source && /^https?:\\/\\//i.test(originArgs.source) ? originArgs.source : undefined
+    }));
+  }
   var txt = '';
   try { txt = (result.content || []).filter(function (c) { return c.type === 'text'; }).map(function (c) { return c.text; }).join(' '); } catch (e) {}
+  if (/timed out|timeout/i.test(txt)) return trackingIssue((txt || 'Tracking timed out.').slice(0, 300));
   if (result.isError || /error|failed/i.test(txt)) {
     el('phase-chip').style.display = 'none';
     el('stage').classList.remove('k-empty');
@@ -129,6 +157,7 @@ window.kolbo.onToolResult(function (result) {
   if (card) card.style.display = 'none';
   window.kolbo.notifySize();
 });
+window.kolbo.onToolInput(function (args) { originArgs = args || {}; });
 `;
 
 function transcriptWidgetHtml() {

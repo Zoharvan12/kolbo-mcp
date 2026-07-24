@@ -259,6 +259,24 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
 .k-audio-meta { flex: 1; min-width: 0; }
 .k-audio-title { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .k-audio-sub { font-size: 11px; color: var(--text-faint); }
+.k-generated-audio {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center; gap: 7px 10px;
+}
+.k-generated-audio .k-audio-placeholder {
+  display: flex; align-items: center; justify-content: center; color: var(--brand);
+}
+.k-generated-audio .k-audio-placeholder svg { width: 19px; height: 19px; }
+.k-generated-audio .k-audio-download { white-space: nowrap; }
+.k-generated-audio .k-audio-player {
+  grid-column: 2 / -1; display: block; width: 100%; min-width: 0; height: 34px;
+}
+@media (max-width: 520px) {
+  .k-generated-audio { grid-template-columns: 36px minmax(0, 1fr); }
+  .k-generated-audio .k-audio-art { width: 36px; height: 36px; }
+  .k-generated-audio .k-audio-download { grid-column: 2; justify-self: start; }
+  .k-generated-audio .k-audio-player { grid-column: 1 / -1; }
+}
 .k-play {
   width: 32px; height: 32px; border-radius: 50%; flex: none; border: 1px solid rgba(255,255,255,0.18);
   background: rgba(0,0,0,0.5); color: #fff; cursor: pointer;

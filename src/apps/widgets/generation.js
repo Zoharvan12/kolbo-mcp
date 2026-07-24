@@ -17,6 +17,7 @@ const { widgetPage } = require('../html');
  *   settings: { duration, resolution, aspect_ratio, audio, voice, mode },
  *   reference_image,                   // thumbnail URL (optional)
  *   urls, thumbnail_url, title, duration, credits_used,
+ *   tracks: [{ title, duration, thumbnail_url, model }], // optional audio metadata by URL index
  *   scenes: [{ scene_number, title, image_urls, video_urls }],
  *   error,
  *   open_url                           // "Open in Kolbo" target (optional)
@@ -53,6 +54,8 @@ const SCRIPT = `
 var state = null;          // current structuredContent
 var selected = 0;          // selected result index
 var pollTimer = null;
+var originTool = null;
+var originArgs = {};
 
 el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
 el('action-cancel').innerHTML = ICONS.x;
@@ -122,23 +125,26 @@ function renderGenerating(sc) {
   schedulePoll(sc);
 }
 
-// Poll ceilings so the card never spins "Generating" forever. A generation
-// that genuinely stalls, or a status call that keeps failing (e.g. the record
-// can't be resolved), surfaces an error + Try Again instead of hanging.
-var MAX_POLL_MS = 12 * 60 * 1000;   // hard wall-clock ceiling (covers slow 4K video)
-var MAX_POLL_ERRORS = 12;           // ~48s of consecutive status-call failures → give up
+// Poll ceilings so the card never spins forever. Losing widget-side tracking
+// is not a generation failure: keep retries disabled because the paid server
+// job may still complete.
+var MAX_POLL_MS = 35 * 60 * 1000;
+var MAX_POLL_ERRORS = 30;
 var pollStart = 0, pollErrors = 0;
 
 function schedulePoll(sc) {
   if (!pollStart) pollStart = Date.now();
   clearTimeout(pollTimer);
-  pollTimer = setTimeout(function () { poll(sc); }, 4000);
+  // The call itself long-waits server-side (normally up to three minutes).
+  // This short pause only separates successive wait windows.
+  var delay = 1500;
+  pollTimer = setTimeout(function () { poll(sc); }, delay);
 }
 function poll(sc) {
   if (pollStart && (Date.now() - pollStart) > MAX_POLL_MS) {
-    return renderError('This is taking longer than expected and may have stalled. Try again — if it keeps happening the model may be busy. Any finished result will also appear in your Kolbo library.');
+    return renderTrackingIssue('This is still running longer than the tracking window. Do not retry it — any completed result will appear in your Kolbo library.');
   }
-  var args = sc.status_args || { generation_id: sc.generation_id };
+  var args = sc.status_args || { generation_id: sc.generation_id, wait: true };
   window.kolbo.callTool(sc.poll_tool || 'get_generation_status', args).then(function (res) {
     var st = structured(res) || {};
     var stateName = st.state || st.phase || st.status;
@@ -146,7 +152,7 @@ function poll(sc) {
     // generation state — count it toward the consecutive-error cap so a record
     // that can't be resolved errors out fast instead of polling forever.
     if ((res && res.isError) || st.success === false || (st.error && !stateName)) {
-      if (++pollErrors >= MAX_POLL_ERRORS) return renderError(st.error || 'Could not track this generation. Please try again.');
+      if (++pollErrors >= MAX_POLL_ERRORS) return renderTrackingIssue(st.error || 'Tracking paused. The generation may still be running.');
       return schedulePoll(sc);
     }
     if (stateName === 'completed') {
@@ -163,9 +169,13 @@ function poll(sc) {
       renderResult(done);
       // Let the model know the outcome without it having to poll.
       try {
+        var completedUrls = (done.urls || []).slice();
+        (done.scenes || []).forEach(function (scene) {
+          completedUrls = completedUrls.concat(scene.image_urls || [], scene.video_urls || []);
+        });
         window.kolbo.updateModelContext(
           'Generation ' + (sc.generation_id || '') + ' completed (' + (sc.tool || '') + ').' +
-          '\\nOutput URLs:\\n' + (done.urls || []).join('\\n') +
+          '\\nOutput URLs:\\n' + completedUrls.join('\\n') +
           (done.credits_used != null ? '\\nCredits used: ' + done.credits_used : ''));
       } catch (e) {}
     } else if (stateName === 'failed' || stateName === 'error' || stateName === 'cancelled') {
@@ -175,7 +185,7 @@ function poll(sc) {
       schedulePoll(sc);
     }
   }).catch(function () {
-    if (++pollErrors >= MAX_POLL_ERRORS) return renderError('Lost connection while tracking this generation. Please try again.');
+    if (++pollErrors >= MAX_POLL_ERRORS) return renderTrackingIssue('Tracking paused after repeated connection errors. The generation may still be running.');
     schedulePoll(sc);
   });
 }
@@ -240,13 +250,35 @@ function renderVideo(sc, urls) {
 
 function renderAudio(sc, urls) {
   el('stage').innerHTML = urls.map(function (u, i) {
-    var title = sc.title || ((TOOL_TITLES[sc.tool] || 'Audio') + (urls.length > 1 ? ' ' + (i + 1) : ''));
-    return '<div class="k-audio-row">' +
-      (sc.thumbnail_url ? '<img class="k-audio-art" src="' + esc(sc.thumbnail_url) + '">' : '<div class="k-audio-art"></div>') +
+    var track = (sc.tracks && sc.tracks[i]) || {};
+    var titleBase = track.title || sc.title || (TOOL_TITLES[sc.tool] || 'Audio');
+    var title = titleBase + (urls.length > 1 ? ' — Track ' + (i + 1) : '');
+    var duration = track.duration != null ? track.duration : sc.duration;
+    var artwork = track.thumbnail_url || sc.thumbnail_url;
+    return '<div class="k-audio-row k-generated-audio">' +
+      (artwork ? '<img class="k-audio-art" src="' + esc(artwork) + '" alt="">' :
+        '<div class="k-audio-art k-audio-placeholder">' + ICONS.audio + '</div>') +
       '<div class="k-audio-meta"><div class="k-audio-title">' + esc(title) + '</div>' +
-      '<div class="k-audio-sub">' + esc(sc.model || '') + (sc.duration ? ' · ' + fmtDur(sc.duration) : '') + '</div></div>' +
-      '<audio src="' + esc(u) + '" controls style="height:32px;max-width:260px"></audio></div>';
+      '<div class="k-audio-sub">' + esc(track.model || sc.model || '') +
+      (duration ? ' · ' + fmtDur(duration) : '') + '</div></div>' +
+      '<button class="k-btn k-audio-download" data-audio-download="' + esc(u) +
+      '" aria-label="Download ' + esc(title) + '">' + ICONS.download + ' Download</button>' +
+      '<audio class="k-audio-player" src="' + esc(u) + '" controls preload="metadata" aria-label="Play ' +
+      esc(title) + '"></audio></div>';
   }).join('');
+  Array.prototype.forEach.call(el('stage').querySelectorAll('[data-audio-download]'), function (b) {
+    b.onclick = function () {
+      window.kolbo.openLink(downloadUrl(b.getAttribute('data-audio-download')));
+    };
+  });
+  var players = el('stage').querySelectorAll('.k-audio-player');
+  Array.prototype.forEach.call(players, function (player) {
+    player.addEventListener('play', function () {
+      Array.prototype.forEach.call(players, function (other) {
+        if (other !== player) other.pause();
+      });
+    });
+  });
 }
 
 function render3d(sc, urls) {
@@ -363,6 +395,22 @@ function renderError(msg) {
   window.kolbo.notifySize();
 }
 
+function renderTrackingIssue(msg) {
+  clearTimeout(pollTimer);
+  setPhaseChip('Still working', false);
+  el('stage').innerHTML = '<div class="k-error">' + ICONS.clock + ' ' + esc(msg) + '</div>';
+  el('actions').innerHTML = '<button class="k-btn primary" id="status-btn">' + ICONS.clock + ' Check status</button>' +
+    '<button class="k-btn ghost" id="tracking-open">Open in Kolbo ' + ICONS.open + '</button>';
+  el('status-btn').onclick = function () {
+    window.kolbo.sendMessage('Check the existing Kolbo generation status without retrying it.' +
+      (state && state.generation_id ? '\\nGeneration ID: ' + state.generation_id : ''));
+  };
+  el('tracking-open').onclick = function () {
+    window.kolbo.openLink((state && state.open_url) || 'https://app.kolbo.ai');
+  };
+  window.kolbo.notifySize();
+}
+
 /* ---------- fullscreen viewer ---------- */
 var isFullscreen = false;
 function toggleFullscreen() {
@@ -417,9 +465,10 @@ function renderActions(sc) {
   }
   if (sc.kind === 'video') {
     a.push('<button class="k-btn primary" id="btn-download">' + ICONS.download + ' Download</button>');
-  } else if (hasSingleUrl) {
+  } else if (hasSingleUrl && sc.kind !== 'audio') {
     // Scenes (Creative Director) have no single "current" url — per-item hover
-    // download buttons cover them instead.
+    // download buttons cover them instead. Audio has a visible download button
+    // on every track so multi-output generations never download only track 1.
     a.push('<button class="k-btn" id="btn-download">' + ICONS.download + ' Download</button>');
   }
   a.push('<button class="k-btn" id="btn-recreate">' + ICONS.retry + ' Recreate</button>');
@@ -471,6 +520,8 @@ function openPromptRow(placeholder, onSend) {
    take many seconds (model resolution, file upload, submit). Show a live
    shell immediately instead of a blank card. */
 function bootPre(toolName, args) {
+  if (toolName) originTool = toolName;
+  if (args) originArgs = args;
   if (state) return; // real data already arrived
   el('tool-title').textContent = TOOL_TITLES[toolName] || 'Generation';
   if (args && (args.prompt || args.text)) {
@@ -484,23 +535,61 @@ function bootPre(toolName, args) {
   window.kolbo.notifySize();
 }
 
+function kindFromTool(tool, sc) {
+  if (sc && sc.scenes) return 'scenes';
+  if (/video|lipsync|elements|first_last/i.test(tool || '')) return 'video';
+  if (/music|speech|sound/i.test(tool || '')) return 'audio';
+  if (/3d/i.test(tool || '')) return '3d';
+  var firstUrl = sc && Array.isArray(sc.urls) ? String(sc.urls[0] || '').split('?')[0].toLowerCase() : '';
+  if (/\\.(mp4|mov|webm|mkv)$/.test(firstUrl)) return 'video';
+  if (/\\.(mp3|wav|m4a|aac|ogg|flac)$/.test(firstUrl)) return 'audio';
+  if (/\\.(glb|gltf|fbx|obj|usdz)$/.test(firstUrl)) return '3d';
+  return 'image';
+}
+
+// Recover a successful legacy/text result when a host mounted the iframe from
+// declaration metadata but the server did not recognize its Apps capability.
+function completedFromPlain(sc) {
+  if (!sc || (!Array.isArray(sc.urls) && !Array.isArray(sc.scenes))) return null;
+  return Object.assign({}, sc, {
+    widget: 'generation',
+    phase: 'completed',
+    tool: originTool,
+    kind: kindFromTool(originTool, sc),
+    prompt: originArgs.prompt || originArgs.text || sc.prompt_used || '',
+    model: sc.model || originArgs.model,
+    settings: {
+      duration: sc.duration || originArgs.duration,
+      resolution: originArgs.resolution,
+      aspect_ratio: originArgs.aspect_ratio
+    },
+    urls: sc.urls || []
+  });
+}
+
 /* ---------- wire host events ---------- */
 window.kolbo.onToolResult(function (result) {
   var sc = result.structuredContent || structured(result);
   if (sc && (sc.phase || sc.widget)) return boot(sc);
+  var recovered = completedFromPlain(sc);
+  if (recovered) return boot(recovered);
   // Tool errored (or returned plain text): show it instead of a dead blank card.
   var txt = '';
   try { txt = (result.content || []).filter(function (c) { return c.type === 'text'; }).map(function (c) { return c.text; }).join(' '); } catch (e) {}
+  if (/timed out|timeout/i.test(txt)) {
+    return renderTrackingIssue((txt || 'Tracking timed out. The generation may still be running.').slice(0, 300));
+  }
   if (result.isError || /error|failed/i.test(txt)) {
     renderError((txt || 'The request failed.').slice(0, 300));
   }
 });
-window.kolbo.onToolInput(function (args) { bootPre(null, args); });
+window.kolbo.onToolInput(function (args, info) { bootPre(info && info.name, args); });
 window.kolbo.ready(function (ctx) {
   var info = ctx && ctx.toolInfo;
   if (!state && info) {
+    originTool = (info.tool && info.tool.name) || originTool;
     if (info.result && info.result.structuredContent) return boot(info.result.structuredContent);
-    bootPre(info.tool && info.tool.name, null);
+    bootPre(originTool, null);
   }
 });
 `;

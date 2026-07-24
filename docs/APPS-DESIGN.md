@@ -1,8 +1,8 @@
 # Kolbo MCP Apps — Interactive Widgets Design
 
 > Implements MCP Apps (SEP-1865, `io.modelcontextprotocol/ui`, protocol `2026-01-26`) so Kolbo tool
-> results render as branded, live-updating mini-apps inside claude.ai and Claude Desktop — matching
-> (and beating) the Higgsfield MCP experience. Text-only clients (Claude Code, Cursor, old cached
+> results render as branded, live-updating mini-apps inside claude.ai, Claude Desktop, and Codex
+> Desktop. Text-only clients (Claude Code, Codex CLI, Cursor, old cached
 > installs) see EXACTLY the behavior they see today. Everything here is additive.
 
 ## Rendering targets
@@ -11,28 +11,34 @@
 |---|---|---|
 | claude.ai (web) | kolbo-api `POST /mcp` (Streamable HTTP, stateless, OAuth) | ✅ (`apps: true` opt from kolbo-api) |
 | Claude Desktop | stdio (`npx @kolbo/mcp`) | ✅ (auto-detected via `getUiCapability(clientCapabilities)`) |
-| Claude Code / Cursor / others | stdio | ❌ text-only — unchanged blocking behavior |
+| Codex Desktop | stdio (`npx @kolbo/mcp`) | ✅ (`codex-mcp-client` + desktop-origin compatibility detection) |
+| Claude Code / Codex CLI / Cursor / others | stdio | ❌ text-only — unchanged blocking behavior |
 
 ## The two behaviors (capability-gated)
 
-`uiEnabled(server, opts)` = `opts.apps === true` OR client declared `extensions["io.modelcontextprotocol/ui"]`.
+`appsEnabled(server, opts)` = `opts.apps === true`, client declared
+`extensions["io.modelcontextprotocol/ui"]`, or the Codex Desktop compatibility signal.
 
 - **UI host** → generation tools return **immediately** after submit with
   `structuredContent: { phase:'generating', generation_id, kind, params… }` + `_meta["ui/resourceUri"]`.
-  The widget polls `get_generation_status` THROUGH THE HOST BRIDGE (`tools/call`) every 4s and morphs
-  into the result view. Tool text says `Submitted — generation_id … the widget above will update live`
+  The widget keeps one server-side long-wait `get_generation_status(wait=true)` call in flight THROUGH
+  THE HOST BRIDGE (`tools/call`), then briefly backs off before another wait window if still processing.
+  This prevents open cards from flooding the host's global progress/context stream or API rate limits.
+  The card morphs into the result view when the wait returns completed. Tool text says
+  `Submitted — generation_id … the widget above will update live`
   so the model narrates correctly (Higgsfield-style).
 - **Text host** → current `pollUntilDone` blocking behavior, byte-identical responses. No `_meta`, no
   structuredContent. ZERO contract change.
 
-Sync tools (lists, search, models, transcribe-complete etc.) attach widget + structuredContent
-unconditionally — harmless to text hosts (they ignore `_meta`), no behavior change.
+Sync tools (lists, search, models, etc.) attach widget + structuredContent only for detected UI hosts.
+Generation and transcription widgets can also recover completed legacy text-JSON results if a host
+mounted the declared iframe but its capability signal was not recognized.
 
 ## Widget set (all `ui://kolbo/*`, self-contained HTML assembled at runtime — no build step)
 
 | Resource | Used by | What it shows |
 |---|---|---|
-| `ui://kolbo/generation.html` | all 17 generate/edit tools | Kolbo glass card: logo header, model chip (+icon), settings chips (duration/resolution/audio/count), reference thumbnail, shimmer skeletons + spinner while generating → image grid / video player / audio player / 3D file cards. Result gallery: thumbnail strip, full-size view, per-item actions **Animate · Edit · Recreate · Download · Open in Kolbo**. Creative Director renders scene sections. |
+| `ui://kolbo/generation.html` | generation and edit tools | Kolbo glass card: logo header, model chip (+icon), settings chips (duration/resolution/audio/count), reference thumbnail, shimmer skeletons + spinner while generating → image grid / video player / responsive audio-track rows / 3D file cards. Every generated audio URL gets its own native player, title/track number, optional per-track metadata, and visible Download button. Result gallery actions include **Animate · Edit · Recreate · Download · Open in Kolbo** where applicable. Creative Director uses its dedicated batch-status tool. All tracking uses one server-side long wait at a time and remains active for 35 minutes; losing tracking never offers an unsafe paid retry. |
 | `ui://kolbo/media-grid.html` | list_media, search_stock_media, music/stock browse, list_presets, list_voices, moodboards, visual DNA lists | responsive thumbnail/audio grid, hover play, attribution, actions (Import/Favorite/Use). |
 | `ui://kolbo/catalog.html` | list_models | grouped model catalog with capability chips. |
 | `ui://kolbo/transcript.html` | transcribe_audio | audio player + transcript + SRT/TXT download buttons. |
@@ -44,11 +50,11 @@ Buttons send a structured user message (exactly the Higgsfield trick), e.g.:
 ```
 Animate this image into a short video
 🎬 Reference image: <url>
-Model: <smart select — pick the best image-to-video model>
+Model: <pick a specific image-to-video model for this image>
 Prompt: <user's typed prompt from the widget input>
 ```
 
-Kolbo advantage: we default to Smart Select instead of forcing model names.
+The model picker is explicit: agents choose a specific model instead of hiding the choice behind Smart Select.
 
 ## Iframe bridge
 

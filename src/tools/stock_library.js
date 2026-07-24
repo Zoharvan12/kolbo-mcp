@@ -181,7 +181,7 @@ function registerStockLibraryTools(server, client, options = {}) {
   // ─── import_stock_asset ───────────────────────────────────────
   server.tool(
     'import_stock_asset',
-    "Copy a stock asset into the account's Kolbo media library (downloaded to Kolbo's CDN with a stable URL) so it can be used in projects/generations. Free. Returns the created media library item. Works for Kolbo SFX (source='kolbo-ai', mediaType='sfx') and external visual/audio sources. Licensed Music (source='music') is not importable here (use the music-library tools).",
+    "Copy a stock asset into the account's Kolbo media library (downloaded to Kolbo's CDN with a stable URL) so it can be used in projects/generations. Free. Returns the created media library item. Works for Kolbo SFX (source='kolbo-ai', mediaType='sfx') and supported external visual/audio sources. For SYNCI music use import_music_track_to_library; that paid action acquires a clean licensed file.",
     {
       source: z.enum(['kolbo-ai', 'pexels', 'pixabay', 'sketchfab', 'freesound']).describe('The asset source.'),
       id: z.string().describe('The provider asset id (sourceId).'),

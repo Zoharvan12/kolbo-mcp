@@ -56,6 +56,9 @@
 
 MCP server exposing Kolbo AI generation, chat, Visual DNA, and moodboard capabilities as native tools in Claude Code/Desktop. Published as `@kolbo/mcp` on npm.
 
+## Codebase Graph
+A graphify knowledge graph exists at `graphify-out/graph.json` (auto-rebuilds via git hook). Use `/graphify` or `graphify query|affected|explain|god-nodes` for "what calls X" / blast-radius questions before grepping cold.
+
 ## Distribution channels
 
 This package is consumed in three ways:
@@ -103,22 +106,29 @@ Tool results render as branded, live-updating mini-apps inside claude.ai and Cla
 Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
 
 - **Gating**: `appsEnabled(server, options)` — `opts.apps === true` (kolbo-api remote
-  connector) OR stdio client declares `io.modelcontextprotocol/ui`. `KOLBO_MCP_APPS=1|0`
-  overrides locally. **Text hosts (Claude Code/Cursor) get byte-identical pre-widget
-  responses — load-bearing for backward compat.**
+  connector), a stdio client declares `io.modelcontextprotocol/ui`, OR Codex Desktop
+  identifies as `codex-mcp-client` while its desktop-origin environment marker is
+  present (Codex currently mounts declared app resources without advertising the UI
+  extension). `KOLBO_MCP_APPS=1|0` overrides locally. **Text hosts (Claude Code,
+  Codex CLI, Cursor) keep the blocking text response — load-bearing for backward
+  compatibility.**
 - **Two `_meta` layers, BOTH required**: claude.ai decides to mount the iframe from the
   TOOL DECLARATION meta in tools/list (`attachToolWidgetMeta()` mutates
   `server._registeredTools` post-registration — legacy `server.tool()` has no _meta
   param) AND the RESULT carries `_meta['ui/resourceUri']` + `structuredContent`.
   New widget tool ⇒ add it to the `TOOL_WIDGETS` map in `src/apps/index.js`.
-- **Generation tools on UI hosts return IMMEDIATELY** after submit; the widget polls
-  `get_generation_status` (shorts: `shorts_status`) through the host bridge. Pattern:
+- **Generation tools on UI hosts return IMMEDIATELY** after submit; the widget keeps
+  one server-side long-wait `get_generation_status(wait=true)` call in flight through
+  the host bridge (Creative Director uses its dedicated wait-capable status tool).
+  This is load-bearing: frequent widget `tools/call` polling floods host progress/context
+  streams and can amplify API rate limits. Pattern:
   submit → `if (ui()) return uiGenerating({...})` → blocking-poll fallback. List tools:
   build text → `if (ui()) return uiResult(UI.mediaGrid, text, structured)`. The widget
   path must NEVER change the text payload.
-- **Every result path of a TOOL_WIDGETS tool must attach structuredContent**, or rely
-  on the widgets' graceful fallback (all four collapse/error on a missing contract —
-  keep it that way; missing contracts used to render an eternal blank card).
+- **Every result path of a TOOL_WIDGETS tool must attach structuredContent.** The
+  generation/transcript widgets also recover completed legacy text-JSON results so a
+  host-capability mismatch cannot leave an eternal Preparing card. List/catalog/upload
+  widgets collapse when their structured contract is intentionally absent.
 - **Icons: NEVER use emoji in widget UI.** Emoji (⬇🖼🎬📄⚠✓ …) render as tofu boxes in
   many host iframes. Use the shared inline-SVG set instead: `ICONS.<name>` (download,
   upload, play, pause, check, x, warn, retry, edit, open, arrowRight, sparkle, clock,
@@ -210,15 +220,15 @@ src/tools/docs.js        — AI Docs / Magic Pad (create_doc, list_docs, get_doc
 src/tools/projects.js   — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool; move_session — move a session + its media between projects)
 src/tools/app_builder.js — App Builder: full React app generation (preview) — create session, generate app, edit, get build status, get GitHub/Supabase credentials, list/delete sessions. Auto-provisions GitHub repo + Supabase DB + live deployment URL on first build. See `skill/references/workflows/app-builder.md` for the 4-layer mental model (project → session → app → end-users).
 src/tools/agents.js      — Custom chat agents CRUD (list_agents, create_agent, update_agent, delete_agent — reusable named personas; `description` is the system instruction)
-src/tools/music_library.js — Stock/production music catalog (search, analyze-script, browse, facets, track audio/related/lyrics)
 src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
+src/tools/music_library.js — SYNCI preview discovery plus idempotent paid clean MP3/WAV acquisition/import
 src/tools/shorts_creator.js — Shorts Creator two-phase job flow (shorts_analyze, shorts_list_presets,
                             shorts_get_transcript, shorts_estimate, shorts_render, shorts_status, shorts_cancel)
 scripts/smoke.js         — Load-time smoke test (no network)
 scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 ```
 
-## Available Tools (86)
+## Available Tools (95)
 
 Every generation tool below also accepts an optional `project_id` arg that routes the generation into a specific project (owner + edit/full shares). Call `list_projects` to discover IDs. Omit to fall back to the user's auto-created "API Generations" project. `project_id` is per-call, NOT sticky — pass it on every call once the user names a working project. Misplaced work is recoverable via `move_media` / `move_session`.
 
@@ -316,16 +326,18 @@ Every generation tool below also accepts an optional `project_id` arg that route
 |------|-------|-------|
 | `publish_html_artifact` | `POST /artifact/quick-share` | Publish HTML/SVG/Mermaid → public URL on `sites.kolbo.ai`. Server dedups identical content (returns same URL). Pass `share_token` from a prior publish to update that artifact in place (URL unchanged, old content moved into version history). |
 
-**Music Library** (`src/tools/music_library.js`) — stock/production music ("Synci")
+**SYNCI Music Library** (`src/tools/music_library.js`) — preview discovery + paid clean final use
 | Tool | Route | Notes |
 |------|-------|-------|
-| `search_music_library` | `POST /v1/music-library/search` | Keyword + genre/mood/bpm/duration filters + sort. Free (no credits). Distinct from `generate_music`. |
-| `analyze_script_for_music` | `POST /v1/music-library/analyze-script` | Script → `{ query, mood, genre, keywords }` via cheap LLM call. |
-| `browse_music_library` | `GET /v1/music-library/catalog` | Paginated browse, no query. |
-| `get_music_library_facets` | `GET /v1/music-library/facets` | Distinct genres/moods/instruments + ranges. |
-| `get_music_track_audio` | `GET /v1/music-library/track/:id/audio` | 128/320/WAV download URLs. |
-| `get_music_track_related` | `GET /v1/music-library/track/:id/related` | Stems + alternate versions. |
-| `get_music_track_lyrics` | `GET /v1/music-library/track/:id/lyrics` | Lyrics text + theme + explicit flag. |
+| `search_music_library` | `POST /v1/music-library/search` | Watermarked preview discovery. |
+| `analyze_script_for_music` | `POST /v1/music-library/analyze-script` | Script → music search terms. |
+| `browse_music_library` | `GET /v1/music-library/catalog` | Watermarked preview browse. |
+| `get_music_library_facets` | `GET /v1/music-library/facets` | Genres/moods/instruments + ranges. |
+| `get_music_track_audio` | `GET /v1/music-library/track/:id/audio` | Preview-only URLs; never masters. |
+| `acquire_clean_music_track` | `POST /v1/music-library/clean/:trackId` | Paid clean MP3/WAV; idempotent with `requestId`. |
+| `import_music_track_to_library` | `POST /v1/music-library/import` | Paid clean acquisition + CDN import. |
+| `get_music_track_related` | `GET /v1/music-library/track/:id/related` | Metadata only; stem/version purchases unsupported. |
+| `get_music_track_lyrics` | `GET /v1/music-library/track/:id/lyrics` | Lyrics metadata. |
 
 **Stock Library** (`src/tools/stock_library.js`) — multi-source stock media (Pexels, Pixabay, Sketchfab 3D, Music)
 | Tool | Route | Notes |

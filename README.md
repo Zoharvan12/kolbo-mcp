@@ -4,7 +4,7 @@ Use [Kolbo AI](https://kolbo.ai) as native tools in Claude Code and Claude Deskt
 
 Generate images, videos, music, speech, sound effects, multi-scene campaigns, and conversational chat — all from natural language in your coding environment. 100+ AI models behind Smart Select routing, with reusable Visual DNA profiles for character/style consistency.
 
-**✨ Interactive widgets (v1.30+):** in claude.ai and Claude Desktop, generations render as live Kolbo cards — real-time progress with model + settings chips, an inline result gallery / video player, and one-click **Animate · Edit · Recreate · Download** actions. Library and model searches render as browsable grids with audio preview. Text-only clients (Claude Code, Cursor) keep the classic text responses.
+**✨ Interactive widgets (v1.30+):** in claude.ai, Claude Desktop, and Codex Desktop, generations render as live Kolbo cards — real-time progress with model + settings chips, an inline result gallery / video or audio player, and one-click **Animate · Edit · Recreate · Download** actions. Multi-audio generations render every track with its own player and Download button. Library and model searches render as browsable grids with audio preview. Text-only clients (Claude Code, Codex CLI, Cursor) keep the classic text responses.
 
 ## Set up — paste one prompt, or one config block (keyless, no API key)
 
@@ -113,7 +113,7 @@ Just ask your agent naturally:
 
 Without the optional skill, the config block alone already exposes every tool — you just describe what you want. With the skill installed, each of these is also routed to the right MCP tool with the right defaults — UGC mode picks 9:16 + sound-off + no-captions, marketplace mode enforces compliance (pure white bg, no text, no props), product photoshoot mode uses the right aspect for the platform (2:3 Pinterest, 16:9 hero banner, 1:1 IG feed), etc. The routing logic is shared with [Kolbo Code](https://github.com/Zoharvan12/kolbo-code), so the behavior is identical however you connect.
 
-## Available Tools (86)
+## Available Tools (95)
 
 **Generation**
 | Tool | Description |
@@ -193,16 +193,18 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 |------|-------------|
 | `publish_html_artifact` | Publish an HTML page, SVG, or Mermaid diagram and get a public shareable URL on `sites.kolbo.ai`. Pass `share_token` from a prior publish to update the same URL in place (old content kept in version history). |
 
-**Music Library** (stock / production music)
+**SYNCI Music Library** (licensed production music)
 | Tool | Description |
 |------|-------------|
-| `search_music_library` | Search the licensed stock-music catalog by keyword + genre/mood/BPM/duration filters. Find a ready-made track (distinct from `generate_music`, which composes a new song). |
-| `analyze_script_for_music` | AI: turn a video/voiceover script into a music search (`query`, `mood`, `genre`, `keywords`). |
-| `browse_music_library` | Browse the catalog without a query (paginated). |
-| `get_music_library_facets` | List available genres, moods, instruments + BPM/duration ranges. |
-| `get_music_track_audio` | Get a track's downloadable 128/320/WAV URLs by id. |
-| `get_music_track_related` | Get stems + alternate versions of a track. |
-| `get_music_track_lyrics` | Get lyrics text, theme, and explicit flag for a track. |
+| `search_music_library` | Search the licensed catalog; results contain watermarked previews only. |
+| `analyze_script_for_music` | Turn a script or scene description into a music search. |
+| `browse_music_library` | Browse the catalog without a query. |
+| `get_music_library_facets` | List genres, moods, instruments, BPM, and duration filters. |
+| `get_music_track_audio` | Get watermarked preview URLs for a track. |
+| `acquire_clean_music_track` | Spend one SYNCI vendor credit and return clean MP3/WAV signed URLs. Idempotent with `request_id`. |
+| `import_music_track_to_library` | Spend one vendor credit and copy a clean MP3/WAV into Kolbo's media library. |
+| `get_music_track_related` | Get stems/alternate-version metadata (purchasing remains unsupported). |
+| `get_music_track_lyrics` | Get lyrics metadata. |
 
 **Stock Library** (multi-source stock media: Pexels, Pixabay, Sketchfab 3D, Music)
 | Tool | Description |
