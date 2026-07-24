@@ -43,14 +43,6 @@ const MCP_TOOLS_DIR = path.join(MCP_REPO, 'src', 'tools');
 // SDK routes intentionally NOT exposed via MCP (deprecated or internal).
 // Add a route here to silence the GAP warning without needing an MCP tool.
 const KNOWN_GAPS = new Set([
-  // Music-library routes: Synci partner key expired; adapters are deprecated.
-  // MCP users should use search_stock_media with mediaType:"music" instead.
-  'GET /v1/music-library/catalog',
-  'GET /v1/music-library/facets',
-  'GET /v1/music-library/track/:param/audio',
-  'GET /v1/music-library/track/:param/lyrics',
-  'GET /v1/music-library/track/:param/related',
-  'POST /v1/music-library/search',
 ]);
 
 // MCP tool call patterns that trigger false-positive STALE warnings.

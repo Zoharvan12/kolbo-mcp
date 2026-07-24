@@ -393,7 +393,7 @@ const { UI, uiResult, appsEnabled, modelIcon } = require('../apps');
  *   client         KolboClient (for model icon lookup)
  *   model, prompt, count, settings, reference_image, estimated_seconds
  *   poll_tool      widget-side status tool (default 'get_generation_status')
- *   status_args    args for poll_tool (default { generation_id })
+ *   status_args    args for poll_tool (default { generation_id, wait: true })
  */
 async function uiGenerating(p) {
   // No ETAs anywhere — just a spinner until the poll flips to completed.
@@ -405,7 +405,10 @@ async function uiGenerating(p) {
     tool: p.tool,
     generation_id: p.gen.generation_id,
     poll_tool: p.poll_tool || 'get_generation_status',
-    status_args: p.status_args,
+    // Keep at most one long-wait status call in flight per widget. Without
+    // wait=true, every open card calls tools/call every few seconds, flooding
+    // the host's global progress/context stream and API rate limits.
+    status_args: p.status_args || { generation_id: p.gen.generation_id, wait: true },
     model: p.model || 'Smart Select',
     model_icon: icon,
     prompt: p.prompt,

@@ -46,6 +46,118 @@ function rmrf(p) {
 }
 
 async function main() {
+  // 0a. Host detection must cover both the standard MCP Apps capability and
+  // Codex Desktop's current compatibility handshake, without turning Codex
+  // CLI (a text surface) into an async widget client.
+  {
+    const { appsEnabled } = require(path.join(PKG_ROOT, 'src', 'apps'));
+    const previousOverride = process.env.KOLBO_MCP_APPS;
+    const previousOrigin = process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE;
+    const mockServer = (caps, info) => ({ server: {
+      getClientCapabilities: () => caps,
+      getClientVersion: () => info,
+    } });
+    try {
+      delete process.env.KOLBO_MCP_APPS;
+      delete process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE;
+      if (!appsEnabled(mockServer({ extensions: { 'io.modelcontextprotocol/ui': {} } }, { name: 'standard-host' }))) {
+        throw new Error('standard MCP Apps capability was not detected');
+      }
+      process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE = 'Codex Desktop';
+      if (!appsEnabled(mockServer({}, { name: 'codex-mcp-client', title: 'Codex' }))) {
+        throw new Error('Codex Desktop compatibility host was not detected');
+      }
+      process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE = 'Codex CLI';
+      if (appsEnabled(mockServer({}, { name: 'codex-mcp-client', title: 'Codex' }))) {
+        throw new Error('Codex CLI was incorrectly treated as a widget host');
+      }
+      process.env.KOLBO_MCP_APPS = '0';
+      process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE = 'Codex Desktop';
+      if (appsEnabled(mockServer({}, { name: 'codex-mcp-client', title: 'Codex' }))) {
+        throw new Error('KOLBO_MCP_APPS=0 did not override host detection');
+      }
+    } finally {
+      if (previousOverride === undefined) delete process.env.KOLBO_MCP_APPS;
+      else process.env.KOLBO_MCP_APPS = previousOverride;
+      if (previousOrigin === undefined) delete process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE;
+      else process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE = previousOrigin;
+    }
+    console.log('[smoke] MCP Apps host detection OK');
+  }
+
+  // 0b. A real Codex Desktop generation must return the submitted widget
+  // contract immediately and must not enter the blocking status poll.
+  {
+    const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
+    const { registerGenerateTools } = require(path.join(PKG_ROOT, 'src', 'tools', 'generate'));
+    const previousOrigin = process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE;
+    const previousOverride = process.env.KOLBO_MCP_APPS;
+    const server = new McpServer({ name: 'apps-smoke', version: '1.0.0' });
+    server.server._clientVersion = { name: 'codex-mcp-client', title: 'Codex', version: 'smoke' };
+    server.server._clientCapabilities = {};
+    const statusReads = [];
+    let allowStatusReads = false;
+    const client = {
+      apiBase: 'smoke',
+      post: async (url) => ({ generation_id: url.includes('creative-director') ? 'director-1' : 'video-1', session_id: 'session-1' }),
+      get: async (url) => {
+        if (url === '/v1/models') return { models: [] };
+        statusReads.push(url);
+        if (allowStatusReads) {
+          if (url.includes('/creative-director/')) {
+            return { state: 'completed', scenes: [{ scene_number: 1, status: 'completed', image_urls: ['https://cdn.example/scene.png'] }] };
+          }
+          return { state: 'completed', result: { urls: ['https://cdn.example/video.mp4'] } };
+        }
+        throw new Error(`unexpected blocking status read: ${url}`);
+      },
+    };
+    try {
+      delete process.env.KOLBO_MCP_APPS;
+      process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE = 'Codex Desktop';
+      registerGenerateTools(server, client, {});
+      const video = await server._registeredTools.generate_video.handler({ prompt: 'smoke video', model: 'seedance-2' });
+      const director = await server._registeredTools.generate_creative_director.handler({ prompt: 'smoke scenes', scene_count: 4, model: 'z-image/turbo' });
+      const music = await server._registeredTools.generate_music.handler({ prompt: 'smoke music', model: 'suno-v5.5' });
+      const speech = await server._registeredTools.generate_speech.handler({ text: 'smoke speech', model: 'eleven_v3' });
+      const sound = await server._registeredTools.generate_sound.handler({ prompt: 'smoke sound', model: 'elevenlabs-sound-effects-v1' });
+      if (video.structuredContent?.phase !== 'generating' || video.structuredContent?.generation_id !== 'video-1') {
+        throw new Error('Codex video did not return the submitted widget contract');
+      }
+      if (video.structuredContent?.status_args?.wait !== true) {
+        throw new Error('Codex video widget did not use the long-wait status contract');
+      }
+      if (director.structuredContent?.phase !== 'generating' || director.structuredContent?.poll_tool !== 'get_creative_director_status') {
+        throw new Error('Codex Creative Director did not return the async widget contract');
+      }
+      if (director.structuredContent?.status_args?.wait !== true) {
+        throw new Error('Codex Creative Director widget did not use the long-wait status contract');
+      }
+      for (const [name, result] of [['music', music], ['speech', speech], ['sound', sound]]) {
+        if (result.structuredContent?.phase !== 'generating' ||
+            result.structuredContent?.kind !== 'audio' ||
+            result.structuredContent?.status_args?.wait !== true) {
+          throw new Error(`Codex ${name} did not return the async audio-widget contract`);
+        }
+      }
+      if (statusReads.length) throw new Error(`Codex widget path performed blocking status reads: ${statusReads.join(', ')}`);
+      allowStatusReads = true;
+      const videoStatus = await server._registeredTools.get_generation_status.handler({ generation_id: 'video-1', wait: true });
+      const directorStatus = await server._registeredTools.get_creative_director_status.handler({ generation_id: 'director-1', wait: true });
+      const videoStatusJson = JSON.parse(videoStatus.content[0].text);
+      const directorStatusJson = JSON.parse(directorStatus.content[0].text);
+      if (videoStatusJson.state !== 'completed' || directorStatusJson.state !== 'completed') {
+        throw new Error('Long-wait status tools did not return terminal results');
+      }
+    } finally {
+      if (previousOverride === undefined) delete process.env.KOLBO_MCP_APPS;
+      else process.env.KOLBO_MCP_APPS = previousOverride;
+      if (previousOrigin === undefined) delete process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE;
+      else process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE = previousOrigin;
+    }
+    console.log('[smoke] Codex async generation contracts OK');
+  }
+
   // 0. Widget scripts must PARSE. The widgets are assembled from template
   // literals, where a quoting slip (e.g. \' collapsing to ') ships a widget
   // whose inline <script> is a syntax error → an empty card in claude.ai that
@@ -61,6 +173,17 @@ async function main() {
           throw new Error(`widget ${uri} script #${i} does not parse: ${e.message}`);
         }
       });
+    }
+    const generationHtml = widgetHtml(UI.generation);
+    for (const requiredAudioContract of [
+      'class="k-audio-player"',
+      'data-audio-download=',
+      'preload="metadata"',
+      'sc.tracks && sc.tracks[i]',
+    ]) {
+      if (!generationHtml.includes(requiredAudioContract)) {
+        throw new Error(`generation widget is missing audio preview contract: ${requiredAudioContract}`);
+      }
     }
     console.log('[smoke] widget scripts parse OK');
   }
