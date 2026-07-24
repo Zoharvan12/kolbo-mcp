@@ -124,7 +124,19 @@ function appsEnabled(server, opts = {}) {
   if (opts.apps === true || process.env.KOLBO_MCP_APPS === '1') return true;
   try {
     const caps = server?.server?.getClientCapabilities?.();
-    return getUiCapability(caps) !== undefined;
+    if (getUiCapability(caps) !== undefined) return true;
+
+    // Codex Desktop currently mounts MCP App resources from tool `_meta`, but
+    // its initialize handshake identifies as `codex-mcp-client` with an empty
+    // capabilities object. Without this compatibility path the host mounts a
+    // "Preparing" card while the tool takes the blocking/text fallback, so the
+    // completed media never reaches the iframe as structuredContent.
+    //
+    // Keep the desktop-origin check: Codex CLI uses the same client name but is
+    // a text surface, where returning immediately would remove the final URLs.
+    const info = server?.server?.getClientVersion?.();
+    const origin = process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE || '';
+    return info?.name === 'codex-mcp-client' && /codex desktop/i.test(origin);
   } catch (_) {
     return false;
   }
@@ -272,9 +284,9 @@ const TOOL_WIDGETS = {
   // media grid
   list_media: UI.mediaGrid,
   search_stock_media: UI.mediaGrid,
-  get_stock_collections: UI.mediaGrid,
   search_music_library: UI.mediaGrid,
   browse_music_library: UI.mediaGrid,
+  get_stock_collections: UI.mediaGrid,
   list_presets: UI.mediaGrid,
   list_voices: UI.mediaGrid,
   list_visual_dnas: UI.mediaGrid,
