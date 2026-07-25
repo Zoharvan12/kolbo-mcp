@@ -36,10 +36,13 @@ function registerPresetTools(server, client, options = {}) {
             id: p.id,
             title: p.name,
             subtitle: p.category,
-            thumbnail: p.thumbnail,
-            media_type: p.audio_preview_url ? 'audio' : 'image',
-            preview_audio: p.audio_preview_url,
-            url: p.thumbnail,
+            // API returns thumbnail_url / audio_url (see sdk listPresets) — NOT
+            // thumbnail / audio_preview_url. Reading the wrong key rendered every
+            // preset as a blank tile and dropped music previews entirely.
+            thumbnail: p.thumbnail_url || p.thumbnail,
+            media_type: p.audio_url ? 'audio' : 'image',
+            preview_audio: p.audio_url,
+            url: p.thumbnail_url || p.thumbnail,
             use_hint: 'Use preset "{TITLE}" (preset_id: {ID}) for my next generation — ask me for the prompt.'
           })),
           total: result.count || presets.length,

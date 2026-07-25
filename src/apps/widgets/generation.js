@@ -121,8 +121,72 @@ function renderGenerating(sc) {
       (i === 0 ? '<span class="k-gen-badge"><span class="k-spin"></span>Generating</span>' : '') + '</div>';
   }
   el('stage').innerHTML = '<div class="k-gen-grid n' + n + '">' + cells + '</div>';
-  el('actions').innerHTML = '';
+  renderStopButton(sc);
   schedulePoll(sc);
+}
+
+/* ---------- cancel ----------
+   Shorts run on their own job collection and have their own cancel tool;
+   everything else is SdkGeneration-tracked and goes through cancel_generation.
+   Returns null when the card has no id to cancel (nothing to offer). */
+function cancelSpec(sc) {
+  if (sc.poll_tool === 'shorts_status') {
+    var jobId = (sc.status_args && sc.status_args.job_id) || sc.generation_id;
+    return jobId ? { tool: 'shorts_cancel', args: { job_id: jobId } } : null;
+  }
+  if (!sc.generation_id) return null;
+  return { tool: 'cancel_generation', args: { generation_id: sc.generation_id } };
+}
+
+function renderStopButton(sc) {
+  var spec = cancelSpec(sc);
+  if (!spec) { el('actions').innerHTML = ''; return; }
+  el('actions').innerHTML = '<button class="k-btn ghost" id="stop-btn">' + ICONS.x + ' Stop</button>';
+  el('stop-btn').onclick = function () {
+    var btn = el('stop-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="k-spin"></span> Stopping';
+    // Stop polling immediately so a long-wait status call that lands mid-cancel
+    // cannot repaint the card back into "Generating".
+    cancelRequested = true;
+    clearTimeout(pollTimer);
+    window.kolbo.callTool(spec.tool, spec.args).then(function (res) {
+      var st = structured(res) || {};
+      if (st.cancelled === false) {
+        // Already terminal — let the normal poll path report the real outcome
+        // instead of claiming a cancel that did not happen.
+        cancelRequested = false;
+        btn.disabled = false;
+        btn.innerHTML = ICONS.x + ' Stop';
+        return schedulePoll(sc);
+      }
+      renderCancelled(st.credits_refunded);
+    }).catch(function (e) {
+      cancelRequested = false;
+      btn.disabled = false;
+      btn.innerHTML = ICONS.x + ' Stop';
+      schedulePoll(sc);
+    });
+  };
+}
+
+function renderCancelled(creditsRefunded) {
+  clearTimeout(pollTimer);
+  setPhaseChip('Cancelled', false);
+  var note = creditsRefunded ? ' ' + creditsRefunded + ' credits refunded.' : '';
+  el('stage').innerHTML = '<div class="k-error">' + ICONS.x + ' Generation cancelled.' + esc(note) + '</div>';
+  el('actions').innerHTML = '<button class="k-btn" id="retry-btn">' + ICONS.retry + ' Try Again</button>';
+  el('retry-btn').onclick = function () {
+    var what = (state && TOOL_TITLES[state.tool]) || 'generation';
+    window.kolbo.sendMessage('Run that ' + what.toLowerCase() + ' again — I cancelled the previous one.');
+  };
+  // Tell the model, so it does not go on to report the generation as running.
+  try {
+    window.kolbo.updateModelContext('The user cancelled generation ' +
+      ((state && state.generation_id) || '') + '.' + note +
+      ' Do not poll it or report it as in progress.');
+  } catch (e) {}
+  window.kolbo.notifySize();
 }
 
 // Poll ceilings so the card never spins forever. Losing widget-side tracking
@@ -131,8 +195,10 @@ function renderGenerating(sc) {
 var MAX_POLL_MS = 35 * 60 * 1000;
 var MAX_POLL_ERRORS = 30;
 var pollStart = 0, pollErrors = 0;
+var cancelRequested = false;   // set by the Stop button; freezes the poll loop
 
 function schedulePoll(sc) {
+  if (cancelRequested) return;
   if (!pollStart) pollStart = Date.now();
   clearTimeout(pollTimer);
   // The call itself long-waits server-side (normally up to three minutes).
@@ -141,6 +207,7 @@ function schedulePoll(sc) {
   pollTimer = setTimeout(function () { poll(sc); }, delay);
 }
 function poll(sc) {
+  if (cancelRequested) return;
   if (pollStart && (Date.now() - pollStart) > MAX_POLL_MS) {
     return renderTrackingIssue('This is still running longer than the tracking window. Do not retry it — any completed result will appear in your Kolbo library.');
   }

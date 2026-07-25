@@ -64,13 +64,14 @@ function registerGenerateTools(server, client, options = {}) {
       quality: z.string().optional().describe('Quality tier for models that support it (e.g. "low", "medium", "high", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="image" to apply a saved style preset to this generation.'),
       cinematic: CINEMATIC_SCHEMA,
+      skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one image ungraded.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, project_id }) => {
+    async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/image', {
         prompt, model, aspect_ratio, enhance_prompt, num_images,
-        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, project_id
+        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id
       });
 
       if (ui()) return uiGenerating({
@@ -118,13 +119,14 @@ function registerGenerateTools(server, client, options = {}) {
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding. Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" / "2K" / "3K" / "4K". Model-dependent — call list_models and read supported_resolutions. Default: "1K" for most edit models.'),
       cinematic: CINEMATIC_SCHEMA,
+      skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one edit ungraded.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, source_images, aspect_ratio, enhance_prompt, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, project_id }) => {
+    async ({ prompt, model, source_images, aspect_ratio, enhance_prompt, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/image-edit', {
         prompt, model, source_images, aspect_ratio, enhance_prompt, num_images,
-        visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, project_id
+        visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id
       });
 
       if (ui()) return uiGenerating({
@@ -262,7 +264,7 @@ function registerGenerateTools(server, client, options = {}) {
   // blocking poll window) needs this tool to be re-checked until done.
   server.tool(
     'get_creative_director_status',
-    'Check the status of a Creative Director batch (from generate_creative_director) by its generation_id. Returns overall state ("processing" until EVERY scene is terminal, then "completed"/"failed") plus each scene\'s number, title, per-scene status, and image_urls/video_urls. Set wait=true to block for up to ~3 minutes instead of repeatedly calling this tool. Do NOT use the generic get_generation_status for Creative Director ids; it points at the wrong endpoint.',
+    'Check the status of a Creative Director batch (from generate_creative_director) by its generation_id. Returns overall state ("processing" until EVERY scene is terminal, then "completed"/"failed") plus each scene\'s number, title, per-scene status, and image_urls/video_urls. Set wait=true to block for up to ~3 minutes instead of repeatedly calling this tool. Prefer this over the generic get_generation_status for Creative Director ids — the generic tool now returns the same scene data (it delegates here), but this one is the direct route.',
     {
       generation_id: z.string().describe('The Creative Director generation_id returned by generate_creative_director.'),
       wait: z.boolean().optional().describe('If true, block until the batch is terminal, up to ~3 minutes. Use this instead of repeatedly checking in a loop.')
@@ -327,12 +329,13 @@ function registerGenerateTools(server, client, options = {}) {
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolution_multipliers to predict cost.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" to apply a saved motion/style preset to this generation.'),
       sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Only honored by models with `sound_generation_type: "native"` from list_models (e.g. Veo 3.1, Kling V3/2.6, PixVerse V6). On `sound_generation_type: "none"` models the flag has no effect. Omit to use the model\'s `sound_enabled_by_default`. Pass `false` when the user says no sound / silent / mute / without audio. Enabling sound may apply `sound_credit_multiplier` to cost.'),
+      skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one video ungraded.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, project_id }) => {
+    async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/video', {
-        prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, project_id
+        prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id
       });
 
       if (ui()) return uiGenerating({
@@ -382,12 +385,13 @@ function registerGenerateTools(server, client, options = {}) {
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to maintain consistency with prior characters / styles. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false` the model ignores DNA entirely.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions.'),
       sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Only honored by models with `sound_generation_type: "native"` from list_models (e.g. Veo 3.1 Lite, Kling V3 4K, PixVerse V6, Kling 2.6/v3). On `sound_generation_type: "none"` models the flag has no effect. Omit to use the model\'s `sound_enabled_by_default`. Pass `false` when the user says no sound / silent / mute / without audio. Enabling sound may apply `sound_credit_multiplier` to cost.'),
+      skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one video ungraded.'),
       project_id: projectIdField
     },
-    async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled, project_id }) => {
+    async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled, skip_color_palette, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/video/from-image', {
-        image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled, project_id
+        image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled, skip_color_palette, project_id
       });
 
       if (ui()) return uiGenerating({
@@ -687,6 +691,56 @@ function registerGenerateTools(server, client, options = {}) {
           }, null, 2)
         }]
       };
+    }
+  );
+
+  // ═════════════════════════════════════════════════════════════
+  // ─── cancel_generation ─────────────────────────────────────
+  server.tool(
+    'cancel_generation',
+    'Cancel a running generation and release/refund its credits. Works for every ' +
+    'generation type the SDK tracks (image, image edit, video, image-to-video, ' +
+    'video-to-video, elements, first/last frame, lipsync, music, speech, sound, 3D, ' +
+    'motion graphic, global image/video edit, creative director). Use when the user says ' +
+    '"stop", "cancel that", "never mind" while something is still running, or to clear a ' +
+    'stuck generation. Returns how many credits came back. A generation that already ' +
+    'finished or failed cannot be cancelled — you get a 409 with its current status, which ' +
+    'is not an error worth retrying. For Shorts Creator jobs use shorts_cancel instead.',
+    {
+      generation_id: z.string().describe('The generation id to cancel, as returned by any generate_* tool or get_generation_status.')
+    },
+    async ({ generation_id }) => {
+      try {
+        const result = await client.post(`/v1/generate/${encodeURIComponent(generation_id)}/cancel`, {});
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              generation_id,
+              cancelled: true,
+              ...(result && typeof result === 'object' ? result : {}),
+              _hint: 'Generation cancelled. Do NOT call get_generation_status on it — the state is final.'
+            }, null, 2)
+          }]
+        };
+      } catch (err) {
+        // 409 = already terminal. That is an answer, not a failure — report it
+        // plainly so the model does not retry or apologise for a non-problem.
+        const conflict = err.status === 409 || /cannot cancel/i.test(err.message || '');
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              generation_id,
+              cancelled: false,
+              reason: err.message,
+              _hint: conflict
+                ? 'This generation already reached a final state, so there was nothing to cancel. Tell the user it had already finished — do not retry.'
+                : 'Cancel failed. Check the generation_id is correct via get_generation_status.'
+            }, null, 2)
+          }]
+        };
+      }
     }
   );
 

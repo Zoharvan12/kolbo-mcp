@@ -64,6 +64,7 @@ const { registerModelTools } = require('./tools/models');
 const { registerChatTools } = require('./tools/chat');
 const { registerVisualDnaTools } = require('./tools/visual_dna');
 const { registerMoodboardTools } = require('./tools/moodboards');
+const { registerColorPaletteTools } = require('./tools/color_palettes');
 const { registerMediaTools } = require('./tools/media');
 const { registerPresetTools } = require('./tools/presets');
 const { registerArtifactTools } = require('./tools/artifacts');
@@ -134,6 +135,7 @@ function createServer(opts = {}) {
   registerChatTools(server, client, toolOptions);
   registerVisualDnaTools(server, client, toolOptions);
   registerMoodboardTools(server, client, toolOptions);
+  registerColorPaletteTools(server, client, toolOptions);
   registerMediaTools(server, client, toolOptions);
   registerPresetTools(server, client, toolOptions);
   registerArtifactTools(server, client, toolOptions);

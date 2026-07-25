@@ -36,7 +36,9 @@ function registerMoodboardTools(server, client, options = {}) {
           items: moodboards.slice(0, 24).map(mb => ({
             id: mb.id,
             title: mb.name,
-            thumbnail: mb.thumbnail || (Array.isArray(mb.image_urls) ? mb.image_urls[0] : undefined),
+            // API returns thumbnail_url + images[] (sdk listMoodboards) — both
+            // previous keys were wrong, so the fallback never fired either.
+            thumbnail: mb.thumbnail_url || mb.thumbnail || (Array.isArray(mb.images) ? mb.images[0] : undefined),
             media_type: 'image',
             use_hint: 'Apply moodboard "{TITLE}" (moodboard_id: {ID}) to my next generation.'
           })),
