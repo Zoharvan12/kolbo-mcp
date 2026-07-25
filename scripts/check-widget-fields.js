@@ -38,10 +38,15 @@ const CONTRACTS = [
   { file: 'src/tools/media.js',         exportName: 'listMedia',      reads: ['thumbnail_url'] },
 ];
 
+// CI clones only this repo, so there is no kolbo-api checkout to diff against.
+// Skip with a warning instead of failing — matches check-parity.js, and local
+// runs plus the prepublishOnly hook on a dev machine still enforce the check.
+// (Hard-failing here broke the v1.51.0 npm publish.)
 if (!fs.existsSync(SDK_CONTROLLER)) {
-  console.error(`Cannot find kolbo-api SDK controller at ${SDK_CONTROLLER}.`);
-  console.error('Set KOLBO_API_PATH if your checkout lives elsewhere.');
-  process.exit(1);
+  console.log(`WARN: kolbo-api not found at ${SDK_CONTROLLER}`);
+  console.log('Skipping widget field check (likely running in CI without the private kolbo-api repo).');
+  console.log('Local runs will still enforce it via prepublishOnly.');
+  process.exit(0);
 }
 const sdkSrc = fs.readFileSync(SDK_CONTROLLER, 'utf8');
 
