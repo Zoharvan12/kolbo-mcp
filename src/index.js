@@ -109,6 +109,9 @@ function createServer(opts = {}) {
     // The single most common failure mode is project confusion — spell out
     // the project contract here so every client gets it without a skill file.
     instructions: [
+      'PROMPT CONVENTIONS (Kolbo-specific — these change the OUTPUT, not just the metadata):',
+      'A. Visual DNA: passing `visual_dna_ids` is not enough — every DNA in play must ALSO be tagged inside the prompt text as `@Name`, using the DNA name (e.g. "@Kobi walks into frame"). Moodboards are referenced the same way with `#Name`. Resolve names via `list_visual_dnas` / `list_moodboards`.',
+      'B. The full Kolbo skill is available to you as MCP RESOURCES under `kolbo://skill/`. Read `kolbo://skill/SKILL.md` first — it is the core rules plus a routing index — then read the matching `kolbo://skill/references/...` file before writing prompts for a specific model or workflow (per-model prompt rules, Visual DNA workflow, Creative Director, marketing, cost validation). Do this instead of guessing; the references exist precisely because the rules differ per model.',
       'PROJECT CONTRACT (read this before generating anything):',
       'Everything in Kolbo lives inside a PROJECT — sessions, generations, and media are all project-scoped.',
       '1. When the user names a project ("in my Acme project", "for the summer campaign"), call `list_projects` ONCE to resolve the name to an id, then pass that id as `project_id` on EVERY subsequent generate_* / chat_send_message / upload_media call in the conversation. The target project is per-call, NOT sticky — any call that omits `project_id` silently lands in the default "API Generations" bucket (flagged is_default:true), which users experience as their work going to the wrong project.',
@@ -148,6 +151,9 @@ function createServer(opts = {}) {
   // MCP Apps widget resources (ui://kolbo/*). Registering resources is inert
   // for text-only hosts — they never fetch them.
   registerApps(server);
+  // Serve skill/ as standard MCP resources so connector clients — which never
+  // run `npx @kolbo/mcp install` — can still read the operating guidance.
+  registerSkillResources(server);
   // Declaration-level `_meta['ui/resourceUri']` on every widget-carrying tool —
   // claude.ai prepares the widget iframe from tools/list, not from the result.
   attachToolWidgetMeta(server);
@@ -171,6 +177,7 @@ async function main() {
 // internally, re-exported so a host never has to re-derive them. Additive
 // only — existing consumers (claude.ai, Desktop, npx) are unaffected.
 const { UI, TOOL_WIDGETS, uiMeta, widgetHtml } = require('./apps');
+const { registerSkillResources } = require('./skillResources');
 
 module.exports = { main, createServer, UI, TOOL_WIDGETS, uiMeta, widgetHtml };
 
