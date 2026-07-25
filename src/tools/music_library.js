@@ -66,7 +66,14 @@ function registerMusicLibraryTools(server, client, options = {}) {
 
   server.tool(
     'search_music_library',
-    'Search the licensed SYNCI catalog. Results contain watermarked preview audio only. For any download or timeline use, call acquire_clean_music_track, which consumes one SYNCI vendor credit.',
+    'Search the licensed SYNCI catalog — the PAID third-party option. ' +
+    '⚠️ NOT the default for music. Kolbo has its OWN large AI music library that is FREE and ' +
+    'costs no vendor credit: call search_stock_media with source="kolbo-ai" and mediaType="music" ' +
+    '(it also supports natural-language vibe search, e.g. "uplifting hopeful corporate background"). ' +
+    'Reach for SYNCI only when the user explicitly asks for the licensed/SYNCI catalog, names a real ' +
+    'artist or commercial track, or needs stems / a specific licensed cue. ' +
+    'Results here contain watermarked preview audio only; any download or timeline use requires ' +
+    'acquire_clean_music_track, which consumes one SYNCI vendor credit.',
     {
       query: z.string().max(200).optional(),
       mood: z.string().optional(),

@@ -113,7 +113,7 @@ Just ask your agent naturally:
 
 Without the optional skill, the config block alone already exposes every tool — you just describe what you want. With the skill installed, each of these is also routed to the right MCP tool with the right defaults — UGC mode picks 9:16 + sound-off + no-captions, marketplace mode enforces compliance (pure white bg, no text, no props), product photoshoot mode uses the right aspect for the platform (2:3 Pinterest, 16:9 hero banner, 1:1 IG feed), etc. The routing logic is shared with [Kolbo Code](https://github.com/Zoharvan12/kolbo-code), so the behavior is identical however you connect.
 
-## Available Tools (95)
+## Available Tools (101)
 
 **Generation**
 | Tool | Description |
@@ -159,6 +159,17 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 |------|-------------|
 | `list_moodboards` | Browse presets + your moodboards |
 | `get_moodboard` | Fetch one moodboard with all image URLs |
+
+**Color DNA** — sticky, account-wide: the ACTIVE palette strict-grades every generation until deactivated. Opt a single generation out with `skip_color_palette`.
+| Tool | Description |
+|------|-------------|
+| `list_color_palettes` | List your palettes (+ org) |
+| `analyze_color_palette` | Extract colors from 1-5 image URLs (free, does not save) |
+| `create_color_palette` | Save a palette (colors from analyze or manual); auto-activates by default |
+| `update_color_palette` | Rename / replace colors |
+| `delete_color_palette` | Delete a palette |
+| `activate_color_palette` | Make a palette the sticky active one |
+| `deactivate_color_palette` | Clear the active palette |
 
 **Media Library**
 | Tool | Description |

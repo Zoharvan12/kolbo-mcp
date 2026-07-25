@@ -207,6 +207,7 @@ src/tools/models.js      — Discovery tools (list_models, check_credits)
 src/tools/chat.js        — Chat tools (send, list conversations, get messages)
 src/tools/visual_dna.js  — Visual DNA CRUD (thin wrapper that imports from _shared)
 src/tools/moodboards.js  — Moodboard discovery (list, get)
+src/tools/color_palettes.js — Color DNA CRUD (list, analyze, create, update, delete, activate, deactivate — sticky account-wide palette applied to every generation)
 src/tools/media.js       — Media library: media_upload_widget, upload_media, list_media, get_media, delete_media, restore_media,
                             permanently_delete_media, move_media, bulk_delete_media, bulk_restore_media,
                             bulk_permanently_delete_media, bulk_move_media, get_media_stats,
@@ -228,7 +229,7 @@ scripts/smoke.js         — Load-time smoke test (no network)
 scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 ```
 
-## Available Tools (95)
+## Available Tools (101)
 
 Every generation tool below also accepts an optional `project_id` arg that routes the generation into a specific project (owner + edit/full shares). Call `list_projects` to discover IDs. Omit to fall back to the user's auto-created "API Generations" project. `project_id` is per-call, NOT sticky — pass it on every call once the user names a working project. Misplaced work is recoverable via `move_media` / `move_session`.
 
@@ -238,10 +239,10 @@ Every generation tool below also accepts an optional `project_id` arg that route
 **Generation** (`src/tools/generate.js`)
 | Tool | Route | Timeout | Composition args |
 |------|-------|---------|-----------------|
-| `generate_image` | `POST /v1/generate/image` | 120s | `visual_dna_ids`, `moodboard_id`, `reference_images`, `num_images`, `enable_web_search`, `resolution`, `cinematic` |
-| `generate_image_edit` | `POST /v1/generate/image-edit` | 120s | `source_images`, `visual_dna_ids`, `moodboard_id`, `enable_web_search`, `resolution`, `cinematic` |
-| `generate_video` | `POST /v1/generate/video` | 900s | `visual_dna_ids`, `reference_images`, `resolution`, `sound_enabled` |
-| `generate_video_from_image` | `POST /v1/generate/video/from-image` | 900s | `image_url`, `visual_dna_ids`, `aspect_ratio`, `resolution`, `sound_enabled` |
+| `generate_image` | `POST /v1/generate/image` | 120s | `visual_dna_ids`, `moodboard_id`, `reference_images`, `num_images`, `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette` |
+| `generate_image_edit` | `POST /v1/generate/image-edit` | 120s | `source_images`, `visual_dna_ids`, `moodboard_id`, `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette` |
+| `generate_video` | `POST /v1/generate/video` | 900s | `visual_dna_ids`, `reference_images`, `resolution`, `sound_enabled`, `skip_color_palette` |
+| `generate_video_from_image` | `POST /v1/generate/video/from-image` | 900s | `image_url`, `visual_dna_ids`, `aspect_ratio`, `resolution`, `sound_enabled`, `skip_color_palette` |
 | `generate_video_from_video` | `POST /v1/generate/video-from-video` | 600s | `source_video` (URL or local), optional `prompt`, `visual_dna_ids`, `resolution`; VEED Subtitles: `preset` / `source_language` / `translation_language` / `srt_content` / `srt_file_url` / `vocabulary` / `customization` |
 | `generate_elements` | `POST /v1/generate/elements` | 600s | `reference_images`, `files`, `visual_dna_ids`, `motion`, `preset_id`, `resolution` |
 | `generate_first_last_frame` | `POST /v1/generate/first-last-frame` | 300s | URLs OR local paths for `first_frame`/`last_frame`, `visual_dna_ids`, `resolution` |
@@ -322,6 +323,17 @@ Every generation tool below also accepts an optional `project_id` arg that route
 |------|-------|
 | `list_moodboards` | `GET /v1/moodboards` |
 | `get_moodboard` | `GET /v1/moodboards/:id` |
+
+**Color DNA** (`src/tools/color_palettes.js`) — sticky, account-wide: the single ACTIVE palette strict-grades EVERY generation automatically (generate_image/_edit/video/video_from_image) until deactivated. Per-call opt-out: `skip_color_palette` on those generation tools.
+| Tool | Route | Notes |
+|------|-------|-------|
+| `list_color_palettes` | `GET /v1/color-palettes` | Personal + org, paginated |
+| `analyze_color_palette` | `POST /v1/color-palettes/analyze` | Free local pixel analysis of 1-5 image URLs → colors. Does NOT save. |
+| `create_color_palette` | `POST /v1/color-palettes` | name + colors[] (1-10); `is_active` defaults true → auto-activates, unsets any other active palette |
+| `update_color_palette` | `PUT /v1/color-palettes/:id` | Rename / replace colors, owner only |
+| `delete_color_palette` | `DELETE /v1/color-palettes/:id` | Owner only |
+| `activate_color_palette` | `POST /v1/color-palettes/:id/activate` | Makes this the sticky active palette |
+| `deactivate_color_palette` | `POST /v1/color-palettes/deactivate` | Clears the active palette |
 
 **Artifacts** (`src/tools/artifacts.js`)
 | Tool | Route | Notes |
