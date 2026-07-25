@@ -186,8 +186,11 @@ async function resolveToBuffer(source, kind, opts = {}) {
   if (!path.isAbsolute(source)) {
     throw new Error(
       `Local file paths must be absolute: ${source}. ` +
-      `If you are using Kolbo over a remote connector (e.g. claude.ai), local files are not reachable — ` +
-      `pass a public https:// URL instead (upload the file somewhere first, or use a URL from list_media).`
+      `If you are using Kolbo over a remote connector (e.g. claude.ai), local files are not reachable. ` +
+      `DO NOT upload the file yourself with cloud credentials or a shell command — Kolbo has a tool for this. ` +
+      `Call \`media_upload_widget\` to have the user pick the file (remote connectors), or \`upload_media\` ` +
+      `when the file IS reachable from where the MCP server runs, then pass the returned https:// URL here. ` +
+      `A URL from \`list_media\` also works if the asset is already in the library.`
     );
   }
   let stat;
@@ -196,8 +199,11 @@ async function resolveToBuffer(source, kind, opts = {}) {
   } catch (err) {
     throw new Error(
       `Local file not found or unreadable: ${source}. ` +
-      `If you are using Kolbo over a remote connector (e.g. claude.ai), local file paths are not reachable — ` +
-      `pass a public https:// URL instead (upload the file somewhere first, or use a URL from list_media).` +
+      `If you are using Kolbo over a remote connector (e.g. claude.ai), local file paths are not reachable. ` +
+      `DO NOT upload the file yourself with cloud credentials or a shell command — Kolbo has a tool for this. ` +
+      `Call \`media_upload_widget\` to have the user pick the file (remote connectors), or \`upload_media\` ` +
+      `when the file IS reachable from where the MCP server runs, then pass the returned https:// URL here. ` +
+      `A URL from \`list_media\` also works if the asset is already in the library.` +
       (err && err.code ? ` [${err.code}]` : '')
     );
   }
