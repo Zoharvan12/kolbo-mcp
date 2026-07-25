@@ -308,6 +308,7 @@ function attachToolWidgetMeta(server) {
 
 module.exports = {
   UI,
+  TOOL_WIDGETS,
   registerApps,
   attachToolWidgetMeta,
   uiMeta,
