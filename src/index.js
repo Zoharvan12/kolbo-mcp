@@ -161,7 +161,16 @@ async function main() {
   await server.connect(transport);
 }
 
-module.exports = { main, createServer };
+// Widget plumbing for HOST developers embedding Kolbo widgets themselves
+// (e.g. kolbo-api's Kobi Act) — everything else in ./apps stays internal.
+// UI: tool-name-agnostic resource URI map. TOOL_WIDGETS: tool name -> URI, so
+// a host can resolve which widget a given tool call carries without deep-
+// requiring internals. uiMeta/widgetHtml: same helpers registerApps() uses
+// internally, re-exported so a host never has to re-derive them. Additive
+// only — existing consumers (claude.ai, Desktop, npx) are unaffected.
+const { UI, TOOL_WIDGETS, uiMeta, widgetHtml } = require('./apps');
+
+module.exports = { main, createServer, UI, TOOL_WIDGETS, uiMeta, widgetHtml };
 
 // Auto-run when invoked directly (e.g. `node src/index.js` or via the published
 // bin/kolbo-mcp.js wrapper). Consumers that `require()` this module to embed it
