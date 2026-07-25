@@ -80,9 +80,16 @@ function registerVisualDnaTools(server, client, options = {}) {
   // ─── list_visual_dnas ──────────────────────────────────────
   server.tool(
     'list_visual_dnas',
-    'List Visual DNA profiles. By default returns ALL (personal + global cast presets + organization). Use "scope" to filter: "personal" (user\'s own), "global" (system cast/presets), or "organization" (org-shared). Use "search" to filter by name/tags/description. Use "collection" to filter global presets by collection (cast, influencers, props, locations, styles, glamour, street).',
+    'List the user\'s OWN Visual DNA profiles. This is almost always what you want — "my characters", '
+    + '"which DNAs do I have", picking a DNA for a generation. Pass `project_id` to also include a shared '
+    + 'project\'s DNAs (teammates\' assets on that project). '
+    + 'Kolbo ALSO ships a large library of ~1000 global cast/preset DNAs — those are NOT returned by default '
+    + 'because dumping them buries the user\'s own handful. Only pass scope="global" (optionally with '
+    + '`collection` and `search`) when the user explicitly wants to BROWSE the preset cast — e.g. "find me a '
+    + 'character", "show me street style models", "I need a location DNA" — and they have not named one of '
+    + 'their own. Use scope="all" only if the user genuinely wants both at once.',
     {
-      scope: z.enum(['all', 'personal', 'global', 'organization']).optional().describe('Filter by scope. Default: "all" (everything accessible). "personal" = only your own. "global" = system presets/cast. "organization" = org-shared.'),
+      scope: z.enum(['all', 'personal', 'global', 'organization']).optional().describe('Default: "personal" — the user\'s own DNAs (plus a shared project\'s when project_id is set). "global" = the ~1000 system cast/preset DNAs, for browsing when the user needs a character and has none of their own. "organization" = org-shared. "all" = everything, rarely wanted.'),
       search: z.string().optional().describe('Search by name, tags, or description (case-insensitive)'),
       collection: z.string().optional().describe('Filter global presets by collection: cast, influencers, props, locations, styles, glamour, street'),
       tags: z.string().optional().describe('Comma-separated tags to filter by (OR logic)'),
@@ -90,7 +97,12 @@ function registerVisualDnaTools(server, client, options = {}) {
     },
     async ({ scope, search, collection, tags, project_id } = {}) => {
       const params = new URLSearchParams();
-      if (scope && scope !== 'all') params.set('scope', scope);
+      // Default to the user's OWN DNAs. The API defaults to "all", which pulls
+      // in ~1000 global cast presets and buries the handful the user actually
+      // made. Global is opt-in via scope="global" (browse the preset cast).
+      // Shared-project assets still come through project_id, independently.
+      const effectiveScope = scope || 'personal';
+      if (effectiveScope !== 'all') params.set('scope', effectiveScope);
       if (search) params.set('search', search);
       if (collection) params.set('collection', collection);
       if (tags) params.set('tags', tags);
