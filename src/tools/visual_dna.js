@@ -111,7 +111,7 @@ function registerVisualDnaTools(server, client, options = {}) {
             id: d.id,
             title: d.name,
             subtitle: (d.dna_type || '') + (Array.isArray(d.tags) && d.tags.length ? ' · ' + d.tags.slice(0, 3).join(', ') : ''),
-            thumbnail: d.thumbnail,
+            thumbnail: d.thumbnail_url || d.thumbnail,
             media_type: 'image',
             use_hint: 'Use Visual DNA "{TITLE}" (id: {ID}) in my next generation for character/style consistency.'
           })),

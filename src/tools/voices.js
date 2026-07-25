@@ -51,6 +51,7 @@ function registerVoiceTools(server, client, options = {}) {
             title: v.name,
             subtitle: [v.provider, v.language, v.gender, v.accent].filter(Boolean).join(' · '),
             media_type: 'audio',
+            thumbnail: v.thumbnail || null,
             preview_audio: v.preview_url,
             use_hint: 'Use voice "{TITLE}" (voice_id: {ID}) for text-to-speech — ask me what text to speak.'
           })),
