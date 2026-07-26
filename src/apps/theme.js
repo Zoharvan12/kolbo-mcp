@@ -242,8 +242,9 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
 .k-cell { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
   background: var(--surface); cursor: pointer; transition: transform 250ms var(--spring); }
 .k-cell:hover { transform: translateY(-2px) scale(1.01); }
-.k-cell .k-cell-media { aspect-ratio: 1; background: #000; }
+.k-cell .k-cell-media { position: relative; aspect-ratio: 1; background: #000; }
 .k-cell .k-cell-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.k-cell-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 .k-cell .k-cell-label { padding: 6px 8px; font-size: 11px; color: var(--text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .k-cell .k-cell-sub { padding: 0 8px 7px; font-size: 10px; color: var(--text-faint);
@@ -274,7 +275,7 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
 @media (max-width: 520px) {
   .k-generated-audio { grid-template-columns: 36px minmax(0, 1fr); }
   .k-generated-audio .k-audio-art { width: 36px; height: 36px; }
-  .k-generated-audio .k-audio-download { grid-column: 2; justify-self: start; }
+  .k-generated-audio .k-btn { grid-column: 2; justify-self: start; }
   .k-generated-audio .k-audio-player { grid-column: 1 / -1; }
 }
 .k-play {

@@ -210,7 +210,24 @@ function registerVisualDnaTools(server, client, options = {}) {
     {},
     async () => {
       const result = await client.get('/v1/visual-dna/folders');
-      return { content: [{ type: 'text', text: JSON.stringify({ folders: result.folders || [], count: result.count || 0 }, null, 2) }] };
+      const folders = result.folders || [];
+      const text = JSON.stringify({ folders, count: result.count || 0 }, null, 2);
+
+      if (ui()) {
+        return uiResult(UI.list, text, {
+          widget: 'list',
+          title: 'Visual DNA Folders',
+          items: folders.map(f => ({
+            id: f.id,
+            title: f.name,
+            meta: f.item_count != null ? (f.item_count + (f.item_count === 1 ? ' DNA' : ' DNAs')) : null,
+            use_hint: 'List Visual DNAs in my "{TITLE}" folder (folder_id: {ID}).'
+          })),
+          total: folders.length
+        });
+      }
+
+      return { content: [{ type: 'text', text }] };
     }
   );
 
