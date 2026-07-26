@@ -5,8 +5,10 @@
 
 const { z } = require('zod');
 const { buildProjectUrl } = require('./_shared');
+const { UI, uiResult, appsEnabled } = require('../apps');
 
-function registerProjectTools(server, client) {
+function registerProjectTools(server, client, options = {}) {
+  const ui = () => appsEnabled(server, options);
   // ─── list_projects ─────────────────────────────────────────
   server.tool(
     'list_projects',
@@ -21,16 +23,28 @@ function registerProjectTools(server, client) {
         is_default: !!p.is_default,
         open_url: buildProjectUrl(p.id, { is_default: !!p.is_default })
       }));
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            projects,
-            count: projects.length,
-            _hint: 'Pass the chosen `id` as `project_id` on any generate_* tool to drop the generation into that project. Omit project_id to use the project flagged is_default:true. `open_url` opens that project\'s media in the web app (share it with the user).'
-          }, null, 2)
-        }]
-      };
+      const text = JSON.stringify({
+        projects,
+        count: projects.length,
+        _hint: 'Pass the chosen `id` as `project_id` on any generate_* tool to drop the generation into that project. Omit project_id to use the project flagged is_default:true. `open_url` opens that project\'s media in the web app (share it with the user).'
+      }, null, 2);
+
+      if (ui()) {
+        return uiResult(UI.list, text, {
+          widget: 'list',
+          title: 'Your Projects',
+          items: projects.map(p => ({
+            id: p.id,
+            title: p.name,
+            subtitle: p.role + (p.is_default ? ' · default' : ''),
+            open_url: p.open_url,
+            use_hint: 'Use my "{TITLE}" project (project_id: {ID}) for what I do next.'
+          })),
+          total: projects.length
+        });
+      }
+
+      return { content: [{ type: 'text', text }] };
     }
   );
 
@@ -131,7 +145,23 @@ function registerProjectTools(server, client) {
       if (limit) params.set('limit', String(limit));
       const qs = params.toString();
       const result = await client.get(`/v1/sessions${qs ? '?' + qs : ''}`);
-      return { content: [{ type: 'text', text: JSON.stringify({ sessions: result.sessions || [], pagination: result.pagination || null }, null, 2) }] };
+      const sessions = result.sessions || [];
+      const text = JSON.stringify({ sessions, pagination: result.pagination || null }, null, 2);
+
+      if (ui()) {
+        return uiResult(UI.list, text, {
+          widget: 'list',
+          title: 'Sessions' + (type ? ' — ' + type : ''),
+          items: sessions.map(s => ({
+            id: s.session_id,
+            title: s.name || s.type,
+            subtitle: s.type + (s.updated_at ? ' · ' + String(s.updated_at).slice(0, 10) : '')
+          })),
+          total: sessions.length
+        });
+      }
+
+      return { content: [{ type: 'text', text }] };
     }
   );
 
@@ -162,7 +192,24 @@ function registerProjectTools(server, client) {
     { project_id: z.string().describe('Project ObjectId.') },
     async ({ project_id }) => {
       const result = await client.get(`/v1/projects/${encodeURIComponent(project_id)}/context`);
-      return { content: [{ type: 'text', text: JSON.stringify({ sources: result.sources || [], count: result.count || 0 }, null, 2) }] };
+      const sources = result.sources || [];
+      const text = JSON.stringify({ sources, count: result.count || 0 }, null, 2);
+
+      if (ui()) {
+        return uiResult(UI.list, text, {
+          widget: 'list',
+          title: 'Project Knowledge Base',
+          items: sources.map(s => ({
+            id: s.file_key,
+            title: s.title || s.type,
+            subtitle: s.type + ' · ' + s.status,
+            open_url: s.url || null
+          })),
+          total: sources.length
+        });
+      }
+
+      return { content: [{ type: 'text', text }] };
     }
   );
 

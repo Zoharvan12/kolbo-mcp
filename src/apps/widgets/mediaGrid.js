@@ -38,7 +38,6 @@ const SCRIPT = `
 el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
 el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai'); };
 var state = null;
-var playing = null;
 
 function boot(sc) {
   if (!sc || !sc.items) return;
@@ -63,12 +62,15 @@ function boot(sc) {
 
 function cellHTML(item, i) {
   var idx = state.items.indexOf(item);
+  var isVideo = item.media_type === 'video' && item.url;
   var media = item.thumbnail
     ? '<img src="' + esc(item.thumbnail) + '" loading="lazy" alt="">'
     : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-faint);font-size:22px">' +
       kindIcon(item.media_type) + '</div>';
   return '<div class="k-cell" data-i="' + idx + '">' +
-    '<div class="k-cell-media">' + media + '</div>' +
+    '<div class="k-cell-media">' + media +
+    (isVideo ? '<button class="k-play k-cell-play" data-video-play="' + esc(item.url) + '">' + ICONS.play + '</button>' : '') +
+    '</div>' +
     '<div class="k-cell-label">' + esc(item.title || '') + '</div>' +
     (item.subtitle ? '<div class="k-cell-sub">' + esc(item.subtitle) + '</div>' : '') +
     '</div>';
@@ -76,13 +78,14 @@ function cellHTML(item, i) {
 
 function audioRowHTML(item) {
   var idx = state.items.indexOf(item);
-  return '<div class="k-audio-row" data-i="' + idx + '">' +
+  var src = item.preview_audio || item.url;
+  return '<div class="k-audio-row k-generated-audio" data-i="' + idx + '">' +
     (item.thumbnail ? '<img class="k-audio-art" src="' + esc(item.thumbnail) + '">' : '<div class="k-audio-art"></div>') +
     '<div class="k-audio-meta"><div class="k-audio-title">' + esc(item.title || '') + '</div>' +
     '<div class="k-audio-sub">' + esc(item.subtitle || '') + '</div></div>' +
-    (item.preview_audio || item.url
-      ? '<button class="k-play" data-play="' + esc(item.preview_audio || item.url) + '">' + ICONS.play + '</button>' : '') +
-    '<button class="k-btn" data-use="' + idx + '">Use</button></div>';
+    '<button class="k-btn" data-use="' + idx + '">Use</button>' +
+    (src ? '<audio class="k-audio-player" src="' + esc(src) + '" controls preload="none" aria-label="Play ' + esc(item.title || '') + '"></audio>' : '') +
+    '</div>';
 }
 
 function wire() {
@@ -92,17 +95,25 @@ function wire() {
   Array.prototype.forEach.call(document.querySelectorAll('[data-use]'), function (b) {
     b.onclick = function (e) { e.stopPropagation(); useItem(+b.getAttribute('data-use')); };
   });
-  Array.prototype.forEach.call(document.querySelectorAll('[data-play]'), function (b) {
+  // Native <audio controls> already gives play/pause + a seek bar + duration;
+  // just stop clicks on it from bubbling up to the row's "Use" handler, and
+  // pause any other preview when a new one starts.
+  var players = document.querySelectorAll('.k-audio-player');
+  Array.prototype.forEach.call(players, function (player) {
+    player.onclick = function (e) { e.stopPropagation(); };
+    player.addEventListener('play', function () {
+      Array.prototype.forEach.call(players, function (other) { if (other !== player) other.pause(); });
+    });
+  });
+  // Video cells stay a static thumbnail until the play overlay is clicked,
+  // then swap in a native <video controls> for an in-place scrubber.
+  Array.prototype.forEach.call(document.querySelectorAll('[data-video-play]'), function (b) {
     b.onclick = function (e) {
       e.stopPropagation();
-      var url = b.getAttribute('data-play');
-      if (playing && playing.src === url && !playing.paused) { playing.pause(); b.innerHTML = ICONS.play; return; }
-      if (playing) playing.pause();
-      Array.prototype.forEach.call(document.querySelectorAll('[data-play]'), function (x) { x.innerHTML = ICONS.play; });
-      playing = new Audio(url);
-      playing.play();
-      b.innerHTML = ICONS.pause;
-      playing.onended = function () { b.innerHTML = ICONS.play; };
+      var url = b.getAttribute('data-video-play');
+      var holder = b.parentNode;
+      holder.innerHTML = '<video src="' + esc(url) + '" controls autoplay playsinline style="width:100%;height:100%;object-fit:cover"></video>';
+      holder.querySelector('video').onclick = function (ev) { ev.stopPropagation(); };
     };
   });
 }

@@ -21,6 +21,7 @@ const { mediaGridWidgetHtml } = require('./widgets/mediaGrid');
 const { catalogWidgetHtml } = require('./widgets/catalog');
 const { transcriptWidgetHtml } = require('./widgets/transcript');
 const { uploadWidgetHtml } = require('./widgets/upload');
+const { listWidgetHtml } = require('./widgets/list');
 
 const UI = {
   generation: 'ui://kolbo/generation.html',
@@ -28,6 +29,7 @@ const UI = {
   catalog: 'ui://kolbo/catalog.html',
   transcript: 'ui://kolbo/transcript.html',
   upload: 'ui://kolbo/upload.html',
+  list: 'ui://kolbo/list.html',
 };
 
 const WIDGET_BUILDERS = {
@@ -36,6 +38,7 @@ const WIDGET_BUILDERS = {
   [UI.catalog]: catalogWidgetHtml,
   [UI.transcript]: transcriptWidgetHtml,
   [UI.upload]: uploadWidgetHtml,
+  [UI.list]: listWidgetHtml,
 };
 
 // Widgets are pure functions of source — build once per process.
@@ -93,6 +96,7 @@ function registerApps(server) {
     [UI.catalog, 'Kolbo Model Catalog Widget'],
     [UI.transcript, 'Kolbo Transcription Widget'],
     [UI.upload, 'Kolbo Upload Widget'],
+    [UI.list, 'Kolbo List Widget'],
   ]) {
     registerAppResource(
       server, name, uri,
@@ -292,8 +296,21 @@ const TOOL_WIDGETS = {
   list_visual_dnas: UI.mediaGrid,
   list_moodboards: UI.mediaGrid,
   shorts_analyze: UI.mediaGrid,
+  // NOTE: list_color_palettes' handler has always called uiResult(UI.mediaGrid, ...)
+  // (see color_palettes.js) but was missing here — hosts that prepare the widget
+  // iframe from the tool DECLARATION (claude.ai reads tools/list, not the result)
+  // never saw it as widget-carrying. Result-level _meta alone isn't enough.
+  list_color_palettes: UI.mediaGrid,
   // upload widget
   media_upload_widget: UI.upload,
+  // generic list widget — flat record lists with no natural thumbnail
+  list_projects: UI.list,
+  list_sessions: UI.list,
+  list_project_context: UI.list,
+  list_agents: UI.list,
+  list_docs: UI.list,
+  list_media_folders: UI.list,
+  list_visual_dna_folders: UI.list,
 };
 
 function attachToolWidgetMeta(server) {
