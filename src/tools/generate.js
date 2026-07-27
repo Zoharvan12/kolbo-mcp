@@ -1266,7 +1266,7 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── edit_image ────────────────────────────────────────────
   server.tool(
     'edit_image',
-    'Apply a targeted AI edit to an existing image. Covers mechanical enhancements (upscale, reframe, remove background, skin retouching) AND creative operations (inpaint, erase, face swap, background replace, camera angle, zoom out, multi-shot grid, split/upscale). ⚠️ For open-ended PROMPT-DRIVEN content edits — "make it night", restyling, adding/removing objects — use `generate_image_edit` instead; it runs on stronger dedicated editing models and produces better results.',
+    'Apply a targeted AI edit to an existing image. Covers mechanical enhancements (upscale, remove background, skin retouching) AND creative operations (expand/outpaint, reframe, inpaint, erase, face swap, background replace, camera angle, multi-shot grid, split/upscale). ⚠️ To EXPAND an image / add space / widen it to a new aspect ratio while keeping the existing artwork intact, use operation="zoom_out" — NOT "reframe" (reframe re-generates the whole picture). ⚠️ For open-ended PROMPT-DRIVEN content edits — "make it night", restyling, adding/removing objects — use `generate_image_edit` instead; it runs on stronger dedicated editing models and produces better results.',
     {
       image_url: z.string().describe('URL of the primary source image to edit.'),
 
@@ -1284,8 +1284,8 @@ function registerGenerateTools(server, client, options = {}) {
       ]).describe([
         'Edit operation:',
         '"upscale" — increase resolution by 2×, 3×, or 4× (use `scale`). "clarity_upscale" — AI-powered clarity upscale with detail enhancement (use `resolution`).',
-        '"reframe" — change aspect ratio (requires `aspect_ratio`, e.g. "16:9" or "9:16").',
-        '"zoom_out" — expand the image outward, filling new areas with AI-generated content.',
+        '"zoom_out" — THE default way to expand / extend / outpaint / uncrop / widen an image, or to grow it into a wider or taller frame. The original pixels are PRESERVED and only the new area around them is generated. Expand uniformly with `zoom_out_percentage`, or in one direction with `expand_left` / `expand_right` / `expand_top` / `expand_bottom` (pixels — this is how you hit a target aspect ratio: read the source width/height, then add the missing pixels on the side you want). `prompt` describes what should appear in the NEW space only. Note: `aspect_ratio` is ignored by this operation.',
+        '"reframe" — RE-GENERATES the entire picture at a new aspect ratio (Luma Photon). The subject is re-imagined, not preserved — expect a different-looking image. Use ONLY when the user explicitly wants the shot re-taken in another format. If they said "expand", "extend", "widen", "uncrop", "add space", "fill the sides", or "keep it the same but 16:9", they want "zoom_out" instead. Requires `aspect_ratio`.',
         '"removebg" — remove the image background, output is transparent PNG.',
         '"background_replace" — remove background and replace it with AI-generated content from `prompt`.',
         '"enhance_skin" — portrait skin retouching (use `skin_strength`: "subtle" | "realistic" | "pimple" | "freckle").',
@@ -1310,7 +1310,23 @@ function registerGenerateTools(server, client, options = {}) {
 
       // ── reframe ────────────────────────────────────────────
       aspect_ratio: z.string().optional()
-        .describe('Target aspect ratio (e.g. "16:9", "9:16", "1:1", "4:3"). Required for operation="reframe".'),
+        .describe('Target aspect ratio (e.g. "16:9", "9:16", "1:1", "4:3"). Required for operation="reframe". Ignored by "zoom_out" — size that expansion with `zoom_out_percentage` or the `expand_*` pixel args.'),
+
+      // ── zoom_out (outpaint / expand) ───────────────────────
+      zoom_out_percentage: z.number().optional()
+        .describe('How much to expand outward on ALL sides, as a percentage (0-90). Used with operation="zoom_out". Default: 20. Ignored when any `expand_*` arg is set.'),
+
+      expand_left: z.number().optional()
+        .describe('Pixels of new AI-generated content to add on the LEFT. Used with operation="zoom_out" (0-700). This is how you widen an image asymmetrically, e.g. to turn a 16:9 frame into 21:9 without touching the subject.'),
+
+      expand_right: z.number().optional()
+        .describe('Pixels of new AI-generated content to add on the RIGHT. Used with operation="zoom_out" (0-700).'),
+
+      expand_top: z.number().optional()
+        .describe('Pixels of new AI-generated content to add on TOP. Used with operation="zoom_out" (0-700).'),
+
+      expand_bottom: z.number().optional()
+        .describe('Pixels of new AI-generated content to add on the BOTTOM. Used with operation="zoom_out" (0-700).'),
 
       // ── enhance_skin ───────────────────────────────────────
       skin_strength: z.enum(['subtle', 'realistic', 'pimple', 'freckle']).optional()
@@ -1318,7 +1334,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       // ── inpaint / erase / face_swap / background_replace / zoom_out / camera_angle / magic_edit ──
       prompt: z.string().optional()
-        .describe('Text instruction guiding the edit. Required for "background_replace". Used with "inpaint", "zoom_out", "camera_angle", and the deprecated "magic_edit".'),
+        .describe('Text instruction guiding the edit. Required for "background_replace". Used with "inpaint", "zoom_out", "camera_angle", and the deprecated "magic_edit". For "zoom_out" it describes what fills the NEW space only — the original image is left as-is.'),
 
       mask_image_url: z.string().optional()
         .describe('URL of a mask image (black & white; white = affected area). Required for "inpaint" and "erase". For "face_swap", this is the face reference image.'),
@@ -1342,6 +1358,7 @@ function registerGenerateTools(server, client, options = {}) {
     async ({
       image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
       mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize,
+      zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
       project_id
     }) => {
       model = await canonicalModelId(client, model);
@@ -1356,6 +1373,7 @@ function registerGenerateTools(server, client, options = {}) {
       const gen = await client.post('/v1/edit/image', {
         image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
         mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize,
+        zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
         project_id
       });
 
