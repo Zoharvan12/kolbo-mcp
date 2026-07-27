@@ -31,9 +31,20 @@ el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openL
 var state = null;
 
 function boot(sc) {
-  if (!sc || !sc.groups) return;
+  if (!sc || !sc.groups || !sc.groups.length) return false;
   state = sc;
   el('title').textContent = sc.title || 'AI Models';
+  // Internal lookup (Claude checking caps mid-task): a full catalog card would
+  // be chat spam, an empty card would look broken. One expandable row instead.
+  if (sc.compact) {
+    el('stage').innerHTML = '<div class="k-audio-row" id="expand" style="cursor:pointer;padding:8px">' +
+      '<div class="k-audio-meta"><div class="k-audio-title" style="font-size:12px">Kolbo AI models</div>' +
+      '<div class="k-audio-sub" style="font-size:10.5px">Tap to browse what you can generate</div></div>' +
+      '<span class="k-chip" style="flex:none;padding:2px 7px;font-size:10px">Browse</span></div>';
+    el('expand').onclick = function () { sc.compact = false; boot(sc); };
+    window.kolbo.notifySize();
+    return true;
+  }
   var shown = sc.groups.reduce(function (n, g) { return n + g.models.length; }, 0);
   el('count-chip').style.display = '';
   el('count-chip').textContent = sc.total_available && sc.total_available > shown
@@ -60,13 +71,13 @@ function boot(sc) {
     };
   });
   window.kolbo.notifySize();
+  return true;
 }
 
 window.kolbo.onToolResult(function (result) {
-  var sc = result.structuredContent || structured(result);
-  if (sc && sc.groups) return boot(sc);
-  // Internal lookup (Claude checking constraints mid-task) — no catalog data
-  // was attached on purpose. Collapse instead of showing a dead card.
+  if (boot(result.structuredContent || structured(result))) return;
+  // No catalog data reached the iframe (host/version mismatch, or a filter
+  // that matched nothing) — collapse instead of showing a dead card.
   var card = document.querySelector('.k-card');
   if (card) card.style.display = 'none';
   window.kolbo.notifySize();
