@@ -49,7 +49,7 @@ function modelChips(m) {
 // deliberately EXCLUDED — we always want a specific model chosen (server
 // instruction #9): auto-routing hides the model choice and the generation
 // metadata used to read just "Auto".
-function buildCatalogStructured(models, type) {
+function buildCatalogStructured(models, type, compact) {
   const groups = [];
   const byName = new Map();
   const isAuto = (m) => /^auto$|smart.select/i.test(String(m.name || '')) || /smart-select|k_auto/i.test(String(m.identifier || ''));
@@ -78,6 +78,7 @@ function buildCatalogStructured(models, type) {
     widget: 'catalog',
     title: 'Kolbo AI Models' + (type ? ' — ' + type : ''),
     total_available: models.length,
+    compact: compact === true,
     groups,
   };
 }
@@ -91,11 +92,16 @@ function registerModelTools(server, client, options = {}) {
     {
       type: z.string().optional().describe('Filter by DB type name: "text_to_img", "image_editing", "text_to_video", "img_to_video", "draw_to_video", "video_to_video", "elements", "firstlastgenerations", "lipsync-image", "lipsync-video", "music_gen", "text_to_speech", "text_to_sound", "stt", "text". Legacy aliases also accepted: "image", "image_edit", "video", "video_from_image", "video_from_video", "music", "speech", "sound", "chat", "lipsync" (both lipsync types), "three_d" (all 3D types), "first_last_frame", "transcription". Omit for all models.'),
       format: z.enum(['text', 'json']).optional().describe('Output format. "text" (default) returns a human-readable summary with the most-used caps. "json" returns the raw model documents from the API — use this when you need to programmatically verify caps (max_reference_images, max_visual_dna, max_video_duration, supported_aspect_ratios, etc.) before passing an array/value that might exceed a model-specific limit. The JSON form is the source of truth; the text form is a convenience preview.'),
-      display_catalog: z.boolean().optional().describe('Set true ONLY when the USER explicitly asked to see/browse the available models — it renders a visual model catalog to them. Leave unset for internal lookups (verifying a model name, checking caps before a generation): those should stay invisible to the user.')
+      display_catalog: z.boolean().optional().describe('Set true when the USER explicitly asked to see/browse the available models — the visual catalog opens expanded. Leave unset for internal lookups (verifying a model name, checking caps before a generation): the catalog stays collapsed to a single row the user can tap to browse.')
     },
     async ({ type, format, display_catalog }) => {
-      // Widget only when the user asked to browse — internal validation
-      // lookups were spamming the chat with a full catalog card.
+      // The tool DECLARATION always carries widget meta, so hosts that mount
+      // from tools/list (Claude Code desktop) prepare an iframe on EVERY call.
+      // Returning plain text for internal lookups left that iframe with no
+      // data — a dead, empty "Widget from Kolbo list_models" shell. Always
+      // ship structuredContent; `compact` tells the widget to render a single
+      // "Browse models" row (expandable) instead of the full catalog, which is
+      // what display_catalog was really asking for.
       const showCatalog = display_catalog === true;
       const path = type ? `/v1/models?type=${encodeURIComponent(type)}` : '/v1/models';
       const result = await client.get(path);
@@ -106,7 +112,7 @@ function registerModelTools(server, client, options = {}) {
       // resolution multipliers, supports_* flags, prompt-length limits, etc.).
       if (format === 'json') {
         const text = JSON.stringify({ count: result.count, models: result.models }, null, 2);
-        if (ui() && showCatalog) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type));
+        if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type, !showCatalog));
         return { content: [{ type: 'text', text }] };
       }
 
@@ -277,7 +283,7 @@ function registerModelTools(server, client, options = {}) {
       }
 
       const text = `Available models (${result.count}):\n\n${sections.join('\n\n')}\n\nUse the "identifier" value as the "model" parameter in generate tools. For programmatic cap validation, re-call with format: "json".`;
-      if (ui() && showCatalog) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type));
+      if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type, !showCatalog));
       return { content: [{ type: 'text', text }] };
     }
   );

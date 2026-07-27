@@ -127,8 +127,13 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
   path must NEVER change the text payload.
 - **Every result path of a TOOL_WIDGETS tool must attach structuredContent.** The
   generation/transcript widgets also recover completed legacy text-JSON results so a
-  host-capability mismatch cannot leave an eternal Preparing card. List/catalog/upload
-  widgets collapse when their structured contract is intentionally absent.
+  host-capability mismatch cannot leave an eternal Preparing card. This is not
+  optional per-call: hosts that mount from the tool DECLARATION (Claude Code
+  desktop) prepare an iframe on EVERY call, so a text-only return leaves a dead
+  empty widget shell. `list_models` used to gate structuredContent on
+  `display_catalog` and did exactly that — it now always ships the catalog and
+  passes `compact: true` for internal lookups (widget renders one expandable
+  "Browse" row). Collapse is the LAST-RESORT path only (host/version mismatch).
 - **Icons: NEVER use emoji in widget UI.** Emoji (⬇🖼🎬📄⚠✓ …) render as tofu boxes in
   many host iframes. Use the shared inline-SVG set instead: `ICONS.<name>` (download,
   upload, play, pause, check, x, warn, retry, edit, open, arrowRight, sparkle, clock,
