@@ -29,7 +29,12 @@ function targets() {
   }
   return [
     { name: 'Claude Desktop', file: desktop, restart: 'Fully quit and reopen Claude Desktop' },
-    { name: 'Claude Code', file: path.join(home, '.claude', 'settings.json'), restart: 'Restart Claude Code' },
+    // Claude Code reads user-scope MCP servers from ~/.claude.json — NOT from
+    // ~/.claude/settings.json. settings.json accepts an mcpServers key without
+    // complaint and Claude Code ignores it completely, so writing there made
+    // `install` report success while the user got no Kolbo tools at all.
+    // Verified with `claude mcp list`: only ~/.claude.json entries load.
+    { name: 'Claude Code', file: path.join(home, '.claude.json'), restart: 'Restart Claude Code', probeDir: path.join(home, '.claude') },
     { name: 'Cursor', file: path.join(home, '.cursor', 'mcp.json'), restart: 'Restart Cursor' },
   ];
 }
@@ -38,8 +43,11 @@ function configure(t) {
   const dir = path.dirname(t.file);
   const fileExists = fs.existsSync(t.file);
   // Only touch an app that looks installed (its config file or parent dir exists)
-  // so we don't create configs for apps the user doesn't have.
-  if (!fileExists && !fs.existsSync(dir)) return { ...t, status: 'not found' };
+  // so we don't create configs for apps the user doesn't have. `probeDir` exists
+  // for configs that live directly in $HOME (~/.claude.json) — dirname there is
+  // the home dir, which always exists, so it would "detect" every app.
+  const probe = t.probeDir || dir;
+  if (!fileExists && !fs.existsSync(probe)) return { ...t, status: 'not found' };
 
   let cfg = {};
   if (fileExists) {
@@ -86,6 +94,20 @@ function installSkill(t) {
   }
 }
 
+// Versions before this fix wrote the Claude Code entry into
+// ~/.claude/settings.json, where Claude Code silently ignores it. Anyone who ran
+// those is left with a dead entry that makes it look configured. Detect and say
+// so rather than editing a file we no longer own.
+function staleClaudeCodeEntry() {
+  const f = path.join(os.homedir(), '.claude', 'settings.json');
+  try {
+    const cfg = JSON.parse(fs.readFileSync(f, 'utf8'));
+    return cfg.mcpServers && cfg.mcpServers.kolbo ? f : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function run() {
   const out = (s = '') => process.stdout.write(s + '\n');
   const results = targets().map(configure);
@@ -112,6 +134,16 @@ async function run() {
     out('    {"mcpServers":{"kolbo":{"command":"npx","args":["-y","@kolbo/mcp@latest"]}}}');
     out();
     return 0;
+  }
+
+  const stale = staleClaudeCodeEntry();
+  if (stale) {
+    out('  Note: an older Kolbo entry is sitting in');
+    out(`    ${stale}`);
+    out('  Claude Code does not read MCP servers from that file, so it never did');
+    out('  anything. Safe to delete the "kolbo" key there; the real one is now in');
+    out(`    ${path.join(os.homedir(), '.claude.json')}`);
+    out();
   }
 
   out('  Done — no API key needed.');

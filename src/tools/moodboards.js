@@ -75,7 +75,7 @@ function registerMoodboardTools(server, client, options = {}) {
     'Create a moodboard from 1–15 image URLs. The server analyzes the images and synthesizes a reusable master style prompt — then pass the returned moodboard id as `moodboard_id` on generation tools to apply the style. Use Kolbo URLs (generated images or `upload_media` output) or any public image URL. Typical flow: generate/upload reference images → create_moodboard → generate with moodboard_id.',
     {
       name: z.string().describe('Moodboard name (1–100 chars).'),
-      image_urls: z.array(z.string()).min(1).max(15).describe('1–15 public image URLs. For local files, call upload_media first and use the returned URLs.'),
+      image_urls: z.array(z.string()).min(1).max(15).describe('1–15 public image URLs. For local files, get URLs first via the LOCAL FILE route in this tool\'s description.'),
       style_guide: z.string().optional().describe('Optional style notes (max 500 chars) that steer the analysis, e.g. "focus on the color grading, not the subjects".')
     },
     async ({ name, image_urls, style_guide }) => {

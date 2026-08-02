@@ -3,6 +3,7 @@
 
 const { z } = require('zod');
 const { UI, uiResult, appsEnabled } = require('../apps');
+const { compactList } = require('./_shared');
 
 // Compact one-line render of a normalized stock asset.
 function assetLine(a) {
@@ -62,7 +63,15 @@ function registerStockLibraryTools(server, client, options = {}) {
       const assets = result.assets || [];
       if (!assets.length) return { content: [{ type: 'text', text: 'No assets found. Try a broader query, a different source/mediaType, or call get_stock_sources.' }] };
       const head = `Found ${assets.length} asset${assets.length === 1 ? '' : 's'}${result.total ? ` (≈${result.total} total)` : ''}${result.hasMore ? ' — more available (increment page)' : ''}:`;
-      const text = `${head}\n\n${assets.map(assetLine).join('\n\n')}\n\nUse [source:sourceId] with get_stock_asset for full variants, or import_stock_asset to copy it into the media library.`;
+      // A wide `source=all` search interleaves providers and overran the text
+      // budget at ~27K. Cap the rendered rows; `page` still reaches the rest.
+      const ASSET_CAP = 30;
+      const shownAssets = assets.slice(0, ASSET_CAP);
+      const moreAssets = assets.length - shownAssets.length;
+      const moreHint = moreAssets > 0
+        ? `\n\n…and ${moreAssets} more on this page — narrow with \`source\` / \`mediaType\`, or use \`page\`.`
+        : '';
+      const text = `${head}\n\n${shownAssets.map(assetLine).join('\n\n')}${moreHint}\n\nUse [source:sourceId] with get_stock_asset for full variants, or import_stock_asset to copy it into the media library.`;
 
       if (ui()) {
         const items = assets.slice(0, 24).map((a) => {
@@ -113,7 +122,14 @@ function registerStockLibraryTools(server, client, options = {}) {
     async (args) => {
       const q = buildQuery(args);
       const result = await client.get(`/v1/stock/categories${q ? '?' + q : ''}`);
-      return { content: [{ type: 'text', text: JSON.stringify({ count: result.count, categories: result.categories }, null, 2) }] };
+      // Full category list measured 257,817 chars (Kolbo SFX alone has 77 groups
+      // + 623 sub-filters). The model needs the label and the param to pass back.
+      return { content: [{ type: 'text', text: compactList(result.categories, {
+        fields: ['key', 'label', 'mediaType', 'source', 'group', 'paramType', 'providerParam'],
+        cap: 120,
+        total: result.count,
+        note: 'Narrow with `source` and `mediaType` to see a focused set.',
+      }) }] };
     }
   );
 
@@ -128,7 +144,11 @@ function registerStockLibraryTools(server, client, options = {}) {
     async (args) => {
       const q = buildQuery(args);
       const result = await client.get(`/v1/stock/collections${q ? '?' + q : ''}`);
-      const text = JSON.stringify({ count: result.count, collections: result.collections }, null, 2);
+      const text = compactList(result.collections, {
+        fields: ['id', 'name', 'slug', 'mediaType', 'source', 'itemCount'],
+        cap: 60,
+        total: result.count,
+      });
 
       if (ui()) {
         const collections = result.collections || [];

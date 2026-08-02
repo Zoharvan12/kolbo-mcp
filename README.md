@@ -113,7 +113,7 @@ Just ask your agent naturally:
 
 Without the optional skill, the config block alone already exposes every tool — you just describe what you want. With the skill installed, each of these is also routed to the right MCP tool with the right defaults — UGC mode picks 9:16 + sound-off + no-captions, marketplace mode enforces compliance (pure white bg, no text, no props), product photoshoot mode uses the right aspect for the platform (2:3 Pinterest, 16:9 hero banner, 1:1 IG feed), etc. The routing logic is shared with [Kolbo Code](https://github.com/Zoharvan12/kolbo-code), so the behavior is identical however you connect.
 
-## Available Tools (101)
+## Available Tools (117)
 
 **Generation**
 | Tool | Description |
@@ -123,7 +123,7 @@ Without the optional skill, the config block alone already exposes every tool �
 | `generate_video` | Text → video |
 | `generate_video_from_image` | Still image + motion prompt → video |
 | `generate_video_from_video` | Input video → restyled video, or burn in subtitles (video-to-video). `prompt` optional — prompt-less models (VEED Subtitles, Act Two, Wan Animate) use `preset` / `source_language` / `translation_language`, plus `srt_content` / `srt_file_url` / `vocabulary` / `customization` for VEED |
-| `generate_elements` | Reference images/videos + prompt → animated video |
+| `generate_elements` | Reference images/videos/audio + prompt → animated video |
 | `generate_first_last_frame` | First frame + last frame → interpolated video |
 | `generate_lipsync` | Source image/video + audio → lipsynced video (Sync-3 adds active-speaker selection, emotion, model mode, temperature) |
 | `generate_creative_director` | One brief → N coordinated scenes (image or video) |
@@ -175,6 +175,7 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | Tool | Description |
 |------|-------------|
 | `media_upload_widget` | Open an in-chat upload card so claude.ai users can upload LOCAL files (image / video / audio / document) — chat attachments are unreachable from remote MCP, so this is the way to bring them in. Returns stable CDN URLs |
+| `create_upload_ticket` | Get a short-lived upload ticket and POST local files yourself — no upload card, no user interaction. For agents with shell access (Claude Code, Codex, Cursor, CI) talking to Kolbo over a remote connector |
 | `upload_media` | Upload a local file (path or URL), or inline `source_base64` + `filename`, → stable Kolbo CDN URL for reuse |
 | `list_media` | Browse media library — filter by `project_id`, `folder_id`, `type`, `category` (ai / uploaded / edited / favorites / training-lab), `source_type`, `sort`, `search`, pagination |
 | `list_media_folders` | List the user's media folders (owned + shared) — discover `folder_id` values to pass to `list_media` |
@@ -227,17 +228,6 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `analyze_script_for_stock` | AI: turn a script into b-roll search terms (`queries[]`, `mediaType`, `keywords`). |
 | `import_stock_asset` | Copy a stock asset into the media library (CDN copy, stable URL). Free. |
 
-**Shorts Creator** (long video → viral vertical shorts, two-phase)
-| Tool | Description |
-|------|-------------|
-| `shorts_analyze` | Phase 1: analyze a long video (Kolbo media-library URL, ≤30 min) → AI-picked best moments with titles, hooks, scores, accent beats. Flat 15 credits. Polls until moments are ready (~1-3 min). |
-| `shorts_list_presets` | List restyle presets (identifier, name, preview video, default mode/subtitle style). |
-| `shorts_get_transcript` | Word-level Scribe transcript of the source video (`words`, `language`, `sourceDuration`) — the base for the Review & Edit workflow (build `delete_ranges` cuts + edited `srt_content`). |
-| `shorts_estimate` | Price a selection before rendering — free. Per-short credits + chunk counts. `delete_ranges` cuts shorten the effective duration (cheaper). |
-| `shorts_render` | Phase 2: render up to 5 shorts (15-90s each) from picked moments — `accents` mode (restyle strongest beats, cheaper) or `full` (restyle everything), optional burned-in subtitles. Per short: optional `delete_ranges` (cut dead air, absolute source seconds, ≥8s must remain) and `srt_content` (user-edited SRT, cut-timeline times, ≤200KB). Polls until done (~5-20 min), returns final URLs. Failed shorts auto-refund. |
-| `shorts_status` | One-shot job state read (moments / shorts / phase) — resume after a timeout. |
-| `shorts_cancel` | Cancel a job and refund unused credits. |
-
 **Discovery & Account**
 | Tool | Description |
 |------|-------------|
@@ -253,7 +243,6 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `create_project` / `update_project` / `archive_project` / `unarchive_project` | Project lifecycle (create/rename/describe/archive; deletion stays in-app) |
 | `list_agents` / `create_agent` / `update_agent` / `delete_agent` | Custom chat agents (reusable named personas; `description` is the system instruction) |
 | `get_creative_director_status` | Re-check a Creative Director batch by generation_id until all parallel scenes finish (use after a `_timed_out` Director run) |
-| `app_builder_list_projects` / `app_builder_create_session` / `app_builder_generate_app` / `app_builder_edit_app` / `app_builder_get_build_status` / `app_builder_get_session` / `app_builder_list_sessions` / `app_builder_list_generations` / `app_builder_delete_session` | **App Builder (preview)** — full React app generation that auto-provisions a GitHub repo + Supabase DB + a live deployment URL. Different surface from the generation tools (4-layer mental model: project → session → app → end-users). The app embeds `@kolbo/app-sdk` so visitors can call Kolbo AI from the browser; the OWNER pays for visitor AI usage. Read the App Builder workflow doc before the first turn. |
 | `list_sessions` | Enumerate sessions across all types, filterable by project and type |
 | `add_project_context` / `list_project_context` / `delete_project_context` / `get_project_profile` / `regenerate_project_profile` | Project knowledge base (RAG): feed scripts/URLs/notes, read the synthesized living brief |
 | `create_moodboard` / `update_moodboard` / `delete_moodboard` | Build/edit moodboards from image URLs (AI style analysis → master prompt) |

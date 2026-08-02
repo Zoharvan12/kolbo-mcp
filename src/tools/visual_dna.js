@@ -5,7 +5,7 @@
 
 const { z } = require('zod');
 const FormData = require('form-data');
-const { resolveToBuffer: sharedResolveToBuffer, VISUAL_DNA_MAX_BYTES, projectScopeReadField } = require('./_shared');
+const { resolveToBuffer: sharedResolveToBuffer, VISUAL_DNA_MAX_BYTES, projectScopeReadField, compactList } = require('./_shared');
 const { UI, uiResult, appsEnabled } = require('../apps');
 
 // Visual DNA caps reference media at 25MB per file (stricter than the
@@ -110,10 +110,14 @@ function registerVisualDnaTools(server, client, options = {}) {
       const qs = params.toString();
       const result = await client.get(`/v1/visual-dna${qs ? '?' + qs : ''}`);
       const dnas = result.visual_dnas || [];
-      const text = JSON.stringify({
-        visual_dnas: dnas,
-        count: result.count || 0
-      }, null, 2);
+      // Full profiles measured 74,310 chars — the embedded analysis/description
+      // blobs are large and the model only needs enough to pick an id.
+      const text = compactList(dnas, {
+        fields: ['id', 'name', 'type', 'folder_id', 'tags', 'thumbnail'],
+        cap: 60,
+        total: result.count || dnas.length,
+        note: 'Narrow with `search`, `tags`, or `collection`; get_visual_dna returns one in full.',
+      });
 
       if (ui()) {
         return uiResult(UI.mediaGrid, text, {

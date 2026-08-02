@@ -5,16 +5,70 @@
 
 const { z } = require('zod');
 const FormData = require('form-data');
-const { resolveToBuffer } = require('./_shared');
+const { resolveToBuffer, DEFAULT_MAX_FILE_MB, compactList } = require('./_shared');
 const { UI, uiResult, appsEnabled } = require('../apps');
+
+// How many tiles the media grid renders. A rendering limit only — the text
+// payload always carries the full page, and `total` reports the real library
+// count, so a capped grid can never be mistaken for "that's everything".
+const GRID_CAP = 24;
+
+async function mintUploadTicket(client) {
+  const ticket = await client.post('/v1/media/upload-ticket', {});
+  if (!ticket || !ticket.token) throw new Error('Could not create an upload ticket — try again.');
+  return ticket;
+}
+
+// Shape a /v1/media/upload-ticket response for a TEXT consumer (an agent that
+// will POST the file itself). The widget path needs different keys (`expires_at`
+// as an absolute ms timestamp for the countdown), so it builds its own payload.
+//
+// This carries the full recipe, not a pointer to it: both callers are agents
+// holding a token they must use immediately, and telling one of them to go call
+// another tool to learn the POST shape would spend the round trip this whole
+// path exists to remove.
+function uploadTicketPayload(ticket) {
+  return {
+    upload_url: ticket.upload_url,
+    token: ticket.token,
+    expires_in_seconds: ticket.expires_in,
+    max_file_mb: ticket.max_file_mb || DEFAULT_MAX_FILE_MB,
+    accepted: ticket.accepted,
+    how_to_upload: {
+      example: 'curl -X POST "<upload_url>" -H "Authorization: Bearer <token>" -F "file=@/absolute/path/to/file.mp3"',
+      optional_fields: ['project_id', 'description'],
+      response: 'JSON — the stable CDN URL is at media.url. One POST per file; reuse the ticket for a batch.',
+      // Git Bash hands curl a POSIX-style /c/Users/... path that Windows curl
+      // cannot open (exit 26). Real trap — it cost a round trip to find.
+      windows_note: 'Give curl a native path (C:/Users/...) — a Git Bash /c/Users/... path fails to open.',
+    },
+    // The one thing the server cannot detect: a caller with no shell that got
+    // here anyway. Without this it is left holding a token it can never use.
+    if_you_cannot_run_shell_or_http: 'Discard this ticket and call `media_upload_widget` instead so the user can pick the file.',
+  };
+}
 
 function registerMediaTools(server, client, options = {}) {
   const ui = () => appsEnabled(server, options);
 
+  // `opts.apps` is set only by kolbo-api's per-request server (see createServer
+  // in ../index.js), which makes it a TRANSPORT signal — deliberately not
+  // `appsEnabled()`, which also returns true for stdio hosts that advertise UI.
+  // Transport is what decides whether a local path can resolve at all, so state
+  // it in the descriptions rather than making the model infer it. What the
+  // server still cannot know is whether the CALLER has a shell (one connector
+  // serves both claude.ai and Claude Code), hence the fallback hint in the
+  // ticket payload.
+  const isRemoteConnector = options.apps === true;
+
+  const ticketRouting = isRemoteConnector
+    ? 'You are reached over a REMOTE connector: this server cannot read the caller\'s disk, so `upload_media` with a local path will always fail here — do not try it. If you can run shell commands or issue HTTP requests yourself, this tool is the right path. If you cannot (claude.ai web/mobile), ignore this tool and call `media_upload_widget` so the user picks the file.'
+    : 'You are a LOCAL (stdio) install: server and client share a filesystem, so for an ordinary local file prefer `upload_media` with the absolute path — one call, no ticket needed. Use this tool only when you specifically want to stream files up yourself (large batches, CI, an external uploader).';
+
   // ─── media_upload_widget ───────────────────────────────────
   server.tool(
     'media_upload_widget',
-    'Open an interactive file-upload card in the chat so the user can upload LOCAL files (images, videos, audio, documents) into their Kolbo media library. USE THIS IMMEDIATELY whenever a claude.ai (browser/mobile) user wants to use a local file, or references a file they attached to the chat — remote MCP tools CANNOT read chat attachments, so the user must re-upload through this widget; do not ask them to re-attach the file in chat. Each uploaded file gets a stable Kolbo CDN URL that arrives in a follow-up user message — then pass those URLs to generation tools (generate_image_edit, generate_video_from_image, generate_lipsync, transcribe_audio, visual DNA, etc.). On Claude Desktop / Claude Code with filesystem access, prefer `upload_media` with the local path instead.',
+    'Open an interactive file-upload card in the chat so the user can upload LOCAL files (images, videos, audio, documents) into their Kolbo media library. USE THIS IMMEDIATELY whenever a claude.ai (browser/mobile) user wants to use a local file, or references a file they attached to the chat — remote MCP tools CANNOT read chat attachments, so the user must re-upload through this widget; do not ask them to re-attach the file in chat. Each uploaded file gets a stable Kolbo CDN URL that arrives in a follow-up user message — then pass those URLs to generation tools (generate_image_edit, generate_video_from_image, generate_lipsync, transcribe_audio, visual DNA, etc.). ROUTING depends on where the SERVER runs, not on which client you are: `upload_media` with a local path only works on a LOCAL (stdio) install, where server and client share a filesystem. Over a remote connector a local path is unreachable however capable the client is — there, if you can run shell commands, call `create_upload_ticket` and POST the file yourself (no user interaction needed); use this widget when you cannot reach the filesystem (claude.ai web/mobile) or when the user should choose the file.',
     {
       purpose: z.string().optional().describe('Short title shown on the card, e.g. "Upload the photo to animate". Helps the user know what to drop.'),
       media_types: z.array(z.enum(['image', 'video', 'audio', 'document'])).optional().describe('Restrict which file kinds the widget accepts. Omit to accept all types.'),
@@ -22,8 +76,7 @@ function registerMediaTools(server, client, options = {}) {
       project_id: z.string().optional().describe('Project ObjectId to file the uploads into (resolve names via `list_projects`).')
     },
     async ({ purpose, media_types, max_files, project_id }) => {
-      const ticket = await client.post('/v1/media/upload-ticket', {});
-      if (!ticket || !ticket.token) throw new Error('Could not create an upload ticket — try again.');
+      const ticket = await mintUploadTicket(client);
 
       const info = {
         status: 'upload_widget_opened',
@@ -41,18 +94,41 @@ function registerMediaTools(server, client, options = {}) {
           expires_at: Date.now() + (ticket.expires_in || 900) * 1000,
           kinds: media_types && media_types.length ? media_types : undefined,
           max_files: Math.min(Math.max(Number(max_files) || 10, 1), 20),
-          max_mb: ticket.max_file_mb || { image: 50, video: 500, audio: 200, document: 50 },
+          max_mb: ticket.max_file_mb || DEFAULT_MAX_FILE_MB,
           ...(project_id ? { project_id } : {}),
         });
       }
 
-      // Text-only host: no iframe to render — steer to upload_media.
+      // Text-only host (Claude Code, Codex CLI, Cursor): no iframe to render —
+      // but these are exactly the hosts that CAN reach a filesystem, so hand
+      // back the ticket already minted instead of dead-ending. Additive fields
+      // only; `status` is unchanged for any existing consumer.
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
             status: 'widget_unavailable',
-            hint: 'This host cannot render the upload widget. Use the upload_media tool with a URL or absolute local file path instead.'
+            hint: 'This host cannot render the upload card, but it can usually reach the filesystem. Upload the file yourself by POSTing it to upload_url with this ticket — the recipe is below. On a LOCAL stdio install you can also just call upload_media with the absolute path.',
+            ...uploadTicketPayload(ticket),
+          }, null, 2)
+        }]
+      };
+    }
+  );
+
+  // ─── create_upload_ticket ──────────────────────────────────
+  server.tool(
+    'create_upload_ticket',
+    'Get a short-lived ticket for uploading LOCAL files straight into the user\'s Kolbo media library, with NO upload card and no user interaction. ' + ticketRouting + ' Why it exists: when the server cannot read the caller\'s disk, the only other ways in are making the user click an upload card (`media_upload_widget`) or inlining the file as base64 via `upload_media` — base64 is slow and burns context in proportion to file size, so do not use it for anything but a tiny file. Returns `upload_url` + `token`; POST each file as multipart field `file` with header `Authorization: Bearer <token>` and read the CDN URL from `media.url` in the response. One POST per file; the ticket is reusable until it expires. Then pass those URLs to any generation tool (transcribe_audio, generate_image_edit, generate_video_from_image, generate_lipsync, visual DNA, …).',
+    {},
+    async () => {
+      const ticket = await mintUploadTicket(client);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            status: 'upload_ticket_created',
+            ...uploadTicketPayload(ticket),
           }, null, 2)
         }]
       };
@@ -128,7 +204,7 @@ function registerMediaTools(server, client, options = {}) {
     'list_media',
     'Browse the user\'s Kolbo media library — both uploaded files AND AI-generated outputs they have saved. Powerful filtering: scope to a single project (`project_id`), a user folder (`folder_id`), a "section" / category (`category`: ai / uploaded / edited / favorites / training-lab), a media type (`type`: image / video / audio), or generation provenance (`source_type`). Combine filters freely. Use this to discover what the user already has before generating something new, to retrieve a specific past creation, or to list everything in a project for downstream batch work.',
     {
-      project_id: z.string().optional().describe('Restrict to a single project (Mongo ObjectId). Use `list_projects` to discover IDs (NOT `app_builder_list_projects` — that is App Builder only). Omit to list across all the user\'s media.'),
+      project_id: z.string().optional().describe('Restrict to a single project (Mongo ObjectId). Use `list_projects` to discover IDs. Omit to list across all the user\'s media.'),
       folder_id: z.string().optional().describe('Restrict to a user folder (Mongo ObjectId). Discover folder IDs via `list_media_folders`. Takes precedence over project_id when both are set.'),
       type: z.enum(['image', 'video', 'audio', 'all']).optional().describe('Filter by media type. Default: all types.'),
       category: z.enum(['ai', 'uploaded', 'edited', 'favorites', 'training-lab', 'all']).optional().describe('Filter by "section" (matches the Kolbo desktop app sidebar): `ai` = AI-generated, `uploaded` = files the user uploaded, `edited` = AI-edited variants, `favorites` = items the user starred, `training-lab` = training-lab assets. Default: all sections.'),
@@ -155,10 +231,25 @@ function registerMediaTools(server, client, options = {}) {
 
       const media = result.media || [];
       const pagination = result.pagination || null;
-      const text = JSON.stringify({ media, pagination }, null, 2);
+      // A default page of 50 items measured 119,847 chars — every row carries a
+      // full metadata object and the original prompt. Keep what identifies and
+      // locates an item; get_media returns one in full.
+      const text = compactList(media, {
+        fields: ['id', 'filename', 'media_type', 'url', 'thumbnail_url', 'size', 'project_id', 'created_at'],
+        cap: 50,
+        total: pagination ? (pagination.total_items != null ? pagination.total_items : pagination.total) : media.length,
+        extra: pagination ? { pagination } : undefined,
+        note: 'Narrow with `type`, `category`, `project_id`, `folder_id`, or `search`; get_media returns one item in full.',
+      });
 
       if (ui()) {
-        const items = media.slice(0, 24).map((m) => ({
+        // The SDK envelope reports `total_items` (see sdk/controller.js listMedia);
+        // reading `total` always came back undefined, so the grid claimed the page
+        // size was the whole library. Accept either, then fall back.
+        const totalItems = pagination
+          ? (pagination.total_items != null ? pagination.total_items : pagination.total)
+          : null;
+        const items = media.slice(0, GRID_CAP).map((m) => ({
           id: m.id,
           title: m.filename,
           subtitle: m.media_type + (m.size ? ' · ' + Math.round(m.size / 1024) + 'KB' : ''),
@@ -171,7 +262,8 @@ function registerMediaTools(server, client, options = {}) {
           widget: 'media-grid',
           title: 'Media Library',
           items,
-          total: pagination && pagination.total != null ? pagination.total : media.length
+          total: totalItems != null ? totalItems : media.length,
+          shown: Math.min(media.length, GRID_CAP)
         });
       }
 
@@ -409,7 +501,7 @@ function registerMediaTools(server, client, options = {}) {
     'Move a media item to a different project. Caller must own the item AND have access to the target project. Items in shared projects from other members cannot be moved by you. Use this when the user says "move this to project X" or wants to reorganize.',
     {
       media_id: z.string().describe('MediaLibraryItem id to move.'),
-      project_id: z.string().describe('Target project id (use `list_projects` to discover ids — NOT `app_builder_list_projects`).')
+      project_id: z.string().describe('Target project id (use `list_projects` to discover ids).')
     },
     async ({ media_id, project_id }) => {
       const result = await client.patch(
