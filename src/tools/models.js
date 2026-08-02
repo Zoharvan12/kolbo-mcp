@@ -271,10 +271,46 @@ function registerModelTools(server, client, options = {}) {
         return parts.length ? `\n   ${parts.join(' | ')}` : '';
       };
 
+      // The FULL catalog with every spec line measured 140,590 chars — past what
+      // hosts accept, on the one discovery tool the skill tells the model to call
+      // when it is unsure. Unfiltered, emit the one-line form (enough to choose a
+      // model); once `type` narrows it, the set is small enough for full specs.
+      const detailed = !!type;
+      // Summaries run to a paragraph each; across the whole catalog that alone
+      // is most of the payload. Unfiltered, one clause is enough to choose by.
+      const brief = (s) => {
+        if (!s) return '';
+        const flat = String(s).replace(/\s+/g, ' ').trim();
+        return flat.length > 130 ? flat.slice(0, 127).trimEnd() + '…' : flat;
+      };
       const formatModel = m =>
-        `${m.identifier} (${m.name}) - ${m.credit} credits${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}${m.summary ? ` — ${m.summary}` : ''}${formatSpecs(m)}`;
+        `${m.identifier} (${m.name}) - ${m.credit} credits${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}${m.summary ? ` — ${detailed ? m.summary : brief(m.summary)}` : ''}${detailed ? formatSpecs(m) : ''}`;
 
       const sections = [];
+
+      if (!detailed) {
+        // The catalog is ~428 models. Listing all of them is both far past the
+        // text budget AND useless to choose from — so unfiltered, surface the
+        // curated picks and make the model narrow by `type` for the rest. This
+        // matches the connector rule of steering to a CONCRETE model.
+        const picks = result.models.filter(m => m.recommended || m.new_model);
+        if (picks.length) {
+          sections.push(`Recommended & new (${picks.length}):\n${picks.map(formatModel).join('\n')}`);
+        }
+        const text = `Kolbo model catalog — ${result.count} models total.\n\n`
+          + `${sections.join('\n\n')}\n\n`
+          + 'This is the curated shortlist, not the full catalog. To see everything in a '
+          + 'category (with per-model resolutions, durations, aspect ratios and reference-image '
+          + 'caps), re-call with `type`:\n'
+          + '  text_to_img · image_editing · text_to_video · img_to_video · video_to_video ·\n'
+          + '  first_last_frame · elements · lipsync · music_gen · text_to_speech ·\n'
+          + '  text_to_sound · stt · three_d · text\n\n'
+          + 'Use the "identifier" value as the "model" parameter in generate tools. '
+          + 'For raw documents (programmatic cap validation), re-call with format: "json".';
+        if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type, !showCatalog));
+        return { content: [{ type: 'text', text }] };
+      }
+
       if (withSummary.length > 0) {
         sections.push(`Auto-selectable models (${withSummary.length}) — safe to pick based on quality + cost:\n${withSummary.map(formatModel).join('\n')}`);
       }
@@ -282,7 +318,7 @@ function registerModelTools(server, client, options = {}) {
         sections.push(`Named-only models (${withoutSummary.length}) — only use if the user explicitly requests by name:\n${withoutSummary.map(formatModel).join('\n')}`);
       }
 
-      const text = `Available models (${result.count}):\n\n${sections.join('\n\n')}\n\nUse the "identifier" value as the "model" parameter in generate tools. For programmatic cap validation, re-call with format: "json".`;
+      const text = `Available ${type} models (${result.count}):\n\n${sections.join('\n\n')}\n\nUse the "identifier" value as the "model" parameter in generate tools. For programmatic cap validation, re-call with format: "json".`;
       if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type, !showCatalog));
       return { content: [{ type: 'text', text }] };
     }
@@ -312,9 +348,25 @@ function registerModelTools(server, client, options = {}) {
   // X credits in this app session" instead of estimating from base credits.
   server.tool(
     'get_session_usage',
-    'Fetch real, multiplier-adjusted credit spend for the current Kolbo Code app session. Use when the user asks "how much did I spend?" or before/after a large bulk job so you can quote actual cost (not an estimate from base credits). Returns total + per-tool breakdown + per-model breakdown + a recent list. The caller-session-id is forwarded automatically by the MCP HTTP client.',
+    'Fetch real, multiplier-adjusted credit spend for the current Kolbo Code app session. Use when the user asks "how much did I spend?" or before/after a large bulk job so you can quote actual cost (not an estimate from base credits). Returns total + per-tool breakdown + per-model breakdown + a recent list. The caller-session-id is forwarded automatically by the MCP HTTP client. ONLY works when running under Kolbo Code — on the claude.ai connector and other hosts there is no per-app session to scope to; use check_credits there instead.',
     {},
     async () => {
+      // Session scoping needs KOLBO_CALLER_SESSION_ID, which only the Kolbo Code
+      // parent process sets. The remote connector serves every user from one
+      // process, so it is never present there — calling anyway just returns a 400
+      // telling the user to reconfigure a process they do not control.
+      if (!process.env.KOLBO_CALLER_SESSION_ID) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              unavailable: 'Per-session usage is only tracked when running under Kolbo Code.',
+              reason: 'This host does not scope tool calls to an app session, so there is no session to total.',
+              use_instead: 'check_credits for the current balance, or the Usage page at https://app.kolbo.ai.'
+            })
+          }]
+        };
+      }
       try {
         const r = await client.get('/credit-usage/by-caller-session');
         // The endpoint returns { message, data: { total, count, by_tool, by_model, recent[] } }

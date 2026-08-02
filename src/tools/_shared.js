@@ -30,6 +30,64 @@ const MAX_FILE_BYTES = 500 * 1024 * 1024; // 500 MB — larger than visual_dna b
 const VISUAL_DNA_MAX_BYTES = 25 * 1024 * 1024; // kept for visual_dna backward-compat
 const MAX_REDIRECTS = 5;
 
+// THE single statement of how a local file gets into Kolbo. It is repeated to
+// the model on several surfaces — the server `instructions` block (src/index.js),
+// the media tool descriptions, and both local-path errors below — so it lives
+// here and is imported, not retyped. It was previously pasted in five places and
+// a change to it updated only two, leaving `instructions` teaching the opposite.
+const LOCAL_FILE_ROUTING =
+  'If you are using Kolbo over a remote connector (e.g. claude.ai), local files are not reachable. ' +
+  'DO NOT upload the file yourself with cloud credentials or a shell command — Kolbo has a tool for this. ' +
+  'If you can run shell commands, call `create_upload_ticket` and POST the file to the returned upload_url. ' +
+  'Otherwise call `media_upload_widget` to have the user pick the file, or `upload_media` ' +
+  'when the file IS reachable from where the MCP server runs, then pass the returned https:// URL here. ' +
+  'A URL from `list_media` also works if the asset is already in the library.';
+
+// Every tool that takes user media as INPUT. Their descriptions promise "URL or
+// absolute local path" — true on a stdio install, a lie over a remote connector,
+// where the model would read it, see no filesystem, and tell the user Kolbo
+// cannot take their file at all. attachFileInputHints() below appends the route
+// that actually works for the current transport, so the refusal never happens.
+const FILE_INPUT_TOOLS = [
+  'generate_image', 'generate_image_edit', 'generate_creative_director',
+  'generate_video', 'generate_video_from_image', 'generate_video_from_video',
+  'generate_elements', 'generate_first_last_frame', 'generate_lipsync',
+  'generate_3d', 'edit_image', 'edit_video', 'transcribe_audio',
+  'create_visual_dna', 'generate_character_sheet', 'clone_voice',
+  'chat_send_message', 'create_moodboard'
+];
+
+const REMOTE_FILE_HINT =
+  ' LOCAL FILE (on the user\'s machine, or attached to this chat)? NEVER reply that you cannot upload files — Kolbo uploads it for you. ' +
+  'Call `media_upload_widget` so the user picks the file (claude.ai web/mobile), or `create_upload_ticket` and POST the file yourself if you can run shell/HTTP commands; ' +
+  'either way you get an https:// URL to pass here. Ignore any "absolute local path" wording in the args below — this server cannot read the caller\'s disk, so a path will fail.';
+
+const LOCAL_FILE_HINT =
+  ' LOCAL FILE? Absolute local paths work here (server and client share a filesystem). ' +
+  'Never reply that you cannot upload files — for a file you will reference more than once, call `upload_media` first and reuse the returned https:// URL.';
+
+/**
+ * Append the transport-correct local-file route to every media-input tool's
+ * description, post-registration (same pattern as attachToolWidgetMeta).
+ * `options.apps === true` is set ONLY by kolbo-api's remote per-request server,
+ * so it is a transport signal — not `appsEnabled()`, which is also true for
+ * stdio hosts that render widgets but CAN still read local paths.
+ */
+function attachFileInputHints(server, options = {}) {
+  const hint = options.apps === true ? REMOTE_FILE_HINT : LOCAL_FILE_HINT;
+  const registered = server._registeredTools || {};
+  for (const name of FILE_INPUT_TOOLS) {
+    const t = registered[name];
+    if (t && typeof t.description === 'string' && !t.description.includes(hint)) {
+      t.description += hint;
+    }
+  }
+}
+
+// Per-kind upload caps advertised to callers when the ticket endpoint omits them.
+// Mirrors MAX_MB in kolbo-api src/modules/mcpConnector/upload.js.
+const DEFAULT_MAX_FILE_MB = { image: 50, video: 500, audio: 200, document: 50 };
+
 function isHttpUrl(s) {
   return typeof s === 'string' && /^https?:\/\//i.test(s);
 }
@@ -184,13 +242,16 @@ async function resolveToBuffer(source, kind, opts = {}) {
   }
 
   if (!path.isAbsolute(source)) {
+    // `path.isAbsolute` is platform-specific: on a POSIX server (every remote
+    // connector deployment) a valid Windows path like `C:\Users\...` or
+    // `\\server\share\...` returns false, so "must be absolute" is a lie that
+    // sends the caller off retrying slash variants. `path.win32.isAbsolute`
+    // answers the same question with Node's own grammar.
     throw new Error(
-      `Local file paths must be absolute: ${source}. ` +
-      `If you are using Kolbo over a remote connector (e.g. claude.ai), local files are not reachable. ` +
-      `DO NOT upload the file yourself with cloud credentials or a shell command — Kolbo has a tool for this. ` +
-      `Call \`media_upload_widget\` to have the user pick the file (remote connectors), or \`upload_media\` ` +
-      `when the file IS reachable from where the MCP server runs, then pass the returned https:// URL here. ` +
-      `A URL from \`list_media\` also works if the asset is already in the library.`
+      (path.win32.isAbsolute(source)
+        ? `This Kolbo server cannot read files off the calling machine, so the Windows path ${source} is unreachable from here. `
+        : `Local file paths must be absolute: ${source}. `) +
+      LOCAL_FILE_ROUTING
     );
   }
   let stat;
@@ -199,11 +260,7 @@ async function resolveToBuffer(source, kind, opts = {}) {
   } catch (err) {
     throw new Error(
       `Local file not found or unreadable: ${source}. ` +
-      `If you are using Kolbo over a remote connector (e.g. claude.ai), local file paths are not reachable. ` +
-      `DO NOT upload the file yourself with cloud credentials or a shell command — Kolbo has a tool for this. ` +
-      `Call \`media_upload_widget\` to have the user pick the file (remote connectors), or \`upload_media\` ` +
-      `when the file IS reachable from where the MCP server runs, then pass the returned https:// URL here. ` +
-      `A URL from \`list_media\` also works if the asset is already in the library.` +
+      LOCAL_FILE_ROUTING +
       (err && err.code ? ` [${err.code}]` : '')
     );
   }
@@ -498,9 +555,78 @@ async function uiCompleted(p, textPayload) {
   return uiResult(UI.generation, textPayload, structured);
 }
 
+// ─── Text-payload budget ─────────────────────────────────────────────────────
+//
+// Whatever a tool returns as TEXT is what the model actually reads, and hosts
+// reject or spill-to-disk anything much past this. A list tool that dumps every
+// field of every row blows it instantly: list_presets measured 632,919 chars,
+// get_stock_categories 257,817, list_voices 190,286 — all pretty-printed with
+// `JSON.stringify(x, null, 2)` and no cap. The widget path already slims rows to
+// id/title/thumbnail; the text path has to do the same or the tool is unusable
+// on exactly the text hosts (Claude Code, Cursor, Codex) that depend on it.
+const MAX_TEXT_CHARS = 20000;
+
+/**
+ * Build a compact text payload for a list-shaped result.
+ *
+ * @param {object[]} items   rows from the API
+ * @param {object}   opts
+ * @param {string[]} opts.fields  keys to keep per row, in order (others dropped)
+ * @param {number}   [opts.cap]   max rows to include (default 50)
+ * @param {number}   [opts.total] true total, so the model knows more exist
+ * @param {object}   [opts.extra] extra top-level keys to merge in
+ * @param {string}   [opts.note]  guidance on how to fetch the rest
+ */
+function compactList(items, { fields, cap = 50, total, extra, note } = {}) {
+  const rows = Array.isArray(items) ? items : [];
+  const kept = rows.slice(0, cap).map((row) => {
+    if (!row || typeof row !== 'object') return row;
+    const out = {};
+    for (const f of fields || Object.keys(row)) {
+      // Drop empties — a row of nulls costs tokens and tells the model nothing.
+      if (row[f] !== undefined && row[f] !== null && row[f] !== '') out[f] = row[f];
+    }
+    return out;
+  });
+
+  const payload = { ...(extra || {}), items: kept, count: kept.length };
+  if (total != null) payload.total = total;
+  const omitted = Math.max(rows.length - kept.length, 0);
+  if (omitted > 0 || (total != null && total > kept.length)) {
+    payload._truncated = {
+      omitted_from_this_page: omitted,
+      hint: note || 'Narrow with the tool\'s filter args, or page for more.',
+    };
+  }
+
+  let text = JSON.stringify(payload);
+  if (text.length > MAX_TEXT_CHARS) {
+    // Still too big even trimmed (very long descriptions). Halve until it fits
+    // rather than returning something the host will truncate at a random byte.
+    let n = kept.length;
+    while (n > 1 && text.length > MAX_TEXT_CHARS) {
+      n = Math.floor(n / 2);
+      payload.items = kept.slice(0, n);
+      payload.count = n;
+      payload._truncated = {
+        omitted_from_this_page: rows.length - n,
+        hint: note || 'Result was too large for one response; narrow with filter args.',
+      };
+      text = JSON.stringify(payload);
+    }
+  }
+  return text;
+}
+
 module.exports = {
   MAX_FILE_BYTES,
+  MAX_TEXT_CHARS,
+  compactList,
   VISUAL_DNA_MAX_BYTES,
+  LOCAL_FILE_ROUTING,
+  FILE_INPUT_TOOLS,
+  attachFileInputHints,
+  DEFAULT_MAX_FILE_MB,
   isHttpUrl,
   assertSafeUrl,
   safeFetch,

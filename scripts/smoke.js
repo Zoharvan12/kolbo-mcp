@@ -158,6 +158,67 @@ async function main() {
     console.log('[smoke] Codex async generation contracts OK');
   }
 
+  // 0c. Every media-input tool must carry the transport-correct local-file
+  // route in its description. A name that drifts out of FILE_INPUT_TOOLS fails
+  // silently, and the tool goes back to promising "absolute local path" over a
+  // remote connector — which is what makes the model answer "I can't upload
+  // your file" instead of calling the upload tools.
+  {
+    const { createServer } = require(path.join(PKG_ROOT, 'src', 'index.js'));
+    const { FILE_INPUT_TOOLS } = require(path.join(PKG_ROOT, 'src', 'tools', '_shared'));
+    const previousKey = process.env.KOLBO_API_KEY;
+    process.env.KOLBO_API_KEY = 'kolbo_smoke_dummy';
+    try {
+      for (const [label, opts, mustSay] of [
+        ['remote connector', { apps: true }, 'media_upload_widget'],
+        ['stdio install', {}, 'Absolute local paths work here'],
+      ]) {
+        const tools = createServer(opts)._registeredTools;
+        for (const name of FILE_INPUT_TOOLS) {
+          if (!tools[name]) throw new Error(`FILE_INPUT_TOOLS lists "${name}", which is not a registered tool`);
+          if (!tools[name].description.includes(mustSay)) {
+            throw new Error(`${name} is missing the ${label} local-file route in its description`);
+          }
+        }
+      }
+    } finally {
+      if (previousKey === undefined) delete process.env.KOLBO_API_KEY;
+      else process.env.KOLBO_API_KEY = previousKey;
+    }
+    console.log('[smoke] local-file routing hints attached OK');
+  }
+
+  // 0e. A long wait must never go silent on the wire. Without a keepalive the
+  // connection carries zero bytes for the whole poll window (up to 3 min on
+  // get_generation_status wait=true), and idle-timeout intermediaries — office
+  // proxies, VPNs — hang up. The user reports that as "Kolbo disconnected".
+  {
+    const progress = require(path.join(PKG_ROOT, 'src', 'progress'));
+    const { pollUntilDone } = require(path.join(PKG_ROOT, 'src', 'polling'));
+    const sent = [];
+    const extra = {
+      _meta: { progressToken: 'smoke-token' },
+      sendNotification: async (n) => { sent.push(n); },
+    };
+    let calls = 0;
+    const client = { get: async () => (++calls < 3 ? { state: 'processing' } : { state: 'completed', result: {} }) };
+    await progress.run(extra, () => pollUntilDone(client, 'gen-1', { interval: 1, timeout: 10000 }));
+    if (sent.length !== 2) throw new Error(`expected a keepalive per pending poll, got ${sent.length}`);
+    const values = sent.map(n => n.params.progress);
+    if (values.some((v, i) => i > 0 && v <= values[i - 1])) {
+      throw new Error(`progress values must strictly increase, got ${values.join(',')}`);
+    }
+    // A host that refuses the notification must not fail the generation.
+    await progress.run(
+      { _meta: { progressToken: 't' }, sendNotification: async () => { throw new Error('host rejected'); } },
+      () => pollUntilDone({ get: async () => ({ state: 'processing' }) }, 'gen-2', { interval: 1, timeout: 30 })
+    ).then(
+      () => { throw new Error('poll should have timed out, not resolved'); },
+      (err) => { if (!err.timedOut) throw new Error(`keepalive failure leaked out as: ${err.message}`); }
+    );
+    console.log('[smoke] long-wait keepalive OK');
+  }
+
   // 0. Widget scripts must PARSE. The widgets are assembled from template
   // literals, where a quoting slip (e.g. \' collapsing to ') ships a widget
   // whose inline <script> is a syntax error → an empty card in claude.ai that
@@ -186,6 +247,47 @@ async function main() {
       }
     }
     console.log('[smoke] widget scripts parse OK');
+  }
+
+  // 0d. Every HTTP request must be bounded. An unbounded fetch is the failure
+  // users report as "the tool never finishes": pollUntilDone only checks its
+  // deadline BETWEEN polls, so one request that never settles hangs the tool
+  // past its declared timeout with no error at all. Assert against a server
+  // that accepts the connection and then goes silent — the exact shape of it.
+  {
+    const http = require('http');
+    const srv = http.createServer(() => { /* deliberately never responds */ });
+    await new Promise((resolve) => srv.listen(0, resolve));
+    const prevUrl = process.env.KOLBO_API_URL;
+    const prevKey = process.env.KOLBO_API_KEY;
+    const prevTimeout = process.env.KOLBO_HTTP_TIMEOUT_MS;
+    try {
+      process.env.KOLBO_API_URL = `http://127.0.0.1:${srv.address().port}/api`;
+      process.env.KOLBO_API_KEY = 'smoke-dummy';
+      process.env.KOLBO_HTTP_TIMEOUT_MS = '1500';
+      delete require.cache[require.resolve(path.join(PKG_ROOT, 'src', 'client.js'))];
+      const KolboClient = require(path.join(PKG_ROOT, 'src', 'client.js'));
+      const client = new KolboClient({ allowBrowserLogin: false });
+
+      const started = Date.now();
+      let code = null;
+      try { await client.get('/v1/account/credits'); } catch (err) { code = err.code; }
+      const elapsed = Date.now() - started;
+
+      if (code !== 'REQUEST_TIMEOUT') {
+        throw new Error(`hanging request did not time out cleanly (code=${code}) — src/client.js must bound every fetch`);
+      }
+      if (elapsed > 10000) {
+        throw new Error(`request timeout took ${elapsed}ms — the abort signal is not being applied`);
+      }
+    } finally {
+      srv.close();
+      if (prevUrl === undefined) delete process.env.KOLBO_API_URL; else process.env.KOLBO_API_URL = prevUrl;
+      if (prevKey === undefined) delete process.env.KOLBO_API_KEY; else process.env.KOLBO_API_KEY = prevKey;
+      if (prevTimeout === undefined) delete process.env.KOLBO_HTTP_TIMEOUT_MS; else process.env.KOLBO_HTTP_TIMEOUT_MS = prevTimeout;
+      delete require.cache[require.resolve(path.join(PKG_ROOT, 'src', 'client.js'))];
+    }
+    console.log('[smoke] HTTP requests are timeout-bounded OK');
   }
 
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kolbo-mcp-smoke-'));

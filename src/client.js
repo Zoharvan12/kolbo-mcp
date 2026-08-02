@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const progress = require('./progress');
 
 /**
  * Kolbo API HTTP client wrapper
@@ -24,6 +25,26 @@ class KolboApiError extends Error {
     this.status = status || null;
     this.data = data || null;
   }
+}
+
+// Per-REQUEST ceilings. These are not the generation timeouts — a long job is a
+// poll LOOP of many short requests, and pollUntilDone only checks its own
+// deadline BETWEEN polls. So an individual request that never settles hangs the
+// whole tool straight past its declared window, with no error, forever. Bound
+// each request instead; the loop keeps its own budget.
+const REQUEST_TIMEOUT_MS = Number(process.env.KOLBO_HTTP_TIMEOUT_MS) || 120000;
+// Uploads legitimately run long — up to 25MB/file over a slow uplink.
+const UPLOAD_TIMEOUT_MS = Number(process.env.KOLBO_UPLOAD_TIMEOUT_MS) || 600000;
+
+// AbortSignal.timeout is Node 18+; package engines already require >=18.
+function timeoutSignal(ms) {
+  return typeof AbortSignal !== 'undefined' && AbortSignal.timeout
+    ? AbortSignal.timeout(ms)
+    : undefined;
+}
+
+function isAbortError(err) {
+  return err && (err.name === 'TimeoutError' || err.name === 'AbortError');
 }
 
 // ---------------------------------------------------------------------------
@@ -263,7 +284,23 @@ class KolboClient {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    options.signal = timeoutSignal(REQUEST_TIMEOUT_MS);
+
+    let response;
+    try {
+      response = await fetch(url, options);
+    } catch (err) {
+      if (isAbortError(err)) {
+        throw new KolboApiError(
+          `Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s: ${method} ${reqPath}. ` +
+          'The job may still be running server-side — poll get_generation_status before retrying. ' +
+          'Raise KOLBO_HTTP_TIMEOUT_MS if this is a legitimately slow endpoint.',
+          { code: 'REQUEST_TIMEOUT', status: 504 }
+        );
+      }
+      throw err;
+    }
+
     let data;
     try {
       data = await response.json();
@@ -296,6 +333,10 @@ class KolboClient {
       });
     }
 
+    const generationId = data?.generation_id || data?.generationId;
+    if (method === 'POST' && generationId) {
+      await progress.generation(generationId);
+    }
     return data;
   }
 
@@ -346,11 +387,24 @@ class KolboClient {
     const body = formData.getBuffer();
     headers['Content-Length'] = String(body.length);
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body
-    });
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body,
+        signal: timeoutSignal(UPLOAD_TIMEOUT_MS)
+      });
+    } catch (err) {
+      if (isAbortError(err)) {
+        throw new KolboApiError(
+          `Upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s: POST ${reqPath} ` +
+          `(${Math.round(body.length / 1024)}KB). Raise KOLBO_UPLOAD_TIMEOUT_MS for slow links.`,
+          { code: 'UPLOAD_TIMEOUT', status: 504 }
+        );
+      }
+      throw err;
+    }
 
     let data;
     try {

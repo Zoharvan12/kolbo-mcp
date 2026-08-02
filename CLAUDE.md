@@ -83,7 +83,7 @@ kolbo-code/packages/opencode/skills/kolbo/
         ├── product-photoshoot.md     # 10 modes for brand product imagery — generate_image / generate_creative_director
         ├── marketplace-cards.md      # Amazon/Shopify listings — generate_creative_director with compliance-aware prompts
         ├── visual-dna.md, production-log.md, transcription.md, research-first.md,
-        ├── media-library.md, app-builder.md, cost-and-validation.md, troubleshooting.md
+        ├── media-library.md, cost-and-validation.md, troubleshooting.md
 ```
 
 **What to update when you change a tool:**
@@ -213,7 +213,7 @@ src/tools/chat.js        — Chat tools (send, list conversations, get messages)
 src/tools/visual_dna.js  — Visual DNA CRUD (thin wrapper that imports from _shared)
 src/tools/moodboards.js  — Moodboard discovery (list, get)
 src/tools/color_palettes.js — Color DNA CRUD (list, analyze, create, update, delete, activate, deactivate — sticky account-wide palette applied to every generation)
-src/tools/media.js       — Media library: media_upload_widget, upload_media, list_media, get_media, delete_media, restore_media,
+src/tools/media.js       — Media library: media_upload_widget, create_upload_ticket, upload_media, list_media, get_media, delete_media, restore_media,
                             permanently_delete_media, move_media, bulk_delete_media, bulk_restore_media,
                             bulk_permanently_delete_media, bulk_move_media, get_media_stats,
                             favorite_media, unfavorite_media, list_media_folders, create_media_folder,
@@ -224,17 +224,14 @@ src/tools/presets.js     — Preset discovery (list_presets — unified across c
 src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
 src/tools/docs.js        — AI Docs / Magic Pad (create_doc, list_docs, get_doc, update_doc, share_doc, delete_doc)
 src/tools/projects.js   — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool; move_session — move a session + its media between projects)
-src/tools/app_builder.js — App Builder: full React app generation (preview) — create session, generate app, edit, get build status, get GitHub/Supabase credentials, list/delete sessions. Auto-provisions GitHub repo + Supabase DB + live deployment URL on first build. See `skill/references/workflows/app-builder.md` for the 4-layer mental model (project → session → app → end-users).
 src/tools/agents.js      — Custom chat agents CRUD (list_agents, create_agent, update_agent, delete_agent — reusable named personas; `description` is the system instruction)
 src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
 src/tools/music_library.js — SYNCI preview discovery plus idempotent paid clean MP3/WAV acquisition/import
-src/tools/shorts_creator.js — Shorts Creator two-phase job flow (shorts_analyze, shorts_list_presets,
-                            shorts_get_transcript, shorts_estimate, shorts_render, shorts_status, shorts_cancel)
 scripts/smoke.js         — Load-time smoke test (no network)
 scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
 ```
 
-## Available Tools (101)
+## Available Tools (118 registered)
 
 Every generation tool below also accepts an optional `project_id` arg that routes the generation into a specific project (owner + edit/full shares). Call `list_projects` to discover IDs. Omit to fall back to the user's auto-created "API Generations" project. `project_id` is per-call, NOT sticky — pass it on every call once the user names a working project. Misplaced work is recoverable via `move_media` / `move_session`.
 
@@ -249,7 +246,7 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `generate_video` | `POST /v1/generate/video` | 900s | `visual_dna_ids`, `reference_images`, `resolution`, `sound_enabled`, `skip_color_palette` |
 | `generate_video_from_image` | `POST /v1/generate/video/from-image` | 900s | `image_url`, `visual_dna_ids`, `aspect_ratio`, `resolution`, `sound_enabled`, `skip_color_palette` |
 | `generate_video_from_video` | `POST /v1/generate/video-from-video` | 600s | `source_video` (URL or local), optional `prompt`, `visual_dna_ids`, `resolution`; VEED Subtitles: `preset` / `source_language` / `translation_language` / `srt_content` / `srt_file_url` / `vocabulary` / `customization` |
-| `generate_elements` | `POST /v1/generate/elements` | 600s | `reference_images`, `files`, `visual_dna_ids`, `motion`, `preset_id`, `resolution` |
+| `generate_elements` | `POST /v1/generate/elements` | 600s | `reference_images`, `reference_videos`, `reference_audio_urls`, legacy `audio_url`, `files`, `visual_dna_ids`, `motion`, `preset_id`, `resolution` |
 | `generate_first_last_frame` | `POST /v1/generate/first-last-frame` | 300s | URLs OR local paths for `first_frame`/`last_frame`, `visual_dna_ids`, `resolution` |
 | `generate_lipsync` | `POST /v1/generate/lipsync` | 600s | `source` (URL or local), `audio` (URL or local), `bounding_box_target`; Sync-3 only: `sync_mode`, `model_mode`, `emotion`, `temperature`, `occlusion_detection_enabled`, `active_speaker_detection` |
 | `generate_creative_director` | `POST /v1/generate/creative-director` | 600s | `visual_dna_ids`, `moodboard_id`, `moodboard_ids`, `reference_images`, `scene_count`, `workflow_type`, `resolution` |
@@ -264,7 +261,8 @@ Every generation tool below also accepts an optional `project_id` arg that route
 **Media Library** (`src/tools/media.js`)
 | Tool | Route | Notes |
 |------|-------|-------|
-| `media_upload_widget` | `POST /v1/media/upload-ticket` → widget POSTs files to `/mcp/upload` | Renders an in-chat upload card (MCP App) for claude.ai users to upload local files — remote MCP can't read chat attachments. Ticket-auth (short-lived, upload-only); supports image/video/audio/document, multi-file. On stdio hosts falls back to steering toward `upload_media`. |
+| `media_upload_widget` | `POST /v1/media/upload-ticket` → widget POSTs files to `/mcp/upload` | Renders an in-chat upload card (MCP App) for claude.ai users to upload local files — remote MCP can't read chat attachments. Ticket-auth (short-lived, upload-only); supports image/video/audio/document, multi-file. On text hosts it returns the minted ticket instead of a dead end, so the agent can upload directly. |
+| `create_upload_ticket` | `POST /v1/media/upload-ticket` → caller POSTs to `/mcp/upload` | Same ticket, **no card and no user interaction**. For agents that have BOTH a local file and shell access (Claude Code, Codex, Cursor, CI) but reach Kolbo over a remote connector, where a local path is unreachable and base64 costs context proportional to file size. POST multipart field `file` + `Authorization: Bearer <token>`; CDN URL comes back at `media.url`. |
 | `upload_media` | `POST /v1/media/upload` (multipart) | Upload a local file (path or URL re-host), or inline `source_base64` + `filename`, and get a stable Kolbo CDN URL |
 | `list_media` | `GET /v1/media` | Filters: `project_id`, `folder_id`, `type`, `category` (ai / uploaded / edited / favorites / training-lab), `source_type`, `sort`, `page`, `page_size`, `search` |
 | `list_media_folders` | `GET /v1/media/folders` | List the user's media folders (owned + shared) |
@@ -310,19 +308,6 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `get_visual_dna` | `GET /v1/visual-dna/:id` | — |
 | `delete_visual_dna` | `DELETE /v1/visual-dna/:id` | — |
 
-**App Builder (preview)** (`src/tools/app_builder.js`) — full React app generation, auto-provisions GitHub repo + Supabase DB + live deployment. **Different surface from generation tools — read `skill/references/workflows/app-builder.md` for the 4-layer mental model (project → session → app → end-users) before the first turn.**
-| Tool | Route | Notes |
-|------|-------|-------|
-| `app_builder_list_projects` | `GET /project/lightweight` | Returns the SAME Kolbo projects as `list_projects` but via a different endpoint — use when scoping an App Builder session. NOT a substitute for `list_projects` (different shape). |
-| `app_builder_create_session` | `POST /app-builder/session/:projectId` | Creates an App Builder session inside a Kolbo project. Returns a `session_id` distinct from chat/generation session ids. |
-| `app_builder_generate_app` | `POST /app-builder/generation/:sessionId` → polls build-status | First build auto-generates app name, URL slug, GitHub repo, Supabase DB (when needed), and a live deployment URL. Polls until `build_status === "deployed"` (~5 min). ALWAYS surface `deployment_url` on success. |
-| `app_builder_edit_app` | `PUT /app-builder/generation/:sessionId/:generationId` | Natural-language edit of an existing build. Needs the latest `generation_id` from `app_builder_list_generations`. Polls until redeployed. |
-| `app_builder_get_build_status` | `GET /app-builder/:sessionId/build-status` | Manual poll — use after a `generate_app` / `edit_app` timeout or to resume a stuck build. |
-| `app_builder_get_session` | `GET /app-builder/session/:sessionId` | Returns GitHub repo URL + Supabase URL + anon key for local dev. |
-| `app_builder_list_sessions` | `GET /app-builder/sessions/:projectId` | All App Builder sessions in a Kolbo project. |
-| `app_builder_list_generations` | `GET /app-builder/generations/:sessionId` | All builds/edits for an App Builder session, newest first — grab the latest `generation_id` before editing. |
-| `app_builder_delete_session` | `DELETE /app-builder/session/:sessionId` | **IRREVERSIBLE** — wipes GitHub repo, Supabase DB (unless user-connected), deployed files, generation history. ALWAYS confirm with the user first. |
-
 **Moodboards** (`src/tools/moodboards.js`)
 | Tool | Route |
 |------|-------|
@@ -367,19 +352,6 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `get_stock_asset` | `GET /v1/stock/asset/:source/:id` | One asset + download variants + author/license/attribution. |
 | `analyze_script_for_stock` | `POST /v1/stock/analyze-script` | Script → `{ queries[], mediaType, keywords }` via cheap LLM call. |
 | `import_stock_asset` | `POST /v1/stock/import` | Copy asset → media library (CDN copy). Free. Music not importable here. |
-
-**Shorts Creator** (`src/tools/shorts_creator.js`) — long video → AI-picked moments → restyled vertical shorts. Two-phase job flow (NOT the generic generation state machine): analyze → AWAITING_SELECTION → render → COMPLETED/PARTIALLY_COMPLETED. All routes return `{ status: true, data: job }`.
-| Tool | Route | Timeout | Notes |
-|------|-------|---------|-------|
-| `shorts_analyze` | `POST /v1/generate/shorts/analyze` → polls status | 300s (poll 10s) | Flat 15 credits. `video_url` MUST be a Kolbo media-library URL (`upload_media` first). Source 30s–30 min. Returns `moments[]` (start/end/title/hook/score/accentBeats) when phase hits AWAITING_SELECTION. Errors: 402 INSUFFICIENT_CREDITS, 429 JOB_ALREADY_ACTIVE, 400 VIDEO_REQUIRED / SOURCE_TOO_LONG / SOURCE_TOO_SHORT. |
-| `shorts_list_presets` | `GET /v1/generate/shorts/presets` | — | Style presets (identifier, default_mode, default_veed_preset, preview video). Also surfaced via `GET /v1/presets?type=shorts`. |
-| `shorts_get_transcript` | `GET /v1/generate/shorts/:jobId/transcript` | — | Word-level Scribe transcript of the source video: `{ words, language, sourceDuration }` (word times = absolute source seconds). Base for the Review & Edit workflow (`delete_ranges` + edited `srt_content`). |
-| `shorts_estimate` | `POST /v1/generate/shorts/:jobId/estimate` | — | Free pricing preview: totalCredits + perShort chunk counts. Pricing = 200 credits per restyled chunk (accents = 1-3 chunks, full = length/10s) + VEED subtitles 40cr/min (60s min). `delete_ranges` cuts reduce effective duration → cheaper. |
-| `shorts_render` | `POST /v1/generate/shorts/:jobId/render` → polls status | 1500s (poll 12s) | Max 5 shorts, 15-90s each. Per short optional: `delete_ranges` ({start,end}[] absolute source seconds, server enforces ≥8s remaining) and `srt_content` (user-edited SRT, cut-timeline times, ≤200KB → `subtitles.srtContent`). Credits reserved up-front; failed shorts auto-refund. Terminal phases: COMPLETED / PARTIALLY_COMPLETED (returns successes + failures) / FAILED / CANCELLED. |
-| `shorts_status` | `GET /v1/generate/shorts/:jobId/status` | — | Single job-state read — the recover path after a polling timeout. |
-| `shorts_cancel` | `POST /v1/generate/shorts/:jobId/cancel` | — | Cancels + refunds unused credits. |
-
-Selection arg shape (both estimate + render): `shorts: [{ moment_index, preset_identifier, mode?, subtitles_enabled?, subtitles_preset?, start?, end? }]` — mapped internally to the backend's camelCase (`momentIndex`, `presetIdentifier`, `subtitles: { enabled, veedPreset }`).
 
 **Discovery & Account** (`src/tools/models.js`, `src/tools/projects.js`)
 | Tool | Route |
