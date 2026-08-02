@@ -43,6 +43,10 @@ const MCP_TOOLS_DIR = path.join(MCP_REPO, 'src', 'tools');
 // SDK routes intentionally NOT exposed via MCP (deprecated or internal).
 // Add a route here to silence the GAP warning without needing an MCP tool.
 const KNOWN_GAPS = new Set([
+  // Only consumer was app_builder_list_projects, unregistered in v1.45.0 when
+  // App Builder was pulled from the tool surface. The SDK route still exists for
+  // non-MCP clients; list_projects covers the MCP case.
+  'GET /v1/project/lightweight',
 ]);
 
 // MCP tool call patterns that trigger false-positive STALE warnings.
@@ -157,9 +161,34 @@ function addCall(calls, key, filename) {
   calls.get(key).add(filename);
 }
 
+/**
+ * Only the tool files src/index.js actually requires are part of the live tool
+ * surface. A file left in src/tools/ without a matching register call in
+ * index.js registers nothing at runtime, so auditing it reports "stale route"
+ * for every path it mentions and fails prepublishOnly over tools that do not
+ * exist — which is exactly what shorts_creator.js and app_builder.js did
+ * between v1.45.0 (register calls removed) and their deletion. Skip and log
+ * instead of failing; a parked file is a cleanup task, not a release blocker.
+ * Shared helpers are pulled in via the tool files, not index.js, so keep them.
+ */
+function registeredToolFiles() {
+  const all = fs.readdirSync(MCP_TOOLS_DIR).filter(f => f.endsWith('.js'));
+  const index = fs.readFileSync(path.join(MCP_REPO, 'src', 'index.js'), 'utf8');
+  const required = new Set(
+    [...index.matchAll(/require\(\s*['"]\.\/tools\/([A-Za-z0-9_.-]+)['"]\s*\)/g)]
+      .map(m => (m[1].endsWith('.js') ? m[1] : `${m[1]}.js`))
+  );
+  const live = all.filter(f => required.has(f) || f.startsWith('_'));
+  const parked = all.filter(f => !live.includes(f));
+  if (parked.length) {
+    console.log(`  (skipping ${parked.length} unregistered file(s): ${parked.join(', ')})\n`);
+  }
+  return live;
+}
+
 function parseMcpToolCalls() {
-  // Scan every *.js file in src/tools for client.METHOD calls.
-  const files = fs.readdirSync(MCP_TOOLS_DIR).filter(f => f.endsWith('.js'));
+  // Scan the REGISTERED *.js files in src/tools for client.METHOD calls.
+  const files = registeredToolFiles();
   const calls = new Map(); // key = "METHOD path", value = Set of filenames
   const loosePaths = new Map(); // key = path (method-agnostic), value = Set of filenames
 

@@ -124,11 +124,38 @@ function registerMusicLibraryTools(server, client, options = {}) {
 
   server.tool(
     'get_music_library_facets',
-    'List SYNCI genres, moods, instruments, BPM, and duration filters.',
-    {},
-    async () => {
+    'List SYNCI genres, moods, instruments, BPM, and duration filters. Returns the most-used values ' +
+    'per facet (ranked by track count); raise `limit` if you need deeper coverage. Any value not ' +
+    'listed still works as a free-text `query` on search_music_library.',
+    {
+      limit: z.number().optional().describe(
+        'How many values to return per facet, ranked by track count. Default: 40. Max: 200.'
+      ),
+    },
+    async ({ limit }) => {
       const result = await client.get('/v1/music-library/facets');
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+
+      // The raw response carries 169 genres and 1000 each of moods/instruments — ~128K
+      // chars, which exceeds what hosts accept, so this tool used to fail outright. The
+      // tail is single-digit-count noise; the head is what anyone actually filters on.
+      const cap = Math.min(Math.max(Number(limit) || 40, 1), 200);
+      const trim = (arr) => (Array.isArray(arr) ? arr.slice(0, cap) : arr);
+      const omitted = (arr) => (Array.isArray(arr) ? Math.max(arr.length - cap, 0) : 0);
+
+      const payload = {
+        ...result,
+        genres: trim(result.genres),
+        moods: trim(result.moods),
+        instruments: trim(result.instruments),
+        _truncated: {
+          genres: omitted(result.genres),
+          moods: omitted(result.moods),
+          instruments: omitted(result.instruments),
+          hint: 'Values beyond these are long-tail. Pass a higher `limit`, or just use `query` on ' +
+            'search_music_library — free text matches values not listed here.',
+        },
+      };
+      return { content: [{ type: 'text', text: JSON.stringify(payload) }] };
     },
   );
 

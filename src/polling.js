@@ -2,6 +2,8 @@
  * Poll a generation until it reaches a terminal state
  */
 
+const progress = require('./progress');
+
 class PollingTimeoutError extends Error {
   constructor(generationId, timeoutMs) {
     const seconds = Math.round(timeoutMs / 1000);
@@ -77,6 +79,7 @@ async function pollUntilDone(client, generationId, options = {}) {
           throw err;
         }
         const backoff = Math.min(interval * Math.pow(1.5, Math.min(transientFailures - 1, 5)), 30000);
+        await progress.tick(); // same keepalive as the normal path — backoff waits up to 30s
         await new Promise((resolve) => setTimeout(resolve, backoff));
         continue;
       }
@@ -95,6 +98,10 @@ async function pollUntilDone(client, generationId, options = {}) {
     if (result.state === 'cancelled') {
       throw new GenerationFailedError(generationId, 'generation was cancelled');
     }
+
+    // Still running: put a byte on the wire before going quiet again, so no
+    // intermediary mistakes a 3-minute wait for a dead connection.
+    await progress.tick();
 
     // Wait before next poll
     await new Promise(resolve => setTimeout(resolve, interval));

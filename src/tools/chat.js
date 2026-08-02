@@ -18,11 +18,11 @@ function registerChatTools(server, client) {
       system_prompt: z.string().optional().describe('System prompt for the conversation. Only applied when creating a new session.'),
       web_search: z.boolean().optional().describe('Enable web search for this message. Default: false'),
       deep_think: z.boolean().optional().describe('Enable deep think (extended reasoning). Default: false'),
-      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
-      media_urls: z.array(z.string()).optional().describe('Public URLs of images, videos, or audio files to analyze. The model auto-routes to a vision-capable model when media is present. Use upload_media first to get a public URL for local files.'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
+      media_urls: z.array(z.string()).optional().describe('Public URLs of images, videos, or audio files to analyze. The model auto-routes to a vision-capable model when media is present. For a local file, get a URL first via the LOCAL FILE route in this tool\'s description.'),
       project_id: projectIdField
     },
-    async ({ message, model, session_id, system_prompt, web_search, deep_think, enhance_prompt, media_urls, project_id }) => {
+    async ({ message, model, session_id, system_prompt, web_search, deep_think, enhance_prompt = false, media_urls, project_id }) => {
       const gen = await client.post('/v1/chat', {
         message,
         model,

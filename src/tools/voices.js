@@ -40,7 +40,16 @@ function registerVoiceTools(server, client, options = {}) {
         return `${v.voice_id} — ${v.name} (${v.provider})${v3}\n   ${tags}${styles}${v.description ? `\n   ${v.description}` : ''}`;
       });
 
-      const text = `Available voices (${voices.length}):\n\n${lines.join('\n\n')}\n\nUse the "voice_id" value in generate_speech calls.`;
+      // The unfiltered catalog measured 190,286 chars — past what hosts accept.
+      // Cap the listing and tell the model how to narrow, rather than handing
+      // back a blob the host truncates at an arbitrary byte.
+      const VOICE_CAP = 60;
+      const shown = lines.slice(0, VOICE_CAP);
+      const more = voices.length - shown.length;
+      const narrowHint = more > 0
+        ? `\n\n…and ${more} more. Filter by \`language\`, \`gender\`, or \`provider\` to narrow.`
+        : '';
+      const text = `Available voices (showing ${shown.length} of ${voices.length}):\n\n${shown.join('\n\n')}${narrowHint}\n\nUse the "voice_id" value in generate_speech calls.`;
 
       if (ui()) {
         return uiResult(UI.mediaGrid, text, {

@@ -54,7 +54,7 @@ function registerGenerateTools(server, client, options = {}) {
       prompt: z.string().describe('Text description of the image to generate'),
       model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults: "nano-banana-2" (versatile, text rendering, multilingual) or "gpt-image-2" (photoreal, infographics). Call list_models type="text_to_img" to see all options and pick per the user\'s intent.'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "1:1", "16:9", "9:16"). Must be a value present in the model\'s `supported_aspect_ratios` from list_models — pass an unsupported value and the API rejects. Default: "1:1"'),
-      enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: true'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       num_images: z.number().optional().describe('Number of images to generate in one call. Default: 1. Note: some models (Midjourney etc.) have a fixed `images_per_request` and ignore this — check list_models.'),
       reference_images: z.array(z.string()).optional().describe('STYLE/COMPOSITION inspiration only — does NOT embed reference pixels. Array of image URLs used to guide the look-and-feel of a brand-new generation. The model interprets the references and regenerates approximations conditioned on them. It will NOT copy pixels from these images into the output. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.** To embed a specific logo, icon, watermark, or asset pixel-accurately, use generate_image_edit with the asset in source_images. To EDIT an existing image, also use generate_image_edit.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Visual DNA profile IDs (from create_visual_dna / list_visual_dnas) for character / style / product / scene consistency. **Cap: pass at most `max_visual_dna` IDs from list_models — if the field is null/0 or `supports_visual_dna: false`, the model rejects DNA entirely (silently ignored in some paths).** How DNA works: the server fetches the DNA\'s reference images AND always injects its `description` field into the prompt as plaintext (by design — independent of enhance_prompt). Practical implication: do NOT also write physical descriptors of the same subject in your own prompt — they will compete with the DNA description text. For pixel-accurate face anchoring of a specific person, prefer passing the DNA\'s reference image directly via source_images on generate_image_edit and OMIT visual_dna_ids. visual_dna_ids is best for style / scene / product DNAs and for soft consistency across a set.'),
@@ -67,7 +67,7 @@ function registerGenerateTools(server, client, options = {}) {
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one image ungraded.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, aspect_ratio, enhance_prompt, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id }) => {
+    async ({ prompt, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/image', {
         prompt, model, aspect_ratio, enhance_prompt, num_images,
@@ -112,7 +112,7 @@ function registerGenerateTools(server, client, options = {}) {
       model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific IMAGE-EDITING model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults: "nano-banana-pro/edit" (best general prompt editor), "gpt-image/1.5-image-to-image" (photoreal), or "flux-2/edit". NOTE: text-to-image ids like "nano-banana-2"/"gpt-image-2" are NOT editors — don\'t use them here. Call list_models type="image_editing" to see all options and pick per the user\'s intent.'),
       source_images: z.array(z.string()).describe('PIXEL-ACCURATE compositing. Array of source image URLs whose pixel content is composited into the output. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.** Three modes the model auto-detects from input shape: (1) Single image → edit/transform that image. (2) Multiple images, one base + others → composite the others into the base. (3) Multiple images with no clear base → generate a new scene that pixel-accurately embeds the supplied images at positions described in the prompt. Mode 3 is the canonical pattern for thumbnails / branded compositions where exact-pixel logo + face fidelity matter. Refer to source images in the prompt by ordinal position ("FIRST source image", "SECOND source image") or use @image1/@image2 tags. Add "composite AS-IS, do not redraw or restyle" to lock pixels.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "1:1", "16:9", "9:16"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "1:1"'),
-      enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: true'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       num_images: z.number().optional().describe('Number of output images. Default: 1'),
       visual_dna_ids: z.array(z.string()).optional().describe('Visual DNA profile IDs for character / style / product consistency. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.** How DNA works: the server fetches the DNA\'s reference images AND always injects its `description` field into the prompt as plaintext (by design — independent of enhance_prompt). For pixel-accurate face anchoring of a specific person on this tool, the PREFERRED pattern is to pass the face photo directly via source_images and OMIT visual_dna_ids — that way the face pixels anchor the output and no description text competes. Do NOT pass visual_dna_ids if source_images already contains the same person\'s face (face averaging). visual_dna_ids is best here for style / product DNAs.'),
       moodboard_id: z.string().optional().describe('Moodboard ID whose master_prompt and style_guide should be applied.'),
@@ -122,7 +122,7 @@ function registerGenerateTools(server, client, options = {}) {
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one edit ungraded.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, source_images, aspect_ratio, enhance_prompt, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id }) => {
+    async ({ prompt, model, source_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/image-edit', {
         prompt, model, source_images, aspect_ratio, enhance_prompt, num_images,
@@ -173,7 +173,7 @@ function registerGenerateTools(server, client, options = {}) {
       aspect_ratio: z.string().optional().describe('Aspect ratio applied to every scene (e.g., "1:1", "16:9", "9:16"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "1:1"'),
       workflow_type: z.string().optional().describe('"image" (default) or "video"'),
       duration: z.number().optional().describe('Duration in seconds per scene (video mode only). Must be a value in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. E.g., 5 or 10.'),
-      enhance_prompt: z.boolean().optional().describe('Enhance prompts per scene. Default: true'),
+      enhance_prompt: z.boolean().optional().describe('Enhance prompts per scene. Default: false — only pass true if the user explicitly asks to enhance/improve the prompts.'),
       reference_images: z.array(z.string()).optional().describe('Array of reference image URLs to guide style/composition of every scene. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model.**'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply consistently across every scene. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.** This is the ideal way to keep a character or product looking the same in all scenes of a campaign.'),
       moodboard_id: z.string().optional().describe('A single moodboard ID whose master_prompt and style_guide should shape every scene.'),
@@ -181,7 +181,7 @@ function registerGenerateTools(server, client, options = {}) {
       resolution: z.string().optional().describe('Resolution tier applied to every scene. Images: "1K" / "2K" / "3K" / "4K". Videos: "720p" / "1080p" / "1440p" / "2160p". Values are model-dependent — call list_models and read supported_resolutions on the target model. Multiplied across every scene.'),
       project_id: projectIdField
     },
-    async ({ prompt, scene_count, model, aspect_ratio, workflow_type, duration, enhance_prompt, reference_images, visual_dna_ids, moodboard_id, moodboard_ids, resolution, project_id }) => {
+    async ({ prompt, scene_count, model, aspect_ratio, workflow_type, duration, enhance_prompt = false, reference_images, visual_dna_ids, moodboard_id, moodboard_ids, resolution, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/creative-director', {
         prompt, scene_count, model, aspect_ratio, workflow_type, duration,
@@ -324,7 +324,7 @@ function registerGenerateTools(server, client, options = {}) {
       model: z.string().optional().describe('Model identifier — pick a SPECIFIC model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults: "seedance-2" (versatile) or "veo3" (Veo 3.1, cinematic + native audio); the Kling family (call list_models for exact ids like kling-video/v3/pro/text-to-video) is strongest for motion. Call list_models type="text_to_video" to see all options + check supported_durations / supported_aspect_ratios, and choose per the user\'s intent.'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "16:9"'),
       duration: z.number().optional().describe('Duration in seconds. Must be a value in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration` (whichever the model exposes). Default: 5'),
-      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       reference_images: z.array(z.string()).optional().describe('Array of image URLs used as visual references (style / composition / subject). **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolution_multipliers to predict cost.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" to apply a saved motion/style preset to this generation.'),
@@ -332,7 +332,7 @@ function registerGenerateTools(server, client, options = {}) {
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one video ungraded.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id }) => {
+    async ({ prompt, model, aspect_ratio, duration, enhance_prompt = false, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/video', {
         prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id
@@ -381,14 +381,14 @@ function registerGenerateTools(server, client, options = {}) {
       model: z.string().optional().describe('Model identifier — pick a SPECIFIC model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults: "seedance-2" (versatile) or "veo3" (Veo 3.1, cinematic + native audio); the Kling family (call list_models for exact ids like kling-video/v3/pro/image-to-video) is strongest for motion. Call list_models type="img_to_video" to see all options and choose per the user\'s intent.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "16:9"'),
       duration: z.number().optional().describe('Duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
-      enhance_prompt: z.boolean().optional().describe('Enhance the motion prompt. Default: true'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the motion prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to maintain consistency with prior characters / styles. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false` the model ignores DNA entirely.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions.'),
       sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Only honored by models with `sound_generation_type: "native"` from list_models (e.g. Veo 3.1 Lite, Kling V3 4K, PixVerse V6, Kling 2.6/v3). On `sound_generation_type: "none"` models the flag has no effect. Omit to use the model\'s `sound_enabled_by_default`. Pass `false` when the user says no sound / silent / mute / without audio. Enabling sound may apply `sound_credit_multiplier` to cost.'),
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one video ungraded.'),
       project_id: projectIdField
     },
-    async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled, skip_color_palette, project_id }) => {
+    async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, sound_enabled, skip_color_palette, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/video/from-image', {
         image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled, skip_color_palette, project_id
@@ -439,7 +439,7 @@ function registerGenerateTools(server, client, options = {}) {
       vocal_gender: z.string().optional().describe('Preferred vocal gender: "male" or "female". Only applies when instrumental is false.'),
       negative_tags: z.string().optional().describe('Styles / sounds to EXCLUDE, comma-separated (e.g. "heavy metal, screaming, distortion"). Suno.'),
       duration_seconds: z.number().optional().describe('Target song length in seconds (length-capable models like ElevenLabs Music). Clamped 5–300. Omit for the model default.'),
-      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="music" to apply a saved music style preset.'),
       // ── Suno fine controls ──
       style_weight: z.number().optional().describe('Suno: how strongly the style/genre is applied, 0–1.'),
@@ -451,7 +451,7 @@ function registerGenerateTools(server, client, options = {}) {
       singing_voice_id: z.string().optional().describe('Custom cloned singing-voice id (must be owned by the caller).'),
       project_id: projectIdField
     },
-    async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, project_id }) => {
+    async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt = false, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/music', {
         prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags,
@@ -757,18 +757,19 @@ function registerGenerateTools(server, client, options = {}) {
       model: z.string().optional().describe('Model identifier. Use list_models type="elements" to see options (Seedance 2, Kling O3 Reference, Grok Imagine, Veo 3.1, etc.). Check elements_max_images / elements_max_videos / elements_max_audio on the model. Pick a SPECIFIC model — do NOT omit (omitting = Smart Select auto-pick, which we avoid); call list_models for this type and choose the model that best fits the user\'s intent.'),
       reference_images: z.array(z.string()).optional().describe('Array of public image URLs used as reference elements (product shots, character references, etc.). **Cap: pass at most `elements_max_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
       reference_videos: z.array(z.string()).optional().describe('Array of reference video URLs for models that accept video inputs. **Cap: pass at most `elements_max_videos` URLs from list_models — if the cap is 0 the model rejects videos.**'),
+      reference_audio_urls: z.array(z.string()).optional().describe('Array of reference audio URLs for models that accept audio inputs. **Cap: pass at most `elements_max_audio` URLs from list_models.** `audio_url` remains supported as the legacy single-track form.'),
       audio_url: z.string().optional().describe('URL of a reference audio track. **Audio constraints: `elements_max_audio` from list_models gates whether audio is accepted at all; audio duration must fall within `min_audio_duration`-`max_audio_duration`; format must be in `supported_audio_formats` (if specified).**'),
       files: z.array(z.string()).optional().describe('Array of URLs or absolute local paths — alternative to reference_images. Use this when you have local files to upload. Each item can be a URL OR a local path. **Total count across files + reference_images still capped by `elements_max_images`.**'),
       duration: z.number().optional().describe('Output duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in `supported_aspect_ratios` from list_models. Default: "16:9"'),
       motion: z.string().optional().describe('Motion style / intensity hint (optional)'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" (optional)'),
-      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency across outputs. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, reference_images, reference_videos, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, project_id }) => {
+    async ({ prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!prompt) throw new Error('prompt is required');
 
@@ -787,6 +788,7 @@ function registerGenerateTools(server, client, options = {}) {
         if (visual_dna_ids) form.append('visual_dna_ids', JSON.stringify(visual_dna_ids));
         if (reference_images) form.append('reference_images', JSON.stringify(reference_images));
         if (reference_videos) form.append('reference_videos', JSON.stringify(reference_videos));
+        if (reference_audio_urls) form.append('reference_audio_urls', JSON.stringify(reference_audio_urls));
         if (audio_url) form.append('audio_url', audio_url);
         if (resolution) form.append('resolution', resolution);
         if (project_id) form.append('project_id', project_id);
@@ -797,7 +799,7 @@ function registerGenerateTools(server, client, options = {}) {
       } else {
         // URL-only mode: plain JSON.
         startResponse = await client.post('/v1/generate/elements', {
-          prompt, model, reference_images, reference_videos, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, project_id
+          prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, project_id
         });
       }
 
@@ -842,12 +844,12 @@ function registerGenerateTools(server, client, options = {}) {
       model: z.string().optional().describe('Model identifier. Use list_models type="firstlastgenerations" to see options. Pick a SPECIFIC model — do NOT omit (omitting = Smart Select auto-pick, which we avoid); call list_models for this type and choose the model that best fits the user\'s intent.'),
       duration: z.number().optional().describe('Duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (auto-detected from first frame if not provided). Must be in `supported_aspect_ratios` from list_models when set. Default: "16:9"'),
-      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.'),
       project_id: projectIdField
     },
-    async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids, resolution, project_id }) => {
+    async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt = false, visual_dna_ids, resolution, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       const urlMode = first_frame_url && last_frame_url;
       const fileMode = first_frame && last_frame;
@@ -1032,7 +1034,7 @@ function registerGenerateTools(server, client, options = {}) {
       model: z.string().optional().describe('Model identifier. Use list_models type="video_to_video" to see options and check max_images / max_videos / max_elements / max_video_duration per model. Pick a SPECIFIC model — do NOT omit (omitting = Smart Select auto-pick, which we avoid); call list_models for this type and choose the model that best fits the user\'s intent.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio. Must be in `supported_aspect_ratios` from list_models when set. Default: matches source'),
       duration: z.number().optional().describe('Output duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: matches source'),
-      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: true'),
+      enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.'),
       reference_images: z.array(z.string()).optional().describe('Array of reference image URLs for models that support additional image inputs. **Cap: pass at most `max_images` URLs from list_models — if `max_images === 0` the model does not accept image refs.** Examples: character reference images for Kling O1/O3, style reference for Aleph/gen4_aleph, character image for WAN VACE video-edit.'),
@@ -1058,7 +1060,7 @@ function registerGenerateTools(server, client, options = {}) {
       }).optional().describe('VEED Subtitles only: style overrides. Any omitted field keeps the preset default. Best supported by Basic presets.'),
       project_id: projectIdField
     },
-    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, project_id }) => {
+    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!source_video) throw new Error('source_video is required');
 
