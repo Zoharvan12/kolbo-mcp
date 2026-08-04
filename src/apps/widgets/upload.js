@@ -123,7 +123,8 @@ function addFiles(list) {
     if (items.length >= maxFiles) break;
     var f = list[i];
     var kind = classify(f.name);
-    var it = { file: f, kind: kind, status: 'queued', pct: 0, url: null, err: null, id: nextItemId++ };
+    var it = { file: f, kind: kind, status: 'queued', pct: 0, url: null, err: null, id: nextItemId++, thumb: null };
+    if (kind === 'image') { try { it.thumb = URL.createObjectURL(f); } catch (e) {} }
     var allowedKinds = state.kinds && state.kinds.length ? state.kinds : ['image','video','audio','document'];
     if (!kind || allowedKinds.indexOf(kind) === -1) {
       it.status = 'error'; it.err = 'Unsupported file type';
@@ -201,9 +202,12 @@ function rowHtml(it) {
   var bar = it.status === 'uploading'
     ? '<div style="height:3px;border-radius:2px;background:var(--surface);margin-top:5px;overflow:hidden"><div id="bar-' + it.id + '" style="height:100%;width:' + it.pct + '%;background:var(--accent,#7c6cff);transition:width .2s"></div></div>'
     : '';
+  var left = it.thumb
+    ? '<img data-thumb="' + it.id + '" src="' + it.thumb + '" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:7px;flex:none;border:1px solid var(--border);background:var(--surface)">'
+    : '<span>' + icon + '</span>';
   return '<div id="row-' + it.id + '" style="padding:8px 10px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;background:var(--surface)">' +
     '<div style="display:flex;align-items:center;gap:8px;font-size:12.5px">' +
-    '<span>' + icon + '</span>' +
+    left +
     '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(it.file.name) + '">' + esc(it.file.name) + '</span>' +
     '<span style="color:var(--text-muted);font-size:11px">' + fmtSize(it.file.size) + '</span>' +
     '<span id="status-' + it.id + '" style="font-size:11.5px">' + right + '</span>' +
@@ -219,6 +223,19 @@ function renderRow(it) {
 
 function render() {
   el('rows').innerHTML = items.map(rowHtml).join('');
+  // Thumbnail fallback chain: local blob preview -> CDN URL (allowlisted in the
+  // host CSP) once uploaded -> plain type icon.
+  Array.prototype.forEach.call(el('rows').querySelectorAll('[data-thumb]'), function (img) {
+    img.onerror = function () {
+      var id = Number(img.getAttribute('data-thumb'));
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].id !== id) continue;
+        if (items[i].url && img.src !== items[i].url) { img.src = items[i].url; return; }
+        items[i].thumb = null;
+      }
+      render();
+    };
+  });
   Array.prototype.forEach.call(el('rows').querySelectorAll('[data-retry]'), function (a) {
     a.onclick = function (e) {
       e.preventDefault();
