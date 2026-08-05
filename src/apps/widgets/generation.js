@@ -71,12 +71,31 @@ var TOOL_TITLES = {
   generate_creative_director: 'Creative Director', edit_image: 'Image Edit', edit_video: 'Video Edit'
 };
 
+// Long text is clamped by CSS (.k-prompt 2 lines / .k-caption 1 line). When it
+// actually overflows, make it click-to-expand so the full prompt is readable.
+function makeExpandable(node) {
+  if (!node) return;
+  node.classList.remove('k-clamped');
+  // Synchronous layout read — rAF would never fire in a hidden/backgrounded
+  // iframe, leaving long prompts stuck without the expand affordance.
+  if (node.scrollHeight > node.clientHeight + 2 || node.scrollWidth > node.clientWidth + 2) {
+    node.classList.add('k-clamped');
+    node.title = node.title || 'Show full text';
+    node.onclick = function () {
+      node.classList.toggle('expanded');
+      node.title = node.classList.contains('expanded') ? 'Collapse' : 'Show full text';
+      window.kolbo.notifySize();
+    };
+  }
+}
+
 function boot(sc) {
   if (!sc) return;
   state = sc;
   el('tool-title').textContent = TOOL_TITLES[sc.tool] || 'Generation';
   el('prompt').textContent = sc.prompt || '';
   el('prompt').style.display = sc.prompt ? '' : 'none';
+  makeExpandable(el('prompt'));
   renderChips(sc);
   el('credits').textContent = sc.credits_used != null ? fmtCredits(sc.credits_used) : '';
   if (sc.phase === 'generating') renderGenerating(sc);
@@ -111,16 +130,21 @@ function iconFor(kind) {
 }
 
 /* ---------- generating ---------- */
+function isBatch(sc) { return !!(sc && sc.generation_ids && sc.generation_ids.length > 1); }
+
 function renderGenerating(sc) {
   setPhaseChip('Generating', true);
-  var n = Math.min(sc.count || 1, 4);
+  var n = Math.min(sc.count || 1, isBatch(sc) ? 8 : 4);
   var shape = sc.kind === 'video' || sc.kind === 'scenes' ? 'video' : (sc.kind === 'audio' ? 'video' : 'square');
   var cells = '';
   for (var i = 0; i < n; i++) {
-    cells += '<div class="k-skel ' + shape + '">' +
-      (i === 0 ? '<span class="k-gen-badge"><span class="k-spin"></span>Generating</span>' : '') + '</div>';
+    var cap = (sc.prompts && sc.prompts[i])
+      ? '<span class="k-skel-cap" title="' + esc(sc.prompts[i]) + '">' + esc(sc.prompts[i]) + '</span>' : '';
+    cells += '<div class="k-skel ' + shape + '" data-cell="' + i + '">' +
+      (i === 0 ? '<span class="k-gen-badge"><span class="k-spin"></span>Generating</span>' : '') + cap + '</div>';
   }
-  el('stage').innerHTML = '<div class="k-gen-grid n' + n + '">' + cells + '</div>';
+  // Grid class caps at n4 — the auto-fill rule handles any larger batch count.
+  el('stage').innerHTML = '<div class="k-gen-grid n' + Math.min(n, 4) + '">' + cells + '</div>';
   renderStopButton(sc);
   schedulePoll(sc);
 }
@@ -134,6 +158,7 @@ function cancelSpec(sc) {
     var jobId = (sc.status_args && sc.status_args.job_id) || sc.generation_id;
     return jobId ? { tool: 'shorts_cancel', args: { job_id: jobId } } : null;
   }
+  if (isBatch(sc)) return { batch: sc.generation_ids };
   if (!sc.generation_id) return null;
   return { tool: 'cancel_generation', args: { generation_id: sc.generation_id } };
 }
@@ -150,8 +175,23 @@ function renderStopButton(sc) {
     // cannot repaint the card back into "Generating".
     cancelRequested = true;
     clearTimeout(pollTimer);
-    window.kolbo.callTool(spec.tool, spec.args).then(function (res) {
-      var st = structured(res) || {};
+    // Batch: cancel every id; report combined refund. Entries that already
+    // finished return cancelled:false — only resume polling if ALL did.
+    var call = spec.batch
+      ? Promise.all(spec.batch.map(function (id) {
+          return window.kolbo.callTool('cancel_generation', { generation_id: id })
+            .then(function (r) { return structured(r) || {}; })
+            .catch(function () { return {}; });
+        })).then(function (sts) {
+          var refund = 0;
+          sts.forEach(function (s) { if (s.credits_refunded) refund += s.credits_refunded; });
+          return {
+            cancelled: sts.some(function (s) { return s.cancelled !== false; }),
+            credits_refunded: refund || undefined
+          };
+        })
+      : window.kolbo.callTool(spec.tool, spec.args).then(function (r) { return structured(r) || {}; });
+    call.then(function (st) {
       if (st.cancelled === false) {
         // Already terminal — let the normal poll path report the real outcome
         // instead of claiming a cancel that did not happen.
@@ -183,7 +223,7 @@ function renderCancelled(creditsRefunded) {
   // Tell the model, so it does not go on to report the generation as running.
   try {
     window.kolbo.updateModelContext('The user cancelled generation ' +
-      ((state && state.generation_id) || '') + '.' + note +
+      ((state && (state.generation_ids || [state.generation_id]).filter(Boolean).join(', ')) || '') + '.' + note +
       ' Do not poll it or report it as in progress.');
   } catch (e) {}
   window.kolbo.notifySize();
@@ -222,6 +262,10 @@ function poll(sc) {
       if (++pollErrors >= MAX_POLL_ERRORS) return renderTrackingIssue(st.error || 'Tracking paused. The generation may still be running.');
       return schedulePoll(sc);
     }
+    // Batch (prompts[] fan-out): multi-id status shape { all_done, generations[] }.
+    if (isBatch(sc) && Array.isArray(st.generations)) {
+      return handleBatchStatus(sc, st);
+    }
     if (stateName === 'completed') {
       pollErrors = 0;
       var r = st.result || st;
@@ -255,6 +299,68 @@ function poll(sc) {
     if (++pollErrors >= MAX_POLL_ERRORS) return renderTrackingIssue('Tracking paused after repeated connection errors. The generation may still be running.');
     schedulePoll(sc);
   });
+}
+
+/* ---------- batch (prompts[] fan-out) ---------- */
+// Each poll round resolves when every id has completed or its wait window
+// closed (~3 min), so finished cells fill in per round while the rest keep
+// their skeleton. When all_done, the set renders through the scenes viewer.
+function handleBatchStatus(sc, st) {
+  pollErrors = 0;
+  var gens = st.generations || [];
+  gens.forEach(function (g, i) {
+    if (g.state === 'completed') fillBatchCell(sc, i, g);
+  });
+  if (!st.all_done) return schedulePoll(sc);
+
+  var scenes = [], failedCount = 0, credits = 0, haveCredits = false, allUrls = [];
+  gens.forEach(function (g, i) {
+    var r = g.result || g;
+    var urls = (r && r.urls) || [];
+    if (g.state !== 'completed' || !urls.length) { failedCount++; return; }
+    allUrls = allUrls.concat(urls);
+    var c = g.credits_used != null ? g.credits_used : (r.credits_used != null ? r.credits_used : null);
+    if (c != null) { credits += c; haveCredits = true; }
+    scenes.push({
+      scene_number: i + 1,
+      title: (sc.prompts && sc.prompts[i]) || '',
+      image_urls: sc.kind === 'video' ? [] : urls,
+      video_urls: sc.kind === 'video' ? urls : []
+    });
+  });
+  if (!scenes.length) return renderError('All ' + gens.length + ' generations failed');
+
+  var done = Object.assign({}, sc, {
+    phase: 'completed', kind: 'scenes', batch: true, scenes: scenes, urls: [],
+    credits_used: haveCredits ? credits : sc.credits_used
+  });
+  state = done;
+  el('credits').textContent = done.credits_used != null ? fmtCredits(done.credits_used) : '';
+  if (failedCount) setPhaseChip(failedCount + ' failed', false);
+  renderResult(done);
+  try {
+    window.kolbo.updateModelContext(
+      'Batch generation completed (' + (sc.tool || '') + '): ' + scenes.length + ' of ' + gens.length + ' succeeded.' +
+      '\\nOutput URLs:\\n' + allUrls.join('\\n') +
+      (failedCount ? '\\nFailed: ' + failedCount : '') +
+      (haveCredits ? '\\nCredits used: ' + credits : ''));
+  } catch (e) {}
+}
+
+function fillBatchCell(sc, i, g) {
+  var cell = el('stage').querySelector('[data-cell="' + i + '"]');
+  if (!cell || cell.getAttribute('data-done')) return;
+  var r = g.result || g;
+  var u = (r.urls || [])[0];
+  if (!u) return;
+  cell.setAttribute('data-done', '1');
+  cell.classList.add('done');
+  var cap = (sc.prompts && sc.prompts[i])
+    ? '<span class="k-skel-cap" title="' + esc(sc.prompts[i]) + '">' + esc(sc.prompts[i]) + '</span>' : '';
+  cell.innerHTML = (sc.kind === 'video'
+    ? '<video class="k-cell-fill" src="' + esc(u) + '"' + (r.thumbnail_url ? ' poster="' + esc(r.thumbnail_url) + '"' : '') + ' muted playsinline preload="metadata"></video>'
+    : '<img class="k-cell-fill" src="' + esc(u) + '" alt="">') + cap;
+  window.kolbo.notifySize();
 }
 
 /* ---------- results ---------- */
@@ -392,7 +498,10 @@ function wireDlButtons(root) {
 function sceneItems(sc) {
   var items = [];
   (sc.scenes || []).forEach(function (scene) {
-    var label = 'Scene ' + scene.scene_number + (scene.title ? ' — ' + scene.title : '');
+    // Batch sets carry the raw user prompt as title — no "Scene N" framing.
+    var label = sc.batch
+      ? (scene.title || 'Prompt ' + scene.scene_number)
+      : 'Scene ' + scene.scene_number + (scene.title ? ' — ' + scene.title : '');
     (scene.image_urls || []).forEach(function (u) { items.push({ url: u, type: 'image', label: label }); });
     (scene.video_urls || []).forEach(function (u) { items.push({ url: u, type: 'video', label: label }); });
   });
@@ -415,8 +524,9 @@ function renderScenes(sc) {
   }).join('') + '</div>';
   el('stage').innerHTML =
     '<div class="k-viewer">' + mediaHtml + dlBtnHTML(it.url) + '</div>' +
-    '<div style="font-size:11px;color:var(--text-faint);margin:2px 2px 0">' + esc(it.label) + '</div>' +
+    '<div class="k-caption" id="scene-cap">' + esc(it.label) + '</div>' +
     thumbs;
+  makeExpandable(el('scene-cap'));
   wireDlButtons(el('stage'));
   if (it.type === 'image') {
     var main = el('scene-main');
@@ -591,9 +701,11 @@ function bootPre(toolName, args) {
   if (args) originArgs = args;
   if (state) return; // real data already arrived
   el('tool-title').textContent = TOOL_TITLES[toolName] || 'Generation';
-  if (args && (args.prompt || args.text)) {
-    el('prompt').textContent = args.prompt || args.text;
+  if (args && (args.prompt || args.text || (Array.isArray(args.prompts) && args.prompts.length))) {
+    el('prompt').textContent = args.prompt || args.text ||
+      (args.prompts.length + ' prompts — ' + args.prompts.join(' · '));
     el('prompt').style.display = '';
+    makeExpandable(el('prompt'));
   }
   setPhaseChip('Preparing', true);
   if (!el('stage').innerHTML) {
