@@ -767,9 +767,13 @@ function registerGenerateTools(server, client, options = {}) {
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency across outputs. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.'),
+      keyframes: z.array(z.object({
+        image_url: z.string().describe('Public URL of the keyframe image'),
+        timestamp_seconds: z.number().describe('Moment on the OUTPUT timeline (seconds, 0 = first frame) where this image is pinned')
+      })).optional().describe('Timeline-pinned keyframes for multi-keyframe models (e.g. "flux-3-keyframes", "luma-ray-3-2-storyboard"): the model generates the motion BETWEEN the pinned images. Only models with `supports_keyframes: true` in list_models accept this; cap = `max_keyframes` (FLUX 3: 10). Requires an explicit `duration` — timestamps beyond it are clamped. Ignored by ordinary elements models. OPTIONAL for flux-3-keyframes: if omitted, pass the images via reference_images instead — they are played through IN ORDER, timed from timing language in the prompt or spaced evenly. Pass explicit keyframes only when you need exact control.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, project_id }) => {
+    async ({ prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, keyframes, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!prompt) throw new Error('prompt is required');
 
@@ -791,6 +795,7 @@ function registerGenerateTools(server, client, options = {}) {
         if (reference_audio_urls) form.append('reference_audio_urls', JSON.stringify(reference_audio_urls));
         if (audio_url) form.append('audio_url', audio_url);
         if (resolution) form.append('resolution', resolution);
+        if (keyframes) form.append('keyframes', JSON.stringify(keyframes));
         if (project_id) form.append('project_id', project_id);
         for (const f of resolved) {
           form.append('files', f.buffer, { filename: f.filename, contentType: f.contentType });
@@ -799,7 +804,7 @@ function registerGenerateTools(server, client, options = {}) {
       } else {
         // URL-only mode: plain JSON.
         startResponse = await client.post('/v1/generate/elements', {
-          prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, project_id
+          prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, keyframes, project_id
         });
       }
 
