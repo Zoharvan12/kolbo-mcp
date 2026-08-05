@@ -37,6 +37,46 @@ const CINEMATIC_SCHEMA = z.object({
   'validated against their dimension server-side. Dimensions are data-driven — never hardcode ids.'
 );
 
+// ─── Batch fan-out (prompts[]) ──────────────────────────────────────────────
+// One tool call, N DIFFERENT prompts → N generations tracked by ONE widget.
+// The manual-control twin of generate_creative_director: no orchestration pass,
+// the user's exact prompts verbatim. Submit failures never sink the batch —
+// successful ids proceed, failed prompts are reported alongside.
+const MAX_BATCH_PROMPTS = 8;
+async function submitBatch(rawPrompts, submitOne) {
+  const prompts = rawPrompts.slice(0, MAX_BATCH_PROMPTS).map((s) => String(s).trim()).filter(Boolean);
+  const settled = await Promise.allSettled(prompts.map((p) => submitOne(p)));
+  const ok = [], failed = [];
+  settled.forEach((s, i) => {
+    if (s.status === 'fulfilled' && s.value && s.value.generation_id) ok.push({ prompt: prompts[i], gen: s.value });
+    else failed.push({ prompt: prompts[i], error: (s.reason && s.reason.message) || 'submit failed' });
+  });
+  if (!ok.length) throw new Error(`All ${prompts.length} batch submissions failed: ${failed[0].error}`);
+  return { ok, failed, ids: ok.map((o) => o.gen.generation_id) };
+}
+
+// Blocking path for text-only hosts: wait for every batch member, aggregate.
+async function pollBatch(client, batch, { interval, timeout }) {
+  const polls = await Promise.all(batch.ids.map((id) => pollOrTimedOut(client, id, { interval, timeout })));
+  const generations = polls.map((p, i) => p.timedOut
+    ? { prompt: batch.ok[i].prompt, generation_id: batch.ids[i], status: 'processing', note: 'Still running — call get_generation_status with wait=true to collect it.' }
+    : { prompt: batch.ok[i].prompt, generation_id: batch.ids[i], status: 'completed', ...creditFields(polls[i].result), urls: p.result.result.urls });
+  return {
+    content: [{
+      type: 'text',
+      text: JSON.stringify({
+        batch: true,
+        generations,
+        failed_submissions: batch.failed.length ? batch.failed : undefined
+      }, null, 2)
+    }]
+  };
+}
+
+const promptsField = (what) => z.array(z.string()).optional().describe(
+  `BATCH MODE — several DIFFERENT prompts (2–${MAX_BATCH_PROMPTS}) generated concurrently in ONE call and rendered together in ONE combined widget. Whenever the user wants multiple distinct ${what} with their own prompts, ALWAYS pass them all here instead of making several separate calls — separate calls clutter the chat with stacked widgets. All prompts share the same model/settings. When set, \`prompt\` is ignored. For N variations of a SINGLE prompt use num_images (image tools); for an AI-planned coherent scene set use generate_creative_director.`
+);
+
 function registerGenerateTools(server, client, options = {}) {
   // Only enabled by hosts that explicitly opt in (the remote HTTP connector).
   // stdio hosts (Kolbo Code, Claude Desktop, Cursor) leave this false, so their
@@ -49,9 +89,10 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_image ────────────────────────────────────────
   server.tool(
     'generate_image',
-    'Generate image(s) from a text prompt using Kolbo AI. Supports Visual DNA profiles (for character/style/product consistency), moodboards (for style direction), reference images (for composition guidance), batch generation (num_images), and web-search grounding. For EDITING an existing image, use generate_image_edit instead. For a coordinated multi-scene set (storyboard, ad campaign), use generate_creative_director. Returns the final image URL(s) when complete.',
+    'Generate image(s) from a text prompt using Kolbo AI. Supports Visual DNA profiles (for character/style/product consistency), moodboards (for style direction), reference images (for composition guidance), batch generation (num_images for variations of ONE prompt, `prompts` for SEVERAL different prompts in one combined widget), and web-search grounding. When the user wants multiple distinct images, pass all their prompts in `prompts` in ONE call — never a series of separate generate_image calls. For EDITING an existing image, use generate_image_edit instead. For a coordinated multi-scene set planned by AI from a single brief (storyboard, ad campaign), use generate_creative_director. Returns the final image URL(s) when complete.',
     {
-      prompt: z.string().describe('Text description of the image to generate'),
+      prompt: z.string().optional().describe('Text description of the image to generate. Required unless `prompts` is provided.'),
+      prompts: promptsField('images'),
       model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults: "nano-banana-2" (versatile, text rendering, multilingual) or "gpt-image-2" (photoreal, infographics). Call list_models type="text_to_img" to see all options and pick per the user\'s intent.'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "1:1", "16:9", "9:16"). Must be a value present in the model\'s `supported_aspect_ratios` from list_models — pass an unsupported value and the API rejects. Default: "1:1"'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
@@ -67,12 +108,29 @@ function registerGenerateTools(server, client, options = {}) {
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one image ungraded.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id }) => {
+    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id }) => {
+      if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
-      const gen = await client.post('/v1/generate/image', {
-        prompt, model, aspect_ratio, enhance_prompt, num_images,
+      const shared = {
+        model, aspect_ratio, enhance_prompt,
         reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id
-      });
+      };
+
+      // Batch mode: N different prompts, one widget owning all generation ids.
+      if (prompts && prompts.length) {
+        const batch = await submitBatch(prompts, (p) => client.post('/v1/generate/image', { ...shared, prompt: p }));
+        if (ui()) return uiGenerating({
+          tool: 'generate_image', kind: 'image', gen: batch.ok[0].gen, client, model,
+          count: batch.ids.length, settings: { resolution, aspect_ratio },
+          generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
+          failed_submissions: batch.failed,
+          status_args: { generation_ids: batch.ids, wait: true },
+          reference_image: reference_images?.[0]
+        });
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 240000 });
+      }
+
+      const gen = await client.post('/v1/generate/image', { ...shared, prompt, num_images });
 
       if (ui()) return uiGenerating({
         tool: 'generate_image', kind: 'image', gen, client, model, prompt,
@@ -165,7 +223,7 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_creative_director ─────────────────────────────
   server.tool(
     'generate_creative_director',
-    'Generate 2–8 related images or videos as one coherent set from a single creative brief. Use scene_count (NOT num_images) to set the number of scenes (1–8, default 4). Use this when the user gives a general brief ("make 4 product shots", "create a storyboard") and you are planning the scenes — it handles style consistency and runs scenes in parallel. If the user explicitly provides separate prompts for each image, use parallel generate_image calls instead. Supports image and video modes (workflow_type). Visual DNA and moodboard references keep character/style consistent across every scene.',
+    'Generate 2–8 related images or videos as one coherent set from a single creative brief. Use scene_count (NOT num_images) to set the number of scenes (1–8, default 4). Use this when the user gives a general brief ("make 4 product shots", "create a storyboard") and you are planning the scenes — it handles style consistency and runs scenes in parallel. If the user explicitly provides separate prompts for each image, use ONE generate_image call with the `prompts` array instead (never parallel single-prompt calls). Supports image and video modes (workflow_type). Visual DNA and moodboard references keep character/style consistent across every scene.',
     {
       prompt: z.string().describe('Creative brief or concept describing the full set of scenes to generate'),
       scene_count: z.number().optional().describe('Number of scenes/images to generate, 1–8. Default: 4. Use this — NOT num_images — to control how many outputs are created.'),
@@ -318,9 +376,10 @@ function registerGenerateTools(server, client, options = {}) {
   // DNA-locked still via generate_video_from_image.
   server.tool(
     'generate_video',
-    'Generate a video from a text prompt using Kolbo AI. For animating an existing still image into motion, use generate_video_from_image instead. For a coordinated multi-scene video campaign, use generate_creative_director with workflow_type="video". Supports reference images (for style/composition guidance). Does NOT support Visual DNA — for character-consistent video use generate_elements or animate a DNA-locked still via generate_video_from_image. Returns the final video URL when complete.',
+    'Generate a video from a text prompt using Kolbo AI. For SEVERAL different videos, pass all their prompts in `prompts` in ONE call (one combined widget) — never a series of separate calls. For animating an existing still image into motion, use generate_video_from_image instead. For a coordinated multi-scene video campaign, use generate_creative_director with workflow_type="video". Supports reference images (for style/composition guidance). Does NOT support Visual DNA — for character-consistent video use generate_elements or animate a DNA-locked still via generate_video_from_image. Returns the final video URL when complete.',
     {
-      prompt: z.string().describe('Text description of the video to generate'),
+      prompt: z.string().optional().describe('Text description of the video to generate. Required unless `prompts` is provided.'),
+      prompts: promptsField('videos'),
       model: z.string().optional().describe('Model identifier — pick a SPECIFIC model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults: "seedance-2" (versatile) or "veo3" (Veo 3.1, cinematic + native audio); the Kling family (call list_models for exact ids like kling-video/v3/pro/text-to-video) is strongest for motion. Call list_models type="text_to_video" to see all options + check supported_durations / supported_aspect_ratios, and choose per the user\'s intent.'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "16:9"'),
       duration: z.number().optional().describe('Duration in seconds. Must be a value in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration` (whichever the model exposes). Default: 5'),
@@ -332,11 +391,28 @@ function registerGenerateTools(server, client, options = {}) {
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one video ungraded.'),
       project_id: projectIdField
     },
-    async ({ prompt, model, aspect_ratio, duration, enhance_prompt = false, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id }) => {
+    async ({ prompt, prompts, model, aspect_ratio, duration, enhance_prompt = false, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id }) => {
+      if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
-      const gen = await client.post('/v1/generate/video', {
-        prompt, model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id
-      });
+      const shared = {
+        model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id
+      };
+
+      // Batch mode: N different prompts, one widget owning all generation ids.
+      if (prompts && prompts.length) {
+        const batch = await submitBatch(prompts, (p) => client.post('/v1/generate/video', { ...shared, prompt: p }));
+        if (ui()) return uiGenerating({
+          tool: 'generate_video', kind: 'video', gen: batch.ok[0].gen, client, model,
+          count: batch.ids.length, settings: { duration, resolution, aspect_ratio },
+          generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
+          failed_submissions: batch.failed,
+          status_args: { generation_ids: batch.ids, wait: true },
+          reference_image: reference_images?.[0]
+        });
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 900000 });
+      }
+
+      const gen = await client.post('/v1/generate/video', { ...shared, prompt });
 
       if (ui()) return uiGenerating({
         tool: 'generate_video', kind: 'video', gen, client, model, prompt,
