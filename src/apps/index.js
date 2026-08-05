@@ -69,12 +69,19 @@ const WIDGET_CSP = {
     'https://fonts.googleapis.com',             // Inter / JetBrains Mono stylesheet
     'https://fonts.gstatic.com',                // font files
     'https://images.pexels.com',                // stock thumbnails
+    'https://images.unsplash.com',              // stock thumbnails (Unsplash)
+    'https://plus.unsplash.com',                // Unsplash+ premium images
+    'https://cdn.coverr.co',                    // Coverr video thumbnails
+    'https://cdn.freesound.org',                // Freesound waveform previews
     // Wildcards as a second layer for hosts that do support them.
     'https://*.kolbo.ai',
     'https://*.digitaloceanspaces.com',
     'https://*.cdn.digitaloceanspaces.com',
     'https://*.pexels.com',
     'https://*.pixabay.com',
+    'https://*.unsplash.com',
+    'https://*.coverr.co',
+    'https://*.freesound.org',
     'https://*.sketchfab.com',
     'https://*.cloudfront.net',
   ],
