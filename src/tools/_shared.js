@@ -519,9 +519,18 @@ async function uiGenerating(p) {
     reference_image: p.reference_image,
     open_url: buildOpenUrl(p.tool, p.gen),
   };
+  // Batch mode (prompts[] fan-out): ONE widget tracks every id in the set.
+  if (Array.isArray(p.generation_ids) && p.generation_ids.length > 1) {
+    structured.generation_ids = p.generation_ids;
+    structured.prompts = p.prompts;
+  }
   const text = JSON.stringify({
     status: 'submitted',
     generation_id: p.gen.generation_id,
+    ...(Array.isArray(p.generation_ids) && p.generation_ids.length > 1
+      ? { batch: true, generation_ids: p.generation_ids } : {}),
+    ...(p.failed_submissions && p.failed_submissions.length
+      ? { failed_submissions: p.failed_submissions } : {}),
     _widget_note: 'A live Kolbo widget is rendering this generation for the user (progress + final result + action buttons). Tell the user it is generating and the card above will update — do NOT poll in a loop. If you need the output URLs (e.g. for a follow-up edit or a report), call get_generation_status ONCE with wait=true — it blocks until done. Tracking several generations? Pass ALL their ids in generation_ids in that one call.',
   }, null, 2);
   return uiResult(UI.generation, text, structured);

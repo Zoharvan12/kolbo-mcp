@@ -83,6 +83,12 @@ body {
 .k-body { padding: 14px 16px; }
 .k-prompt { color: var(--text-muted); font-size: 12.5px; margin-bottom: 10px; word-break: break-word;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.k-prompt.k-clamped, .k-caption.k-clamped { cursor: pointer; }
+.k-prompt.expanded { -webkit-line-clamp: unset; }
+/* Single-line media caption (scene / batch prompt under the viewer) */
+.k-caption { font-size: 11px; color: var(--text-faint); margin: 2px 2px 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k-caption.expanded { white-space: normal; word-break: break-word; }
 
 /* ---- Chips ---- */
 .k-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px; }
@@ -127,6 +133,13 @@ body {
   animation: k-sweep 1.6s ease-in-out infinite;
 }
 @keyframes k-sweep { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+/* Batch grid: per-cell prompt caption + a cell that already finished */
+.k-skel-cap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+  padding: 12px 8px 6px; font-size: 10.5px; color: #fff;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k-skel.done::after { animation: none; background: none; }
+.k-cell-fill { width: 100%; height: 100%; object-fit: cover; display: block; }
 .k-gen-badge {
   position: absolute; top: 10px; left: 10px; z-index: 2;
   display: inline-flex; align-items: center; gap: 6px;
