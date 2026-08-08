@@ -1,0 +1,64 @@
+name: npm-emergency-remediation
+
+# One-off incident response for the 2026-08-08 supply-chain compromise.
+#
+# 1.57.1 was published from a poisoned tree and carries an RCE backdoor. The
+# owner account cannot run `npm deprecate` / `dist-tag` locally: npm now requires
+# 2FA for those writes and only offers passkey/security-key enrolment, which
+# isn't available on this machine. The Actions NPM_TOKEN already holds publish
+# rights (it published 1.57.1), so remediation runs here instead.
+#
+# Manual dispatch only — never on push.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type REMEDIATE to confirm'
+        required: true
+      unpublish:
+        description: 'Also unpublish 1.57.1 entirely? (yes/no) — irreversible'
+        required: true
+        default: 'no'
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Guard
+        run: |
+          if [ "${{ inputs.confirm }}" != "REMEDIATE" ]; then
+            echo "confirm input was not REMEDIATE; aborting"
+            exit 1
+          fi
+
+      # Order matters: repoint `latest` BEFORE removing 1.57.1, or fresh
+      # `npm i @kolbo/mcp` breaks in the gap between the two steps.
+      - name: Repoint latest to clean 1.57.0
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm dist-tag add @kolbo/mcp@1.57.0 latest
+
+      - name: Deprecate compromised 1.57.1
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm deprecate @kolbo/mcp@1.57.1 "SECURITY: this build was compromised by a supply-chain attack and contains a remote-code-execution backdoor. Do NOT use. Upgrade to 1.57.0 or later, and rotate any credentials reachable from the process that ran it."
+
+      - name: Unpublish 1.57.1 (only if explicitly requested)
+        if: ${{ inputs.unpublish == 'yes' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm unpublish @kolbo/mcp@1.57.1
+
+      - name: Verify registry state
+        run: |
+          echo "dist-tags:"
+          npm view @kolbo/mcp dist-tags --json
+          echo "1.57.1 deprecation notice:"
+          npm view @kolbo/mcp@1.57.1 deprecated || echo "(version no longer present — unpublished)"
