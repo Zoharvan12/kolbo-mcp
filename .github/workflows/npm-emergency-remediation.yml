@@ -39,12 +39,16 @@ jobs:
 
       # Order matters: repoint `latest` BEFORE removing 1.57.1, or fresh
       # `npm i @kolbo/mcp` breaks in the gap between the two steps.
+      # Both steps are idempotent-tolerant: re-running after they've already been
+      # applied returns 422/E422, which must not abort the run before unpublish.
       - name: Repoint latest to clean 1.57.0
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm dist-tag add @kolbo/mcp@1.57.0 latest
 
       - name: Deprecate compromised 1.57.1
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
