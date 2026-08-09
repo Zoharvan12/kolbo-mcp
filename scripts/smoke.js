@@ -158,6 +158,40 @@ async function main() {
     console.log('[smoke] Codex async generation contracts OK');
   }
 
+  // 0d. A prompts[] batch over the cap must be REJECTED, never truncated. This
+  // used to `.slice(0, 8)`: a 9-prompt call quietly produced 8 generations, no
+  // error, no warning — the caller only noticed by counting the results.
+  {
+    const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
+    const { registerGenerateTools } = require(path.join(PKG_ROOT, 'src', 'tools', 'generate'));
+    const submitted = [];
+    const client = {
+      apiBase: 'smoke',
+      post: async (_url, body) => { submitted.push(body.prompt); return { generation_id: `img-${submitted.length}` }; },
+      get: async (url) => (url === '/v1/models'
+        ? { models: [] }
+        : { state: 'completed', result: { urls: ['https://cdn.example/i.png'] } }),
+    };
+    const server = new McpServer({ name: 'batch-smoke', version: '1.0.0' });
+    registerGenerateTools(server, client, {});
+    const call = (n) => server._registeredTools.generate_image.handler({
+      prompts: Array.from({ length: n }, (_, i) => `smoke prompt ${i + 1}`),
+      model: 'z-image/turbo',
+    });
+    await call(9).then(
+      () => { throw new Error('9 prompts were accepted — the batch cap is silently truncating again'); },
+      (err) => {
+        if (!/\b9\b/.test(err.message) || !/\b8\b/.test(err.message)) {
+          throw new Error(`over-cap rejection must name the received count and the cap, got: ${err.message}`);
+        }
+      }
+    );
+    if (submitted.length) throw new Error(`a rejected batch still submitted ${submitted.length} generations`);
+    await call(8);
+    if (submitted.length !== 8) throw new Error(`an at-cap batch submitted ${submitted.length}/8 prompts`);
+    console.log('[smoke] prompts[] batch cap rejects instead of truncating OK');
+  }
+
   // 0c. Every media-input tool must carry the transport-correct local-file
   // route in its description. A name that drifts out of FILE_INPUT_TOOLS fails
   // silently, and the tool goes back to promising "absolute local path" over a

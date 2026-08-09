@@ -42,9 +42,20 @@ const CINEMATIC_SCHEMA = z.object({
 // The manual-control twin of generate_creative_director: no orchestration pass,
 // the user's exact prompts verbatim. Submit failures never sink the batch —
 // successful ids proceed, failed prompts are reported alongside.
+// Over the cap is a hard rejection, never a truncation: this used to
+// `.slice(0, MAX_BATCH_PROMPTS)`, so a 9-prompt call silently generated 8 and
+// the caller had no way to know which prompt vanished. `promptsField` also caps
+// the array in the schema (so hosts see `maxItems` before calling); the guard
+// below is the choke point EVERY batch tool routes through, and names the count.
 const MAX_BATCH_PROMPTS = 8;
 async function submitBatch(rawPrompts, submitOne) {
-  const prompts = rawPrompts.slice(0, MAX_BATCH_PROMPTS).map((s) => String(s).trim()).filter(Boolean);
+  if (rawPrompts.length > MAX_BATCH_PROMPTS) {
+    throw new Error(
+      `Too many prompts: ${rawPrompts.length} received, max ${MAX_BATCH_PROMPTS} per call. ` +
+      `Split them across ${Math.ceil(rawPrompts.length / MAX_BATCH_PROMPTS)} calls of at most ${MAX_BATCH_PROMPTS}.`
+    );
+  }
+  const prompts = rawPrompts.map((s) => String(s).trim()).filter(Boolean);
   const settled = await Promise.allSettled(prompts.map((p) => submitOne(p)));
   const ok = [], failed = [];
   settled.forEach((s, i) => {
@@ -91,8 +102,8 @@ const imageSettings = (a = {}) => ({
   cinematic: a.cinematic ? true : undefined,
 });
 
-const promptsField = (what) => z.array(z.string()).optional().describe(
-  `BATCH MODE — several DIFFERENT prompts (2–${MAX_BATCH_PROMPTS}) generated concurrently in ONE call and rendered together in ONE combined widget. Whenever the user wants multiple distinct ${what} with their own prompts, ALWAYS pass them all here instead of making several separate calls — separate calls clutter the chat with stacked widgets. All prompts share the same model/settings. When set, \`prompt\` is ignored. For N variations of a SINGLE prompt use num_images (image tools); for an AI-planned coherent scene set use generate_creative_director.`
+const promptsField = (what) => z.array(z.string()).max(MAX_BATCH_PROMPTS).optional().describe(
+  `BATCH MODE — several DIFFERENT prompts (2–${MAX_BATCH_PROMPTS}) generated concurrently in ONE call and rendered together in ONE combined widget. **Hard cap: ${MAX_BATCH_PROMPTS} prompts per call — more than that is REJECTED with an error (never silently truncated), so split a longer list across several calls of at most ${MAX_BATCH_PROMPTS}.** Whenever the user wants multiple distinct ${what} with their own prompts, ALWAYS pass them all here instead of making several separate calls — separate calls clutter the chat with stacked widgets. All prompts share the same model/settings. When set, \`prompt\` is ignored. For N variations of a SINGLE prompt use num_images (image tools); for an AI-planned coherent scene set use generate_creative_director.`
 );
 
 function registerGenerateTools(server, client, options = {}) {
