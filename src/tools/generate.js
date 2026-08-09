@@ -7,7 +7,7 @@ const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone } = require('../polling');
 const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, appsEnabled } = require('./_shared');
-const { UI, uiResult, canonicalModelId } = require('../apps');
+const { UI, uiResult, canonicalModelId, modelInfo, voiceInfo } = require('../apps');
 
 // ─── Cinematic Dimensions schema (shared by generate_image + generate_image_edit) ───
 // Kolbo's "Cinema mode": eight independent photographic dimensions, each an OPTIONAL
@@ -588,7 +588,7 @@ function registerGenerateTools(server, client, options = {}) {
     'Convert text to speech using Kolbo AI. Default provider is ElevenLabs. To pick a specific voice by language/gender, call list_voices first and pass the returned voice_id (or a voice display name — both work). Every voice belongs to a provider (ElevenLabs, DeepDub, MiniMax, Google/Gemini, OpenAI, Zonos) and each provider exposes its own expressive/style controls below — the engine ignores any control that does not apply to the chosen voice\'s provider, so it is safe to pass only what you need. Returns the final audio URL when complete.',
     {
       text: z.string().describe('The text to convert to speech'),
-      voice: z.string().optional().describe('Voice ID (from list_voices) or voice display name (e.g., "Rachel", "Adam"). Default: "Rachel"'),
+      voice: z.string().optional().describe('Voice ID or display name — MUST come from a `list_voices` result, never constructed. Google/Gemini ids in particular are not validated provider-side: an id that is not in the catalog is silently mapped to another voice (or a default one) and the audio comes back in a voice nobody asked for. Do not pattern-match a locale onto an id you saw for another language. Default: "Rachel"'),
       model: z.string().optional().describe('Model identifier. Use list_models type="text_to_speech" to see options. Default: eleven_v3'),
       language: z.string().optional().describe('Language code (e.g., "en-US", "he-IL", "es-ES"). Default: "en-US"'),
       // ── Expressive style / emotion (provider-specific) ──
@@ -620,6 +620,16 @@ function registerGenerateTools(server, client, options = {}) {
     },
     async ({ text, voice, model, language, style_instructions, selected_style, emotion, speaking_speed, similarity_boost, style, use_speaker_boost, variance, tempo, promptBoost, seed, accentControl, voiceTitle, minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre, project_id }) => {
       model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      // Resolve the requested voice against the REAL catalog (cached) so the card
+      // can show its display name + portrait instead of a raw id, and so an id
+      // that does not exist is reported instead of rendering silently: Google
+      // voice ids collapse to their last segment provider-side, so a made-up
+      // "en-US-Chirp3-HD-<Name>" either speaks as some other catalog entry's
+      // voice or falls back to a default one — with the card naming neither.
+      const voiceRecord = await voiceInfo(client, voice).catch(() => null);
+      const unknownVoice = voice && !voiceRecord && !/^custom_/i.test(voice)
+        ? `Voice "${voice}" is not in the Kolbo voice catalog. Call list_voices and pass a voice_id it returns — an unrecognised id is NOT rejected, it is silently mapped to a different voice, so the audio will not be the voice you named.`
+        : null;
       const gen = await client.post('/v1/generate/speech', {
         text, voice, model, language,
         style_instructions, selected_style, emotion, speaking_speed,
@@ -631,7 +641,9 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (ui()) return uiGenerating({
         tool: 'generate_speech', kind: 'audio', gen, client, model, prompt: text,
-        settings: { voice: voice || 'Rachel', style: selected_style || emotion || style_instructions }
+        voice: voiceRecord,
+        settings: { voice: voice || 'Rachel', style: selected_style || emotion || style_instructions },
+        warning: unknownVoice
       });
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {
@@ -648,7 +660,8 @@ function registerGenerateTools(server, client, options = {}) {
             ...creditFields(result),
             urls: result.result.urls,
             voice: result.result.voice,
-            duration: result.result.duration
+            duration: result.result.duration,
+            ...(unknownVoice ? { _warning: unknownVoice } : {})
           }, null, 2)
         }]
       };
@@ -713,6 +726,32 @@ function registerGenerateTools(server, client, options = {}) {
     }
   );
 
+  // The status endpoint reports RAW ids — `model: "google_tts"`, `voice:
+  // "he-IL-Chirp3-HD-Kore"`. That is the model/voice that ACTUALLY ran (for
+  // Smart Select it is the only place the choice surfaces), so the card must
+  // show it — but with the clean name + icon everything else uses. Resolved
+  // here, off the same cached catalogs `list_models` / `list_voices` serve, so
+  // the widget adds no round trip per generation. Written INTO `result` because
+  // that is the object the widget merges over its generating-phase state.
+  async function addDisplayNames(status) {
+    const r = status && status.result;
+    if (!r || typeof r !== 'object') return;
+    // Always WRITE both keys, even on a catalog miss: the widget merges this
+    // over its generating-phase state, so a missing key silently keeps the
+    // pre-submit guess ("Smart Select") for a model that is not what ran. An
+    // unresolvable id is at least honest.
+    if (r.model) {
+      const info = await modelInfo(client, r.model).catch(() => null);
+      r.model_name = (info && info.name) || r.model;
+      r.model_icon = (info && info.icon) || null;
+    }
+    if (r.voice) {
+      const v = await voiceInfo(client, r.voice).catch(() => null);
+      r.voice_name = (v && v.name) || r.voice;
+      r.voice_thumbnail = (v && v.thumbnail) || null;
+    }
+  }
+
   // ─── get_generation_status ─────────────────────────────────
   server.tool(
     'get_generation_status',
@@ -753,6 +792,7 @@ function registerGenerateTools(server, client, options = {}) {
       };
 
       const results = await Promise.all(ids.map(checkOne));
+      await Promise.all(results.map(addDisplayNames));
 
       const pending = results.filter(r => r.state !== 'completed' && r.state !== 'failed' && r.state !== 'cancelled');
       const doneHint = 'ALL generations are in a final state — do NOT poll again. Report the results to the user.';

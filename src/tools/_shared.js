@@ -484,7 +484,22 @@ function buildProjectUrl(projectId, opts = {}) {
 // ui://kolbo/generation.html widget takes over: live progress, inline result,
 // action buttons. Text-only hosts never enter this path — their blocking
 // behavior and response bytes are UNCHANGED.
-const { UI, uiResult, appsEnabled, modelIcon } = require('../apps');
+const { UI, uiResult, appsEnabled, modelInfo } = require('../apps');
+
+/**
+ * Chip identity for a model: the CLEAN display name + its icon, resolved from
+ * the same /v1/models catalog `list_models` renders. Callers pass whatever the
+ * user/LLM supplied (an identifier like `google_tts`, `fal-ai/…/omnihuman/v1.5`,
+ * or a display name) — the card must never show the raw id.
+ */
+async function modelChipFields(client, model) {
+  const info = await modelInfo(client, model).catch(() => null);
+  return {
+    model: model || 'Smart Select',
+    model_name: (info && info.name) || model || 'Smart Select',
+    model_icon: (info && info.icon) || null,
+  };
+}
 
 /**
  * Build the "submitted — widget is live" tool result for a UI host.
@@ -494,12 +509,13 @@ const { UI, uiResult, appsEnabled, modelIcon } = require('../apps');
  *   gen            the submit response ({ generation_id, poll_interval_hint })
  *   client         KolboClient (for model icon lookup)
  *   model, prompt, count, settings, reference_image, estimated_seconds
+ *   voice          resolved voice record { name, thumbnail } (speech only)
  *   poll_tool      widget-side status tool (default 'get_generation_status')
  *   status_args    args for poll_tool (default { generation_id, wait: true })
  */
 async function uiGenerating(p) {
   // No ETAs anywhere — just a spinner until the poll flips to completed.
-  const icon = await modelIcon(p.client, p.model).catch(() => null);
+  const chip = await modelChipFields(p.client, p.model);
   const structured = {
     phase: 'generating',
     widget: 'generation',
@@ -511,8 +527,8 @@ async function uiGenerating(p) {
     // wait=true, every open card calls tools/call every few seconds, flooding
     // the host's global progress/context stream and API rate limits.
     status_args: p.status_args || { generation_id: p.gen.generation_id, wait: true },
-    model: p.model || 'Smart Select',
-    model_icon: icon,
+    ...chip,
+    ...(p.voice ? { voice_name: p.voice.name, voice_thumbnail: p.voice.thumbnail } : {}),
     prompt: p.prompt,
     count: p.count || 1,
     settings: p.settings || {},
@@ -531,6 +547,7 @@ async function uiGenerating(p) {
       ? { batch: true, generation_ids: p.generation_ids } : {}),
     ...(p.failed_submissions && p.failed_submissions.length
       ? { failed_submissions: p.failed_submissions } : {}),
+    ...(p.warning ? { _warning: p.warning } : {}),
     _widget_note: 'A live Kolbo widget is rendering this generation for the user (progress + final result + action buttons). Tell the user it is generating and the card above will update — do NOT poll in a loop. If you need the output URLs (e.g. for a follow-up edit or a report), call get_generation_status ONCE with wait=true — it blocks until done. Tracking several generations? Pass ALL their ids in generation_ids in that one call.',
   }, null, 2);
   return uiResult(UI.generation, text, structured);
@@ -541,14 +558,13 @@ async function uiGenerating(p) {
  * that stay blocking even on UI hosts, e.g. creative director).
  */
 async function uiCompleted(p, textPayload) {
-  const icon = await modelIcon(p.client, p.model).catch(() => null);
+  const chip = await modelChipFields(p.client, p.model);
   const structured = {
     phase: 'completed',
     widget: 'generation',
     kind: p.kind,
     tool: p.tool,
-    model: p.model || 'Smart Select',
-    model_icon: icon,
+    ...chip,
     prompt: p.prompt,
     count: p.count || 1,
     settings: p.settings || {},

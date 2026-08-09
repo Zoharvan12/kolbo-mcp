@@ -111,6 +111,7 @@ body {
   color: #fff; font-size: 9px; font-weight: 700; display: inline-flex;
   align-items: center; justify-content: center; font-family: 'Inter', sans-serif;
 }
+.k-chip img.k-voice-thumb { width: 18px; height: 18px; border-radius: 999px; margin-left: -3px; }
 .k-ref-thumb { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-strong); }
 
 /* ---- Generating state ---- */

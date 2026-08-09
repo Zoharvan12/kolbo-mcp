@@ -19,14 +19,29 @@ function registerVoiceTools(server, client, options = {}) {
     },
     async ({ language, gender, provider }) => {
       const params = new URLSearchParams();
-      if (language) params.set('language', language);
       if (gender) params.set('gender', gender);
       if (provider) params.set('provider', provider);
+      const withoutLanguage = `/v1/voices${params.toString() ? '?' + params.toString() : ''}`;
 
-      const path = `/v1/voices${params.toString() ? '?' + params.toString() : ''}`;
-      const result = await client.get(path);
+      const qs = new URLSearchParams(params);
+      if (language) qs.set('language', language);
+      const result = await client.get(`/v1/voices${qs.toString() ? '?' + qs.toString() : ''}`);
 
-      const voices = result.voices || [];
+      let voices = result.voices || [];
+      // The API matches `language` EXACTLY against the voice's language name or
+      // its locale code — "hebrew" and "he-IL" both hit, but "he" / "heb" /
+      // "Hebrew (Israel)" return nothing. This arg is documented as a partial
+      // match, and an empty list reads to the model as "Kolbo has no Google
+      // Hebrew voices at all", which is how a whole provider goes missing.
+      // Retry ONCE, unfiltered, and match locally — only on the empty path, so
+      // the normal call still costs one request.
+      if (voices.length === 0 && language) {
+        const l = language.toLowerCase();
+        const all = await client.get(withoutLanguage);
+        voices = (all.voices || []).filter(v =>
+          [v.language, v.language_code, v.languageCode]
+            .some(x => String(x || '').toLowerCase().includes(l)));
+      }
       if (voices.length === 0) {
         return {
           content: [{ type: 'text', text: 'No voices found matching those filters.' }]
