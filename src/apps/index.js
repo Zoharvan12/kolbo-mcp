@@ -279,29 +279,79 @@ async function modelIcon(client, modelName) {
   return (await modelInfo(client, modelName)).icon;
 }
 
+// Separator-insensitive key. Catalog keys carry their own punctuation — the
+// NAME is keyed "minimax h3", the IDENTIFIER "flux-2/flash" — so both sides
+// must be flattened before comparing. Normalising only the input (the old
+// `key.replace(/\s+/g, '-')`) is why "flux-2-flash" never found "flux-2/flash".
+const normId = (s) => String(s || '').toLowerCase().replace(/[\s._/-]+/g, '');
+
+// The API maps these to Smart Select itself. They are never typos, so they must
+// never be "corrected" or reported as unknown.
+const AUTO_ALIASES = new Set([
+  'auto', 'autoselect', 'smartselect', 'kolbosmartselectrouter', 'default', 'none',
+]);
+
 /**
  * Lenient model-identifier resolution for LLM-supplied model args.
  * Users say "z-image"; the real identifier is "z-image/turbo" — the backend
  * has no fuzzy matching on generation routes and fails deep in credit
  * reservation. Resolve here: exact name/identifier hit → its identifier;
- * else a UNIQUE identifier prefix match ("z-image" → "z-image/turbo");
- * ambiguous or unknown → pass through unchanged (API stays source of truth).
+ * else a separator-insensitive hit ("flux-2-flash" → "flux-2/flash"); else a
+ * UNIQUE prefix match ("z-image" → "z-image/turbo").
+ *
+ * Still unresolved: throw with the near misses named. The API answers a bad
+ * identifier with a bare INVALID_*_MODEL and no hint, which on 2026-08-09 sent
+ * an agent guessing "minimax-hailuo-3" (real id: "minimax-h3") and then
+ * substituting a far more expensive model. Only throws when the catalog is
+ * healthy AND actually offers candidates — otherwise it passes through
+ * unchanged, so identifiers the catalog does not publish (hidden models) still
+ * reach the API and it stays the source of truth.
  */
 async function canonicalModelId(client, input) {
   if (!input || typeof input !== 'string') return input;
+  const key = input.toLowerCase().trim();
+  const want = normId(key);
+  if (!want || AUTO_ALIASES.has(want)) return input;
+
+  let map;
   try {
-    const map = await modelInfoMap(client);
-    const key = input.toLowerCase().trim();
-    const hit = map.get(key) || map.get(key.replace(/\s+/g, '-'));
-    if (hit && hit.id) return hit.id;
-    const ids = new Set();
-    for (const info of map.values()) {
-      const id = (info.id || '').toLowerCase();
-      if (id && (id.startsWith(key + '/') || id.startsWith(key + '-'))) ids.add(info.id);
+    map = await modelInfoMap(client);
+  } catch (_) {
+    return input; // fail open — never block a generation on a catalog hiccup
+  }
+  if (!map || map.size === 0) return input;
+
+  // 1. exact name / identifier hit
+  const hit = map.get(key) || map.get(key.replace(/\s+/g, '-'));
+  if (hit && hit.id) return hit.id;
+
+  // 2 + 3. separator-insensitive exact, then unique prefix
+  const byNorm = new Map();
+  for (const info of map.values()) {
+    if (!info.id) continue;
+    for (const k of [info.id, info.name]) {
+      const n = normId(k);
+      if (n && !byNorm.has(n)) byNorm.set(n, info.id);
     }
-    if (ids.size === 1) return [...ids][0];
-  } catch (_) { /* fail open */ }
-  return input;
+  }
+  if (byNorm.has(want)) return byNorm.get(want);
+  const prefixed = new Set();
+  for (const [n, id] of byNorm) if (n.startsWith(want)) prefixed.add(id);
+  if (prefixed.size === 1) return [...prefixed][0];
+
+  // 4. unknown — name the near misses instead of dead-ending at the API.
+  const stem = normId(key.split(/[\s._/-]+/).filter(Boolean)[0] || key);
+  const near = [...new Set(
+    [...map.values()]
+      .filter((i) => i.id && stem && (normId(i.id).startsWith(stem) || normId(i.name).startsWith(stem)))
+      .map((i) => (i.name ? `${i.id} (${i.name})` : i.id))
+  )].sort().slice(0, 12);
+  if (!near.length) return input;
+  throw new Error(
+    `Unknown model identifier "${input}". Did you mean: ${near.join(', ')}? `
+    + 'Never guess an identifier — call list_models with the matching `type` and `format: "json"` '
+    + 'to get the exact identifiers and caps.'
+  );
 }
 
 /* ------------------------------------------------------------------ */

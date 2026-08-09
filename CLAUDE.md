@@ -66,6 +66,7 @@ This package is consumed in three ways:
 1. **Kolbo plugin for Claude Code** — `Zoharvan12/kolbo-claude-plugin` is a dedicated tiny repo (~6 files) that wraps this MCP with a `userConfig` API-key prompt. Users install with `claude plugin marketplace add Zoharvan12/kolbo-claude-plugin && claude plugin install kolbo@kolbo`. The plugin executes `npx -y @kolbo/mcp`, so **any change here flows to plugin users on next `npx` cache refresh** — no plugin re-publish needed for backend tool updates. The plugin's `version` (in `kolbo-claude-plugin/.claude-plugin/plugin.json`) auto-bumps via the sync workflow in kolbo-code whenever `SKILL.md` changes; manually bump only for manifest / MCP server config changes.
 2. **Kolbo Code CLI** — `kolbo-code/packages/opencode/src/mcp/wire.ts` writes a stdio MCP config that runs `npx -y @kolbo/mcp` on `kolbo auth login`.
 3. **Manual setup** — Claude Desktop / Cursor / vanilla Claude Code users who edit `claude_desktop_config.json` by hand (see README).
+4. **MCP resources** — since v1.52 the skill tree is ALSO synced into this repo's `skill/` dir (by the kolbo-code skill-sync bot) and served as `kolbo://skill/` MCP resources via `src/skillResources.js`. Edit the skill in kolbo-code, NEVER in `skill/` directly (it's a generated mirror).
 
 **When adding, renaming, or changing tool behavior here, you MUST update the skill tree at `kolbo-code/packages/opencode/skills/kolbo/`** — the canonical skill loaded by both the Kolbo Code binary AND the Claude Code plugin. That tree is the only place that teaches the LLM how to route to your tool. As of skill v0.4.0 the tree uses progressive disclosure:
 
@@ -152,6 +153,28 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
   `WIDGET_CSP.resourceDomains` (`src/apps/index.js`) — EXACT hosts first, wildcards
   second (not all hosts honor wildcards). New CDN bucket ⇒ add it there AND to the
   download-proxy allowlist in kolbo-api `src/modules/mcpConnector/download.js`.
+- **⚠️ `structuredContent` SHADOWS `content[].text` — never ship an agent-facing payload
+  as text only on a widget-carrying tool.** Hosts that mount the widget (claude.ai,
+  Claude Code desktop) hand the MODEL `structuredContent` and DROP the text block. A tool
+  in `TOOL_WIDGETS` therefore has to put everything the agent needs INTO the structured
+  payload — the widget ignores extra keys, so just add them. Cost of forgetting: v1.53.1
+  (406a51e) made `list_models` always attach the curated 6-per-group catalog, so
+  `format:"json"` silently returned the picker instead of the raw documents and 43 of 49
+  `text_to_video` identifiers became undiscoverable by any MCP call — which on 2026-08-09
+  bought a much more expensive model after `minimax-h3` could not be found. Guarded by
+  `check-model-catalog.js` (enumeration + identifier resolution, in `prepublishOnly`).
+- **Never show a raw id on a card.** Generation cards identify the model and the
+  voice by their CLEAN catalog name + icon/portrait. `modelInfo()` / `voiceInfo()`
+  (`src/apps/index.js`, both cached 10 min off `/v1/models` and `/v1/voices`) do the
+  resolution; `uiGenerating()` writes `model_name`/`model_icon`/`voice_name`/
+  `voice_thumbnail` at submit, and `get_generation_status` re-writes them from the
+  status result so the FINISHED card names what actually ran (raw `google_tts` →
+  "Google TTS", raw `he-IL-Chirp3-HD-Kore` → its portrait) instead of the
+  pre-submit "Smart Select" guess. The widget repaints its chips in `renderResult`
+  for exactly this reason — `sc.model`/`sc.voice` stay raw for Recreate + model
+  context, `modelLabel()`/`voiceLabel()` are what render. Guarded by
+  `check-widget-render.js` (completed-card assertions) and `smoke.js` (resolution +
+  cache-hit count).
 - **Model icons**: bare `Model.avatar` filenames resolve to
   `kolbo-general-media.fra1.cdn.digitaloceanspaces.com/models_icons/` — the ONLY host
   claude.ai's sandbox loads (api.kolbo.ai is blocked by our own Cloudflare bot rules;
@@ -207,7 +230,9 @@ src/tools/_shared.js     — Shared URL/path resolver + SSRF guards (import from
 src/tools/generate.js    — All generation tools (image, image-edit, video, video-from-image,
                             video-from-video, elements, first-last-frame, lipsync,
                             creative-director, music, speech, sound, 3d, transcribe,
-                            list_voices, get_generation_status)
+                            edit_image, edit_video, cancel_generation, trim_video,
+                            get_generation_status, get_creative_director_status)
+src/tools/voices.js      — Voice tools (list_voices, clone_voice, import_elevenlabs_voice, delete_voice)
 src/tools/models.js      — Discovery tools (list_models, check_credits)
 src/tools/chat.js        — Chat tools (send, list conversations, get messages)
 src/tools/visual_dna.js  — Visual DNA CRUD (thin wrapper that imports from _shared)
@@ -228,7 +253,9 @@ src/tools/agents.js      — Custom chat agents CRUD (list_agents, create_agent,
 src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
 src/tools/music_library.js — SYNCI preview discovery plus idempotent paid clean MP3/WAV acquisition/import
 scripts/smoke.js         — Load-time smoke test (no network)
-scripts/check-parity.js  — SDK→MCP route parity audit (prepublishOnly hook)
+scripts/check-parity.js  — SDK→MCP route parity audit
+scripts/check-widget-fields.js, check-skill-tools.js, check-install.js — additional publish gates
+                            (prepublishOnly chains all five: smoke → parity → widget-fields → skill-tools → install)
 ```
 
 ## Available Tools (118 registered)
@@ -241,12 +268,12 @@ Every generation tool below also accepts an optional `project_id` arg that route
 **Generation** (`src/tools/generate.js`)
 | Tool | Route | Timeout | Composition args |
 |------|-------|---------|-----------------|
-| `generate_image` | `POST /v1/generate/image` | 120s | `visual_dna_ids`, `moodboard_id`, `reference_images`, `num_images`, `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette` |
+| `generate_image` | `POST /v1/generate/image` | 120s | `visual_dna_ids`, `moodboard_id`, `reference_images`, `num_images`, `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette`, `prompts[]` (batch fan-out, v1.57+) |
 | `generate_image_edit` | `POST /v1/generate/image-edit` | 120s | `source_images`, `visual_dna_ids`, `moodboard_id`, `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette` |
-| `generate_video` | `POST /v1/generate/video` | 900s | `visual_dna_ids`, `reference_images`, `resolution`, `sound_enabled`, `skip_color_palette` |
+| `generate_video` | `POST /v1/generate/video` | 900s | `visual_dna_ids`, `reference_images`, `resolution`, `sound_enabled`, `skip_color_palette`, `prompts[]` (batch fan-out, v1.57+) |
 | `generate_video_from_image` | `POST /v1/generate/video/from-image` | 900s | `image_url`, `visual_dna_ids`, `aspect_ratio`, `resolution`, `sound_enabled`, `skip_color_palette` |
 | `generate_video_from_video` | `POST /v1/generate/video-from-video` | 600s | `source_video` (URL or local), optional `prompt`, `visual_dna_ids`, `resolution`; VEED Subtitles: `preset` / `source_language` / `translation_language` / `srt_content` / `srt_file_url` / `vocabulary` / `customization` |
-| `generate_elements` | `POST /v1/generate/elements` | 600s | `reference_images`, `reference_videos`, `reference_audio_urls`, legacy `audio_url`, `files`, `visual_dna_ids`, `motion`, `preset_id`, `resolution` |
+| `generate_elements` | `POST /v1/generate/elements` | 600s | `reference_images`, `reference_videos`, `reference_audio_urls`, legacy `audio_url`, `files`, `visual_dna_ids`, `motion`, `preset_id`, `resolution`, `keyframes` (v1.56+) |
 | `generate_first_last_frame` | `POST /v1/generate/first-last-frame` | 300s | URLs OR local paths for `first_frame`/`last_frame`, `visual_dna_ids`, `resolution` |
 | `generate_lipsync` | `POST /v1/generate/lipsync` | 600s | `source` (URL or local), `audio` (URL or local), `bounding_box_target`; Sync-3 only: `sync_mode`, `model_mode`, `emotion`, `temperature`, `occlusion_detection_enabled`, `active_speaker_detection` |
 | `generate_creative_director` | `POST /v1/generate/creative-director` | 600s | `visual_dna_ids`, `moodboard_id`, `moodboard_ids`, `reference_images`, `scene_count`, `workflow_type`, `resolution` |
@@ -256,7 +283,11 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `generate_3d` | `POST /v1/generate/3d` | 900s | `reference_images`, `mode` (text/single/multi), `topology`, `enable_pbr` |
 | `transcribe_audio` | `POST /v1/transcribe` | 1800s | `source` (URL or local audio/video); `language`, `diarize` (speaker labels), `tag_audio_events`, `remove_punctuation`; SRT formatting: `generate_srt`, `words_per_line`, `lines_per_subtitle`, `stretch_captions` |
 | `get_generation_status` | `GET /v1/generate/:id/status` | 180s w/ `wait` | single id or `generation_ids[]` batch (returns `all_done`/`still_processing`); `wait=true` blocks via pollUntilDone; single-id no-wait shape unchanged (widget contract) |
-| `list_voices` | `GET /v1/voices` | — | filters: `provider`, `language`, `gender` |
+| `get_creative_director_status` | see `src/tools/generate.js` | — | dedicated wait-capable status for CD batches (partial per-scene results) |
+| `edit_image` | see `src/tools/generate.js` | — | image edit incl. `zoom_out` outpainting (v1.54+) |
+| `edit_video` | see `src/tools/generate.js` | — | video edit operations |
+| `cancel_generation` | see `src/tools/generate.js` | — | cancel an in-flight generation |
+| `list_voices` | `GET /v1/voices` (`src/tools/voices.js`) | — | filters: `provider`, `language`, `gender` |
 
 **Media Library** (`src/tools/media.js`)
 | Tool | Route | Notes |
@@ -351,6 +382,7 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `get_stock_categories` | `GET /v1/stock/categories` | Dynamic category chips; pass `providerParam` as `category`. |
 | `get_stock_asset` | `GET /v1/stock/asset/:source/:id` | One asset + download variants + author/license/attribution. |
 | `analyze_script_for_stock` | `POST /v1/stock/analyze-script` | Script → `{ queries[], mediaType, keywords }` via cheap LLM call. |
+| `get_stock_collections` | see `src/tools/stock_library.js` | Stock music collections/albums. |
 | `import_stock_asset` | `POST /v1/stock/import` | Copy asset → media library (CDN copy). Free. Music not importable here. |
 
 **Discovery & Account** (`src/tools/models.js`, `src/tools/projects.js`)
@@ -360,14 +392,15 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `list_projects` | `GET /v1/projects` |
 | `move_session` | `PATCH /v1/sessions/:sessionId/project` |
 | `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | `POST/GET /v1/docs`, `GET/PUT/DELETE /v1/docs/:id`, `PATCH /v1/docs/:id/share` |
-| `generate_character_sheet` | `POST /v1/visual-dna/character-sheet` |
+| `generate_character_sheet` (in `src/tools/visual_dna.js`) | `POST /v1/visual-dna/character-sheet` |
+| `get_session_usage` | see `src/tools/` — per-session usage stats |
 | `*_visual_dna_folder` (5 tools) | `GET/POST /v1/visual-dna/folders`, `PUT/DELETE /v1/visual-dna/folders/:folderId`, `PUT /v1/visual-dna/:id/folder` |
 | `create_project` / `update_project` / `archive_project` / `unarchive_project` | `POST /v1/projects`, `PUT /v1/projects/:id(/archive|/unarchive)` |
 | `list_sessions` | `GET /v1/sessions` |
 | `add_project_context` / `list_project_context` / `delete_project_context` / `get_project_profile` / `regenerate_project_profile` | `POST/GET/DELETE /v1/projects/:id/context*`, `GET/POST /v1/projects/:id/profile*` |
 | `create_moodboard` / `update_moodboard` / `delete_moodboard` | `POST /v1/moodboards`, `PUT/DELETE /v1/moodboards/:id` |
-| `clone_voice` / `import_elevenlabs_voice` / `delete_voice` | `POST /v1/voices/clone`, `POST /v1/voices/import-elevenlabs`, `DELETE /v1/voices/:id` |
-| `trim_video` | `POST /v1/video/trim` + `GET /v1/video/trim/:jobId` |
+| `clone_voice` / `import_elevenlabs_voice` / `delete_voice` (in `src/tools/voices.js`) | `POST /v1/voices/clone`, `POST /v1/voices/import-elevenlabs`, `DELETE /v1/voices/:id` |
+| `trim_video` (in `src/tools/generate.js`) | `POST /v1/video/trim` + `GET /v1/video/trim/:jobId` |
 | `check_credits` | `GET /v1/account/credits` |
 
 **Generation flow**: POST → get `generation_id` → poll `/v1/generate/:id/status` → return `result` when `state === 'completed'`.
@@ -376,7 +409,7 @@ Every generation tool below also accepts an optional `project_id` arg that route
 
 ## Adding a New Tool
 
-Pick the pattern that matches — the four in the codebase cover most cases.
+Pick the pattern that matches — the four in the codebase cover most cases. Two updates to the snippets below: the codebase now uses **zod schemas** for params (e.g. `z.string().describe(...)` — see `src/tools/visual_dna.js`), not raw JSON-schema objects; and if the tool gets a widget (`TOOL_WIDGETS`), you MUST follow the submit → `if (ui()) return uiGenerating(...)` pattern from the Apps section on EVERY result path — a plain-text return leaves a dead empty widget shell.
 
 ### Pattern A — Async generation (POST then poll)
 Used by: image, video, music, speech, sound, creative-director, chat.
@@ -429,9 +462,9 @@ See `src/tools/visual_dna.js` for the canonical implementation.
 ### After adding any tool
 1. Register the new tool group in `src/index.js` (if it's a new file).
 2. Update the "Available Tools" tables in `README.md` and this `CLAUDE.md`.
-3. Schema smoke test: `KOLBO_API_KEY=dummy node -e "require('./src/index.js')"` (will fail at API call but registration must succeed).
+3. Run `npm run smoke` (the publish gate — prepublishOnly chains smoke + check-parity + check-widget-fields + check-skill-tools + check-install).
 4. End-to-end test via Claude Desktop with a real API key before publishing.
-5. `npm version minor && npm publish --access public` (new tool = minor; bug fix = patch).
+5. Release via the Release Pipeline section above (tag push → GitHub Action) — NEVER `npm publish` locally; it bypasses the Action and provenance.
 
 ## Testing
 

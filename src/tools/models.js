@@ -83,15 +83,26 @@ function buildCatalogStructured(models, type, compact) {
   };
 }
 
+// One row per model — every identifier, nothing else. ~90 bytes/model, so the
+// whole 400+ model catalog fits in a payload an agent can actually read.
+const identifierRow = (m) => ({
+  identifier: m.identifier,
+  name: m.name,
+  types: m.types,
+  credit: m.credit,
+  ...(m.recommended ? { recommended: true } : {}),
+  ...(m.new_model ? { new_model: true } : {}),
+});
+
 function registerModelTools(server, client, options = {}) {
   const ui = () => appsEnabled(server, options);
   // ─── list_models ───────────────────────────────────────────
   server.tool(
     'list_models',
-    'List available AI models on Kolbo. Filter by `type` to narrow to a generation type, and pass `format: "json"` to get the raw model documents (every constraint field, useful for programmatic comparison / cap validation before submitting a generation). Default `format: "text"` returns the human-readable summary.',
+    'List available AI models on Kolbo. Filter by `type` to narrow to a generation type, and pass `format: "json"` to enumerate the catalog with exact identifiers — `format: "json"` + `type` returns the full raw model documents (every constraint field, for programmatic comparison / cap validation before submitting a generation); `format: "json"` alone returns a compact index of EVERY model and its identifier. Default `format: "text"` returns the human-readable summary. NEVER guess a model identifier: call this tool.',
     {
       type: z.string().optional().describe('Filter by DB type name: "text_to_img", "image_editing", "text_to_video", "img_to_video", "draw_to_video", "video_to_video", "elements", "firstlastgenerations", "lipsync-image", "lipsync-video", "music_gen", "text_to_speech", "text_to_sound", "stt", "text". Legacy aliases also accepted: "image", "image_edit", "video", "video_from_image", "video_from_video", "music", "speech", "sound", "chat", "lipsync" (both lipsync types), "three_d" (all 3D types), "first_last_frame", "transcription". Omit for all models.'),
-      format: z.enum(['text', 'json']).optional().describe('Output format. "text" (default) returns a human-readable summary with the most-used caps. "json" returns the raw model documents from the API — use this when you need to programmatically verify caps (max_reference_images, max_visual_dna, max_video_duration, supported_aspect_ratios, etc.) before passing an array/value that might exceed a model-specific limit. The JSON form is the source of truth; the text form is a convenience preview.'),
+      format: z.enum(['text', 'json']).optional().describe('Output format. "text" (default) returns a human-readable summary with the most-used caps. "json" is the source of truth for identifiers and caps: with `type` it returns the raw model documents from the API (identifier, credit, supported_durations, supported_resolutions, supported_aspect_ratios, max_reference_images, max_visual_dna, max_video_duration, …) for EVERY model of that type; without `type` it returns a compact index of every model in the catalog and its exact identifier. Use it whenever you need an identifier you have not seen listed, or must verify a cap before passing a value that might exceed a model-specific limit.'),
       display_catalog: z.boolean().optional().describe('Set true when the USER explicitly asked to see/browse the available models — the visual catalog opens expanded. Leave unset for internal lookups (verifying a model name, checking caps before a generation): the catalog stays collapsed to a single row the user can tap to browse.')
     },
     async ({ type, format, display_catalog }) => {
@@ -106,14 +117,41 @@ function registerModelTools(server, client, options = {}) {
       const path = type ? `/v1/models?type=${encodeURIComponent(type)}` : '/v1/models';
       const result = await client.get(path);
 
-      // JSON mode — return the raw API documents unchanged. This is the
-      // authoritative shape; every constraint the agent might need to validate
-      // a request lives here (durations, reference caps, audio/video min/max,
-      // resolution multipliers, supports_* flags, prompt-length limits, etc.).
+      // ⚠️ Hosts that mount this widget (claude.ai, Claude Code desktop) hand the
+      // MODEL `structuredContent` and DROP `content[].text`. So every payload the
+      // agent needs has to ride in structuredContent — shipping it as text only
+      // makes it invisible. That is exactly how `format: "json"` came to return
+      // the curated 6-per-group picker instead of the raw documents: v1.53.1
+      // (406a51e) flipped `if (ui() && showCatalog)` → `if (ui())` on all three
+      // return paths, so the widget payload started shadowing the real answer and
+      // the other 43 text_to_video identifiers became undiscoverable by any MCP
+      // call. On 2026-08-09 that cost a wrong-model generation (minimax-h3).
+      // `extra` (json mode) carries the data as structured fields; without it the
+      // full text payload is attached verbatim. The widget ignores both.
+      const respond = (text, extra) => (ui()
+        ? uiResult(UI.catalog, text, {
+            ...buildCatalogStructured(result.models, type, !showCatalog),
+            ...(extra || { text }),
+          })
+        : { content: [{ type: 'text', text }] });
+
+      // JSON mode — the authoritative shape; every constraint the agent might
+      // need to validate a request lives here (durations, reference caps,
+      // audio/video min/max, resolution multipliers, supports_* flags,
+      // prompt-length limits, etc.).
       if (format === 'json') {
-        const text = JSON.stringify({ count: result.count, models: result.models }, null, 2);
-        if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type, !showCatalog));
-        return { content: [{ type: 'text', text }] };
+        // Raw documents once `type` narrows the set (~49 docs for a video type).
+        // Unfiltered that is 400+ documents / hundreds of KB, so return the
+        // complete IDENTIFIER INDEX instead: every model stays enumerable and
+        // the full caps are one `type` away.
+        const payload = type
+          ? { count: result.count, models: result.models }
+          : {
+              count: result.count,
+              models: result.models.map(identifierRow),
+              note: 'Compact index — every model in the catalog and its exact identifier. Re-call with `type` for the full documents (all caps, credit costs, supported_* fields).',
+            };
+        return respond(JSON.stringify(payload, null, 2), payload);
       }
 
       // Split into auto-selectable (has summary) and named-only (no summary)
@@ -306,9 +344,9 @@ function registerModelTools(server, client, options = {}) {
           + '  first_last_frame · elements · lipsync · music_gen · text_to_speech ·\n'
           + '  text_to_sound · stt · three_d · text\n\n'
           + 'Use the "identifier" value as the "model" parameter in generate tools. '
-          + 'For raw documents (programmatic cap validation), re-call with format: "json".';
-        if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type, !showCatalog));
-        return { content: [{ type: 'text', text }] };
+          + 'For EVERY model + its exact identifier, re-call with format: "json" (compact index of the '
+          + 'whole catalog). Add `type` to that call for the full raw documents with all caps.';
+        return respond(text);
       }
 
       if (withSummary.length > 0) {
@@ -318,9 +356,8 @@ function registerModelTools(server, client, options = {}) {
         sections.push(`Named-only models (${withoutSummary.length}) — only use if the user explicitly requests by name:\n${withoutSummary.map(formatModel).join('\n')}`);
       }
 
-      const text = `Available ${type} models (${result.count}):\n\n${sections.join('\n\n')}\n\nUse the "identifier" value as the "model" parameter in generate tools. For programmatic cap validation, re-call with format: "json".`;
-      if (ui()) return uiResult(UI.catalog, text, buildCatalogStructured(result.models, type, !showCatalog));
-      return { content: [{ type: 'text', text }] };
+      const text = `Available ${type} models (${result.count}):\n\n${sections.join('\n\n')}\n\nEvery ${type} model in the catalog is listed above — both sections together are the complete set. Use the "identifier" value as the "model" parameter in generate tools. For the raw documents (programmatic cap validation), re-call with format: "json".`;
+      return respond(text);
     }
   );
 
