@@ -36,6 +36,12 @@ const CONTRACTS = [
   { file: 'src/tools/moodboards.js',    exportName: 'listMoodboards', reads: ['thumbnail_url', 'images'] },
   { file: 'src/tools/voices.js',        exportName: 'listVoices',     reads: ['thumbnail', 'preview_url'] },
   { file: 'src/tools/media.js',         exportName: 'listMedia',      reads: ['thumbnail_url'] },
+  // Not a media grid: the generation card resolves the model/voice that ACTUALLY
+  // RAN into a clean name + icon/portrait through these two catalogs (cached in
+  // src/apps/index.js). If either stops emitting a field, the chip silently
+  // regresses to the raw id ("google_tts", "he-IL-Chirp3-HD-Rasalgethi").
+  { file: 'src/apps/index.js',          exportName: 'listVoices',     reads: ['voice_id', 'name', 'thumbnail'] },
+  { file: 'src/apps/index.js',          exportName: 'listModels',     reads: ['identifier', 'name', 'avatar'] },
 ];
 
 // CI clones only this repo, so there is no kolbo-api checkout to diff against.

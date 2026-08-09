@@ -203,7 +203,10 @@ async function modelInfoMap(client) {
       // Real p75 wall-clock estimate mined from production creditUsages —
       // the same source the in-app countdowns use. No estimate → no ETA shown.
       const eta = Number(m.estimatedDurationSeconds || m.estimated_duration_seconds) || null;
-      const info = { icon, eta, id: m.identifier || null };
+      // `name` is the CLEAN display name ("Google TTS"); it is what widgets show.
+      // Without it the model chip fell back to whatever raw string the caller or
+      // the status endpoint supplied ("google_tts", "fal-ai/bytedance/omnihuman/v1.5").
+      const info = { icon, eta, id: m.identifier || null, name: m.name || null };
       // Display names collide across variants ("Nano Banana 2" names both the
       // t2i model and its editing sibling) — on collision keep the model with
       // the SHORTEST identifier (the base model), deterministically.
@@ -224,11 +227,51 @@ async function modelInfoMap(client) {
   return byKey;
 }
 
-/** Resolve one model's { icon, eta }; missing → { icon: null, eta: null }. */
+/** Resolve one model's { icon, eta, name }; missing → all null. */
 async function modelInfo(client, modelName) {
-  if (!modelName) return { icon: null, eta: null };
+  if (!modelName) return { icon: null, eta: null, name: null };
   const map = await modelInfoMap(client);
-  return map.get(String(modelName).toLowerCase()) || { icon: null, eta: null };
+  return map.get(String(modelName).toLowerCase()) || { icon: null, eta: null, name: null };
+}
+
+/* ------------------------------------------------------------------ */
+/* Voice lookup (voice_id / display name → { id, name, thumbnail })    */
+/* ------------------------------------------------------------------ */
+
+// Same shape and TTL as the model catalog above: the voice catalog is stable,
+// and a per-generation /v1/voices round trip would be paid on every speech card.
+const voiceCache = new Map(); // apiBase → { at, byKey }
+
+async function voiceInfoMap(client) {
+  const cacheKey = client.apiBase || 'default';
+  const hit = voiceCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < ICON_TTL_MS) return hit.byKey;
+  const byKey = new Map();
+  try {
+    const res = await client.request('GET', '/v1/voices');
+    for (const v of res?.voices || []) {
+      if (!v || !v.voice_id) continue;
+      // thumbnail/preview come from the catalog record — NEVER templated from
+      // the id, so a change to the CDN path scheme cannot silently 404 the card.
+      const info = { id: v.voice_id, name: v.name || v.voice_id, thumbnail: v.thumbnail || null };
+      byKey.set(String(v.voice_id).toLowerCase(), info);
+      // Display names are not unique across locales (the same Gemini voice is
+      // catalogued per language). First one wins; the id lookup above is exact.
+      const nameKey = String(info.name).toLowerCase();
+      if (v.name && !byKey.has(nameKey)) byKey.set(nameKey, info);
+    }
+  } catch (_) {
+    /* fail open — cards fall back to the raw voice string */
+  }
+  if (byKey.size > 0) voiceCache.set(cacheKey, { at: Date.now(), byKey });
+  return byKey;
+}
+
+/** Resolve a voice id OR display name to { id, name, thumbnail }; null if unknown. */
+async function voiceInfo(client, voice) {
+  if (!voice) return null;
+  const map = await voiceInfoMap(client);
+  return map.get(String(voice).toLowerCase().trim()) || null;
 }
 
 /** Back-compat shim (used by uiCompleted and older call sites). */
@@ -341,6 +384,7 @@ module.exports = {
   modelIcon,
   modelInfo,
   modelInfoMap,
+  voiceInfo,
   canonicalModelId,
   resolveAvatarUrl,
   widgetHtml, // exported for smoke tests

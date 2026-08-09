@@ -105,8 +105,14 @@ function boot(sc) {
   window.kolbo.notifySize();
 }
 
+// model_name / voice_name are the CLEAN catalog names, resolved server-side
+// (src/tools/_shared.js on submit, get_generation_status on completion). The raw
+// ids stay in sc.model / sc.voice for Recreate + model context — never for display.
+function modelLabel(sc) { return sc.model_name || sc.model; }
+function voiceLabel(sc) { return sc.voice_name || sc.voice || (sc.settings || {}).voice; }
+
 function renderChips(sc) {
-  var h = modelChipHTML(sc.model, sc.model_icon);
+  var h = modelChipHTML(modelLabel(sc), sc.model_icon);
   var s = sc.settings || {};
   if (sc.kind) h += chip(iconFor(sc.kind) + ' ' + sc.kind);
   if (s.duration) h += chip(ICONS.clock + ' ' + fmtDur(s.duration));
@@ -120,7 +126,13 @@ function renderChips(sc) {
   if (s.preset) h += chip('preset');
   if (s.cinematic) h += chip('cinematic');
   if (s.audio) h += chip(ICONS.sound + ' audio');
-  if (s.voice) h += chip(ICONS.mic + ' ' + esc(s.voice));
+  var voice = voiceLabel(sc);
+  if (voice) {
+    var face = sc.voice_thumbnail
+      ? '<img class="k-voice-thumb" src="' + esc(sc.voice_thumbnail) + '" alt="" loading="lazy" onerror="this.style.display=\\'none\\'">'
+      : ICONS.mic;
+    h += chip(face + ' ' + esc(voice));
+  }
   if (s.mode) h += chip(esc(s.mode));
   if (sc.count > 1) h += chip('×' + sc.count);
   if (sc.reference_image) h += '<img class="k-ref-thumb" src="' + esc(sc.reference_image) + '" alt="" loading="lazy" title="Reference image" onerror="this.style.display=\\'none\\'">';
@@ -414,6 +426,10 @@ function fillBatchCell(sc, i, g) {
 function renderResult(sc) {
   clearTimeout(pollTimer);
 
+  // Repaint the chips: the generating phase only knew what the CALLER asked for
+  // (often nothing → "Smart Select"). The completed status carries the model and
+  // voice that actually ran, so the finished card must not keep the guess.
+  renderChips(sc);
   setPhaseChip('', false);
   if (sc.batch && sc.scenes && sc.scenes.length) return renderBatchGrid(sc);
   if (sc.kind === 'scenes' && sc.scenes && sc.scenes.length) return renderScenes(sc);
@@ -482,7 +498,9 @@ function renderAudio(sc, urls) {
       (artwork ? '<img class="k-audio-art" src="' + esc(artwork) + '" alt="" loading="lazy">' :
         '<div class="k-audio-art k-audio-placeholder">' + ICONS.audio + '</div>') +
       '<div class="k-audio-meta"><div class="k-audio-title">' + esc(title) + '</div>' +
-      '<div class="k-audio-sub">' + esc(track.model || sc.model || '') +
+      // Resolved name first: a per-track model field is the raw id, and every
+      // track in one generation came from the same model anyway.
+      '<div class="k-audio-sub">' + esc(modelLabel(sc) || track.model || '') +
       (duration ? ' · ' + fmtDur(duration) : '') + '</div></div>' +
       '<button class="k-btn k-audio-download" data-audio-download="' + esc(u) +
       '" aria-label="Download ' + esc(title) + '">' + ICONS.download + ' Download</button>' +

@@ -262,6 +262,46 @@ async function main() {
     console.log('[smoke] widget scripts parse OK');
   }
 
+  // 0c. Generation cards must identify the model and voice by their CLEAN
+  // catalog name + icon/portrait, never by the raw id the API round-trips
+  // ("google_tts", "he-IL-Chirp3-HD-Rasalgethi"). The lookup is cached: a
+  // catalog fetch per generation would put two extra round trips on every
+  // submit, on the hot path, for a catalog that changes weekly.
+  {
+    const { uiGenerating } = require(path.join(PKG_ROOT, 'src', 'tools', '_shared'));
+    const { voiceInfo } = require(path.join(PKG_ROOT, 'src', 'apps'));
+    const hits = {};
+    const client = {
+      apiBase: 'smoke',
+      async request(_m, p) {
+        hits[p] = (hits[p] || 0) + 1;
+        if (p === '/v1/models') return { models: [{ identifier: 'google_tts', name: 'Google TTS', avatar: 'google-gemini-icon.svg' }] };
+        if (p === '/v1/voices') return { voices: [{ voice_id: 'he-IL-Chirp3-HD-Rasalgethi', name: 'Or', thumbnail: 'https://cdn.example/or.webp' }] };
+        throw new Error(`unexpected catalog request ${p}`);
+      },
+    };
+    const voice = await voiceInfo(client, 'he-IL-Chirp3-HD-Rasalgethi');
+    if (!voice || voice.name !== 'Or' || !voice.thumbnail) {
+      throw new Error('voice lookup no longer resolves name + thumbnail from the catalog');
+    }
+    if (await voiceInfo(client, 'en-US-Chirp3-HD-Rasalgethi') !== null) {
+      throw new Error('voice lookup invented a record for an id the catalog does not have');
+    }
+    for (let i = 0; i < 3; i++) {
+      const sc = (await uiGenerating({
+        tool: 'generate_speech', kind: 'audio', client, model: 'google_tts',
+        prompt: 'hello', voice, gen: { generation_id: `g${i}` },
+      })).structuredContent;
+      if (sc.model_name !== 'Google TTS') throw new Error(`model chip shows "${sc.model_name}" instead of the catalog name`);
+      if (!sc.model_icon) throw new Error('model chip lost its icon');
+      if (sc.voice_name !== 'Or' || !sc.voice_thumbnail) throw new Error('voice chip lost its name/portrait');
+    }
+    if (hits['/v1/models'] !== 1 || hits['/v1/voices'] !== 1) {
+      throw new Error(`catalog lookups are not cached: ${JSON.stringify(hits)}`);
+    }
+    console.log('[smoke] model/voice display names resolve from the catalog (cached) OK');
+  }
+
   // 0d. Every HTTP request must be bounded. An unbounded fetch is the failure
   // users report as "the tool never finishes": pollUntilDone only checks its
   // deadline BETWEEN polls, so one request that never settles hangs the tool
