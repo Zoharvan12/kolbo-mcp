@@ -73,6 +73,24 @@ async function pollBatch(client, batch, { interval, timeout }) {
   };
 }
 
+// ─── Widget settings block ──────────────────────────────────────────────────
+// What the CALLER actually asked for, for the generation card AND for the model
+// reading the tool result. Undefined/false keys are dropped by JSON.stringify, so
+// only values that were really supplied ever surface. This used to be
+// `{ resolution, aspect_ratio }` only — `quality` (and every knob below it) was
+// silently dropped, so three calls at low/medium/high rendered identical cards.
+const imageSettings = (a = {}) => ({
+  resolution: a.resolution,
+  aspect_ratio: a.aspect_ratio,
+  quality: a.quality,
+  enhance_prompt: a.enhance_prompt || undefined,
+  web_search: a.enable_web_search || undefined,
+  visual_dna: (a.visual_dna_ids && a.visual_dna_ids.length) || undefined,
+  moodboard: a.moodboard_id ? true : undefined,
+  preset: a.preset_id ? true : undefined,
+  cinematic: a.cinematic ? true : undefined,
+});
+
 const promptsField = (what) => z.array(z.string()).optional().describe(
   `BATCH MODE — several DIFFERENT prompts (2–${MAX_BATCH_PROMPTS}) generated concurrently in ONE call and rendered together in ONE combined widget. Whenever the user wants multiple distinct ${what} with their own prompts, ALWAYS pass them all here instead of making several separate calls — separate calls clutter the chat with stacked widgets. All prompts share the same model/settings. When set, \`prompt\` is ignored. For N variations of a SINGLE prompt use num_images (image tools); for an AI-planned coherent scene set use generate_creative_director.`
 );
@@ -121,7 +139,7 @@ function registerGenerateTools(server, client, options = {}) {
         const batch = await submitBatch(prompts, (p) => client.post('/v1/generate/image', { ...shared, prompt: p }));
         if (ui()) return uiGenerating({
           tool: 'generate_image', kind: 'image', gen: batch.ok[0].gen, client, model,
-          count: batch.ids.length, settings: { resolution, aspect_ratio },
+          count: batch.ids.length, settings: imageSettings(shared),
           generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
           failed_submissions: batch.failed,
           status_args: { generation_ids: batch.ids, wait: true },
@@ -134,7 +152,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (ui()) return uiGenerating({
         tool: 'generate_image', kind: 'image', gen, client, model, prompt,
-        count: num_images, settings: { resolution, aspect_ratio },
+        count: num_images, settings: imageSettings(shared),
         reference_image: reference_images?.[0]
       });
 
@@ -189,7 +207,8 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (ui()) return uiGenerating({
         tool: 'generate_image_edit', kind: 'image', gen, client, model, prompt,
-        count: num_images, settings: { resolution, aspect_ratio },
+        count: num_images,
+        settings: imageSettings({ resolution, aspect_ratio, enhance_prompt, enable_web_search, visual_dna_ids, moodboard_id, cinematic }),
         reference_image: source_images?.[0]
       });
 
@@ -1434,13 +1453,13 @@ function registerGenerateTools(server, client, options = {}) {
         .describe('Output quality preset (e.g. "high", "standard"). Applies where the underlying model supports quality tiers.'),
 
       ai_optimize: z.boolean().optional()
-        .describe('Whether to let Kolbo AI enhance your prompt before sending to the model. Default: true. Set false to use your prompt exactly as written.'),
+        .describe('Whether to let Kolbo AI enhance your prompt before sending to the model. Default: false — your prompt reaches the model exactly as written. Only pass true if the user explicitly asks to enhance/improve the prompt.'),
 
       project_id: projectIdField
     },
     async ({
       image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
-      mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize,
+      mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize = false,
       zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
       project_id
     }) => {

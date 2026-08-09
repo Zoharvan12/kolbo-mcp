@@ -14,7 +14,8 @@ const { widgetPage } = require('../html');
  *   status_args,                       // extra args for the poll tool (optional)
 
  *   model, model_icon, prompt, count,
- *   settings: { duration, resolution, aspect_ratio, audio, voice, mode },
+ *   settings: { duration, resolution, aspect_ratio, quality, audio, voice, mode,
+ *               enhance_prompt, web_search, visual_dna, moodboard, preset, cinematic },
  *   reference_image,                   // thumbnail URL (optional)
  *   urls, thumbnail_url, title, duration, credits_used,
  *   tracks: [{ title, duration, thumbnail_url, model }], // optional audio metadata by URL index
@@ -111,11 +112,18 @@ function renderChips(sc) {
   if (s.duration) h += chip(ICONS.clock + ' ' + fmtDur(s.duration));
   if (s.resolution) h += chip(esc(s.resolution));
   if (s.aspect_ratio) h += chip(esc(s.aspect_ratio));
+  if (s.quality) h += chip(esc(s.quality) + ' quality');
+  if (s.enhance_prompt) h += chip(ICONS.sparkle + ' enhanced');
+  if (s.web_search) h += chip('web search');
+  if (s.visual_dna) h += chip(s.visual_dna + ' Visual DNA');
+  if (s.moodboard) h += chip('moodboard');
+  if (s.preset) h += chip('preset');
+  if (s.cinematic) h += chip('cinematic');
   if (s.audio) h += chip(ICONS.sound + ' audio');
   if (s.voice) h += chip(ICONS.mic + ' ' + esc(s.voice));
   if (s.mode) h += chip(esc(s.mode));
   if (sc.count > 1) h += chip('×' + sc.count);
-  if (sc.reference_image) h += '<img class="k-ref-thumb" src="' + esc(sc.reference_image) + '" alt="" title="Reference image" onerror="this.style.display=\\'none\\'">';
+  if (sc.reference_image) h += '<img class="k-ref-thumb" src="' + esc(sc.reference_image) + '" alt="" loading="lazy" title="Reference image" onerror="this.style.display=\\'none\\'">';
   el('chips').innerHTML = h;
 }
 function chip(inner) { return '<span class="k-chip">' + inner + '</span>'; }
@@ -237,13 +245,48 @@ var MAX_POLL_ERRORS = 30;
 var pollStart = 0, pollErrors = 0;
 var cancelRequested = false;   // set by the Stop button; freezes the poll loop
 
+/* ---------- offscreen gate ----------
+   The host mounts one of these iframes per generation, and re-delivers the
+   ORIGINAL "submitted" (phase:generating) result on every conversation open —
+   so a 50-generation session used to fire 50 status tools/call round trips plus
+   50+ full-resolution media downloads before the user had scrolled to any of
+   them. Hold the FIRST poll (and therefore every media request the result
+   produces) until the card is actually on screen. Once a card has been seen it
+   polls normally forever — a live generation the user scrolls away from still
+   finishes and still reports back. */
+var seen = false, whenSeenFns = [];
+function releaseSeen() {
+  if (seen) return;
+  seen = true;
+  var fns = whenSeenFns; whenSeenFns = [];
+  fns.forEach(function (f) { try { f(); } catch (e) {} });
+}
+(function () {
+  var card = document.querySelector('.k-card');
+  if (!window.IntersectionObserver || !card) return releaseSeen();
+  var fired = false;
+  var io = new IntersectionObserver(function (entries) {
+    fired = true;
+    if (!entries.some(function (e) { return e.isIntersecting; })) return;
+    io.disconnect();
+    releaseSeen();
+  // IO clips against ancestor frames, so this is true parent-viewport
+  // visibility. rootMargin starts the work just before the card scrolls in.
+  }, { rootMargin: '400px' });
+  io.observe(card);
+  // A host where IO never reports at all must not strand the card forever.
+  setTimeout(function () { if (!fired) releaseSeen(); }, 8000);
+})();
+
 function schedulePoll(sc) {
   if (cancelRequested) return;
+  if (!seen) { whenSeenFns.push(function () { schedulePoll(sc); }); return; }
+  // The call itself long-waits server-side (normally up to three minutes).
+  // This short pause only separates successive wait windows — the FIRST call
+  // goes out immediately, so a card revealed by scrolling resolves at once.
+  var delay = pollStart ? 1500 : 0;
   if (!pollStart) pollStart = Date.now();
   clearTimeout(pollTimer);
-  // The call itself long-waits server-side (normally up to three minutes).
-  // This short pause only separates successive wait windows.
-  var delay = 1500;
   pollTimer = setTimeout(function () { poll(sc); }, delay);
 }
 function poll(sc) {
@@ -304,7 +347,10 @@ function poll(sc) {
 /* ---------- batch (prompts[] fan-out) ---------- */
 // Each poll round resolves when every id has completed or its wait window
 // closed (~3 min), so finished cells fill in per round while the rest keep
-// their skeleton. When all_done, the set renders through the scenes viewer.
+// their skeleton. When all_done the SAME grid is re-rendered from the resolved
+// set — a batch is one grouped card end to end. It must NOT fall through to the
+// scenes carousel: that collapses eight tiles into one big image plus a thumb
+// strip, which is where the grouping (and the per-tile prompt caption) was lost.
 function handleBatchStatus(sc, st) {
   pollErrors = 0;
   var gens = st.generations || [];
@@ -336,8 +382,9 @@ function handleBatchStatus(sc, st) {
   });
   state = done;
   el('credits').textContent = done.credits_used != null ? fmtCredits(done.credits_used) : '';
-  if (failedCount) setPhaseChip(failedCount + ' failed', false);
   renderResult(done);
+  // After renderResult — it resets the chip, so setting this first erased it.
+  if (failedCount) setPhaseChip(failedCount + ' failed', false);
   try {
     window.kolbo.updateModelContext(
       'Batch generation completed (' + (sc.tool || '') + '): ' + scenes.length + ' of ' + gens.length + ' succeeded.' +
@@ -368,6 +415,7 @@ function renderResult(sc) {
   clearTimeout(pollTimer);
 
   setPhaseChip('', false);
+  if (sc.batch && sc.scenes && sc.scenes.length) return renderBatchGrid(sc);
   if (sc.kind === 'scenes' && sc.scenes && sc.scenes.length) return renderScenes(sc);
   var urls = sc.urls || [];
   if (!urls.length) return renderError('No output received');
@@ -396,7 +444,7 @@ function renderImages(sc, urls) {
   var thumbs = '';
   if (urls.length > 1) {
     thumbs = '<div class="k-thumbs">' + urls.map(function (u, i) {
-      return '<div class="k-thumb' + (i === selected ? ' active' : '') + '" data-i="' + i + '"><img src="' + esc(u) + '" alt=""></div>';
+      return '<div class="k-thumb' + (i === selected ? ' active' : '') + '" data-i="' + i + '"><img src="' + esc(u) + '" alt="" loading="lazy"></div>';
     }).join('') + '</div>';
   }
   el('stage').innerHTML = viewer + thumbs;
@@ -415,8 +463,10 @@ function renderImages(sc, urls) {
 }
 
 function renderVideo(sc, urls) {
+  // preload="none" behind a poster: the card shows the still until the user
+  // hits play, instead of pulling the video header on mount.
   el('stage').innerHTML = '<div class="k-viewer"><video id="main-video" src="' + esc(urls[0]) + '"' +
-    (sc.thumbnail_url ? ' poster="' + esc(sc.thumbnail_url) + '"' : '') + ' controls playsinline></video>' +
+    (sc.thumbnail_url ? ' poster="' + esc(sc.thumbnail_url) + '" preload="none"' : ' preload="metadata"') + ' controls playsinline></video>' +
     dlBtnHTML(urls[0]) + '</div>';
   wireDlButtons(el('stage'));
 }
@@ -429,14 +479,14 @@ function renderAudio(sc, urls) {
     var duration = track.duration != null ? track.duration : sc.duration;
     var artwork = track.thumbnail_url || sc.thumbnail_url;
     return '<div class="k-audio-row k-generated-audio">' +
-      (artwork ? '<img class="k-audio-art" src="' + esc(artwork) + '" alt="">' :
+      (artwork ? '<img class="k-audio-art" src="' + esc(artwork) + '" alt="" loading="lazy">' :
         '<div class="k-audio-art k-audio-placeholder">' + ICONS.audio + '</div>') +
       '<div class="k-audio-meta"><div class="k-audio-title">' + esc(title) + '</div>' +
       '<div class="k-audio-sub">' + esc(track.model || sc.model || '') +
       (duration ? ' · ' + fmtDur(duration) : '') + '</div></div>' +
       '<button class="k-btn k-audio-download" data-audio-download="' + esc(u) +
       '" aria-label="Download ' + esc(title) + '">' + ICONS.download + ' Download</button>' +
-      '<audio class="k-audio-player" src="' + esc(u) + '" controls preload="metadata" aria-label="Play ' +
+      '<audio class="k-audio-player" src="' + esc(u) + '" controls preload="none" aria-label="Play ' +
       esc(title) + '"></audio></div>';
   }).join('');
   Array.prototype.forEach.call(el('stage').querySelectorAll('[data-audio-download]'), function (b) {
@@ -456,7 +506,7 @@ function renderAudio(sc, urls) {
 
 function render3d(sc, urls) {
   el('stage').innerHTML = (sc.thumbnail_url
-    ? '<div class="k-viewer"><img src="' + esc(sc.thumbnail_url) + '" alt=""></div>' : '') +
+    ? '<div class="k-viewer"><img src="' + esc(sc.thumbnail_url) + '" alt="" loading="lazy"></div>' : '') +
     urls.map(function (u) {
       var extMatch = u.split('?')[0].match(/\\.(\\w+)$/);
       var ext = extMatch ? extMatch[1].toUpperCase() : 'FILE';
@@ -508,6 +558,32 @@ function sceneItems(sc) {
   return items;
 }
 
+// Batch (prompts[] fan-out) result: the SAME tile grid the generating phase
+// showed, each tile still captioned with the prompt that produced it. Downloads
+// are per-tile (a batch has no single "current" url); click a tile to focus it.
+function renderBatchGrid(sc) {
+  var items = sceneItems(sc);
+  if (!items.length) return renderError('No completed results received');
+  var shape = items[0].type === 'video' ? 'video' : 'square';
+  el('stage').innerHTML = '<div class="k-gen-grid n' + Math.min(items.length, 4) + '">' +
+    items.map(function (it, i) {
+      return '<div class="k-skel done ' + shape + '" data-focus="' + i + '">' +
+        (it.type === 'video'
+          ? '<video class="k-cell-fill" src="' + esc(it.url) + '" controls playsinline preload="metadata"></video>'
+          : '<img class="k-cell-fill" src="' + esc(it.url) + '" alt="" loading="lazy" style="cursor:zoom-in">') +
+        (it.label ? '<span class="k-skel-cap" title="' + esc(it.label) + '">' + esc(it.label) + '</span>' : '') +
+        dlBtnHTML(it.url) + '</div>';
+    }).join('') + '</div>';
+  wireDlButtons(el('stage'));
+  Array.prototype.forEach.call(el('stage').querySelectorAll('[data-focus]'), function (cell) {
+    var it = items[+cell.getAttribute('data-focus')];
+    if (it.type !== 'image') return; // <video controls> owns its own clicks
+    cell.onclick = function () { focusMedia(it.url); };
+  });
+  renderActions(sc);
+  window.kolbo.notifySize();
+}
+
 function renderScenes(sc) {
   var items = sceneItems(sc);
   if (!items.length) return renderError('No completed scenes received');
@@ -555,7 +631,7 @@ function exitFocus() {
   window.kolbo.requestDisplayMode('inline').catch(function () {});
   isFullscreen = false;
   applyFullscreen(false);
-  renderScenes(state); // restore the grid
+  renderResult(state); // restore whichever multi-item view we came from
   window.kolbo.notifySize();
 }
 
@@ -740,7 +816,8 @@ function completedFromPlain(sc) {
     settings: {
       duration: sc.duration || originArgs.duration,
       resolution: originArgs.resolution,
-      aspect_ratio: originArgs.aspect_ratio
+      aspect_ratio: originArgs.aspect_ratio,
+      quality: originArgs.quality
     },
     urls: sc.urls || []
   });

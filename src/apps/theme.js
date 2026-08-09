@@ -180,7 +180,7 @@ body {
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; opacity: 0; transition: opacity 150ms var(--smooth), background 150ms var(--smooth);
 }
-.k-media:hover .k-dl, .k-viewer:hover .k-dl { opacity: 1; }
+.k-media:hover .k-dl, .k-viewer:hover .k-dl, .k-skel:hover .k-dl { opacity: 1; }
 .k-dl:hover { background: var(--brand); border-color: var(--brand); }
 .k-viewer { position: relative; }
 

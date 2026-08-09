@@ -1,6 +1,6 @@
 {
   "name": "@kolbo/mcp",
-  "version": "1.57.1",
+  "version": "1.58.0",
   "description": "Kolbo AI MCP Server - Generate images, videos, music, speech, and sound effects from Claude Code",
   "main": "src/index.js",
   "bin": {
@@ -10,8 +10,9 @@
     "start": "node src/index.js",
     "smoke": "node scripts/smoke.js",
     "check-parity": "node scripts/check-parity.js",
-    "prepublishOnly": "node scripts/smoke.js && node scripts/check-parity.js && node scripts/check-widget-fields.js && node scripts/check-skill-tools.js && node scripts/check-install.js",
+    "prepublishOnly": "node scripts/smoke.js && node scripts/check-parity.js && node scripts/check-widget-fields.js && node scripts/check-widget-render.js && node scripts/check-skill-tools.js && node scripts/check-install.js",
     "check-widget-fields": "node scripts/check-widget-fields.js",
+    "check-widget-render": "node scripts/check-widget-render.js",
     "check-skill-tools": "node scripts/check-skill-tools.js",
     "check-install": "node scripts/check-install.js"
   },

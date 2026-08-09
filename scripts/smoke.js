@@ -246,6 +246,19 @@ async function main() {
         throw new Error(`generation widget is missing audio preview contract: ${requiredAudioContract}`);
       }
     }
+    // The card must show WHICH knobs produced the output. `quality` was dropped
+    // for months: low/medium/high rendered identical settings blocks even though
+    // they billed 4 / 12 / 43 credits. Both halves of that contract are checked —
+    // the tool must put it in `settings`, the widget must render it.
+    if (!/if \(s\.quality\)/.test(generationHtml)) {
+      throw new Error('generation widget no longer renders settings.quality');
+    }
+    {
+      const genSrc = fs.readFileSync(path.join(PKG_ROOT, 'src', 'tools', 'generate.js'), 'utf8');
+      if (/settings: \{ resolution, aspect_ratio \}/.test(genSrc)) {
+        throw new Error('an image tool is back to the truncated settings block — quality would be dropped from the card');
+      }
+    }
     console.log('[smoke] widget scripts parse OK');
   }
 
