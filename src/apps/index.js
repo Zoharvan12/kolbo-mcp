@@ -170,7 +170,7 @@ function uiResult(uri, text, structured) {
 /* ------------------------------------------------------------------ */
 
 const ICON_TTL_MS = 10 * 60 * 1000;
-const infoCache = new Map(); // apiBase → { at, byKey: Map<lowername, {icon, eta}> }
+const infoCache = new Map(); // apiBase → { at, byKey: Map<lowername, info>, all: info[] }
 
 /**
  * Resolve a Model.avatar value to an absolute URL. Avatars are bare filenames
@@ -189,11 +189,12 @@ function resolveAvatarUrl(avatar) {
   return `${ICON_CDN_BASE}/${encodeURIComponent(avatar)}`;
 }
 
-async function modelInfoMap(client) {
+async function modelCatalog(client) {
   const cacheKey = client.apiBase || 'default';
   const hit = infoCache.get(cacheKey);
-  if (hit && Date.now() - hit.at < ICON_TTL_MS) return hit.byKey;
+  if (hit && Date.now() - hit.at < ICON_TTL_MS) return hit;
   const byKey = new Map();
+  const all = [];
   try {
     const res = await client.request('GET', '/v1/models');
     const models = res?.models || res?.data?.models || [];
@@ -206,10 +207,17 @@ async function modelInfoMap(client) {
       // `name` is the CLEAN display name ("Google TTS"); it is what widgets show.
       // Without it the model chip fell back to whatever raw string the caller or
       // the status endpoint supplied ("google_tts", "fal-ai/bytedance/omnihuman/v1.5").
-      const info = { icon, eta, id: m.identifier || null, name: m.name || null };
+      // `types` is the catalog `type` array ("text_to_video", "img_to_video", …) —
+      // the ONLY thing that tells two same-named variants apart. See canonicalModelId.
+      const raw = m.types !== undefined ? m.types : m.type;
+      const types = (Array.isArray(raw) ? raw : [raw]).filter(Boolean).map(String);
+      const info = { icon, eta, id: m.identifier || null, name: m.name || null, types };
+      all.push(info);
       // Display names collide across variants ("Nano Banana 2" names both the
       // t2i model and its editing sibling) — on collision keep the model with
-      // the SHORTEST identifier (the base model), deterministically.
+      // the SHORTEST identifier (the base model), deterministically. This map is
+      // for ICONS/ETAs, where the variant doesn't matter; identifier resolution
+      // must NOT use it (that is what made "Kling 2.6 Pro" always mean the t2v one).
       const setName = (k) => {
         const prev = byKey.get(k);
         if (!prev || !prev.id || (info.id && info.id.length < prev.id.length)) byKey.set(k, info);
@@ -220,11 +228,16 @@ async function modelInfoMap(client) {
   } catch (_) {
     /* fail open — widgets fall back to monogram chips, no ETA */
   }
+  const entry = { at: Date.now(), byKey, all };
   // Never cache an empty map: the first request in a fresh worker (typical
   // right after a deploy restart) can fail transiently, and caching that
   // failure blanks every model icon for the TTL window.
-  if (byKey.size > 0) infoCache.set(cacheKey, { at: Date.now(), byKey });
-  return byKey;
+  if (byKey.size > 0) infoCache.set(cacheKey, entry);
+  return entry;
+}
+
+async function modelInfoMap(client) {
+  return (await modelCatalog(client)).byKey;
 }
 
 /** Resolve one model's { icon, eta, name }; missing → all null. */
@@ -292,12 +305,34 @@ const AUTO_ALIASES = new Set([
 ]);
 
 /**
+ * Narrow several models that answer to the same string down to one identifier.
+ * The CALLING TOOL's catalog type decides: a display name like "Kling 2.6 Pro"
+ * names one model PER MODALITY (…/text-to-video and …/image-to-video), and only
+ * the caller knows which it wants. No type match (or no type given) → shortest
+ * identifier, the same deterministic tiebreak the icon map uses.
+ */
+function pickForType(candidates, types) {
+  if (!candidates.length) return null;
+  const typed = types.length
+    ? candidates.filter((i) => i.types.some((t) => types.includes(t)))
+    : [];
+  const pool = typed.length ? typed : candidates;
+  return pool.reduce((a, b) => (b.id.length < a.id.length ? b : a)).id;
+}
+
+/**
  * Lenient model-identifier resolution for LLM-supplied model args.
  * Users say "z-image"; the real identifier is "z-image/turbo" — the backend
  * has no fuzzy matching on generation routes and fails deep in credit
  * reservation. Resolve here: exact name/identifier hit → its identifier;
  * else a separator-insensitive hit ("flux-2-flash" → "flux-2/flash"); else a
  * UNIQUE prefix match ("z-image" → "z-image/turbo").
+ *
+ * `type` is the calling tool's catalog type (a string, or an array when the
+ * tool spans several — lipsync, 3D). It is what makes resolution MODALITY-AWARE:
+ * without it, "Kling 2.6 Pro" from generate_video_from_image resolved to
+ * kling-video/v2.6/pro/text-to-video (2026-08-10), so the image-to-video
+ * pipeline submitted the TEXT-to-video endpoint and billed against it.
  *
  * Still unresolved: throw with the near misses named. The API answers a bad
  * identifier with a bare INVALID_*_MODEL and no hint, which on 2026-08-09 sent
@@ -307,43 +342,46 @@ const AUTO_ALIASES = new Set([
  * unchanged, so identifiers the catalog does not publish (hidden models) still
  * reach the API and it stays the source of truth.
  */
-async function canonicalModelId(client, input) {
+async function canonicalModelId(client, input, type) {
   if (!input || typeof input !== 'string') return input;
   const key = input.toLowerCase().trim();
   const want = normId(key);
   if (!want || AUTO_ALIASES.has(want)) return input;
 
-  let map;
+  let all;
   try {
-    map = await modelInfoMap(client);
+    all = (await modelCatalog(client)).all;
   } catch (_) {
     return input; // fail open — never block a generation on a catalog hiccup
   }
-  if (!map || map.size === 0) return input;
+  const models = (all || []).filter((i) => i.id);
+  if (!models.length) return input;
+
+  const types = (Array.isArray(type) ? type : [type]).filter(Boolean);
+  const dashed = key.replace(/\s+/g, '-');
 
   // 1. exact name / identifier hit
-  const hit = map.get(key) || map.get(key.replace(/\s+/g, '-'));
-  if (hit && hit.id) return hit.id;
+  const exact = pickForType(models.filter((i) => [i.id, i.name].some(
+    (k) => k && (k.toLowerCase() === key || k.toLowerCase() === dashed)
+  )), types);
+  if (exact) return exact;
 
-  // 2 + 3. separator-insensitive exact, then unique prefix
-  const byNorm = new Map();
-  for (const info of map.values()) {
-    if (!info.id) continue;
-    for (const k of [info.id, info.name]) {
-      const n = normId(k);
-      if (n && !byNorm.has(n)) byNorm.set(n, info.id);
-    }
-  }
-  if (byNorm.has(want)) return byNorm.get(want);
-  const prefixed = new Set();
-  for (const [n, id] of byNorm) if (n.startsWith(want)) prefixed.add(id);
-  if (prefixed.size === 1) return [...prefixed][0];
+  // 2. separator-insensitive exact ("flux-2-flash" → "flux-2/flash")
+  const loose = pickForType(models.filter((i) => normId(i.id) === want || normId(i.name) === want), types);
+  if (loose) return loose;
+
+  // 3. unique prefix ("z-image" → "z-image/turbo") — the modality filter runs
+  //    FIRST, so a stem shared by a t2v/i2v pair is no longer ambiguous.
+  const prefixed = models.filter((i) => normId(i.id).startsWith(want) || normId(i.name).startsWith(want));
+  const narrowed = types.length ? prefixed.filter((i) => i.types.some((t) => types.includes(t))) : [];
+  const ids = new Set((narrowed.length ? narrowed : prefixed).map((i) => i.id));
+  if (ids.size === 1) return [...ids][0];
 
   // 4. unknown — name the near misses instead of dead-ending at the API.
   const stem = normId(key.split(/[\s._/-]+/).filter(Boolean)[0] || key);
   const near = [...new Set(
-    [...map.values()]
-      .filter((i) => i.id && stem && (normId(i.id).startsWith(stem) || normId(i.name).startsWith(stem)))
+    models
+      .filter((i) => stem && (normId(i.id).startsWith(stem) || normId(i.name).startsWith(stem)))
       .map((i) => (i.name ? `${i.id} (${i.name})` : i.id))
   )].sort().slice(0, 12);
   if (!near.length) return input;

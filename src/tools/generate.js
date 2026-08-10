@@ -139,7 +139,7 @@ function registerGenerateTools(server, client, options = {}) {
     },
     async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, 'text_to_img'); // lenient id resolution ("z-image" → "z-image/turbo")
       const shared = {
         model, aspect_ratio, enhance_prompt,
         reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id
@@ -210,7 +210,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField
     },
     async ({ prompt, model, source_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, 'image_editing'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/image-edit', {
         prompt, model, source_images, aspect_ratio, enhance_prompt, num_images,
         visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id
@@ -270,7 +270,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField
     },
     async ({ prompt, scene_count, model, aspect_ratio, workflow_type, duration, enhance_prompt = false, reference_images, visual_dna_ids, moodboard_id, moodboard_ids, resolution, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, workflow_type === 'video' ? 'text_to_video' : 'text_to_img'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/creative-director', {
         prompt, scene_count, model, aspect_ratio, workflow_type, duration,
         enhance_prompt, reference_images, visual_dna_ids, moodboard_id, moodboard_ids, resolution, project_id
@@ -423,7 +423,7 @@ function registerGenerateTools(server, client, options = {}) {
     },
     async ({ prompt, prompts, model, aspect_ratio, duration, enhance_prompt = false, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, 'text_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
       const shared = {
         model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id
       };
@@ -495,7 +495,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField
     },
     async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, sound_enabled, skip_color_palette, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, 'img_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/video/from-image', {
         image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled, skip_color_palette, project_id
       });
@@ -558,7 +558,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField
     },
     async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt = false, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, 'music_gen'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/music', {
         prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags,
         duration_seconds, enhance_prompt, preset_id,
@@ -630,7 +630,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField
     },
     async ({ text, voice, model, language, style_instructions, selected_style, emotion, speaking_speed, similarity_boost, style, use_speaker_boost, variance, tempo, promptBoost, seed, accentControl, voiceTitle, minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, 'text_to_speech'); // lenient id resolution ("z-image" → "z-image/turbo")
       // Resolve the requested voice against the REAL catalog (cached) so the card
       // can show its display name + portrait instead of a raw id, and so an id
       // that does not exist is reported instead of rendering silently: Google
@@ -704,7 +704,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField
     },
     async ({ prompt, model, duration, prompt_influence, cfg_strength, sound_loop, sound_tempo, sound_key, seed_voice, seed_speed, seed_volume, seed_pitch, seed_reference_audio_urls, seed_reference_image_url, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, 'text_to_sound'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/sound', {
         prompt, model, duration, prompt_influence,
         cfg_strength, sound_loop, sound_tempo, sound_key,
@@ -920,7 +920,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField
     },
     async ({ prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, keyframes, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, 'elements'); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!prompt) throw new Error('prompt is required');
 
       let startResponse;
@@ -1001,7 +1001,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField
     },
     async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt = false, visual_dna_ids, resolution, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, 'firstlastgenerations'); // lenient id resolution ("z-image" → "z-image/turbo")
       const urlMode = first_frame_url && last_frame_url;
       const fileMode = first_frame && last_frame;
       if (!urlMode && !fileMode) {
@@ -1091,7 +1091,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField
     },
     async ({ source, audio, text_prompt, model, bounding_box_target, sync_mode, model_mode, emotion, temperature, occlusion_detection_enabled, active_speaker_detection, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, ['lipsync-image', 'lipsync-video']); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!source) throw new Error('source is required (URL or absolute local path to image/video)');
       if (!audio) throw new Error('audio is required (URL or absolute local path to audio file)');
 
@@ -1212,7 +1212,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField
     },
     async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, 'video_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!source_video) throw new Error('source_video is required');
 
       const isUrl = /^https?:\/\//i.test(source_video);
@@ -1371,7 +1371,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField
     },
     async ({ prompt, reference_images, mode, texture_prompt, model, topology, target_polycount, enable_tpose, enable_pbr, project_id }) => {
-      model = await canonicalModelId(client, model); // lenient id resolution ("z-image" → "z-image/turbo")
+      model = await canonicalModelId(client, model, ['3d_text_to_model', '3d_image_to_model', '3d_multi_image_to_model', '3d_world']); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!prompt && !(reference_images && reference_images.length > 0)) {
         throw new Error('Provide prompt (text mode) or reference_images (single/multi mode)');
       }
@@ -1514,6 +1514,9 @@ function registerGenerateTools(server, client, options = {}) {
       zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
       project_id
     }) => {
+      // No `type` argument: these are operation-routed tools (upscale / reframe /
+      // removebg / …), each operation with its own model family — there is no single
+      // catalog type to disambiguate against.
       model = await canonicalModelId(client, model);
 
       // Basic validation
@@ -1667,6 +1670,9 @@ function registerGenerateTools(server, client, options = {}) {
       start_time,
       project_id
     }) => {
+      // No `type` argument: these are operation-routed tools (upscale / reframe /
+      // removebg / …), each operation with its own model family — there is no single
+      // catalog type to disambiguate against.
       model = await canonicalModelId(client, model);
 
       // Validation
