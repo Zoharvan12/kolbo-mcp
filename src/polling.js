@@ -100,12 +100,71 @@ async function pollUntilDone(client, generationId, options = {}) {
     }
 
     // Still running: put a byte on the wire before going quiet again, so no
-    // intermediary mistakes a 3-minute wait for a dead connection.
+    // intermediary mistakes a long wait for a dead connection.
     await progress.tick();
 
-    // Wait before next poll
-    await new Promise(resolve => setTimeout(resolve, interval));
+    // Wait before next poll — but never past the deadline. The check at the top
+    // of the loop only runs BETWEEN sleeps, so an unclamped sleep let the call
+    // overshoot `timeout` by up to a full interval (a 45s window with a 15s
+    // cadence could return at 60s). That is the difference between landing
+    // inside the caller's transport window and blowing straight through it.
+    const remaining = timeout - (Date.now() - startTime);
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, Math.min(interval, remaining))));
   }
 }
 
-module.exports = { pollUntilDone, PollingTimeoutError, GenerationFailedError };
+// ─── Blocking-wait window for the STATUS tools ──────────────────────────────
+// How long get_generation_status / get_creative_director_status may block
+// inside ONE tool call before handing back a non-terminal result the caller
+// re-issues. This is NOT the generation's lifetime — the job keeps running
+// server-side either way.
+//
+// It used to be a flat 180s, which over the remote HTTP connector no caller
+// could ever reach: there the whole tool call has to fit inside a single
+// POST /mcp response, and every hop in front of us has a shorter fuse.
+//
+//   • MCP client request timeout — 60s (SDK DEFAULT_REQUEST_TIMEOUT_MSEC), and
+//     it only resets on a progress notification when the client opted into
+//     resetTimeoutOnProgress, whose SDK default is false. We cannot make that
+//     choice on the host's behalf, so this is the ceiling we must respect.
+//   • Cloudflare origin read — 100s. api.kolbo.ai is Cloudflare-proxied.
+//   • kolbo-api httpServer.timeout — 120s. Measured against the production
+//     settings: a SILENT stream is RST at exactly 120.0s, while a 15s write
+//     cadence survives 200s. So progress.tick() does defeat this hop — but no
+//     amount of ticking defeats a client timeout that does not reset.
+//
+// Net effect of the old 180s: a 185s music generation made wait=true fail with
+// "the connector's server isn't responding" every single time, on a perfectly
+// healthy paid generation. Returning early with state:"processing" is strictly
+// better than erroring — the caller re-issues and nothing is lost.
+//
+// stdio hosts have no hop in between and do reset on our ticks, so they keep
+// the long window. KOLBO_MCP_WAIT_MS overrides both without a release, if a
+// host ever proves tighter still.
+const TRANSPORT_CEILING_MS = 60000;
+// Headroom for everything that happens AFTER the last poll and before the
+// response is on the wire: the final status read, addDisplayNames' catalog
+// lookups, JSON serialization.
+const RESULT_ASSEMBLY_BUDGET_MS = 10000;
+const REMOTE_WAIT_MS = 45000;
+const STDIO_WAIT_MS = 180000;
+
+/**
+ * @param {object} [options] tool options; `apps === true` is the remote-HTTP
+ *   transport signal (set only by kolbo-api's connector).
+ */
+function waitWindowMs(options = {}) {
+  const override = Number(process.env.KOLBO_MCP_WAIT_MS);
+  if (Number.isFinite(override) && override > 0) return override;
+  return options.apps === true ? REMOTE_WAIT_MS : STDIO_WAIT_MS;
+}
+
+module.exports = {
+  pollUntilDone,
+  PollingTimeoutError,
+  GenerationFailedError,
+  waitWindowMs,
+  TRANSPORT_CEILING_MS,
+  RESULT_ASSEMBLY_BUDGET_MS,
+  REMOTE_WAIT_MS,
+};

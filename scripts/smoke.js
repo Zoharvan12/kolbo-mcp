@@ -158,6 +158,80 @@ async function main() {
     console.log('[smoke] Codex async generation contracts OK');
   }
 
+  // 0c-bis. get_generation_status with wait=true must OUTLIVE nothing — it must
+  // fit INSIDE the transport. The old flat 180s window was longer than every hop
+  // in front of the remote connector, so a 185s music generation made wait=true
+  // fail with "the connector's server isn't responding" every single time, on a
+  // perfectly healthy paid generation. Two things must stay true forever:
+  //   1. the remote window + result assembly fits under the tightest hop, and
+  //   2. a generation that outlives the window comes back as a RESULT that tells
+  //      the caller to call again — never a thrown error, and never the old
+  //      "call it ONCE with wait=true" advice, which is what broke.
+  {
+    const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
+    const { registerGenerateTools } = require(path.join(PKG_ROOT, 'src', 'tools', 'generate'));
+    const {
+      waitWindowMs, TRANSPORT_CEILING_MS, RESULT_ASSEMBLY_BUDGET_MS,
+    } = require(path.join(PKG_ROOT, 'src', 'polling'));
+
+    const remote = waitWindowMs({ apps: true });
+    if (remote + RESULT_ASSEMBLY_BUDGET_MS > TRANSPORT_CEILING_MS) {
+      throw new Error(
+        `remote wait window ${remote}ms + ${RESULT_ASSEMBLY_BUDGET_MS}ms assembly exceeds the ` +
+        `${TRANSPORT_CEILING_MS}ms transport ceiling — wait=true will fail with a transport error`
+      );
+    }
+
+    const previousWait = process.env.KOLBO_MCP_WAIT_MS;
+    process.env.KOLBO_MCP_WAIT_MS = '900'; // keep the gate fast; behaviour is identical
+    try {
+      const server = new McpServer({ name: 'wait-smoke', version: '1.0.0' });
+      const client = {
+        apiBase: 'smoke',
+        // A generation that NEVER finishes — exactly the 185s music case.
+        get: async (url) => (url === '/v1/models' ? { models: [] } : { state: 'processing', progress: 52 }),
+        post: async () => ({ generation_id: 'never-1' }),
+      };
+      registerGenerateTools(server, client, { apps: true });
+
+      const started = Date.now();
+      const res = await server._registeredTools.get_generation_status.handler(
+        { generation_ids: ['never-1', 'never-2'], wait: true }
+      );
+      const elapsed = Date.now() - started;
+      // Must land at ~the window, NOT a whole poll interval past it — the loop
+      // used to oversleep its own deadline, which is how a window sized to fit
+      // the transport still overshot it.
+      if (elapsed > 5000) throw new Error(`wait=true blocked ${elapsed}ms for a 900ms window — deadline overshot`);
+      if (res.isError) throw new Error('wait=true surfaced an ERROR for a still-running generation');
+
+      const json = JSON.parse(res.content[0].text);
+      if (json.all_done !== false || json.still_processing.length !== 2) {
+        throw new Error('wait=true did not report the still-running generations as a normal result');
+      }
+      // The exact advice that broke: one call, blocking until finished.
+      if (/\bONCE\b/.test(json._hint) || /block until (they|it) finish/i.test(json._hint)) {
+        throw new Error(`_hint still tells the caller to make a single blocking call: ${json._hint}`);
+      }
+      if (!/again/i.test(json._hint) || !/wait=true/.test(json._hint)) {
+        throw new Error(`_hint does not tell the caller to re-issue wait=true: ${json._hint}`);
+      }
+
+      // Single-id shape keeps the same contract (the widget reads this one).
+      const single = JSON.parse(
+        (await server._registeredTools.get_generation_status.handler({ generation_id: 'never-1', wait: true }))
+          .content[0].text
+      );
+      if (single.state !== 'processing' || !/again/i.test(single._hint)) {
+        throw new Error('single-id wait=true did not return a re-issuable processing result');
+      }
+    } finally {
+      if (previousWait === undefined) delete process.env.KOLBO_MCP_WAIT_MS;
+      else process.env.KOLBO_MCP_WAIT_MS = previousWait;
+    }
+    console.log('[smoke] get_generation_status wait window fits the transport OK');
+  }
+
   // 0d. A prompts[] batch over the cap must be REJECTED, never truncated. This
   // used to `.slice(0, 8)`: a 9-prompt call quietly produced 8 generations, no
   // error, no warning — the caller only noticed by counting the results.

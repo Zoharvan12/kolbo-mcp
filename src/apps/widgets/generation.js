@@ -293,7 +293,8 @@ function releaseSeen() {
 function schedulePoll(sc) {
   if (cancelRequested) return;
   if (!seen) { whenSeenFns.push(function () { schedulePoll(sc); }); return; }
-  // The call itself long-waits server-side (normally up to three minutes).
+  // The call itself long-waits server-side, for one transport-safe window
+  // (~45s over the remote connector — see WAIT_WINDOW_MS in tools/generate.js).
   // This short pause only separates successive wait windows — the FIRST call
   // goes out immediately, so a card revealed by scrolling resolves at once.
   var delay = pollStart ? 1500 : 0;
