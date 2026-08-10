@@ -87,15 +87,19 @@ function registerVisualDnaTools(server, client, options = {}) {
     + 'because dumping them buries the user\'s own handful. Only pass scope="global" (optionally with '
     + '`collection` and `search`) when the user explicitly wants to BROWSE the preset cast — e.g. "find me a '
     + 'character", "show me street style models", "I need a location DNA" — and they have not named one of '
-    + 'their own. Use scope="all" only if the user genuinely wants both at once.',
+    + 'their own. Use scope="all" only if the user genuinely wants both at once. '
+    + 'The response reports `total` and `_truncated`; when there are more matches than one '
+    + 'page holds, raise `limit` or walk `page` — do not tell the user the extras do not exist.',
     {
       scope: z.enum(['all', 'personal', 'global', 'organization']).optional().describe('Default: "personal" — the user\'s own DNAs (plus a shared project\'s when project_id is set). "global" = the ~1000 system cast/preset DNAs, for browsing when the user needs a character and has none of their own. "organization" = org-shared. "all" = everything, rarely wanted.'),
-      search: z.string().optional().describe('Search by name, tags, or description (case-insensitive)'),
+      search: z.string().optional().describe('Search by name, tags, or description (case-insensitive). Matches at WORD STARTS, so "man" finds "Man"/"Manager" but not "woman" or "romantic". Name matches are ranked first.'),
       collection: z.string().optional().describe('Filter global presets by collection: cast, influencers, props, locations, styles, glamour, street'),
       tags: z.string().optional().describe('Comma-separated tags to filter by (OR logic)'),
+      page: z.number().optional().describe('Page number, 1-indexed. Default: 1. Needed to reach the global cast beyond the first page.'),
+      limit: z.number().optional().describe('Results per page, max 100. Default: 50'),
       project_id: projectScopeReadField
     },
-    async ({ scope, search, collection, tags, project_id } = {}) => {
+    async ({ scope, search, collection, tags, page, limit, project_id } = {}) => {
       const params = new URLSearchParams();
       // Default to the user's OWN DNAs. The API defaults to "all", which pulls
       // in ~1000 global cast presets and buries the handful the user actually
@@ -106,17 +110,23 @@ function registerVisualDnaTools(server, client, options = {}) {
       if (search) params.set('search', search);
       if (collection) params.set('collection', collection);
       if (tags) params.set('tags', tags);
+      // Always paged. Without these the ~1000-item global cast came back whole and
+      // was silently cut to the display cap, so nothing past the first screen was
+      // reachable through this tool at all.
+      params.set('page', String(page && page > 0 ? Math.floor(page) : 1));
+      params.set('limit', String(limit && limit > 0 ? Math.min(Math.floor(limit), 100) : 50));
       if (project_id) params.set('project_id', project_id);
       const qs = params.toString();
       const result = await client.get(`/v1/visual-dna${qs ? '?' + qs : ''}`);
       const dnas = result.visual_dnas || [];
+      const total = result.total != null ? result.total : (result.count || dnas.length);
       // Full profiles measured 74,310 chars — the embedded analysis/description
       // blobs are large and the model only needs enough to pick an id.
       const text = compactList(dnas, {
         fields: ['id', 'name', 'type', 'folder_id', 'tags', 'thumbnail'],
         cap: 60,
-        total: result.count || dnas.length,
-        note: 'Narrow with `search`, `tags`, or `collection`; get_visual_dna returns one in full.',
+        total,
+        note: 'Narrow with `search`, `tags`, or `collection`, or pass `page`/`limit` for the rest; get_visual_dna returns one in full.',
       });
 
       if (ui()) {
@@ -131,8 +141,8 @@ function registerVisualDnaTools(server, client, options = {}) {
             media_type: 'image',
             use_hint: 'Use Visual DNA "{TITLE}" (id: {ID}) in my next generation for character/style consistency.'
           })),
-          total: result.count || dnas.length,
-          has_more: dnas.length > 24
+          total,
+          has_more: result.has_more || dnas.length > 24
         });
       }
 

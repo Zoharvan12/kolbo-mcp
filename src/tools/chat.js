@@ -5,6 +5,7 @@
 
 const { z } = require('zod');
 const { pollOrTimedOut, creditFields, projectIdField } = require('./_shared');
+const { canonicalModelId } = require('../apps');
 
 function registerChatTools(server, client) {
   // ─── chat_send_message ─────────────────────────────────────
@@ -13,7 +14,7 @@ function registerChatTools(server, client) {
     'Send a chat message to Kolbo AI. Starts a new conversation (omit session_id) or continues an existing one. Returns the assistant response when complete. Supports image/video/audio analysis via media_urls — pass public URLs and the model auto-routes to a vision-capable model (e.g. Gemini) when media is detected. Supports web search and deep think modes.',
     {
       message: z.string().describe('The user message to send'),
-      model: z.string().optional().describe('Model identifier (e.g. "gpt-4o", "claude-sonnet-4-6"). Prefer passing a SPECIFIC model (list_models type="text") — omitting falls back to Smart Select auto-routing, which we avoid unless the user explicitly asks for auto-pick. Exception: when media_urls contains video or audio, omitting is fine — routing goes to a Gemini vision model regardless of this field.'),
+      model: z.string().optional().describe('Model identifier from list_models type="text". Identifiers resolve leniently, so the DISPLAY NAME that list_models shows works too ("Grok 4.5" → its identifier). Do NOT hardcode an id you have not seen in list_models — the text catalog turns over fast. Prefer passing a SPECIFIC model — omitting falls back to Smart Select auto-routing, which we avoid unless the user explicitly asks for auto-pick. Exception: when media_urls contains video or audio, omitting is fine — routing goes to a Gemini vision model regardless of this field.'),
       session_id: z.string().optional().describe('Existing chat session ID to continue. Omit to start a new conversation.'),
       system_prompt: z.string().optional().describe('System prompt for the conversation. Only applied when creating a new session.'),
       web_search: z.boolean().optional().describe('Enable web search for this message. Default: false'),
@@ -23,6 +24,13 @@ function registerChatTools(server, client) {
       project_id: projectIdField
     },
     async ({ message, model, session_id, system_prompt, web_search, deep_think, enhance_prompt = false, media_urls, project_id }) => {
+      // Every generate_* tool resolves its model this way; chat was the one
+      // `model` arg that went straight to the API, which has no fuzzy matching.
+      // So the display names list_models hands back ("Claude Fable 5") came
+      // back as a bare `Model not found: Claude Fable 5 [MODEL_NOT_FOUND]` —
+      // discovery had no path to use.
+      model = await canonicalModelId(client, model, 'text'); // lenient id resolution ("Grok 4.5" → its identifier)
+
       const gen = await client.post('/v1/chat', {
         message,
         model,

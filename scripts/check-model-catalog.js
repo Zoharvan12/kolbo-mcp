@@ -33,6 +33,7 @@ process.env.KOLBO_MCP_APPS = '1'; // force the widget path — the broken one
 const assert = require('assert');
 const { registerModelTools } = require('../src/tools/models');
 const { registerGenerateTools } = require('../src/tools/generate');
+const { registerChatTools } = require('../src/tools/chat');
 const { canonicalModelId } = require('../src/apps');
 
 /* ---------------------------------------------------------------- fixtures */
@@ -88,6 +89,11 @@ const OTHER_MODELS = [
   // The image-side twin of the same defect (named in src/apps/index.js).
   { identifier: 'nano-banana-2', name: 'Nano Banana 2', types: ['text_to_img'], credit: 8, summary: '' },
   { identifier: 'nano-banana-2-image-editing', name: 'Nano Banana 2', types: ['image_editing'], credit: 8, summary: '' },
+  // Chat/text catalog — the 2026-08-10 report. chat_send_message was the one
+  // `model` arg that never reached canonicalModelId, so the display names
+  // list_models publishes ("Claude Fable 5") 400'd with MODEL_NOT_FOUND.
+  { identifier: 'claude-fable-5', name: 'Claude Fable 5', types: ['text'], credit: 2, new_model: true, summary: '' },
+  { identifier: 'grok-4-5', name: 'Grok 4.5', types: ['text'], credit: 1, new_model: true, summary: '' },
 ];
 const ALL_MODELS = [...VIDEO_MODELS, ...SIBLING_MODELS, ...OTHER_MODELS];
 
@@ -163,6 +169,12 @@ async function main() {
     assert.ok(typeof text.structuredContent.text === 'string', 'structuredContent.text missing');
     const missing = VIDEO_MODELS.filter((m) => !text.structuredContent.text.includes(m.identifier));
     assert.strictEqual(missing.length, 0, `${missing.length} identifiers absent from the delivered payload`);
+  });
+  await check('widget rows name an identifier, not just a display name', () => {
+    const rows = text.structuredContent.groups.flatMap((g) => g.models);
+    assert.ok(rows.length, 'no curated rows to check');
+    const nameOnly = rows.filter((m) => !m.identifier);
+    assert.strictEqual(nameOnly.length, 0, `${nameOnly.length} rows carry a name with no identifier to pass on`);
   });
 
   // 4. Lenient resolution + actionable failure.
@@ -260,6 +272,28 @@ async function main() {
       assert.strictEqual(posted[0].body.model, want);
     });
   }
+
+  // 5c. chat_send_message posts to a different route than the generate tools,
+  //     so it needs its own wiring assertion — it is the call site that had
+  //     no lenient resolution at all.
+  await check('chat_send_message: "Claude Fable 5" reaches the API as "claude-fable-5"', async () => {
+    const chatPosted = [];
+    const chatClient = {
+      apiBase: 'https://test.invalid',
+      async request() { return { models: ALL_MODELS }; },
+      async post(path, body) {
+        chatPosted.push({ path, body });
+        return { message_id: 'msg_1', session_id: 'sess_1', poll_interval_hint: 1 };
+      },
+      async get() { return { state: 'completed', result: { content: 'ok', model: 'claude-fable-5' } }; },
+    };
+    const chatTools = {};
+    registerChatTools({ tool: (name, _d, _s, fn) => { chatTools[name] = fn; } }, chatClient);
+    assert.ok(chatTools.chat_send_message, 'chat_send_message did not register');
+    await chatTools.chat_send_message({ message: 'hi', model: 'Claude Fable 5' });
+    assert.strictEqual(chatPosted.length, 1, `expected exactly one submit, got ${chatPosted.length}`);
+    assert.strictEqual(chatPosted[0].body.model, 'claude-fable-5');
+  });
 
   if (failures.length) {
     console.error(`\n[check-model-catalog] FAILED (${failures.length}):\n  - ${failures.join('\n  - ')}`);
