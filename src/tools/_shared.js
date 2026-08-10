@@ -356,6 +356,16 @@ const projectIdField = z.string().optional().describe(
   'Project ObjectId to drop this generation into. Call `list_projects` to discover IDs (the API has no concept of project names — only ObjectIds). IMPORTANT: this is per-call, NOT sticky — once the user has named a working project, pass its id on EVERY generation call in the conversation; any call that omits it silently lands in the default "API Generations" project instead. Requires owner / edit / full permission on the project; view-only is rejected.'
 );
 
+// Shared zod schema for the optional `session_id` arg on generation tools.
+// WHY IT EXISTS: without it, each generation call gets its own session, so a
+// set of related clips lands in the app's left rail as a stack of near-identical
+// single-item sessions. (The server has a per-day fallback bucket, but it is not
+// something a caller can rely on — see kolbo-api sdkSessionManager.) Threading
+// the id returned by the FIRST call is the deterministic way to group a batch.
+const sessionIdField = z.string().optional().describe(
+  'Existing session to add this generation to, so a related set lands in ONE session instead of a stack of single-item sessions in the Kolbo sidebar. HOW TO USE: omit it on the FIRST call of a set, read `session_id` off that call\'s result, then pass that SAME value on every follow-up call belonging to the same set (e.g. shot 2, 3, 4 of one sequence). Only group things that genuinely belong together — an unrelated generation should start a fresh session by omitting this. The id must come from a session of the same kind (image tools share one session type, video tools another); `list_sessions` also returns ids. When set, `project_id` is ignored — the session\'s own project wins.'
+);
+
 // Read-scope variant for list/get tools that can surface a SHARED project's
 // assets (a teammate's Visual DNAs / moodboards). Pass a project id you have
 // edit+ on to also see that project owner's shared assets; omit to see only your
@@ -543,6 +553,9 @@ async function uiGenerating(p) {
   const text = JSON.stringify({
     status: 'submitted',
     generation_id: p.gen.generation_id,
+    // The session this landed in. Pass it back as `session_id` on the next call
+    // of the same set to keep the whole set in one session (see sessionIdField).
+    session_id: p.gen.session_id,
     ...(Array.isArray(p.generation_ids) && p.generation_ids.length > 1
       ? { batch: true, generation_ids: p.generation_ids } : {}),
     ...(p.failed_submissions && p.failed_submissions.length
@@ -661,6 +674,7 @@ module.exports = {
   pollOrTimedOut,
   creditFields,
   projectIdField,
+  sessionIdField,
   projectScopeReadField,
   inlineImageBlocks,
   buildOpenUrl,

@@ -167,7 +167,7 @@ async function main() {
     const submitted = [];
     const client = {
       apiBase: 'smoke',
-      post: async (_url, body) => { submitted.push(body.prompt); return { generation_id: `img-${submitted.length}` }; },
+      post: async (_url, body) => { submitted.push(body); return { generation_id: `img-${submitted.length}` }; },
       get: async (url) => (url === '/v1/models'
         ? { models: [] }
         : { state: 'completed', result: { urls: ['https://cdn.example/i.png'] } }),
@@ -189,7 +189,101 @@ async function main() {
     if (submitted.length) throw new Error(`a rejected batch still submitted ${submitted.length} generations`);
     await call(8);
     if (submitted.length !== 8) throw new Error(`an at-cap batch submitted ${submitted.length}/8 prompts`);
-    console.log('[smoke] prompts[] batch cap rejects instead of truncating OK');
+
+    // generate_video_from_image's items[] batch routes through the SAME guard,
+    // but each item carries its own image_url next to its own prompt. Assert
+    // both the cap AND the pairing — a fan-out that shuffles image against
+    // prompt animates the right count of the wrong shots, and looks fine.
+    submitted.length = 0;
+    const frame = (i) => `https://cdn.example/frame-${i + 1}.png`;
+    const animate = (n) => server._registeredTools.generate_video_from_image.handler({
+      items: Array.from({ length: n }, (_, i) => ({ image_url: frame(i), prompt: `motion ${i + 1}` })),
+      model: 'kling-video/v3/pro/image-to-video',
+    });
+    await animate(9).then(
+      () => { throw new Error('9 items were accepted — the image-to-video batch cap is silently truncating'); },
+      (err) => {
+        if (!/\b9\b/.test(err.message) || !/\b8\b/.test(err.message)) {
+          throw new Error(`over-cap items[] rejection must name the received count and the cap, got: ${err.message}`);
+        }
+      }
+    );
+    if (submitted.length) throw new Error(`a rejected items[] batch still submitted ${submitted.length} generations`);
+    await animate(8);
+    if (submitted.length !== 8) throw new Error(`an at-cap items[] batch submitted ${submitted.length}/8 clips`);
+    submitted.forEach((body, i) => {
+      if (body.image_url !== frame(i) || body.prompt !== `motion ${i + 1}`) {
+        throw new Error(`items[] batch clip ${i + 1} lost its image/prompt pairing: ${JSON.stringify(body)}`);
+      }
+    });
+    // The single-item form must still work untouched (additive change).
+    submitted.length = 0;
+    await server._registeredTools.generate_video_from_image.handler({
+      image_url: frame(0), prompt: 'motion 1', model: 'kling-video/v3/pro/image-to-video',
+    });
+    if (submitted.length !== 1 || submitted[0].image_url !== frame(0)) {
+      throw new Error('single-image generate_video_from_image regressed when items[] was added');
+    }
+    console.log('[smoke] prompts[] + items[] batch caps reject instead of truncating OK');
+  }
+
+  // 0f. `session_id` must survive the round trip on every single-output
+  // generation tool: into the request body, and back out of the result. This is
+  // the ONLY deterministic way an agent groups a related set — the server's
+  // daily-session bucket keys on the session NAME, which the generation
+  // controllers rename after the first generation, so it stops matching and
+  // each further call opens a fresh session (12 clips → 12 sessions).
+  {
+    const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
+    const { registerGenerateTools } = require(path.join(PKG_ROOT, 'src', 'tools', 'generate'));
+    const SESSION = 'sess-abc123';
+    const sent = [];
+    const client = {
+      apiBase: 'smoke',
+      post: async (url, body) => { sent.push({ url, body }); return { generation_id: 'gen-1', session_id: SESSION }; },
+      postMultipart: async (url, form) => {
+        // form-data exposes the serialized body; assert the field made it in.
+        sent.push({ url, body: { session_id: form.getBuffer().toString().includes('name="session_id"') ? SESSION : undefined } });
+        return { generation_id: 'gen-1', session_id: SESSION };
+      },
+      get: async (url) => (url === '/v1/models'
+        ? { models: [] }
+        : { state: 'completed', result: { urls: ['https://cdn.example/a.mp4'] } }),
+    };
+    const server = new McpServer({ name: 'session-smoke', version: '1.0.0' });
+    registerGenerateTools(server, client, {});
+    const cases = [
+      ['generate_image', { prompt: 'p', model: 'z-image/turbo' }],
+      ['generate_image_edit', { prompt: 'p', source_images: ['https://cdn.example/a.png'], model: 'z-image/turbo' }],
+      ['generate_video', { prompt: 'p', model: 'seedance-2' }],
+      ['generate_video_from_image', { image_url: 'https://cdn.example/a.png', prompt: 'p', model: 'seedance-2' }],
+      ['generate_music', { prompt: 'p' }],
+      ['generate_speech', { text: 'p' }],
+      ['generate_sound', { prompt: 'p' }],
+      ['generate_elements', { prompt: 'p', reference_images: ['https://cdn.example/a.png'] }],
+      ['generate_first_last_frame', { first_frame_url: 'https://cdn.example/a.png', last_frame_url: 'https://cdn.example/b.png' }],
+      ['generate_lipsync', { source: 'https://cdn.example/a.png', audio: 'https://cdn.example/a.mp3' }],
+      ['generate_video_from_video', { source_video: 'https://cdn.example/a.mp4', prompt: 'p' }],
+      ['transcribe_audio', { source: 'https://cdn.example/a.mp3' }],
+      ['edit_image', { image_url: 'https://cdn.example/a.png', operation: 'upscale' }],
+      ['edit_video', { video_url: 'https://cdn.example/a.mp4', operation: 'upscale' }],
+    ];
+    for (const [name, args] of cases) {
+      const tool = server._registeredTools[name];
+      if (!tool) throw new Error(`${name} is not registered`);
+      if (!tool.inputSchema?.shape?.session_id) {
+        throw new Error(`${name} no longer accepts session_id — an agent cannot group a related set through it`);
+      }
+      sent.length = 0;
+      const result = await tool.handler({ ...args, session_id: SESSION });
+      if (!sent.some(r => r.body && r.body.session_id === SESSION)) {
+        throw new Error(`${name} dropped session_id on the way to the API`);
+      }
+      if (JSON.parse(result.content[0].text).session_id !== SESSION) {
+        throw new Error(`${name} did not return session_id, so the model cannot thread it to the next call`);
+      }
+    }
+    console.log('[smoke] session_id round-trips on every single-output generation tool OK');
   }
 
   // 0c. Every media-input tool must carry the transport-correct local-file
@@ -375,6 +469,84 @@ async function main() {
       delete require.cache[require.resolve(path.join(PKG_ROOT, 'src', 'client.js'))];
     }
     console.log('[smoke] HTTP requests are timeout-bounded OK');
+  }
+
+  // 0f. A rate limit nobody can see is a rate limit every batch trips. Two
+  // halves, both real failures we shipped: the ticket must ANNOUNCE the cap so a
+  // caller paces before it starts, and a 429 on the upload path must be absorbed
+  // once using the server's Retry-After instead of surfacing as a failed upload.
+  // Bounded on purpose — one retry, and only for a wait the server named.
+  {
+    const { registerMediaTools } = require(path.join(PKG_ROOT, 'src', 'tools', 'media.js'));
+    const ticketTools = {};
+    registerMediaTools(
+      { tool: (name, description, schema, handler) => { ticketTools[name] = { description, handler }; } },
+      { post: async () => ({ token: 't', upload_url: 'https://api.example/mcp/upload', expires_in: 900, rate_limit: { max_uploads: 40, per_seconds: 60 } }) }
+    );
+    const ticketTool = ticketTools.create_upload_ticket;
+    if (!/rate limit/i.test(ticketTool.description)) {
+      throw new Error('create_upload_ticket no longer states the upload rate limit — batch callers cannot pace');
+    }
+    const payload = JSON.parse((await ticketTool.handler({})).content[0].text);
+    if (!payload.rate_limit || payload.rate_limit.max_uploads !== 40) {
+      throw new Error('create_upload_ticket response dropped rate_limit — the cap is invisible again');
+    }
+    if (!/429/.test(payload.how_to_upload.pacing || '')) {
+      throw new Error('create_upload_ticket no longer tells the caller what to do with a 429');
+    }
+
+    let calls = 0;
+    const srv = require('http').createServer((req, res) => {
+      calls++;
+      if (calls === 1) {
+        res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '1' });
+        return res.end(JSON.stringify({ success: false, error: 'Too many uploads', retry_after_seconds: 1 }));
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, media: { url: 'https://cdn.example/x.png' } }));
+    });
+    await new Promise((resolve) => srv.listen(0, resolve));
+    const prevUrl = process.env.KOLBO_API_URL;
+    const prevKey = process.env.KOLBO_API_KEY;
+    try {
+      process.env.KOLBO_API_URL = `http://127.0.0.1:${srv.address().port}/api`;
+      process.env.KOLBO_API_KEY = 'smoke-dummy';
+      delete require.cache[require.resolve(path.join(PKG_ROOT, 'src', 'client.js'))];
+      const KolboClient = require(path.join(PKG_ROOT, 'src', 'client.js'));
+      const FormData = require('form-data');
+      const form = new FormData();
+      form.append('file', Buffer.from('x'), { filename: 'x.png', contentType: 'image/png' });
+      const out = await new KolboClient({ allowBrowserLogin: false }).postMultipart('/v1/media/upload', form);
+      if (!out.success || calls !== 2) {
+        throw new Error(`upload did not retry once on 429 (calls=${calls}) — src/client.js must honour Retry-After`);
+      }
+      // ...and exactly once. A second 429 has to surface, not spin.
+      calls = 0;
+      const always429 = require('http').createServer((req, res) => {
+        calls++;
+        res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '1' });
+        res.end(JSON.stringify({ success: false, error: 'Too many uploads' }));
+      });
+      await new Promise((resolve) => always429.listen(0, resolve));
+      process.env.KOLBO_API_URL = `http://127.0.0.1:${always429.address().port}/api`;
+      delete require.cache[require.resolve(path.join(PKG_ROOT, 'src', 'client.js'))];
+      const Client2 = require(path.join(PKG_ROOT, 'src', 'client.js'));
+      const form2 = new FormData();
+      form2.append('file', Buffer.from('x'), { filename: 'x.png', contentType: 'image/png' });
+      let status = null;
+      try { await new Client2({ allowBrowserLogin: false }).postMultipart('/v1/media/upload', form2); }
+      catch (err) { status = err.status; }
+      always429.close();
+      if (status !== 429 || calls !== 2) {
+        throw new Error(`429 retry is not bounded to one attempt (calls=${calls}, status=${status})`);
+      }
+    } finally {
+      srv.close();
+      if (prevUrl === undefined) delete process.env.KOLBO_API_URL; else process.env.KOLBO_API_URL = prevUrl;
+      if (prevKey === undefined) delete process.env.KOLBO_API_KEY; else process.env.KOLBO_API_KEY = prevKey;
+      delete require.cache[require.resolve(path.join(PKG_ROOT, 'src', 'client.js'))];
+    }
+    console.log('[smoke] upload rate limit is announced + bounded-retried OK');
   }
 
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kolbo-mcp-smoke-'));

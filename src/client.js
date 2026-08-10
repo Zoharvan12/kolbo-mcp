@@ -48,6 +48,35 @@ function isAbortError(err) {
 }
 
 // ---------------------------------------------------------------------------
+// 429 handling
+// ---------------------------------------------------------------------------
+// A 429 is rejected by the rate-limit middleware BEFORE the handler runs: no
+// credits spent, no generation started, nothing half-done. That makes it the
+// one status it is safe to replay — but only ONCE, and only when the server
+// told us how long to wait. An unbounded backoff loop would hide a real
+// capacity problem and stall the tool call past the host's own timeout.
+const RETRY_429_MAX_WAIT_S = 65;
+
+function retryAfterSeconds(response) {
+  const raw = response.headers.get('retry-after');
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+async function retryOnce429(attempt) {
+  try {
+    return await attempt();
+  } catch (err) {
+    const wait = err && err.status === 429 ? err.retryAfterSeconds : null;
+    if (wait === null || wait === undefined || wait > RETRY_429_MAX_WAIT_S) throw err;
+    await progress.tick(); // keepalive — the wait can be up to a minute
+    await new Promise((resolve) => setTimeout(resolve, (wait + 1) * 1000));
+    return attempt();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Partner / whitelabel resolution (mirrors CLI's brand/partner.ts)
 // ---------------------------------------------------------------------------
 
@@ -326,11 +355,13 @@ class KolboClient {
         data._kolbo_auth_expired = true;
         fullMessage = `${fullMessage} [KOLBO_AUTH_EXPIRED]`;
       }
-      throw new KolboApiError(fullMessage, {
+      const apiError = new KolboApiError(fullMessage, {
         code,
         status: response.status,
         data
       });
+      if (response.status === 429) apiError.retryAfterSeconds = retryAfterSeconds(response);
+      throw apiError;
     }
 
     const generationId = data?.generation_id || data?.generationId;
@@ -360,13 +391,21 @@ class KolboClient {
     return this.request('DELETE', reqPath, body);
   }
 
+  // Uploads are the one thing agents genuinely do in a tight loop (`upload_media`
+  // per file), and /v1/media/upload shares the per-minute SDK generation bucket —
+  // so a batch trips 429 long before the user's patience does. Absorb exactly one
+  // of those, honouring the server's Retry-After. Everything else (including the
+  // poll loop, which does its own capped backoff in polling.js) still surfaces
+  // the 429 straight to the caller, now with the wait spelled out in the message.
   async postMultipart(reqPath, formData) {
     if (!this.apiKey) await this._ensureLogin();
-    const result = await this._doMultipart(reqPath, formData);
-    if (result._status === 401 && this._tryRefreshKey()) {
-      return this._doMultipart(reqPath, formData);
-    }
-    return result;
+    return retryOnce429(async () => {
+      const result = await this._doMultipart(reqPath, formData);
+      if (result._status === 401 && this._tryRefreshKey()) {
+        return this._doMultipart(reqPath, formData);
+      }
+      return result;
+    });
   }
 
   async _doMultipart(reqPath, formData) {
@@ -428,11 +467,13 @@ class KolboClient {
         data._kolbo_auth_expired = true;
         fullMessage = `${fullMessage} [KOLBO_AUTH_EXPIRED]`;
       }
-      throw new KolboApiError(fullMessage, {
+      const apiError = new KolboApiError(fullMessage, {
         code,
         status: response.status,
         data
       });
+      if (response.status === 429) apiError.retryAfterSeconds = retryAfterSeconds(response);
+      throw apiError;
     }
 
     return data;

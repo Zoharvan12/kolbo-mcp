@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone } = require('../polling');
-const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, appsEnabled } = require('./_shared');
+const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, sessionIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, appsEnabled } = require('./_shared');
 const { UI, uiResult, canonicalModelId, modelInfo, voiceInfo } = require('../apps');
 
 // ─── Cinematic Dimensions schema (shared by generate_image + generate_image_edit) ───
@@ -37,8 +37,8 @@ const CINEMATIC_SCHEMA = z.object({
   'validated against their dimension server-side. Dimensions are data-driven — never hardcode ids.'
 );
 
-// ─── Batch fan-out (prompts[]) ──────────────────────────────────────────────
-// One tool call, N DIFFERENT prompts → N generations tracked by ONE widget.
+// ─── Batch fan-out (prompts[] / items[]) ────────────────────────────────────
+// One tool call, N DIFFERENT inputs → N generations tracked by ONE widget.
 // The manual-control twin of generate_creative_director: no orchestration pass,
 // the user's exact prompts verbatim. Submit failures never sink the batch —
 // successful ids proceed, failed prompts are reported alongside.
@@ -47,22 +47,32 @@ const CINEMATIC_SCHEMA = z.object({
 // the caller had no way to know which prompt vanished. `promptsField` also caps
 // the array in the schema (so hosts see `maxItems` before calling); the guard
 // below is the choke point EVERY batch tool routes through, and names the count.
+//
+// An item is EITHER a bare prompt string (generate_image / generate_video, where
+// only the prompt varies) OR an object carrying its own per-item inputs
+// alongside the prompt (generate_video_from_image: `{ image_url, prompt }` — the
+// image is what varies, and that is the whole point). Either way the widget
+// captions each tile with the item's prompt, so that is the label we carry.
 const MAX_BATCH_PROMPTS = 8;
-async function submitBatch(rawPrompts, submitOne) {
-  if (rawPrompts.length > MAX_BATCH_PROMPTS) {
+async function submitBatch(rawItems, submitOne) {
+  if (rawItems.length > MAX_BATCH_PROMPTS) {
     throw new Error(
-      `Too many prompts: ${rawPrompts.length} received, max ${MAX_BATCH_PROMPTS} per call. ` +
-      `Split them across ${Math.ceil(rawPrompts.length / MAX_BATCH_PROMPTS)} calls of at most ${MAX_BATCH_PROMPTS}.`
+      `Too many prompts: ${rawItems.length} received, max ${MAX_BATCH_PROMPTS} per call. ` +
+      `Split them across ${Math.ceil(rawItems.length / MAX_BATCH_PROMPTS)} calls of at most ${MAX_BATCH_PROMPTS}.`
     );
   }
-  const prompts = rawPrompts.map((s) => String(s).trim()).filter(Boolean);
-  const settled = await Promise.allSettled(prompts.map((p) => submitOne(p)));
+  const items = rawItems
+    .map((it) => (typeof it === 'object' && it !== null
+      ? { input: it, label: String(it.prompt || '').trim() }
+      : { input: String(it).trim(), label: String(it).trim() }))
+    .filter((x) => x.label);
+  const settled = await Promise.allSettled(items.map((x) => submitOne(x.input)));
   const ok = [], failed = [];
   settled.forEach((s, i) => {
-    if (s.status === 'fulfilled' && s.value && s.value.generation_id) ok.push({ prompt: prompts[i], gen: s.value });
-    else failed.push({ prompt: prompts[i], error: (s.reason && s.reason.message) || 'submit failed' });
+    if (s.status === 'fulfilled' && s.value && s.value.generation_id) ok.push({ prompt: items[i].label, gen: s.value });
+    else failed.push({ prompt: items[i].label, error: (s.reason && s.reason.message) || 'submit failed' });
   });
-  if (!ok.length) throw new Error(`All ${prompts.length} batch submissions failed: ${failed[0].error}`);
+  if (!ok.length) throw new Error(`All ${items.length} batch submissions failed: ${failed[0].error}`);
   return { ok, failed, ids: ok.map((o) => o.gen.generation_id) };
 }
 
@@ -77,6 +87,7 @@ async function pollBatch(client, batch, { interval, timeout }) {
       type: 'text',
       text: JSON.stringify({
         batch: true,
+        session_id: batch.ok[0].gen.session_id,
         generations,
         failed_submissions: batch.failed.length ? batch.failed : undefined
       }, null, 2)
@@ -135,14 +146,15 @@ function registerGenerateTools(server, client, options = {}) {
       preset_id: z.string().optional().describe('Preset ID from list_presets type="image" to apply a saved style preset to this generation.'),
       cinematic: CINEMATIC_SCHEMA,
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one image ungraded.'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id }) => {
+    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'text_to_img'); // lenient id resolution ("z-image" → "z-image/turbo")
       const shared = {
         model, aspect_ratio, enhance_prompt,
-        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id
+        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id
       };
 
       // Batch mode: N different prompts, one widget owning all generation ids.
@@ -180,6 +192,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: gen.session_id,
             urls: result.result.urls,
             model: result.result.model,
             prompt_used: result.result.prompt_used,
@@ -207,13 +220,14 @@ function registerGenerateTools(server, client, options = {}) {
       resolution: z.string().optional().describe('Image resolution tier: "1K" / "2K" / "3K" / "4K". Model-dependent — call list_models and read supported_resolutions. Default: "1K" for most edit models.'),
       cinematic: CINEMATIC_SCHEMA,
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one edit ungraded.'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ prompt, model, source_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id }) => {
+    async ({ prompt, model, source_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'image_editing'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/image-edit', {
         prompt, model, source_images, aspect_ratio, enhance_prompt, num_images,
-        visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id
+        visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id, session_id
       });
 
       if (ui()) return uiGenerating({
@@ -240,6 +254,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: gen.session_id,
             urls: result.result.urls,
             model: result.result.model,
             prompt_used: result.result.prompt_used,
@@ -419,13 +434,14 @@ function registerGenerateTools(server, client, options = {}) {
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" to apply a saved motion/style preset to this generation.'),
       sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Only honored by models with `sound_generation_type: "native"` from list_models (e.g. Veo 3.1, Kling V3/2.6, PixVerse V6). On `sound_generation_type: "none"` models the flag has no effect. Omit to use the model\'s `sound_enabled_by_default`. Pass `false` when the user says no sound / silent / mute / without audio. Enabling sound may apply `sound_credit_multiplier` to cost.'),
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one video ungraded.'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, aspect_ratio, duration, enhance_prompt = false, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id }) => {
+    async ({ prompt, prompts, model, aspect_ratio, duration, enhance_prompt = false, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id, session_id }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'text_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
       const shared = {
-        model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id
+        model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id, session_id
       };
 
       // Batch mode: N different prompts, one widget owning all generation ids.
@@ -465,6 +481,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: gen.session_id,
             urls: result.result.urls,
             model: result.result.model,
             duration: result.result.duration,
@@ -480,10 +497,16 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_video_from_image ─────────────────────────────
   server.tool(
     'generate_video_from_image',
-    'Animate an existing still image into a video using Kolbo AI. The image comes from `image_url`; `prompt` describes the motion (not the subject — the subject is already in the image). For generating a video from scratch, use generate_video. Returns the final video URL when complete.',
+    'Animate an existing still image into a video using Kolbo AI. The image comes from `image_url`; `prompt` describes the motion (not the subject — the subject is already in the image). For generating a video from scratch, use generate_video. ANIMATING SEVERAL SHOTS OF THE SAME SEQUENCE? Pass them ALL in `items` in ONE call (one combined widget) — never a series of separate calls, which buries the chat under one widget per clip. Across calls (a sequence longer than the batch cap), make the first call without `session_id`, take the `session_id` from its result, and pass that same `session_id` on every following call — otherwise each clip becomes its own session and the user gets a stack of near-identical single-clip sessions in the Kolbo sidebar. Returns the final video URL(s) when complete.',
     {
-      image_url: z.string().describe('URL of the source image to animate'),
-      prompt: z.string().describe('Text description of the desired MOTION (e.g., "camera slowly pans right while the character walks forward")'),
+      image_url: z.string().optional().describe('URL of the source image to animate. Required unless `items` is provided.'),
+      prompt: z.string().optional().describe('Text description of the desired MOTION (e.g., "camera slowly pans right while the character walks forward"). Required unless `items` is provided.'),
+      items: z.array(z.object({
+        image_url: z.string().describe('URL of the source image to animate for THIS clip.'),
+        prompt: z.string().describe('Text description of the desired MOTION for THIS clip.'),
+      })).max(MAX_BATCH_PROMPTS).optional().describe(
+        `BATCH MODE — several DIFFERENT stills (2–${MAX_BATCH_PROMPTS}) animated concurrently in ONE call and rendered together in ONE combined widget. Unlike the \`prompts\` array on generate_image / generate_video, each entry pairs its OWN \`image_url\` with its OWN motion \`prompt\` — the image is what varies, and that is the point. **Hard cap: ${MAX_BATCH_PROMPTS} items per call — more than that is REJECTED with an error (never silently truncated), so split a longer sequence across several calls of at most ${MAX_BATCH_PROMPTS}.** Whenever the user wants several stills animated (a shot sequence, a storyboard, an animatic), ALWAYS pass them all here instead of making several separate calls — separate calls clutter the chat with stacked widgets. All items share the same model / duration / resolution / aspect_ratio / sound_enabled / project_id / session_id. When set, \`image_url\` and \`prompt\` are ignored.`
+      ),
       model: z.string().optional().describe('Model identifier — pick a SPECIFIC model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults: "seedance-2" (versatile) or "veo3" (Veo 3.1, cinematic + native audio); the Kling family (call list_models for exact ids like kling-video/v3/pro/image-to-video) is strongest for motion. Call list_models type="img_to_video" to see all options and choose per the user\'s intent.'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "16:9"'),
       duration: z.number().optional().describe('Duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
@@ -492,13 +515,34 @@ function registerGenerateTools(server, client, options = {}) {
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions.'),
       sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Only honored by models with `sound_generation_type: "native"` from list_models (e.g. Veo 3.1 Lite, Kling V3 4K, PixVerse V6, Kling 2.6/v3). On `sound_generation_type: "none"` models the flag has no effect. Omit to use the model\'s `sound_enabled_by_default`. Pass `false` when the user says no sound / silent / mute / without audio. Enabling sound may apply `sound_credit_multiplier` to cost.'),
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one video ungraded.'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ image_url, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, sound_enabled, skip_color_palette, project_id }) => {
+    async ({ image_url, prompt, items, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, sound_enabled, skip_color_palette, project_id, session_id }) => {
+      if (!(items && items.length) && !(image_url && prompt)) throw new Error('Provide image_url + prompt, or items');
       model = await canonicalModelId(client, model, 'img_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
-      const gen = await client.post('/v1/generate/video/from-image', {
-        image_url, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled, skip_color_palette, project_id
-      });
+      const shared = {
+        model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled, skip_color_palette, project_id, session_id
+      };
+
+      // Batch mode: N different stills, one widget owning all generation ids.
+      // Same fan-out as generate_video's prompts[], except the varying part is
+      // the (image_url, prompt) PAIR — submitBatch carries the prompt as the
+      // per-tile caption either way.
+      if (items && items.length) {
+        const batch = await submitBatch(items, (it) => client.post('/v1/generate/video/from-image', { ...shared, image_url: it.image_url, prompt: it.prompt }));
+        if (ui()) return uiGenerating({
+          tool: 'generate_video_from_image', kind: 'video', gen: batch.ok[0].gen, client, model,
+          count: batch.ids.length, settings: { duration, resolution, aspect_ratio },
+          generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
+          failed_submissions: batch.failed,
+          status_args: { generation_ids: batch.ids, wait: true },
+          reference_image: items[0].image_url
+        });
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 900000 });
+      }
+
+      const gen = await client.post('/v1/generate/video/from-image', { ...shared, image_url, prompt });
 
       if (ui()) return uiGenerating({
         tool: 'generate_video_from_image', kind: 'video', gen, client, model, prompt,
@@ -520,11 +564,12 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: gen.session_id,
             urls: result.result.urls,
             model: result.result.model,
             duration: result.result.duration,
             thumbnail_url: result.result.thumbnail_url,
-            _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to edit_video or generate_video_from_video. Do NOT re-run generate_video_from_image unless they want a fresh animation from a different source image.'
+            _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to edit_video or generate_video_from_video. Do NOT re-run generate_video_from_image unless they want a fresh animation from a different source image. Animating more shots of THIS same sequence? Pass the session_id above back on each of those calls so they all land in one session.'
           }, null, 2)
         }]
       };
@@ -555,15 +600,16 @@ function registerGenerateTools(server, client, options = {}) {
       use_composition_plan: z.boolean().optional().describe('Suno: enable structured composition planning (verse/chorus structure).'),
       singing_dna_id: z.string().optional().describe('Visual DNA character id whose singing voice to use (must be owned by the caller).'),
       singing_voice_id: z.string().optional().describe('Custom cloned singing-voice id (must be owned by the caller).'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt = false, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, project_id }) => {
+    async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt = false, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'music_gen'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/music', {
         prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags,
         duration_seconds, enhance_prompt, preset_id,
         style_weight, weirdness, audio_weight, persona_id, use_composition_plan,
-        singing_dna_id, singing_voice_id, project_id
+        singing_dna_id, singing_voice_id, project_id, session_id
       });
 
       if (ui()) return uiGenerating({
@@ -583,6 +629,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: gen.session_id,
             urls: result.result.urls,
             title: result.result.title,
             duration: result.result.duration,
@@ -627,9 +674,10 @@ function registerGenerateTools(server, client, options = {}) {
       minimax_vol: z.number().optional().describe('MiniMax volume, 0–10. Default 1.'),
       minimax_intensity: z.number().optional().describe('MiniMax voice intensity.'),
       minimax_timbre: z.number().optional().describe('MiniMax voice timbre.'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ text, voice, model, language, style_instructions, selected_style, emotion, speaking_speed, similarity_boost, style, use_speaker_boost, variance, tempo, promptBoost, seed, accentControl, voiceTitle, minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre, project_id }) => {
+    async ({ text, voice, model, language, style_instructions, selected_style, emotion, speaking_speed, similarity_boost, style, use_speaker_boost, variance, tempo, promptBoost, seed, accentControl, voiceTitle, minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'text_to_speech'); // lenient id resolution ("z-image" → "z-image/turbo")
       // Resolve the requested voice against the REAL catalog (cached) so the card
       // can show its display name + portrait instead of a raw id, and so an id
@@ -647,7 +695,7 @@ function registerGenerateTools(server, client, options = {}) {
         similarity_boost, style, use_speaker_boost,
         variance, tempo, promptBoost, seed, accentControl, voiceTitle,
         minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre,
-        project_id
+        project_id, session_id
       });
 
       if (ui()) return uiGenerating({
@@ -669,6 +717,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: gen.session_id,
             urls: result.result.urls,
             voice: result.result.voice,
             duration: result.result.duration,
@@ -701,15 +750,16 @@ function registerGenerateTools(server, client, options = {}) {
       seed_pitch: z.number().optional().describe('FAL Seed-Audio: pitch shift in semitones.'),
       seed_reference_audio_urls: z.array(z.string()).optional().describe('FAL Seed-Audio: up to 3 reference audio URLs to condition the sound.'),
       seed_reference_image_url: z.string().optional().describe('FAL Seed-Audio: a reference image URL to condition the sound.'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ prompt, model, duration, prompt_influence, cfg_strength, sound_loop, sound_tempo, sound_key, seed_voice, seed_speed, seed_volume, seed_pitch, seed_reference_audio_urls, seed_reference_image_url, project_id }) => {
+    async ({ prompt, model, duration, prompt_influence, cfg_strength, sound_loop, sound_tempo, sound_key, seed_voice, seed_speed, seed_volume, seed_pitch, seed_reference_audio_urls, seed_reference_image_url, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'text_to_sound'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/sound', {
         prompt, model, duration, prompt_influence,
         cfg_strength, sound_loop, sound_tempo, sound_key,
         seed_voice, seed_speed, seed_volume, seed_pitch,
-        seed_reference_audio_urls, seed_reference_image_url, project_id
+        seed_reference_audio_urls, seed_reference_image_url, project_id, session_id
       });
 
       if (ui()) return uiGenerating({
@@ -729,6 +779,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: gen.session_id,
             urls: result.result.urls,
             duration: result.result.duration
           }, null, 2)
@@ -917,9 +968,10 @@ function registerGenerateTools(server, client, options = {}) {
         image_url: z.string().describe('Public URL of the keyframe image'),
         timestamp_seconds: z.number().describe('Moment on the OUTPUT timeline (seconds, 0 = first frame) where this image is pinned')
       })).optional().describe('Timeline-pinned keyframes for multi-keyframe models (e.g. "flux-3-keyframes", "luma-ray-3-2-storyboard"): the model generates the motion BETWEEN the pinned images. Only models with `supports_keyframes: true` in list_models accept this; cap = `max_keyframes` (FLUX 3: 10). Requires an explicit `duration` — timestamps beyond it are clamped. Ignored by ordinary elements models. OPTIONAL for flux-3-keyframes: if omitted, pass the images via reference_images instead — they are played through IN ORDER, timed from timing language in the prompt or spaced evenly. Pass explicit keyframes only when you need exact control.'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, keyframes, project_id }) => {
+    async ({ prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, keyframes, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'elements'); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!prompt) throw new Error('prompt is required');
 
@@ -943,6 +995,7 @@ function registerGenerateTools(server, client, options = {}) {
         if (resolution) form.append('resolution', resolution);
         if (keyframes) form.append('keyframes', JSON.stringify(keyframes));
         if (project_id) form.append('project_id', project_id);
+        if (session_id) form.append('session_id', session_id);
         for (const f of resolved) {
           form.append('files', f.buffer, { filename: f.filename, contentType: f.contentType });
         }
@@ -950,7 +1003,7 @@ function registerGenerateTools(server, client, options = {}) {
       } else {
         // URL-only mode: plain JSON.
         startResponse = await client.post('/v1/generate/elements', {
-          prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, keyframes, project_id
+          prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, keyframes, project_id, session_id
         });
       }
 
@@ -972,6 +1025,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: startResponse.session_id,
             urls: result.result?.urls || [],
             thumbnail_url: result.result?.thumbnail_url || null,
             duration: result.result?.duration || null,
@@ -998,9 +1052,10 @@ function registerGenerateTools(server, client, options = {}) {
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt = false, visual_dna_ids, resolution, project_id }) => {
+    async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt = false, visual_dna_ids, resolution, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'firstlastgenerations'); // lenient id resolution ("z-image" → "z-image/turbo")
       const urlMode = first_frame_url && last_frame_url;
       const fileMode = first_frame && last_frame;
@@ -1028,10 +1083,11 @@ function registerGenerateTools(server, client, options = {}) {
         if (visual_dna_ids) form.append('visual_dna_ids', JSON.stringify(visual_dna_ids));
         if (resolution) form.append('resolution', resolution);
         if (project_id) form.append('project_id', project_id);
+        if (session_id) form.append('session_id', session_id);
         startResponse = await client.postMultipart('/v1/generate/first-last-frame', form);
       } else {
         startResponse = await client.post('/v1/generate/first-last-frame', {
-          first_frame_url, last_frame_url, prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids, resolution, project_id
+          first_frame_url, last_frame_url, prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids, resolution, project_id, session_id
         });
       }
 
@@ -1053,6 +1109,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: startResponse.session_id,
             urls: result.result?.urls || [],
             thumbnail_url: result.result?.thumbnail_url || null,
             duration: result.result?.duration || null,
@@ -1088,9 +1145,10 @@ function registerGenerateTools(server, client, options = {}) {
         bounding_boxes_url: z.string().optional().describe('URL to a JSON file with per-frame boxes.'),
         face_image: z.string().optional().describe('Base64-encoded reference face image.')
       }).optional().describe('Sync-3 only: choose which speaker gets synced in a multi-person video. Use auto_detect:true for automatic, or coordinates + frame_number to pin a specific face.'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ source, audio, text_prompt, model, bounding_box_target, sync_mode, model_mode, emotion, temperature, occlusion_detection_enabled, active_speaker_detection, project_id }) => {
+    async ({ source, audio, text_prompt, model, bounding_box_target, sync_mode, model_mode, emotion, temperature, occlusion_detection_enabled, active_speaker_detection, project_id, session_id }) => {
       model = await canonicalModelId(client, model, ['lipsync-image', 'lipsync-video']); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!source) throw new Error('source is required (URL or absolute local path to image/video)');
       if (!audio) throw new Error('audio is required (URL or absolute local path to audio file)');
@@ -1114,7 +1172,7 @@ function registerGenerateTools(server, client, options = {}) {
           temperature,
           occlusion_detection_enabled,
           active_speaker_detection,
-          project_id
+          project_id, session_id
         });
       } else {
         // File mode (or mixed — resolve any local paths, pass URLs through as body fields)
@@ -1144,6 +1202,7 @@ function registerGenerateTools(server, client, options = {}) {
         if (occlusion_detection_enabled !== undefined) form.append('occlusion_detection_enabled', String(occlusion_detection_enabled));
         if (active_speaker_detection) form.append('active_speaker_detection', JSON.stringify(active_speaker_detection));
         if (project_id) form.append('project_id', project_id);
+        if (session_id) form.append('session_id', session_id);
         startResponse = await client.postMultipart('/v1/generate/lipsync', form);
       }
 
@@ -1165,6 +1224,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: startResponse.session_id,
             urls: result.result?.urls || [],
             thumbnail_url: result.result?.thumbnail_url || null,
             duration: result.result?.duration || null,
@@ -1209,9 +1269,10 @@ function registerGenerateTools(server, client, options = {}) {
           highlighted: z.object({ font: z.string().optional(), weight: z.number().int().min(100).max(900).optional(), color: z.string().optional() }).optional().describe('Highlighted word tier styling.'),
         }).optional(),
       }).optional().describe('VEED Subtitles only: style overrides. Any omitted field keeps the preset default. Best supported by Basic presets.'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, project_id }) => {
+    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'video_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!source_video) throw new Error('source_video is required');
 
@@ -1221,7 +1282,7 @@ function registerGenerateTools(server, client, options = {}) {
         startResponse = await client.post('/v1/generate/video-from-video', {
           video_url: source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution,
           reference_images, reference_videos, elements, preset, source_language, translation_language,
-          srt_content, srt_file_url, vocabulary, customization, project_id
+          srt_content, srt_file_url, vocabulary, customization, project_id, session_id
         });
       } else {
         const resolved = await resolveToBuffer(source_video, 'video');
@@ -1245,6 +1306,7 @@ function registerGenerateTools(server, client, options = {}) {
         if (reference_videos) form.append('reference_videos', JSON.stringify(reference_videos));
         if (elements) form.append('elements', JSON.stringify(elements));
         if (project_id) form.append('project_id', project_id);
+        if (session_id) form.append('session_id', session_id);
         startResponse = await client.postMultipart('/v1/generate/video-from-video', form);
       }
 
@@ -1267,6 +1329,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: startResponse.session_id,
             urls: result.result?.urls || [],
             thumbnail_url: result.result?.thumbnail_url || null,
             duration: result.result?.duration || null,
@@ -1291,15 +1354,16 @@ function registerGenerateTools(server, client, options = {}) {
       words_per_line: z.number().optional().describe('SRT: max words per subtitle line, 1–18. Default: 12.'),
       lines_per_subtitle: z.number().optional().describe('SRT: max lines per subtitle cue, 1–4. Default: 2.'),
       stretch_captions: z.boolean().optional().describe('SRT: extend each cue\'s end time to the next cue\'s start (gap-free subtitles). Default: true.'),
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
-    async ({ source, language, diarize, tag_audio_events, remove_punctuation, generate_srt, words_per_line, lines_per_subtitle, stretch_captions, project_id }) => {
+    async ({ source, language, diarize, tag_audio_events, remove_punctuation, generate_srt, words_per_line, lines_per_subtitle, stretch_captions, project_id, session_id }) => {
       if (!source) throw new Error('source is required (URL or absolute local path)');
 
       // Advanced transcription controls forwarded when provided (undefined keys are dropped by the client).
       const opts = {
         language, diarize, tag_audio_events, remove_punctuation,
-        generate_srt, words_per_line, lines_per_subtitle, stretch_captions, project_id
+        generate_srt, words_per_line, lines_per_subtitle, stretch_captions, project_id, session_id
       };
 
       const isUrl = /^https?:\/\//i.test(source);
@@ -1343,6 +1407,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: startResponse.session_id,
             text: result.result?.text || '',
             srt_url: result.result?.srt_url || null,
             word_by_word_srt_url: result.result?.word_by_word_srt_url || null,
@@ -1506,13 +1571,14 @@ function registerGenerateTools(server, client, options = {}) {
       ai_optimize: z.boolean().optional()
         .describe('Whether to let Kolbo AI enhance your prompt before sending to the model. Default: false — your prompt reaches the model exactly as written. Only pass true if the user explicitly asks to enhance/improve the prompt.'),
 
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
     async ({
       image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
       mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize = false,
       zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
-      project_id
+      project_id, session_id
     }) => {
       // No `type` argument: these are operation-routed tools (upscale / reframe /
       // removebg / …), each operation with its own model family — there is no single
@@ -1530,7 +1596,7 @@ function registerGenerateTools(server, client, options = {}) {
         image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
         mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize,
         zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
-        project_id
+        project_id, session_id
       });
 
       if (ui()) return uiGenerating({
@@ -1552,6 +1618,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: gen.session_id,
             urls: result.result?.urls || [],
             edit_type: result.result?.edit_type || null,
             model: result.result?.model || null
@@ -1656,7 +1723,8 @@ function registerGenerateTools(server, client, options = {}) {
       start_time: z.number().optional()
         .describe('Start time in seconds of the segment to retake. Used with operation="retake".'),
 
-      project_id: projectIdField
+      project_id: projectIdField,
+      session_id: sessionIdField
     },
     async ({
       video_url, operation, model, aspect_ratio, scale, prompt,
@@ -1668,7 +1736,7 @@ function registerGenerateTools(server, client, options = {}) {
       text_prompt, context,
       mask_video_url, object_prompt, video_strength,
       start_time,
-      project_id
+      project_id, session_id
     }) => {
       // No `type` argument: these are operation-routed tools (upscale / reframe /
       // removebg / …), each operation with its own model family — there is no single
@@ -1693,7 +1761,7 @@ function registerGenerateTools(server, client, options = {}) {
         text_prompt, context,
         mask_video_url, object_prompt, video_strength,
         start_time,
-        project_id
+        project_id, session_id
       });
 
       if (ui()) return uiGenerating({
@@ -1715,6 +1783,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: 'text',
           text: JSON.stringify({
             ...creditFields(result),
+            session_id: gen.session_id,
             urls: result.result?.urls || [],
             download_url: result.result?.download_url || null,
             edit_type: result.result?.edit_type || null,
