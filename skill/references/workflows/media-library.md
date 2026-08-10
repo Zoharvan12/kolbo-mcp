@@ -53,6 +53,12 @@ URLs to any generation tool.
 curl -X POST "<upload_url>" -H "Authorization: Bearer <token>" -F "file=@/abs/path/clip.mp3"
 ```
 
+**Pace a batch.** The upload endpoint is rate limited — the ticket response says by
+how much in `rate_limit` (currently 40 uploads per 60s). Firing 55 files back to
+back stalls at file 41. Sleep ~2s between files, or read the 429: it carries a
+`Retry-After` header and `retry_after_seconds` in the body. Wait exactly that long
+and continue — a 429 is a "not yet", not a failed upload, and nothing was charged.
+
 Do **not** fall back to `upload_media`'s `source_base64` for anything but a tiny file —
 it pushes the whole file through the model's context, twice. And do not reach for
 cloud credentials or a bucket of your own; the ticket is the sanctioned path.

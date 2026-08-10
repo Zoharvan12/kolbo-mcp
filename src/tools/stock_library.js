@@ -7,12 +7,17 @@ const { compactList } = require('./_shared');
 
 // Compact one-line render of a normalized stock asset.
 function assetLine(a) {
+  // What THIS caller would pay, stamped per asset by the API. 0/absent = free
+  // (subscriber, org member, or already bought). Surfaced in the text the agent
+  // reads so it can warn before spending someone's credits.
+  const price = a.meta && a.meta.priceCredits;
+  const cost = (a.meta && a.meta.owned) ? '  [purchased]' : (price ? `  [${price} credits]` : '');
   const dims = a.width && a.height ? `${a.width}x${a.height}` : null;
   const dur = a.durationSeconds != null ? `${Math.round(a.durationSeconds)}s` : null;
   const meta = [a.mediaType, dims, dur].filter(Boolean).join(' · ');
   const by = a.author?.name ? ` by ${a.author.name}` : '';
   const variants = Array.isArray(a.downloadVariants) ? a.downloadVariants.map((v) => v.label).join('/') : '';
-  return `[${a.source}:${a.sourceId}] ${a.title || '(untitled)'}${by}\n   ${meta}${variants ? `  variants: ${variants}` : ''}${a.thumbnailUrl ? `\n   thumb: ${a.thumbnailUrl}` : ''}`;
+  return `[${a.source}:${a.sourceId}] ${a.title || '(untitled)'}${by}${cost}\n   ${meta}${variants ? `  variants: ${variants}` : ''}${a.thumbnailUrl ? `\n   thumb: ${a.thumbnailUrl}` : ''}`;
 }
 
 // Returns the raw querystring (no leading '?'). Callers inline it as
@@ -37,7 +42,7 @@ function registerStockLibraryTools(server, client, options = {}) {
   server.tool(
     'search_stock_media',
     'Search the Kolbo unified stock media library and return matching assets. ' +
-    '★ THE DEFAULT TOOL FOR MUSIC: Kolbo\'s own AI music library is FREE (no vendor credit) — ' +
+    '★ THE DEFAULT TOOL FOR MUSIC: Kolbo\'s own AI music library, free for subscribers and org members and priced per track otherwise (every result states its own cost) — ' +
     'use source="kolbo-ai" with mediaType="music" for background/score/bed requests. Prefer it over ' +
     'search_music_library (SYNCI), which is the paid licensed catalog and should only be used when the ' +
     'user explicitly asks for it. ' +
@@ -84,7 +89,12 @@ function registerStockLibraryTools(server, client, options = {}) {
             media_type: mt,
             url: (a.downloadVariants?.[0]?.url) || a.thumbnailUrl,
             preview_audio: mt === 'audio' ? (a.previewUrl || a.downloadVariants?.[0]?.url) : undefined,
-            use_hint: 'Import this stock asset into my media library: import_stock_asset source="' + a.source + '" id="' + a.sourceId + '" ("{TITLE}")'
+            badge: (a.meta && a.meta.owned) ? 'Purchased' : ((a.meta && a.meta.priceCredits) ? a.meta.priceCredits + ' credits' : undefined),
+            price_credits: (a.meta && a.meta.priceCredits) || undefined,
+            owned: (a.meta && a.meta.owned) || undefined,
+            use_hint: (a.meta && a.meta.priceCredits)
+              ? 'Costs ' + a.meta.priceCredits + ' credits for this account. Confirm with the user, then: import_stock_asset source="' + a.source + '" id="' + a.sourceId + '" ("{TITLE}")'
+              : 'Import this stock asset into my media library: import_stock_asset source="' + a.source + '" id="' + a.sourceId + '" ("{TITLE}")'
           };
         });
         return uiResult(UI.mediaGrid, text, {
@@ -206,7 +216,7 @@ function registerStockLibraryTools(server, client, options = {}) {
   // ─── import_stock_asset ───────────────────────────────────────
   server.tool(
     'import_stock_asset',
-    "Copy a stock asset into the account's Kolbo media library (downloaded to Kolbo's CDN with a stable URL) so it can be used in projects/generations. Free. Returns the created media library item. Works for Kolbo SFX (source='kolbo-ai', mediaType='sfx') and supported external visual/audio sources. For SYNCI music use import_music_track_to_library; that paid action acquires a clean licensed file.",
+    "Copy a stock asset into the account's Kolbo media library (downloaded to Kolbo's CDN with a stable URL) so it can be used in projects/generations. FREE for images, video and 3D. Kolbo's own MUSIC and SFX are free for subscribers, org members and anyone who already bought the track; for everyone else they COST CREDITS (search results carry the exact price in meta.priceCredits; 0/absent means free for this caller). When a price is shown, tell the user the cost and get agreement BEFORE calling this. Returns the created media library item. Works for Kolbo SFX (source='kolbo-ai', mediaType='sfx') and supported external visual/audio sources. For SYNCI music use import_music_track_to_library; that paid action acquires a clean licensed file.",
     {
       source: z.enum(['kolbo-ai', 'pexels', 'pixabay', 'sketchfab', 'freesound']).describe('The asset source.'),
       id: z.string().describe('The provider asset id (sourceId).'),

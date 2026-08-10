@@ -107,10 +107,15 @@ function mountWidget() {
 
 const flush = () => new Promise((r) => setImmediate(r));
 
-async function batchStaysOneGrid() {
+// Runs for BOTH batch shapes: generate_image's prompts[] (image tiles) and
+// generate_video_from_image's items[] (video tiles, one image_url per item).
+// Same widget contract — generation_ids + prompts — so the grouping invariant
+// must hold identically; a video batch that falls through to the scenes
+// carousel is the same regression, just harder to notice.
+async function batchStaysOneGrid({ kind, tool, ext }) {
   const PROMPTS = ['a red fox in snow', 'a blue whale at dusk', 'a green hill at noon'];
   const IDS = ['gen-1', 'gen-2', 'gen-3'];
-  const URLS = IDS.map((id) => `https://media.kolbo.ai/${id}.png`);
+  const URLS = IDS.map((id) => `https://media.kolbo.ai/${id}.${ext}`);
 
   const w = mountWidget();
   w.status({
@@ -121,7 +126,7 @@ async function batchStaysOneGrid() {
     })),
   });
   w.deliver({
-    phase: 'generating', widget: 'generation', kind: 'image', tool: 'generate_image',
+    phase: 'generating', widget: 'generation', kind, tool,
     generation_id: IDS[0], poll_tool: 'get_generation_status',
     status_args: { generation_ids: IDS, wait: true },
     generation_ids: IDS, prompts: PROMPTS, count: IDS.length,
@@ -130,23 +135,24 @@ async function batchStaysOneGrid() {
 
   // Offscreen: the card rendered its skeletons but must not have touched the network.
   w.drain();
-  assert.strictEqual(w.calls.length, 0, 'offscreen card polled before it was visible');
+  assert.strictEqual(w.calls.length, 0, `[${tool}] offscreen card polled before it was visible`);
 
   w.scrollIntoView();
   w.drain();
-  assert.strictEqual(w.calls.length, 1, 'visible card did not poll exactly once');
-  assert.deepStrictEqual(w.calls[0].args.generation_ids, IDS, 'batch polled ids individually');
+  assert.strictEqual(w.calls.length, 1, `[${tool}] visible card did not poll exactly once`);
+  assert.deepStrictEqual(w.calls[0].args.generation_ids, IDS, `[${tool}] batch polled ids individually`);
 
   await flush();
   const stage = w.html('stage');
   assert.strictEqual(
     (stage.match(/k-gen-grid/g) || []).length, 1,
-    'completed batch did not render as ONE grouped grid'
+    `[${tool}] completed batch did not render as ONE grouped grid`
   );
-  assert.ok(!/k-thumbs/.test(stage), 'completed batch collapsed into the scenes carousel');
-  URLS.forEach((u) => assert.ok(stage.includes(u), `batch grid dropped ${u}`));
-  PROMPTS.forEach((p) => assert.ok(stage.includes(p), `batch grid lost the caption "${p}"`));
-  assert.ok(/loading="lazy"/.test(stage), 'batch tiles are not lazy-loaded');
+  assert.ok(!/k-thumbs/.test(stage), `[${tool}] completed batch collapsed into the scenes carousel`);
+  URLS.forEach((u) => assert.ok(stage.includes(u), `[${tool}] batch grid dropped ${u}`));
+  PROMPTS.forEach((p) => assert.ok(stage.includes(p), `[${tool}] batch grid lost the caption "${p}"`));
+  if (kind === 'video') assert.ok(/<video/.test(stage), `[${tool}] video batch rendered its tiles as images`);
+  else assert.ok(/loading="lazy"/.test(stage), `[${tool}] batch tiles are not lazy-loaded`);
 }
 
 // A speech card submitted with NO model shows "Smart Select" while generating —
@@ -203,8 +209,9 @@ async function completedCardNamesWhatActuallyRan() {
 }
 
 (async () => {
-  await batchStaysOneGrid();
+  await batchStaysOneGrid({ kind: 'image', tool: 'generate_image', ext: 'png' });
+  await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();
-  console.log('✓ widget scripts parse; batch stays one grouped grid; offscreen cards stay idle; '
+  console.log('✓ widget scripts parse; image + image-to-video batches stay one grouped grid; offscreen cards stay idle; '
     + 'completed cards name the model + voice that actually ran');
 })().catch((e) => { console.error(e); process.exit(1); });

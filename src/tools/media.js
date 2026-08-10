@@ -27,17 +27,26 @@ async function mintUploadTicket(client) {
 // holding a token they must use immediately, and telling one of them to go call
 // another tool to learn the POST shape would spend the round trip this whole
 // path exists to remove.
+// The ticket is reusable for a whole batch, but the endpoint is rate limited —
+// and a batch uploader that only learns that from the 41st POST has already
+// stalled halfway through. kolbo-api sends the real numbers in `rate_limit`;
+// this fallback covers an older deployment that predates that field.
+const DEFAULT_UPLOAD_RATE = { max_uploads: 40, per_seconds: 60 };
+
 function uploadTicketPayload(ticket) {
+  const rate = ticket.rate_limit || DEFAULT_UPLOAD_RATE;
   return {
     upload_url: ticket.upload_url,
     token: ticket.token,
     expires_in_seconds: ticket.expires_in,
     max_file_mb: ticket.max_file_mb || DEFAULT_MAX_FILE_MB,
     accepted: ticket.accepted,
+    rate_limit: rate,
     how_to_upload: {
       example: 'curl -X POST "<upload_url>" -H "Authorization: Bearer <token>" -F "file=@/absolute/path/to/file.mp3"',
       optional_fields: ['project_id', 'description'],
       response: 'JSON — the stable CDN URL is at media.url. One POST per file; reuse the ticket for a batch.',
+      pacing: `RATE LIMIT: ${rate.max_uploads} uploads per ${rate.per_seconds}s. For a batch larger than that, pace it (e.g. sleep ${Math.max(1, Math.ceil(rate.per_seconds / rate.max_uploads))}s between files) instead of firing them back to back. Over the limit you get HTTP 429 with a Retry-After header and retry_after_seconds in the body — wait that long, then continue; do not guess a backoff and do not treat it as a failed upload.`,
       // Git Bash hands curl a POSIX-style /c/Users/... path that Windows curl
       // cannot open (exit 26). Real trap — it cost a round trip to find.
       windows_note: 'Give curl a native path (C:/Users/...) — a Git Bash /c/Users/... path fails to open.',
@@ -119,7 +128,7 @@ function registerMediaTools(server, client, options = {}) {
   // ─── create_upload_ticket ──────────────────────────────────
   server.tool(
     'create_upload_ticket',
-    'Get a short-lived ticket for uploading LOCAL files straight into the user\'s Kolbo media library, with NO upload card and no user interaction. ' + ticketRouting + ' Why it exists: when the server cannot read the caller\'s disk, the only other ways in are making the user click an upload card (`media_upload_widget`) or inlining the file as base64 via `upload_media` — base64 is slow and burns context in proportion to file size, so do not use it for anything but a tiny file. Returns `upload_url` + `token`; POST each file as multipart field `file` with header `Authorization: Bearer <token>` and read the CDN URL from `media.url` in the response. One POST per file; the ticket is reusable until it expires. Then pass those URLs to any generation tool (transcribe_audio, generate_image_edit, generate_video_from_image, generate_lipsync, visual DNA, …).',
+    'Get a short-lived ticket for uploading LOCAL files straight into the user\'s Kolbo media library, with NO upload card and no user interaction. ' + ticketRouting + ' Why it exists: when the server cannot read the caller\'s disk, the only other ways in are making the user click an upload card (`media_upload_widget`) or inlining the file as base64 via `upload_media` — base64 is slow and burns context in proportion to file size, so do not use it for anything but a tiny file. Returns `upload_url` + `token`; POST each file as multipart field `file` with header `Authorization: Bearer <token>` and read the CDN URL from `media.url` in the response. One POST per file; the ticket is reusable until it expires. The endpoint is RATE LIMITED (the exact cap and window come back in the ticket\'s `rate_limit` field — currently 40 uploads/minute): pace a batch bigger than that rather than firing every file at once, and on HTTP 429 honour the `Retry-After` header / `retry_after_seconds` body field instead of guessing a backoff. Then pass those URLs to any generation tool (transcribe_audio, generate_image_edit, generate_video_from_image, generate_lipsync, visual DNA, …).',
     {},
     async () => {
       const ticket = await mintUploadTicket(client);

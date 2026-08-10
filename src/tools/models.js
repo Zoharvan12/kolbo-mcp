@@ -325,8 +325,14 @@ function registerModelTools(server, client, options = {}) {
         const flat = String(s).replace(/\s+/g, ' ').trim();
         return flat.length > 130 ? flat.slice(0, 127).trimEnd() + '…' : flat;
       };
+      // Text models bill per token — the flat `credit` is not what the user pays,
+      // so show the real per-1K rates when the API supplies them. Without this the
+      // "cheapest model that fits" rule is unusable for chat.
+      const cost = m => (m.output_token_rate != null
+        ? `${m.input_token_rate ?? '?'}/${m.output_token_rate} credits per 1K tokens (in/out)`
+        : `${m.credit} credits`);
       const formatModel = m =>
-        `${m.identifier} (${m.name}) - ${m.credit} credits${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}${m.summary ? ` — ${detailed ? m.summary : brief(m.summary)}` : ''}${detailed ? formatSpecs(m) : ''}`;
+        `${m.identifier} (${m.name}) - ${cost(m)}${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}${m.summary ? ` — ${detailed ? m.summary : brief(m.summary)}` : ''}${detailed ? formatSpecs(m) : ''}`;
 
       const sections = [];
 
@@ -341,7 +347,10 @@ function registerModelTools(server, client, options = {}) {
         }
         const text = `Kolbo model catalog — ${result.count} models total.\n\n`
           + `${sections.join('\n\n')}\n\n`
-          + 'This is the curated shortlist, not the full catalog. To see everything in a '
+          + 'This shortlist is BADGE-BASED (recommended/new) — it is not a recommendation to '
+          + 'use the newest or biggest model. To pick properly, re-call with `type` and choose by '
+          + 'each model\'s strengths summary, taking the cheapest one that covers the task. '
+          + 'To see everything in a '
           + 'category (with per-model resolutions, durations, aspect ratios and reference-image '
           + 'caps), re-call with `type`:\n'
           + '  text_to_img · image_editing · text_to_video · img_to_video · video_to_video ·\n'
@@ -354,7 +363,7 @@ function registerModelTools(server, client, options = {}) {
       }
 
       if (withSummary.length > 0) {
-        sections.push(`Auto-selectable models (${withSummary.length}) — safe to pick based on quality + cost:\n${withSummary.map(formatModel).join('\n')}`);
+        sections.push(`Auto-selectable models (${withSummary.length}) — CHOOSE BY THE SUMMARY after each "—": match it to what the user asked for, then take the CHEAPEST model that fits. Credit cost, [NEW] and [RECOMMENDED] are not reasons to pick a model:\n${withSummary.map(formatModel).join('\n')}`);
       }
       if (withoutSummary.length > 0) {
         sections.push(`Named-only models (${withoutSummary.length}) — only use if the user explicitly requests by name:\n${withoutSummary.map(formatModel).join('\n')}`);

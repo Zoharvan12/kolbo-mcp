@@ -30,7 +30,7 @@ function tracksResult(ui, title, tracks, total) {
   if (!tracks.length) return { content: [{ type: 'text', text: 'No SYNCI tracks found.' }] };
   const text = [
     `Found ${tracks.length} track${tracks.length === 1 ? '' : 's'}${total ? ` (of ${total})` : ''}.`,
-    'Playback URLs are watermarked previews. Use acquire_clean_music_track for final use; it consumes one SYNCI vendor credit.',
+    'Playback URLs are watermarked previews. Use acquire_clean_music_track for final use. ' + "Free for subscribers, org members and anyone who already bought the track; for everyone else it COSTS CREDITS (the search response carries the exact price in cleanTrackCredits, and cleanAccess:false means this caller will be charged). State the cost and get the user's agreement BEFORE calling it.",
     '',
     tracks.map(trackLine).join('\n\n'),
   ].join('\n');
@@ -68,12 +68,12 @@ function registerMusicLibraryTools(server, client, options = {}) {
     'search_music_library',
     'Search the licensed SYNCI catalog — the PAID third-party option. ' +
     '⚠️ NOT the default for music. Kolbo has its OWN large AI music library that is FREE and ' +
-    'costs no vendor credit: call search_stock_media with source="kolbo-ai" and mediaType="music" ' +
+    'is usually cheaper or free: call search_stock_media with source="kolbo-ai" and mediaType="music" ' +
     '(it also supports natural-language vibe search, e.g. "uplifting hopeful corporate background"). ' +
     'Reach for SYNCI only when the user explicitly asks for the licensed/SYNCI catalog, names a real ' +
     'artist or commercial track, or needs stems / a specific licensed cue. ' +
     'Results here contain watermarked preview audio only; any download or timeline use requires ' +
-    'acquire_clean_music_track, which consumes one SYNCI vendor credit.',
+    'acquire_clean_music_track. ' + "Free for subscribers, org members and anyone who already bought the track; for everyone else it COSTS CREDITS (the search response carries the exact price in cleanTrackCredits, and cleanAccess:false means this caller will be charged). State the cost and get the user's agreement BEFORE calling it.",
     {
       query: z.string().max(200).optional(),
       mood: z.string().optional(),
@@ -171,7 +171,7 @@ function registerMusicLibraryTools(server, client, options = {}) {
 
   server.tool(
     'acquire_clean_music_track',
-    'Acquire a clean, unwatermarked SYNCI MP3 or WAV for download or Adobe timeline use. This immediately consumes one SYNCI vendor credit with no confirmation dialog. Reuse request_id when retrying the same intended action.',
+    'Acquire a clean, unwatermarked SYNCI MP3 or WAV for download or Adobe timeline use. Charges IMMEDIATELY with no confirmation dialog. ' + "Free for subscribers, org members and anyone who already bought the track; for everyone else it COSTS CREDITS (the search response carries the exact price in cleanTrackCredits, and cleanAccess:false means this caller will be charged). State the cost and get the user's agreement BEFORE calling it." + ' Once bought, the track is owned permanently: the other format, its stems and every re-download are free. Reuse request_id when retrying the same intended action.',
     {
       track_id: z.string().min(1).max(64),
       format: z.enum(['mp3', 'wav']).optional().describe('Default mp3. Use wav only when the search result reports hqAvailable=true.'),
@@ -193,7 +193,7 @@ function registerMusicLibraryTools(server, client, options = {}) {
 
   server.tool(
     'import_music_track_to_library',
-    'Acquire one clean SYNCI file and copy it into the Kolbo media library. This immediately consumes one SYNCI vendor credit unless the track is already in the library. Defaults to clean MP3.',
+    'Acquire one clean SYNCI file and copy it into the Kolbo media library. Charges IMMEDIATELY unless the track is already in the library or already owned. ' + "Free for subscribers, org members and anyone who already bought the track; for everyone else it COSTS CREDITS (the search response carries the exact price in cleanTrackCredits, and cleanAccess:false means this caller will be charged). State the cost and get the user's agreement BEFORE calling it." + ' Defaults to clean MP3.',
     {
       track_id: z.string().min(1).max(64),
       format: z.enum(['mp3', 'wav']).optional(),
