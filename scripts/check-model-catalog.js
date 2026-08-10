@@ -18,12 +18,21 @@
  *   3. format:"text" + type   → the full text payload survives into structuredContent.
  *   4. canonicalModelId       → separator-insensitive resolution, and an
  *                               actionable error naming near misses.
+ *   5. canonicalModelId       → MODALITY awareness, and every generate tool
+ *                               actually passing its type (see below).
+ *
+ * (5) guards the 2026-08-10 defect: display names are shared by a whole family
+ * of per-modality variants ("Kling 2.6 Pro" is BOTH …/text-to-video and
+ * …/image-to-video), and the name→id map kept the shortest identifier — the
+ * TEXT-to-video one. So `generate_video_from_image` with model "Kling 2.6 Pro"
+ * submitted the t2v endpoint with an image attached, and billed the t2v SKU.
  */
 
 process.env.KOLBO_MCP_APPS = '1'; // force the widget path — the broken one
 
 const assert = require('assert');
 const { registerModelTools } = require('../src/tools/models');
+const { registerGenerateTools } = require('../src/tools/generate');
 const { canonicalModelId } = require('../src/apps');
 
 /* ---------------------------------------------------------------- fixtures */
@@ -42,18 +51,32 @@ const videoModel = (identifier, name, extra = {}) => ({
 // returning six. Only 6 carry a summary, so the auto-selectable/named-only
 // split that hid the rest is reproduced faithfully.
 const VIDEO_MODELS = [
-  videoModel('seedance-2', 'Seedance 2.0', { recommended: true, summary: 'Best in class for multi-shot.' }),
-  videoModel('seedance-2-fast', 'Seedance 2.0 Fast', { summary: 'Faster, cheaper Seedance tier.' }),
+  // Seedance/Veo publish ONE doc that carries both modalities — the name must
+  // keep resolving to it from either tool.
+  videoModel('seedance-2', 'Seedance 2.0', { types: ['text_to_video', 'img_to_video'], recommended: true, summary: 'Best in class for multi-shot.' }),
+  videoModel('seedance-2-fast', 'Seedance 2.0 Fast', { types: ['text_to_video', 'img_to_video'], summary: 'Faster, cheaper Seedance tier.' }),
   videoModel('kling-video/v3/pro/text-to-video', 'Kling 3.0 Pro', { summary: 'Decent at multi-cut scenes.' }),
   videoModel('kling-video/o3/pro/text-to-video', 'Kling O3 Pro', { summary: 'Better physical understanding.' }),
   videoModel('kling-video/v2.6/pro/text-to-video', 'Kling 2.6 Pro', { summary: 'Supports sound.' }),
   videoModel('kling-video/v2.5-turbo/pro/text-to-video', 'Kling 2.5 Turbo Pro', { summary: 'The go-to model.' }),
   videoModel('minimax-h3', 'MiniMax H3', { supported_durations: [4, 15], supported_resolutions: ['2K'] }),
-  videoModel('veo3', 'Veo 3.1'),
+  videoModel('veo3', 'Veo 3.1', { types: ['text_to_video', 'img_to_video'] }),
   videoModel('flux-2/video', 'Flux 2 Video'),
   ...Array.from({ length: 40 }, (_, i) => videoModel(`filler-model-${i}/text-to-video`, `Filler ${i}`)),
 ];
 assert.strictEqual(VIDEO_MODELS.length, 49, 'fixture must reproduce the reported 49');
+
+// Per-modality SIBLINGS that share a display name with a VIDEO_MODELS entry.
+// Every one of these identifiers is LONGER than its text-to-video twin, which
+// is precisely why the shortest-identifier tiebreak always handed back the t2v
+// variant. Kept out of VIDEO_MODELS so the "49 text_to_video" assertions hold.
+const SIBLING_MODELS = [
+  videoModel('kling-video/v3/pro/image-to-video', 'Kling 3.0 Pro', { types: ['img_to_video'] }),
+  videoModel('kling-video/o3/pro/image-to-video', 'Kling O3 Pro', { types: ['img_to_video'] }),
+  videoModel('kling-video/v2.6/pro/image-to-video', 'Kling 2.6 Pro', { types: ['img_to_video'] }),
+  videoModel('kling-video/v2.5-turbo/pro/image-to-video', 'Kling 2.5 Turbo Pro', { types: ['img_to_video'] }),
+  videoModel('kling-video/v3/pro/video-to-video', 'Kling 3.0 Pro', { types: ['video_to_video'] }),
+];
 
 const OTHER_MODELS = [
   { identifier: 'flux-2/flash', name: 'Flux 2 Flash', types: ['text_to_img'], credit: 4, summary: '' },
@@ -62,8 +85,11 @@ const OTHER_MODELS = [
   { identifier: 'gpt-image-2', name: 'GPT Image 2', types: ['text_to_img'], credit: 6, summary: '' },
   { identifier: 'z-image/turbo', name: 'Z Image Turbo', types: ['text_to_img'], credit: 2, summary: '' },
   { identifier: 'kolbo_smart_select_router', name: 'Smart Select', types: ['text_to_img'], credit: 0, summary: '' },
+  // The image-side twin of the same defect (named in src/apps/index.js).
+  { identifier: 'nano-banana-2', name: 'Nano Banana 2', types: ['text_to_img'], credit: 8, summary: '' },
+  { identifier: 'nano-banana-2-image-editing', name: 'Nano Banana 2', types: ['image_editing'], credit: 8, summary: '' },
 ];
-const ALL_MODELS = [...VIDEO_MODELS, ...OTHER_MODELS];
+const ALL_MODELS = [...VIDEO_MODELS, ...SIBLING_MODELS, ...OTHER_MODELS];
 
 const client = {
   apiBase: 'https://test.invalid',
@@ -170,6 +196,70 @@ async function main() {
   await check('canonicalModelId: unknown id with NO candidates still passes through', async () => {
     assert.strictEqual(await canonicalModelId(client, 'zzz-unpublished-xyz'), 'zzz-unpublished-xyz');
   });
+
+  // 5a. MODALITY: one display name, one identifier per calling tool's type.
+  const modality = [
+    ['Kling 2.6 Pro', 'img_to_video', 'kling-video/v2.6/pro/image-to-video'], // the 2026-08-10 report
+    ['Kling 2.6 Pro', 'text_to_video', 'kling-video/v2.6/pro/text-to-video'],
+    ['Kling 3.0 Pro', 'img_to_video', 'kling-video/v3/pro/image-to-video'],
+    ['Kling 3.0 Pro', 'video_to_video', 'kling-video/v3/pro/video-to-video'],
+    ['Kling O3 Pro', 'img_to_video', 'kling-video/o3/pro/image-to-video'],
+    ['Kling 2.5 Turbo Pro', 'img_to_video', 'kling-video/v2.5-turbo/pro/image-to-video'],
+    ['Nano Banana 2', 'image_editing', 'nano-banana-2-image-editing'],
+    ['Nano Banana 2', 'text_to_img', 'nano-banana-2'],
+    // Dual-type single docs must still resolve from BOTH sides.
+    ['Seedance 2.0', 'img_to_video', 'seedance-2'],
+    ['Seedance 2.0 Fast', 'img_to_video', 'seedance-2-fast'],
+    ['Veo 3.1', 'img_to_video', 'veo3'],
+    // A type the model does not carry must never silently drop the match.
+    ['MiniMax H3', 'img_to_video', 'minimax-h3'],
+  ];
+  for (const [input, type, want] of modality) {
+    await check(`canonicalModelId: "${input}" + ${type} → "${want}"`, async () => {
+      assert.strictEqual(await canonicalModelId(client, input, type), want);
+    });
+  }
+  await check('canonicalModelId: an explicit identifier is never re-pointed by type', async () => {
+    const id = 'kling-video/v2.6/pro/text-to-video';
+    assert.strictEqual(await canonicalModelId(client, id, 'img_to_video'), id);
+  });
+  await check('canonicalModelId: array type (lipsync/3D tools) matches any member', async () => {
+    assert.strictEqual(
+      await canonicalModelId(client, 'Kling 2.6 Pro', ['lipsync-image', 'img_to_video']),
+      'kling-video/v2.6/pro/image-to-video'
+    );
+  });
+
+  // 5b. The generate TOOLS must actually pass their type — a correct resolver
+  //     that no call site feeds is the same bug wearing a different hat.
+  const posted = [];
+  const toolClient = {
+    apiBase: 'https://test.invalid',
+    async request() { return { models: ALL_MODELS }; },
+    async post(path, body) { posted.push({ path, body }); return { generation_id: 'gen_1', poll_interval_hint: 1 }; },
+  };
+  const tools = {};
+  registerGenerateTools(
+    { tool: (name, _d, _s, fn) => { tools[name] = fn; } },
+    toolClient,
+    { apps: true } // return at submit — never poll
+  );
+  const wiring = [
+    ['generate_video', { prompt: 'p', model: 'Kling 2.6 Pro' }, 'kling-video/v2.6/pro/text-to-video'],
+    ['generate_video_from_image', { image_url: 'https://x/i.png', prompt: 'p', model: 'Kling 2.6 Pro' }, 'kling-video/v2.6/pro/image-to-video'],
+    ['generate_video_from_video', { source_video: 'https://x/v.mp4', prompt: 'p', model: 'Kling 3.0 Pro' }, 'kling-video/v3/pro/video-to-video'],
+    ['generate_image', { prompt: 'p', model: 'Nano Banana 2' }, 'nano-banana-2'],
+    ['generate_image_edit', { prompt: 'p', source_images: ['https://x/i.png'], model: 'Nano Banana 2' }, 'nano-banana-2-image-editing'],
+  ];
+  for (const [tool, args, want] of wiring) {
+    await check(`${tool}: "${args.model}" reaches the API as "${want}"`, async () => {
+      assert.ok(tools[tool], `${tool} did not register`);
+      posted.length = 0;
+      await tools[tool](args);
+      assert.strictEqual(posted.length, 1, `expected exactly one submit, got ${posted.length}`);
+      assert.strictEqual(posted[0].body.model, want);
+    });
+  }
 
   if (failures.length) {
     console.error(`\n[check-model-catalog] FAILED (${failures.length}):\n  - ${failures.join('\n  - ')}`);

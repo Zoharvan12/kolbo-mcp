@@ -163,6 +163,16 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
   `text_to_video` identifiers became undiscoverable by any MCP call — which on 2026-08-09
   bought a much more expensive model after `minimax-h3` could not be found. Guarded by
   `check-model-catalog.js` (enumeration + identifier resolution, in `prepublishOnly`).
+- **A model NAME is not unique — resolve it with the calling tool's type.** The catalog
+  publishes one doc per MODALITY under a shared display name ("Kling 2.6 Pro" is both
+  `kling-video/v2.6/pro/text-to-video` and `…/image-to-video`; "Nano Banana 2" is both the
+  t2i model and its editor). `canonicalModelId(client, model, type)` takes the caller's
+  catalog type and MUST be given it by every generate tool — without it the shortest
+  identifier won, so on 2026-08-10 `generate_video_from_image` with "Kling 2.6 Pro"
+  submitted the TEXT-to-video endpoint with an image attached and billed the t2v SKU.
+  Only `edit_image` / `edit_video` pass no type (operation-routed, no single type).
+  Guarded by `check-model-catalog.js` §5, which asserts the resolution AND that each
+  tool actually passes its type.
 - **Never show a raw id on a card.** Generation cards identify the model and the
   voice by their CLEAN catalog name + icon/portrait. `modelInfo()` / `voiceInfo()`
   (`src/apps/index.js`, both cached 10 min off `/v1/models` and `/v1/voices`) do the
