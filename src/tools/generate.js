@@ -5,7 +5,7 @@
 
 const { z } = require('zod');
 const FormData = require('form-data');
-const { pollUntilDone } = require('../polling');
+const { pollUntilDone, waitWindowMs } = require('../polling');
 const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, sessionIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, appsEnabled } = require('./_shared');
 const { UI, uiResult, canonicalModelId, modelInfo, voiceInfo } = require('../apps');
 
@@ -126,6 +126,18 @@ function registerGenerateTools(server, client, options = {}) {
   // "submitted" response + a live ui://kolbo/generation.html widget that keeps
   // one wait=true status call in flight. Text-only hosts never take this branch.
   const ui = () => appsEnabled(server, options);
+
+  // How long the STATUS tools may block inside one tool call before handing
+  // back a non-terminal result the caller re-issues. Bounded by the transport,
+  // not by the generation — full reasoning and the measured numbers live next
+  // to the constants in ../polling.js.
+  const WAIT_WINDOW_MS = waitWindowMs(options);
+  const WAIT_WINDOW_S = Math.round(WAIT_WINDOW_MS / 1000);
+  // What to tell a caller holding a still-running generation. Never "don't call
+  // again" — for anything longer than the window, calling again IS the protocol.
+  const stillRunningHint = (idsPhrase) =>
+    `Still running — this is NOT a failure and no credits were lost. Each wait=true call blocks for at most ~${WAIT_WINDOW_S}s and then returns whatever the state is, so a long job (music ~3 min, video can be longer) legitimately needs SEVERAL wait=true calls in a row. Call get_generation_status again with wait=true${idsPhrase}. Do not spin with wait=false, and do not re-run the generation tool.`;
+
   // ─── generate_image ────────────────────────────────────────
   server.tool(
     'generate_image',
@@ -367,10 +379,10 @@ function registerGenerateTools(server, client, options = {}) {
   // blocking poll window) needs this tool to be re-checked until done.
   server.tool(
     'get_creative_director_status',
-    'Check the status of a Creative Director batch (from generate_creative_director) by its generation_id. Returns overall state ("processing" until EVERY scene is terminal, then "completed"/"failed") plus each scene\'s number, title, per-scene status, and image_urls/video_urls. Set wait=true to block for up to ~3 minutes instead of repeatedly calling this tool. Prefer this over the generic get_generation_status for Creative Director ids — the generic tool now returns the same scene data (it delegates here), but this one is the direct route.',
+    'Check the status of a Creative Director batch (from generate_creative_director) by its generation_id. Returns overall state ("processing" until EVERY scene is terminal, then "completed"/"failed") plus each scene\'s number, title, per-scene status, and image_urls/video_urls. Set wait=true to block until the batch is terminal or the wait window closes, whichever comes first — a batch longer than one window returns state="processing" and you simply call again with wait=true. Prefer this over the generic get_generation_status for Creative Director ids — the generic tool now returns the same scene data (it delegates here), but this one is the direct route.',
     {
       generation_id: z.string().describe('The Creative Director generation_id returned by generate_creative_director.'),
-      wait: z.boolean().optional().describe('If true, block until the batch is terminal, up to ~3 minutes. Use this instead of repeatedly checking in a loop.')
+      wait: z.boolean().optional().describe(`If true, block until the batch is terminal, for at most ~${WAIT_WINDOW_S}s per call. A batch that outlives one window comes back state="processing" (not an error) — call again with wait=true until it is terminal. Always prefer this over polling with wait=false.`)
     },
     async ({ generation_id, wait }) => {
       const statusUrl = `/v1/generate/creative-director/${encodeURIComponent(generation_id)}/status`;
@@ -379,7 +391,7 @@ function registerGenerateTools(server, client, options = {}) {
         try {
           status = await pollUntilDone(client, generation_id, {
             interval: 15000,
-            timeout: 180000,
+            timeout: WAIT_WINDOW_MS,
             statusUrl
           });
         } catch (err) {
@@ -409,7 +421,7 @@ function registerGenerateTools(server, client, options = {}) {
         completed_scenes: completed,
         _hint: status.state === 'completed'
           ? 'All scenes terminal. Every completed scene\'s image_urls/video_urls are final.'
-          : 'Still running. Call get_creative_director_status once with wait=true; do not poll it in a loop.'
+          : `Still running — not a failure. Each wait=true call blocks for at most ~${WAIT_WINDOW_S}s, and a video batch routinely outlasts several windows, so call get_creative_director_status again with wait=true and keep going until state is terminal. Scenes that already carry image_urls/video_urls are done; never re-run generate_creative_director.`
       }, null, 2) }] };
     }
   );
@@ -817,11 +829,11 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── get_generation_status ─────────────────────────────────
   server.tool(
     'get_generation_status',
-    'Check the status of one or more generations. Use after a generation tool returned "submitted" (widget hosts) or timed out. Tracking SEVERAL concurrent generations? Pass them ALL in generation_ids — one call returns an all_done summary. Need the final result? Set wait=true and the server blocks until every generation finishes (up to ~3 min). NEVER call this tool repeatedly in a loop — one wait=true call replaces the whole loop.',
+    `Check the status of one or more generations. Use after a generation tool returned "submitted" (widget hosts) or timed out. Tracking SEVERAL concurrent generations? Pass them ALL in generation_ids — one call returns an all_done summary. Need the final result? Set wait=true and the server blocks until every generation finishes, for at most ~${WAIT_WINDOW_S}s per call. A job that outlives one window (music is ~3 min, video longer) comes back state="processing" — that is a normal result, not an error: call again with wait=true and keep going until every id is terminal. Never poll with wait=false in a loop.`,
     {
       generation_id: z.string().optional().describe('A single generation ID to check'),
       generation_ids: z.array(z.string()).optional().describe('Multiple generation IDs to check in ONE call. Returns { all_done, pending, generations[] } — always prefer this over checking IDs one by one.'),
-      wait: z.boolean().optional().describe('If true, block until every generation reaches a terminal state (completed/failed), up to ~3 minutes, then return the final results. Use this instead of re-calling the tool in a loop.')
+      wait: z.boolean().optional().describe(`If true, block until every generation reaches a terminal state (completed/failed), for at most ~${WAIT_WINDOW_S}s per call, then return whatever state they are in. Anything still processing is reported, not errored — re-issue with wait=true and only the still-pending ids. This is always better than polling with wait=false.`)
     },
     async ({ generation_id, generation_ids, wait }) => {
       const ids = (generation_ids && generation_ids.length > 0)
@@ -836,15 +848,16 @@ function registerGenerateTools(server, client, options = {}) {
           if (wait) {
             // Widgets use this long-wait path. A 15s API check cadence keeps
             // completion responsive without multiplying backend traffic for
-            // every card left open in a host conversation.
-            const result = await pollUntilDone(client, id, { interval: 15000, timeout: 180000 });
+            // every card left open in a host conversation. The window itself is
+            // bounded by the transport — see WAIT_WINDOW_MS above.
+            const result = await pollUntilDone(client, id, { interval: 15000, timeout: WAIT_WINDOW_MS });
             return { generation_id: id, ...result };
           }
           const result = await client.get(`/v1/generate/${encodeURIComponent(id)}/status`);
           return { generation_id: id, ...result };
         } catch (err) {
           if (err.timedOut) {
-            return { generation_id: id, state: 'processing', _timed_out: true, note: 'Still running after 3 min of waiting — call get_generation_status again with wait=true.' };
+            return { generation_id: id, state: 'processing', _timed_out: true, note: `Still running after this ~${WAIT_WINDOW_S}s wait window — call get_generation_status again with wait=true.` };
           }
           if (err.name === 'GenerationFailedError') {
             return { generation_id: id, state: 'failed', error: err.message };
@@ -858,9 +871,15 @@ function registerGenerateTools(server, client, options = {}) {
 
       const pending = results.filter(r => r.state !== 'completed' && r.state !== 'failed' && r.state !== 'cancelled');
       const doneHint = 'ALL generations are in a final state — do NOT poll again. Report the results to the user.';
-      const pendingHint = wait
-        ? 'Some generations are still running after the wait window. Call get_generation_status ONCE more with wait=true and the remaining generation_ids — do not spin without wait.'
-        : 'Some generations are still processing. Do NOT re-call this tool in a loop — call it ONCE with wait=true (and all pending generation_ids) to block until they finish.';
+      // The old wait=false hint said "call it ONCE with wait=true ... to block
+      // until they finish". That is the advice that broke: one wait=true call
+      // cannot outlast a 185s music job, and a caller that obeyed it got a
+      // transport error instead of a result. Say what actually works.
+      const pendingIds = pending.map(r => r.generation_id);
+      const idsPhrase = pendingIds.length > 1
+        ? ` and ONLY the still-pending ids: ${JSON.stringify(pendingIds)}`
+        : '';
+      const pendingHint = stillRunningHint(idsPhrase);
 
       // Single-id calls keep the original flat shape — the generation widget
       // waits on this tool with { generation_id, wait:true } and reads
