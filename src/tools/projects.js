@@ -12,21 +12,34 @@ function registerProjectTools(server, client, options = {}) {
   // ─── list_projects ─────────────────────────────────────────
   server.tool(
     'list_projects',
-    'List the user\'s platform projects (owned + shared with edit/full/owner permission). Use this to resolve a project NAME the user mentioned ("put this in my Acme Campaign project") into the project ObjectId you pass back as `project_id` on generation / chat / upload / move tools. Whenever the user mentions a project by name OR location, you MUST call this first — those tools accept only ObjectIds, not names — and then pass the resolved `project_id` on EVERY subsequent call in the conversation (it is per-call, not sticky; omitting it drops work into the default bucket). Returns id, name, role, and is_default. The project flagged `is_default: true` is the auto-created "API Generations" bucket every SDK generation lands in when project_id is omitted.',
-    {},
-    async () => {
-      const result = await client.get('/v1/projects');
+    'List the user\'s platform projects (owned + shared with edit/full/owner permission). Use this to resolve a project NAME the user mentioned ("put this in my Acme Campaign project") into the project ObjectId you pass back as `project_id` on generation / chat / upload / move tools. Whenever the user mentions a project by name OR location, you MUST call this first — those tools accept only ObjectIds, not names — and then pass the resolved `project_id` on EVERY subsequent call in the conversation (it is per-call, not sticky; omitting it drops work into the default bucket). Returns id, name, role, is_default, and is_archived. The project flagged `is_default: true` is the auto-created "API Generations" bucket every SDK generation lands in when project_id is omitted. Accounts routinely have HUNDREDS of projects, so this is paginated: when you already know the name, pass `search` — it is far cheaper than listing everything. Default page size is 50; use `page` to walk the rest (`pagination.has_more` tells you when to stop). Archived projects are hidden unless you pass `include_archived: true`.',
+    {
+      search: z.string().optional().describe('Case-insensitive substring match on the project name. Use this whenever the user named a project — it turns a full listing into a one-item answer.'),
+      page: z.number().optional().describe('Page number, 1-indexed. Default: 1'),
+      limit: z.number().optional().describe('Results per page, max 200. Default: 50'),
+      include_archived: z.boolean().optional().describe('Also return archived projects. Default false — archived projects are hidden here exactly as they are in the web app.')
+    },
+    async ({ search, page, limit, include_archived }) => {
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (page) params.set('page', String(page));
+      if (limit) params.set('limit', String(limit));
+      if (include_archived) params.set('include_archived', 'true');
+      const qs = params.toString();
+      const result = await client.get(`/v1/projects${qs ? '?' + qs : ''}`);
       const projects = (result.projects || []).map(p => ({
         id: p.id,
         name: p.name,
         role: p.role,
         is_default: !!p.is_default,
+        is_archived: !!p.is_archived,
         open_url: buildProjectUrl(p.id, { is_default: !!p.is_default })
       }));
       const text = JSON.stringify({
         projects,
         count: projects.length,
-        _hint: 'Pass the chosen `id` as `project_id` on any generate_* tool to drop the generation into that project. Omit project_id to use the project flagged is_default:true. `open_url` opens that project\'s media in the web app (share it with the user).'
+        pagination: result.pagination || null,
+        _hint: 'Pass the chosen `id` as `project_id` on any generate_* tool to drop the generation into that project. Omit project_id to use the project flagged is_default:true. `open_url` opens that project\'s media in the web app (share it with the user). If `pagination.has_more` is true there are more projects — narrow with `search` rather than paging through everything.'
       }, null, 2);
 
       if (ui()) {
@@ -36,7 +49,7 @@ function registerProjectTools(server, client, options = {}) {
           items: projects.map(p => ({
             id: p.id,
             title: p.name,
-            subtitle: p.role + (p.is_default ? ' · default' : ''),
+            subtitle: p.role + (p.is_default ? ' · default' : '') + (p.is_archived ? ' · archived' : ''),
             open_url: p.open_url,
             use_hint: 'Use my "{TITLE}" project (project_id: {ID}) for what I do next.'
           })),

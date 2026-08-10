@@ -67,6 +67,10 @@ function buildCatalogStructured(models, type, compact) {
     if (g.models.length >= 6) continue; // curated cap — full list lives in the text payload
     g.models.push({
       name: m.name,
+      // The widget renders `name`; the AGENT reads the same rows (hosts hand it
+      // structuredContent). Without the identifier the default call was a dead
+      // end — it named six models and gave no way to pass any of them on.
+      identifier: m.identifier,
       icon: resolveAvatarUrl(m.avatar),
       description: String(m.smartSelect_StrengthsSummary || m.summary || m.description || '').slice(0, 90),
       chips: modelChips(m),
