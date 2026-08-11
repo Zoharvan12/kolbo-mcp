@@ -125,6 +125,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `clone_voice` / `import_elevenlabs_voice` / `delete_voice` | Custom voices (clone CHARGES CREDITS — confirm first; new voices show in `list_voices`) |
 | `trim_video` | Frame-accurate trim of a Kolbo-hosted video (tool waits and returns the URL). `edit_video` also gained `remove_background`. |
 | `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | AI Docs (Magic Pad): YOU author full HTML documents (plans, briefs, scripts, research) saved into the user's project, editable in the Kolbo app. `share_doc` returns a public link. `update_doc` content replaces the WHOLE doc — `get_doc` first. |
+| `create_review_asset` / `list_review_assets` / `get_review_asset` / `update_review_asset` / `add_review_version` / `set_review_status` / `delete_review_asset` / `get_review_storage_usage` / review collection + comment + share-link tools | **Kolbo Review** (Frame.io-style): upload first via `upload_media` / ticket / widget → pass `media_id` to `create_review_asset`. Comments are text + optional timecodes. `create_review_share_link` returns a guest URL. |
 | `chat_send_message` / `chat_list_conversations` / `chat_get_messages` | Kolbo chat with optional `media_urls` (up to 10 per call) |
 | `publish_html_artifact` | Publish HTML / SVG / Mermaid to `sites.kolbo.ai`. Server dedupes by content hash. Strict CSP. |
 
