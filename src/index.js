@@ -72,6 +72,7 @@ const { registerArtifactTools } = require('./tools/artifacts');
 const { registerProjectTools } = require('./tools/projects');
 const { registerAgentTools } = require('./tools/agents');
 const { registerDocTools } = require('./tools/docs');
+const { registerReviewTools } = require('./tools/review');
 const { registerVoiceTools } = require('./tools/voices');
 const { registerMusicLibraryTools } = require('./tools/music_library');
 const { registerStockLibraryTools } = require('./tools/stock_library');
@@ -156,6 +157,7 @@ function createServer(opts = {}) {
   registerProjectTools(server, client, toolOptions);
   registerAgentTools(server, client, toolOptions);
   registerDocTools(server, client, toolOptions);
+  registerReviewTools(server, client, toolOptions);
   registerMusicLibraryTools(server, client, toolOptions);
   registerStockLibraryTools(server, client, toolOptions);
 
