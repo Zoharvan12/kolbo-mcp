@@ -987,10 +987,13 @@ function registerGenerateTools(server, client, options = {}) {
         image_url: z.string().describe('Public URL of the keyframe image'),
         timestamp_seconds: z.number().describe('Moment on the OUTPUT timeline (seconds, 0 = first frame) where this image is pinned')
       })).optional().describe('Timeline-pinned keyframes for multi-keyframe models (e.g. "flux-3-keyframes", "luma-ray-3-2-storyboard"): the model generates the motion BETWEEN the pinned images. Only models with `supports_keyframes: true` in list_models accept this; cap = `max_keyframes` (FLUX 3: 10). Requires an explicit `duration` — timestamps beyond it are clamped. Ignored by ordinary elements models. OPTIONAL for flux-3-keyframes: if omitted, pass the images via reference_images instead — they are played through IN ORDER, timed from timing language in the prompt or spaced evenly. Pass explicit keyframes only when you need exact control.'),
+      multi_shots: z.boolean().optional().describe('Enable Multishot. Seedance has NO native provider switch — this triggers Kolbo\'s Seedance multi-shot prompt rewrite (overrides enhance_prompt=false). For models with supportsMultiShot, it flips the provider flag. Always pass true for multi-cut Seedance demos; "Multishot ON" in the prompt alone is NOT enough.'),
+      multi_shot_count: z.number().optional().describe('Explicit shot count when multi_shots=true (e.g. 2). Clamped to ~2 shots/sec of duration.'),
+      session_name: z.string().optional().describe('Short sidebar session title (max ~60 chars), e.g. "UGC — Hana bathroom light". When set, skips AI auto-naming from the prompt boilerplate.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, keyframes, project_id, session_id }) => {
+    async ({ prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, keyframes, multi_shots, multi_shot_count, session_name, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'elements'); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!prompt) throw new Error('prompt is required');
 
@@ -1013,6 +1016,9 @@ function registerGenerateTools(server, client, options = {}) {
         if (audio_url) form.append('audio_url', audio_url);
         if (resolution) form.append('resolution', resolution);
         if (keyframes) form.append('keyframes', JSON.stringify(keyframes));
+        if (multi_shots !== undefined) form.append('multi_shots', String(multi_shots));
+        if (multi_shot_count !== undefined) form.append('multi_shot_count', String(multi_shot_count));
+        if (session_name) form.append('session_name', session_name);
         if (project_id) form.append('project_id', project_id);
         if (session_id) form.append('session_id', session_id);
         for (const f of resolved) {
@@ -1022,7 +1028,7 @@ function registerGenerateTools(server, client, options = {}) {
       } else {
         // URL-only mode: plain JSON.
         startResponse = await client.post('/v1/generate/elements', {
-          prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, keyframes, project_id, session_id
+          prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, keyframes, multi_shots, multi_shot_count, session_name, project_id, session_id
         });
       }
 

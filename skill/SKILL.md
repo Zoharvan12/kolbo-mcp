@@ -99,7 +99,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `generate_video` | Text-to-video. Does **not** support Visual DNA — use `generate_elements` for character-consistent video. |
 | `generate_video_from_image` | Animate a still. Prompt describes motion, not subject. |
 | `generate_video_from_video` | Restyle/transform an existing video. Keeps original motion. |
-| `generate_elements` | Reference-driven video. **Primary route for DNA → video.** |
+| `generate_elements` | Reference-driven video. **Primary route for DNA → video.** Supports `multi_shots` / `multi_shot_count` (Seedance rewrite) and short `session_name`. |
 | `generate_first_last_frame` | Keyframe interpolation between two frames. |
 | `generate_lipsync` | Lipsync audio to an image or video face. |
 | `generate_music` | Music generation (Suno + variants). |

@@ -9,6 +9,8 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
 
 **Kolbo MCP routing:** Seedance is a video model — call `generate_video` (text-to-video) or `generate_elements` (when video references / Visual DNA / first-last frames are involved). Run `list_models({ type: "text_to_video" })` and pick a Seedance variant by name.
 
+**Multishot (Elements):** Seedance has **no** native provider Multishot switch. For multi-cut demos pass `multi_shots: true` on `generate_elements` (optional `multi_shot_count`). That triggers Kolbo's Seedance multi-shot prompt rewrite — writing `"Multishot ON"` in the prompt alone is weaker. Optional `session_name` sets a short sidebar title (skips AI auto-name from boilerplate).
+
 ## Universal Rules (apply to EVERY Seedance prompt)
 
 - **First line ALWAYS declares shot structure**: total duration, shot count, aspect ratio. Example: `Total: 15s / 6 shots / 16:9`. Put it at the BOTTOM of the prompt too. For connected narrative sequences the proven phrasing is `N connected cinematic shots, 15 seconds total, 16:9, Multishot ON` — use it and keep `Multishot ON` for any multi-shot story.
