@@ -149,8 +149,8 @@ function registerReviewTools(server, client) {
     'List review collection folders in a project.',
     { project_id: projectIdField },
     async ({ project_id }) => {
-      const params = project_id ? `?project_id=${encodeURIComponent(project_id)}` : '';
-      const result = await client.get(`/v1/review/collections${params}`);
+      const qs = project_id ? `project_id=${encodeURIComponent(project_id)}` : '';
+      const result = await client.get(`/v1/review/collections${qs ? '?' + qs : ''}`);
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
   );
@@ -200,8 +200,8 @@ function registerReviewTools(server, client) {
       version_media_id: z.string().optional(),
     },
     async ({ asset_id, version_media_id }) => {
-      const params = version_media_id ? `?version_media_id=${encodeURIComponent(version_media_id)}` : '';
-      const result = await client.get(`/v1/review/assets/${encodeURIComponent(asset_id)}/comments${params}`);
+      const qs = version_media_id ? `version_media_id=${encodeURIComponent(version_media_id)}` : '';
+      const result = await client.get(`/v1/review/assets/${encodeURIComponent(asset_id)}/comments${qs ? '?' + qs : ''}`);
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
   );
