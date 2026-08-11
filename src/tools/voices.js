@@ -11,13 +11,15 @@ function registerVoiceTools(server, client, options = {}) {
   // ─── list_voices ──────────────────────────────────────────────
   server.tool(
     'list_voices',
-    'List available TTS voices for speech generation. Filter by language, gender, or provider to find the right voice. Returns voice_id, name, provider, language, gender, accent, description, styles, and preview_url for each voice.',
+    'List available TTS voices for speech generation. Filter by language, gender, or provider to find the right voice. Returns voice_id, name, provider, language, gender, accent, description, styles, and preview_url for each voice. The catalogue runs to hundreds of voices, so results are paginated: filter first, then use `page` to walk the rest.',
     {
-      language: z.string().optional().describe('Filter by language name (e.g. "english", "hebrew", "spanish", "french"). Case-insensitive partial match.'),
+      language: z.string().optional().describe('Filter by language name (e.g. "english", "hebrew", "spanish", "french") or locale code ("he", "he-IL"). Case-insensitive partial match.'),
       gender: z.enum(['male', 'female']).optional().describe('Filter by gender.'),
-      provider: z.string().optional().describe('Filter by provider (e.g. "elevenlabs", "google"). Omit for all providers.')
+      provider: z.string().optional().describe('Filter by provider (e.g. "elevenlabs", "google"). Omit for all providers.'),
+      page: z.number().optional().describe('Page number, 1-indexed. Default: 1'),
+      limit: z.number().optional().describe('Results per page, max 200. Default: 60')
     },
-    async ({ language, gender, provider }) => {
+    async ({ language, gender, provider, page, limit }) => {
       const params = new URLSearchParams();
       if (gender) params.set('gender', gender);
       if (provider) params.set('provider', provider);
@@ -28,10 +30,9 @@ function registerVoiceTools(server, client, options = {}) {
       const result = await client.get(`/v1/voices${qs.toString() ? '?' + qs.toString() : ''}`);
 
       let voices = result.voices || [];
-      // The API matches `language` EXACTLY against the voice's language name or
-      // its locale code — "hebrew" and "he-IL" both hit, but "he" / "heb" /
-      // "Hebrew (Israel)" return nothing. This arg is documented as a partial
-      // match, and an empty list reads to the model as "Kolbo has no Google
+      // Safety net for a server whose `language` matching is narrower than this
+      // arg promises (it was once an exact match, so "he" / "heb" returned
+      // nothing). An empty list reads to the model as "Kolbo has no Google
       // Hebrew voices at all", which is how a whole provider goes missing.
       // Retry ONCE, unfiltered, and match locally — only on the empty path, so
       // the normal call still costs one request.
@@ -48,29 +49,42 @@ function registerVoiceTools(server, client, options = {}) {
         };
       }
 
-      const lines = voices.map(v => {
+      // The unfiltered catalog measured 190,286 chars — past what hosts accept — so
+      // only a slice can ever come back. Page it instead of truncating it: the API
+      // returns the whole filtered set, the window is picked here. Without `page`
+      // every voice past the first 60 was simply unreachable.
+      const VOICE_CAP = 60;
+      const perPage = Math.min(Math.max(Math.trunc(limit) || VOICE_CAP, 1), 200);
+      const pageNum = Math.max(Math.trunc(page) || 1, 1);
+      const pageCount = Math.ceil(voices.length / perPage);
+      const start = (pageNum - 1) * perPage;
+      const shownVoices = voices.slice(start, start + perPage);
+
+      if (shownVoices.length === 0) {
+        return {
+          content: [{ type: 'text', text: `Page ${pageNum} is past the end — ${voices.length} voice(s) match those filters (${pageCount} page(s) at ${perPage} per page).` }]
+        };
+      }
+
+      const lines = shownVoices.map(v => {
         const tags = [v.language, v.gender, v.accent].filter(Boolean).join(' · ');
         const styles = Array.isArray(v.styles) && v.styles.length ? ` | styles: ${v.styles.join(', ')}` : '';
         const v3 = v.v3_optimized ? ' [v3]' : '';
         return `${v.voice_id} — ${v.name} (${v.provider})${v3}\n   ${tags}${styles}${v.description ? `\n   ${v.description}` : ''}`;
       });
 
-      // The unfiltered catalog measured 190,286 chars — past what hosts accept.
-      // Cap the listing and tell the model how to narrow, rather than handing
-      // back a blob the host truncates at an arbitrary byte.
-      const VOICE_CAP = 60;
-      const shown = lines.slice(0, VOICE_CAP);
-      const more = voices.length - shown.length;
+      const more = voices.length - (start + shownVoices.length);
       const narrowHint = more > 0
-        ? `\n\n…and ${more} more. Filter by \`language\`, \`gender\`, or \`provider\` to narrow.`
+        ? `\n\n…and ${more} more. Pass \`page: ${pageNum + 1}\` for the next ${perPage}, or narrow with \`language\` / \`gender\` / \`provider\`.`
         : '';
-      const text = `Available voices (showing ${shown.length} of ${voices.length}):\n\n${shown.join('\n\n')}${narrowHint}\n\nUse the "voice_id" value in generate_speech calls.`;
+      const range = `${start + 1}–${start + shownVoices.length}`;
+      const text = `Available voices (showing ${range} of ${voices.length}, page ${pageNum}/${pageCount}):\n\n${lines.join('\n\n')}${narrowHint}\n\nUse the "voice_id" value in generate_speech calls.`;
 
       if (ui()) {
         return uiResult(UI.mediaGrid, text, {
           widget: 'media-grid',
           title: 'Voices',
-          items: voices.slice(0, 24).map(v => ({
+          items: shownVoices.map(v => ({
             id: v.voice_id,
             title: v.name,
             subtitle: [v.provider, v.language, v.gender, v.accent].filter(Boolean).join(' · '),
@@ -80,7 +94,7 @@ function registerVoiceTools(server, client, options = {}) {
             use_hint: 'Use voice "{TITLE}" (voice_id: {ID}) for text-to-speech — ask me what text to speak.'
           })),
           total: voices.length,
-          has_more: voices.length > 24
+          has_more: more > 0
         });
       }
 

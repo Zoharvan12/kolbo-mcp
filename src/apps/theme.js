@@ -291,6 +291,18 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
   .k-generated-audio .k-audio-art { width: 36px; height: 36px; }
   .k-generated-audio .k-btn { grid-column: 2; justify-self: start; }
   .k-generated-audio .k-audio-player { grid-column: 1 / -1; }
+  /* Touch-friendly MCP App layout (Claude iOS/Android iframe). */
+  .k-head { padding: 10px 12px; gap: 8px; }
+  .k-body { padding: 10px 12px 12px; }
+  .k-footer { padding: 8px 12px 12px; }
+  .k-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .k-actions { flex-direction: column; align-items: stretch; }
+  .k-actions .k-btn { width: 100%; min-height: 44px; justify-content: center; }
+  .k-btn { min-height: 40px; padding: 10px 14px; }
+  .k-title { font-size: 13.5px; }
+  .k-prompt-row { flex-wrap: wrap; }
+  .k-prompt-row .k-input { min-width: 0; flex: 1 1 100%; }
+  .k-prompt-row .k-btn { flex: 1 1 auto; }
 }
 .k-play {
   width: 32px; height: 32px; border-radius: 50%; flex: none; border: 1px solid rgba(255,255,255,0.18);

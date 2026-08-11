@@ -43,7 +43,14 @@ function uploadTicketPayload(ticket) {
     accepted: ticket.accepted,
     rate_limit: rate,
     how_to_upload: {
-      example: 'curl -X POST "<upload_url>" -H "Authorization: Bearer <token>" -F "file=@/absolute/path/to/file.mp3"',
+      example: 'curl -X POST "<upload_url>" -H "Authorization: Bearer <token>" -F "file=@/absolute/path/to/file.mp3;type=audio/mpeg"',
+      // curl types the part from ITS mime table and falls back to
+      // application/octet-stream for anything missing from it (.mp3 included).
+      // Newer servers resolve that from the extension, older ones answer
+      // "File type not supported: application/octet-stream" — so the example
+      // above declares the type and this says why, rather than leaving the
+      // caller to rediscover it from a 415.
+      mime_note: 'Append `;type=<mime>` to the file part (audio/mpeg, audio/wav, video/mp4, image/png, application/pdf …). Without it curl declares application/octet-stream and the upload can be rejected as an unsupported type.',
       optional_fields: ['project_id', 'description'],
       response: 'JSON — the stable CDN URL is at media.url. One POST per file; reuse the ticket for a batch.',
       pacing: `RATE LIMIT: ${rate.max_uploads} uploads per ${rate.per_seconds}s. For a batch larger than that, pace it (e.g. sleep ${Math.max(1, Math.ceil(rate.per_seconds / rate.max_uploads))}s between files) instead of firing them back to back. Over the limit you get HTTP 429 with a Retry-After header and retry_after_seconds in the body — wait that long, then continue; do not guess a backoff and do not treat it as a failed upload.`,
@@ -95,10 +102,15 @@ function registerMediaTools(server, client, options = {}) {
       };
 
       if (ui()) {
+        // upload_ui_url: top-level page for Claude iOS/Android — in-iframe
+        // <input type=file> selections are dropped by WebKit (see upload widget).
+        const uploadUiUrl = ticket.upload_ui_url
+          || String(ticket.upload_url || '').replace(/\/upload\/?$/, '/upload-ui');
         return uiResult(UI.upload, JSON.stringify(info, null, 2), {
           widget: 'upload',
           title: purpose || 'Upload media',
           upload_url: ticket.upload_url,
+          upload_ui_url: uploadUiUrl,
           token: ticket.token,
           expires_at: Date.now() + (ticket.expires_in || 900) * 1000,
           kinds: media_types && media_types.length ? media_types : undefined,

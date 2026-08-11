@@ -47,6 +47,8 @@ const KNOWN_GAPS = new Set([
   // App Builder was pulled from the tool surface. The SDK route still exists for
   // non-MCP clients; list_projects covers the MCP case.
   'GET /v1/project/lightweight',
+  // Visual DNA ZIP import — SDK/web only for now (multipart package ingest).
+  'POST /v1/visual-dna/:param/import',
 ]);
 
 // MCP tool call patterns that trigger false-positive STALE warnings.
