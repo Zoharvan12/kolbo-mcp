@@ -9,7 +9,7 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
 
 **Kolbo MCP routing:** Seedance is a video model — call `generate_video` (text-to-video) or `generate_elements` (when video references / Visual DNA / first-last frames are involved). Run `list_models({ type: "text_to_video" })` and pick a Seedance variant by name.
 
-**Multishot (Elements):** Seedance has **no** native provider Multishot switch. For multi-cut demos pass `multi_shots: true` on `generate_elements` (optional `multi_shot_count`). That triggers Kolbo's Seedance multi-shot prompt rewrite — writing `"Multishot ON"` in the prompt alone is weaker. Optional `session_name` sets a short sidebar title (skips AI auto-name from boilerplate).
+**Multishot (Elements):** Seedance has **no** native provider Multishot switch. Pass `multi_shots: true` on `generate_elements` (optional `multi_shot_count`) for the UI Multishot badge only — it does **not** rewrite or reshape your prompt. **Always send `enhance_prompt: false` for crafted demos** (MCP default) so the prompt stays RAW. Put shot structure in the prompt yourself (`Multishot ON`, `Total: … / N shots`, numbered shots). Optional `session_name` sets a short sidebar title (skips AI auto-name from boilerplate).
 
 ## Universal Rules (apply to EVERY Seedance prompt)
 
