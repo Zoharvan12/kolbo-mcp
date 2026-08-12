@@ -103,7 +103,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `generate_first_last_frame` | Keyframe interpolation between two frames. |
 | `generate_lipsync` | Lipsync audio to an image or video face. |
 | `generate_music` | Music generation (Suno + variants). |
-| `generate_speech` | TTS. Use `list_voices` to pick a voice. |
+| `generate_speech` | TTS. Use `list_voices` to pick a voice. Pass provider controls: Google/Gemini `style_instructions_preset_id` (warm/dramatic/whisper/excited/calm/cheerful/serious/storyteller/sad/intimate/british/commercial) or free-form `style_instructions` + `language` as Accent; DeepDub/MiniMax/Cartesia `selected_style`/`emotion`; `speaking_speed`; ElevenLabs `similarity_boost`/`style`; MiniMax `minimax_pitch`/`minimax_vol`/…. |
 | `generate_sound` | Sound effects. |
 | `generate_3d` | 3D models from text / single image / multi-view. Returns GLB/FBX/OBJ/USDZ. |
 

@@ -660,12 +660,20 @@ function registerGenerateTools(server, client, options = {}) {
       text: z.string().describe('The text to convert to speech'),
       voice: z.string().optional().describe('Voice ID or display name — MUST come from a `list_voices` result, never constructed. Google/Gemini ids in particular are not validated provider-side: an id that is not in the catalog is silently mapped to another voice (or a default one) and the audio comes back in a voice nobody asked for. Do not pattern-match a locale onto an id you saw for another language. Default: "Rachel"'),
       model: z.string().optional().describe('Model identifier. Use list_models type="text_to_speech" to see options. Default: eleven_v3'),
-      language: z.string().optional().describe('Language code (e.g., "en-US", "he-IL", "es-ES"). Default: "en-US"'),
+      language: z.string().optional().describe('Language / accent code (e.g., "en-US", "he-IL", "es-ES"). For Google/Gemini voices this is the Accent control (does not translate the text). Default: "en-US"'),
       // ── Expressive style / emotion (provider-specific) ──
-      style_instructions: z.string().optional().describe('Google/Gemini voices ONLY. Free-form natural-language voice direction, e.g. "whisper conspiratorially, slightly amused" or "excited sports announcer". Max 500 chars. Ignored by other providers.'),
-      selected_style: z.string().optional().describe('DeepDub & MiniMax voices. Preset expressive style/emotion. DeepDub supports: reading, conversational, angry, breathy, panic, amused, sad, whisper, singing, shout, scream, mumbling, excited. Ignored by other providers.'),
-      emotion: z.string().optional().describe('MiniMax voices. Emotion: happy, sad, angry, fearful, disgusted, surprised, calm, fluent, whisper.'),
-      speaking_speed: z.number().optional().describe('Speech speed 0.5 (slow) – 2.0 (fast). Default 1.0. Applies to ElevenLabs / OpenAI / Google.'),
+      // Google/Gemini: prefer a named preset id from the Kolbo UI picker; free-form
+      // style_instructions is the escape hatch for custom direction.
+      style_instructions_preset_id: z.enum([
+        'warm', 'dramatic', 'whisper', 'excited', 'calm', 'cheerful',
+        'serious', 'storyteller', 'sad', 'intimate', 'british', 'commercial',
+        'custom', 'none',
+      ]).optional().describe('Google/Gemini voices ONLY. Named voice-direction preset from the Kolbo TTS picker (warm, dramatic, whisper, excited, calm, cheerful, serious, storyteller, sad, intimate, british, commercial). Use "custom" with style_instructions for free-form direction, or "none" for default delivery. Preferred over raw style_instructions when a preset fits — the API expands it to the English directive fal receives and stores the label for history/reuse.'),
+      style_instructions: z.string().optional().describe('Google/Gemini voices ONLY. Free-form natural-language voice direction, e.g. "whisper conspiratorially, slightly amused" or "excited sports announcer". Max 500 chars. When set without a preset_id, treated as custom. Ignored by other providers.'),
+      style_instructions_label: z.string().optional().describe('Google/Gemini voices ONLY. Friendly label stored on the generation for history cards (defaults to the preset name or the custom text). Usually omit — the API fills it.'),
+      selected_style: z.string().optional().describe('DeepDub, MiniMax & Cartesia voices. Preset expressive style/emotion. DeepDub: reading, conversational, angry, breathy, panic, amused, sad, whisper, singing, shout, scream, mumbling, excited. MiniMax/Cartesia: happy, sad, angry, fearful, disgusted, surprised, calm, fluent, whisper (or provider emotion names). Ignored by other providers.'),
+      emotion: z.string().optional().describe('MiniMax / Cartesia voices. Emotion: happy, sad, angry, fearful, disgusted, surprised, calm, fluent, whisper. Prefer this OR selected_style (both map to the same delivery control).'),
+      speaking_speed: z.number().optional().describe('Speech speed 0.5 (slow) – 2.0 (fast); Cartesia clamped 0.6–1.5. Default 1.0. Applies to ElevenLabs / OpenAI / Google / MiniMax / Cartesia / DeepDub (as tempo when tempo omitted).'),
       // ── ElevenLabs voice settings ──
       similarity_boost: z.number().optional().describe('ElevenLabs voice similarity, 0–1. Default 0.75. Higher hews closer to the original voice.'),
       style: z.number().optional().describe('ElevenLabs style exaggeration, 0–1. Default 0.5. Higher = more expressive/dramatic.'),
@@ -689,7 +697,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ text, voice, model, language, style_instructions, selected_style, emotion, speaking_speed, similarity_boost, style, use_speaker_boost, variance, tempo, promptBoost, seed, accentControl, voiceTitle, minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre, project_id, session_id }) => {
+    async ({ text, voice, model, language, style_instructions_preset_id, style_instructions, style_instructions_label, selected_style, emotion, speaking_speed, similarity_boost, style, use_speaker_boost, variance, tempo, promptBoost, seed, accentControl, voiceTitle, minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'text_to_speech'); // lenient id resolution ("z-image" → "z-image/turbo")
       // Resolve the requested voice against the REAL catalog (cached) so the card
       // can show its display name + portrait instead of a raw id, and so an id
@@ -703,7 +711,8 @@ function registerGenerateTools(server, client, options = {}) {
         : null;
       const gen = await client.post('/v1/generate/speech', {
         text, voice, model, language,
-        style_instructions, selected_style, emotion, speaking_speed,
+        style_instructions_preset_id, style_instructions, style_instructions_label,
+        selected_style, emotion, speaking_speed,
         similarity_boost, style, use_speaker_boost,
         variance, tempo, promptBoost, seed, accentControl, voiceTitle,
         minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre,
@@ -713,7 +722,12 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_speech', kind: 'audio', gen, client, model, prompt: text,
         voice: voiceRecord,
-        settings: { voice: voice || 'Rachel', style: selected_style || emotion || style_instructions },
+        settings: {
+          voice: voice || 'Rachel',
+          style: selected_style || emotion || style_instructions_preset_id || style_instructions,
+          speaking_speed,
+          language,
+        },
         warning: unknownVoice
       });
 

@@ -128,7 +128,7 @@ Without the optional skill, the config block alone already exposes every tool �
 | `generate_lipsync` | Source image/video + audio → lipsynced video (Sync-3 adds active-speaker selection, emotion, model mode, temperature) |
 | `generate_creative_director` | One brief → N coordinated scenes (image or video) |
 | `generate_music` | Text (+ optional lyrics) → song. Style, title, negative tags, length, and Suno fine-controls (style weight, weirdness, audio weight, persona / singing voice) |
-| `generate_speech` | Text + voice → spoken audio. Full expressive/style control: free-form voice direction (Google/Gemini), preset styles + emotions (DeepDub / MiniMax), speed, and per-provider voice settings (ElevenLabs stability/similarity/style, DeepDub accent/variance/tempo, MiniMax pitch/volume/intensity/timbre) |
+| `generate_speech` | Text + voice → spoken audio. Full expressive/style control: Google/Gemini named voice-direction presets (`style_instructions_preset_id`: warm/dramatic/whisper/…) or free-form `style_instructions`, preset styles + emotions (DeepDub / MiniMax / Cartesia), speed, accent/`language`, and per-provider voice settings (ElevenLabs similarity/style, DeepDub accent/variance/tempo, MiniMax pitch/volume/intensity/timbre). Status returns the same fields for reuse. |
 | `generate_sound` | Text → sound effect. Duration, prompt influence, and per-provider controls (Stable Audio guidance, Kie loop/tempo/key, Seed-Audio voice/speed/volume/pitch + reference audio/image) |
 | `generate_3d` | Text or reference images → 3D model (GLB/FBX/OBJ/USDZ) |
 | `transcribe_audio` | Audio/video URL or file → text + SRT subtitles. Language, speaker diarization, audio-event tagging, and SRT formatting (words/line, lines/subtitle, caption stretch) |
