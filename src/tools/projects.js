@@ -64,7 +64,7 @@ function registerProjectTools(server, client, options = {}) {
   // ─── move_session ──────────────────────────────────────────
   server.tool(
     'move_session',
-    'Move a session — and ALL of its media library items — to another project. Works for any session type: generation sessions (the `session_id` returned by generate_* tools), chat conversations, transcription sessions, etc. Use this when work landed in the wrong project (e.g. the default "API Generations" bucket) and the user wants it in a named project — moving is always better than regenerating. Caller must own the session and have edit/full/owner permission on the target project. Resolve the target project id with `list_projects` first.',
+    'Move ONE session — and ALL of its generations and media library items — to another project. Works for any session type: generation sessions (the `session_id` returned by generate_* tools), chat conversations, transcription sessions, etc. Use this when work landed in the wrong project (e.g. the default "API Generations" bucket) and the user wants it in a named project — moving is always better than regenerating. For SEVERAL sessions use `bulk_move_sessions` instead: one call, up to 100 sessions, and it reports per-session failures. Caller needs edit/full/owner permission on BOTH the source and target projects (a shared-project member can move a teammate\'s session). Resolve the target project id with `list_projects` first.',
     {
       session_id: z.string().describe('The session ObjectId to move (from a generation submit response, chat_list_conversations, or an "Open in Kolbo" link).'),
       project_id: z.string().describe('Target project ObjectId. Call `list_projects` to resolve a project name to its id.'),
@@ -83,6 +83,141 @@ function registerProjectTools(server, client, options = {}) {
           }, null, 2)
         }]
       };
+    }
+  );
+
+  // ─── bulk_move_sessions ────────────────────────────────────
+  server.tool(
+    'bulk_move_sessions',
+    'Move MANY sessions into one project in a single call — the tool to use when reorganizing a user\'s library ("file all my Acme work into the Acme project", "clean up the API Generations bucket"). Each session carries ALL of its generations and media with it. Prefer this over looping `move_session`: one call handles up to 100 sessions, while `move_session` is rate limited per call. Sessions of mixed types (chat + image + video) can go in the SAME call. Each session moves independently, so one that cannot move — a generation still running, a Creative Director session, or one you lack edit access to — does NOT block the rest; check `failed[]` in the result and report those to the user. Resolve session ids with `list_sessions` and the target project id with `list_projects` first.',
+    {
+      session_ids: z.array(z.string()).describe('Session ObjectIds to move (from `list_sessions`, a generation submit response, or an "Open in Kolbo" link). Up to 100 per call; types may be mixed.'),
+      project_id: z.string().describe('Target project ObjectId. Call `list_projects` to resolve a project name to its id.'),
+      type: z.string().optional().describe('Optional session type hint that speeds up the lookup when EVERY id in the batch is the same type: image, video, video_from_image, music, speech, sound, image_edit, chat, elements, first_last_frame, lipsync. Omit for mixed batches — the server probes all types.')
+    },
+    async ({ session_ids, project_id, type }) => {
+      const body = { session_ids, project_id };
+      if (type) body.type = type;
+      const result = await client.post('/v1/sessions/move', body);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            project_id: result.project_id,
+            moved_sessions_count: result.moved_sessions_count,
+            moved_generations_count: result.moved_generations_count,
+            moved_media_count: result.moved_media_count,
+            skipped: result.skipped,
+            failed: result.failed,
+            operation_ids: result.operation_ids,
+            _hint: (result.failed && result.failed.length)
+              ? 'Some sessions did not move — tell the user which ones and why (see failed[]). The rest are already in the new project.'
+              : 'Every session, its generations and its media now live in the new project. Pass any operation_id to `undo_session_organization` within 15 minutes to reverse one.'
+          }, null, 2)
+        }]
+      };
+    }
+  );
+
+  // ─── list_session_generations ──────────────────────────────
+  server.tool(
+    'list_session_generations',
+    'List a session\'s generations as complete GROUPS — each entry is one generation with its prompt and ALL the outputs it produced. Call this FIRST whenever the user wants to reorganize WITHIN or BETWEEN sessions ("move these three shots into their own session", "split the good takes out"), because `move_generations_to_session` and `split_session` take the ids this returns. Also the cheapest way to see what is actually inside a session before moving it. A generation is never separable from its own outputs, so you always move whole entries. Only image, image-to-video, lipsync and video-to-video sessions support this level of organization; other types return SESSION_TYPE_NOT_MOVABLE and should be moved whole with `move_session`.',
+    {
+      session_id: z.string().describe('The session ObjectId to inspect.'),
+      type: z.string().optional().describe('Optional session type hint to speed up the lookup. Omit if unsure.')
+    },
+    async ({ session_id, type }) => {
+      const path = `/v1/sessions/${encodeURIComponent(session_id)}/generations`;
+      const result = await client.get(path + (type ? `?type=${encodeURIComponent(type)}` : ''));
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            session: result.session,
+            generations: result.generations,
+            _hint: 'Pass the `id` values to `move_generations_to_session` (into an existing session) or `split_session` (into a new one). `in_flight: true` means it is still running and cannot be moved yet.'
+          }, null, 2)
+        }]
+      };
+    }
+  );
+
+  // ─── move_generations_to_session ───────────────────────────
+  server.tool(
+    'move_generations_to_session',
+    'Move SELECTED generations out of one session and into another EXISTING session — the way to merge scattered work ("put these shots into my Hero Sequence session", "these three belong with the earlier batch"). Only the chosen generations and THEIR OWN output media move; shared uploads and reference images stay with the source session, so nothing another generation still depends on is dragged away. The destination must be a session of the SAME kind, and may live in a different project as long as you can edit both. Get the generation ids from `list_session_generations` and the destination id from `list_sessions`. Running generations cannot be moved — wait for them to finish.',
+    {
+      session_id: z.string().describe('Source session ObjectId — the session the generations are in now.'),
+      generation_ids: z.array(z.string()).describe('Generation ids to move, from `list_session_generations`. Whole entries only.'),
+      target_session_id: z.string().describe('Destination session ObjectId. Must be the same session kind as the source.'),
+      type: z.string().optional().describe('Optional session type hint to speed up the lookup. Omit if unsure.')
+    },
+    async ({ session_id, generation_ids, target_session_id, type }) => {
+      const body = { generation_ids, target_session_id };
+      if (type) body.type = type;
+      const result = await client.post(
+        `/v1/sessions/${encodeURIComponent(session_id)}/generations/move`, body
+      );
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            moved_generations_count: result.moved_generations_count,
+            moved_media_count: result.moved_media_count,
+            target_session_id: result.target_session_id,
+            project_id: result.project_id,
+            operation_id: result.operation_id,
+            _hint: 'Reversible for 15 minutes — pass operation_id to `undo_session_organization`.'
+          }, null, 2)
+        }]
+      };
+    }
+  );
+
+  // ─── split_session ─────────────────────────────────────────
+  server.tool(
+    'split_session',
+    'Carve selected generations out of a session into a BRAND NEW named session, atomically. Use when one session has grown into several distinct pieces of work ("separate the product shots from the lifestyle ones", "give the approved takes their own session"). Creates the new session and moves the chosen generations plus their output media into it in one transaction — nothing half-lands. The new session goes in the same project unless you pass `project_id`. Get the generation ids from `list_session_generations` first.',
+    {
+      session_id: z.string().describe('Source session ObjectId to split.'),
+      generation_ids: z.array(z.string()).describe('Generation ids to move into the new session, from `list_session_generations`.'),
+      name: z.string().describe('Name for the new session — make it descriptive, the user sees it in the sidebar.'),
+      project_id: z.string().optional().describe('Put the new session in a DIFFERENT project. Omit to keep it in the source session\'s project. You need edit access on both.'),
+      type: z.string().optional().describe('Optional session type hint to speed up the lookup. Omit if unsure.')
+    },
+    async ({ session_id, generation_ids, name, project_id, type }) => {
+      const body = { generation_ids, name };
+      if (project_id) body.project_id = project_id;
+      if (type) body.type = type;
+      const result = await client.post(`/v1/sessions/${encodeURIComponent(session_id)}/split`, body);
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            session: result.session,
+            moved_generations_count: result.moved_generations_count,
+            moved_media_count: result.moved_media_count,
+            operation_id: result.operation_id,
+            _hint: 'Reversible for 15 minutes — `undo_session_organization` removes the new session and returns its generations.'
+          }, null, 2)
+        }]
+      };
+    }
+  );
+
+  // ─── undo_session_organization ─────────────────────────────
+  server.tool(
+    'undo_session_organization',
+    'Reverse a session move, generation move, or split within 15 minutes of making it. Use immediately when the user says the reorganization was wrong ("no, put that back", "undo that move"). Takes the `operation_id` returned by `move_session`, `bulk_move_sessions`, `move_generations_to_session` or `split_session` — a batch move returns one id PER session, so call this once per id you want to reverse. Refuses safely if the work has moved again since, rather than yanking records out of wherever they now live.',
+    {
+      operation_id: z.string().describe('The operation_id from the move/split result you want to reverse.')
+    },
+    async ({ operation_id }) => {
+      const result = await client.post(
+        `/v1/sessions/organize/undo/${encodeURIComponent(operation_id)}`, {}
+      );
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
   );
   // ─── create_project ────────────────────────────────────────

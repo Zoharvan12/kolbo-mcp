@@ -30,6 +30,14 @@ jobs:
       # packages as much higher trust, which is critical for an MCP server that
       # gets spawned as a long-lived child process by user AI agents.
       # The `id-token: write` permission above is the prerequisite.
-      - run: npm publish --access public --provenance
+      - name: Publish stable or isolated prerelease
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          publish_tag=latest
+          if [[ "$version" == *-* ]]; then
+            publish_tag=next
+          fi
+          npm publish --access public --provenance --tag "$publish_tag"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

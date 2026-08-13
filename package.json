@@ -1,6 +1,6 @@
 {
   "name": "@kolbo/mcp",
-  "version": "1.68.0",
+  "version": "1.69.0-rc.1",
   "description": "Kolbo AI MCP Server - Generate images, videos, music, speech, and sound effects from Claude Code",
   "main": "src/index.js",
   "bin": {
@@ -10,11 +10,13 @@
     "start": "node src/index.js",
     "smoke": "node scripts/smoke.js",
     "check-parity": "node scripts/check-parity.js",
-    "prepublishOnly": "node scripts/smoke.js && node scripts/check-parity.js && node scripts/check-widget-fields.js && node scripts/check-widget-render.js && node scripts/check-model-catalog.js && node scripts/check-skill-tools.js && node scripts/check-install.js",
+    "prepublishOnly": "node scripts/smoke.js && node scripts/check-parity.js && node scripts/check-widget-fields.js && node scripts/check-widget-render.js && node scripts/check-model-catalog.js && node scripts/check-skill-tools.js && node scripts/check-submission-contract.js && node scripts/check-install.js",
     "check-model-catalog": "node scripts/check-model-catalog.js",
     "check-widget-fields": "node scripts/check-widget-fields.js",
     "check-widget-render": "node scripts/check-widget-render.js",
     "check-skill-tools": "node scripts/check-skill-tools.js",
+    "check-submission-contract": "node scripts/check-submission-contract.js",
+    "generate-chatgpt-submission": "node scripts/generate-chatgpt-submission.js",
     "check-install": "node scripts/check-install.js"
   },
   "keywords": [
