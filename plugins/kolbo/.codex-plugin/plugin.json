@@ -10,14 +10,7 @@
   "homepage": "https://app.kolbo.ai/kolbo-mcp",
   "repository": "https://github.com/Zoharvan12/kolbo-mcp",
   "license": "MIT",
-  "keywords": [
-    "kolbo",
-    "ai-generation",
-    "image",
-    "video",
-    "audio",
-    "mcp"
-  ],
+  "keywords": ["kolbo", "ai-generation", "image", "video", "audio", "mcp"],
   "skills": "./skills/",
   "interface": {
     "displayName": "Kolbo.AI",
@@ -25,12 +18,7 @@
     "longDescription": "Create and edit images, video, music, speech, sound, 3D assets, documents, and project media through Kolbo.AI. Your work stays synchronized with your Kolbo projects and media library.",
     "developerName": "Kolbo AI",
     "category": "Design",
-    "capabilities": [
-      "Interactive",
-      "Generate",
-      "Edit",
-      "Analyze"
-    ],
+    "capabilities": ["Interactive", "Generate", "Edit", "Analyze"],
     "websiteURL": "https://app.kolbo.ai/kolbo-mcp",
     "privacyPolicyURL": "https://kolbo.ai/privacy-policy",
     "termsOfServiceURL": "https://kolbo.ai/terms-of-service",
