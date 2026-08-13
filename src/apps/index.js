@@ -54,44 +54,45 @@ function widgetHtml(uri) {
 // img/script/style/font/media-src; connectDomains to connect-src.
 const WIDGET_CSP = {
   resourceDomains: [
-    // Exact hosts FIRST — not every host CSP implementation honors wildcards,
-    // and a declared-but-unmatched allowlist blocks harder than no declaration.
-    'https://api.kolbo.ai',                     // model icons (/assets)
+    // Public production hosts owned by Kolbo.
+    'https://api.kolbo.ai',
     'https://app.kolbo.ai',
-    'https://media.kolbo.ai',                   // media CDN (prod)
-    'https://media-staging.kolbo.ai',
-    'https://media-dev.kolbo.ai',
+    'https://media.kolbo.ai',
+    'https://cdn.kolbo.ai',
     'https://kolboai-production.ams3.digitaloceanspaces.com',
     'https://kolboai-production.ams3.cdn.digitaloceanspaces.com',
-    'https://kolboai-development.ams3.digitaloceanspaces.com',
-    'https://kolboai-development.ams3.cdn.digitaloceanspaces.com',
+    'https://kolbo-general-media.fra1.digitaloceanspaces.com',
     'https://kolbo-general-media.fra1.cdn.digitaloceanspaces.com',
-    'https://fonts.googleapis.com',             // Inter / JetBrains Mono stylesheet
-    'https://fonts.gstatic.com',                // font files
-    'https://images.pexels.com',                // stock thumbnails
-    'https://images.unsplash.com',              // stock thumbnails (Unsplash)
-    'https://plus.unsplash.com',                // Unsplash+ premium images
-    'https://cdn.coverr.co',                    // Coverr video thumbnails
-    'https://cdn.freesound.org',                // Freesound waveform previews
-    // Wildcards as a second layer for hosts that do support them.
-    'https://*.kolbo.ai',
-    'https://*.digitaloceanspaces.com',
-    'https://*.cdn.digitaloceanspaces.com',
-    'https://*.pexels.com',
-    'https://*.pixabay.com',
-    'https://*.unsplash.com',
-    'https://*.coverr.co',
-    'https://*.freesound.org',
-    'https://*.sketchfab.com',
-    'https://*.cloudfront.net',
+
+    // Fonts used by the shared widget shell.
+    'https://fonts.googleapis.com',
+    'https://fonts.gstatic.com',
+
+    // Exact preview hosts returned by the production stock integrations.
+    'https://images.pexels.com',
+    'https://videos.pexels.com',
+    'https://images.unsplash.com',
+    'https://plus.unsplash.com',
+    'https://pixabay.com',
+    'https://cdn.pixabay.com',
+    'https://coverr.co',
+    'https://cdn.coverr.co',
+    'https://freesound.org',
+    'https://cdn.freesound.org',
+    'https://sketchfab.com',
+    'https://media.sketchfab.com',
+    'https://cdn.sketchfab.com',
+    'https://assets.sketchfab.com',
+    'https://sketchfab-prod-media.s3.amazonaws.com',
+
+    // Default SYNCI catalog project. Any production override must be reviewed
+    // and added here as an exact hostname before deployment.
+    'https://gfbpxdkripkbbrcvoyeh.supabase.co',
   ],
   // connect-src — XHR/fetch FROM widget iframes. Used by the upload widget to
   // POST files to /mcp/upload with its short-lived ticket.
   connectDomains: [
     'https://api.kolbo.ai',
-    'https://api-staging.kolbo.ai',
-    'https://api-dev.kolbo.ai',
-    'https://*.kolbo.ai',
   ],
 };
 
@@ -418,7 +419,6 @@ const TOOL_WIDGETS = {
   generate_3d: UI.generation,
   edit_image: UI.generation,
   edit_video: UI.generation,
-  shorts_render: UI.generation,
   // transcript viewer
   transcribe_audio: UI.transcript,
   // model catalog
@@ -433,7 +433,6 @@ const TOOL_WIDGETS = {
   list_voices: UI.mediaGrid,
   list_visual_dnas: UI.mediaGrid,
   list_moodboards: UI.mediaGrid,
-  shorts_analyze: UI.mediaGrid,
   // NOTE: list_color_palettes' handler has always called uiResult(UI.mediaGrid, ...)
   // (see color_palettes.js) but was missing here — hosts that prepare the widget
   // iframe from the tool DECLARATION (claude.ai reads tools/list, not the result)
@@ -463,6 +462,7 @@ function attachToolWidgetMeta(server) {
 
 module.exports = {
   UI,
+  WIDGET_CSP,
   TOOL_WIDGETS,
   registerApps,
   attachToolWidgetMeta,

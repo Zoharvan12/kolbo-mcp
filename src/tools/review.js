@@ -297,7 +297,7 @@ function registerReviewTools(server, client) {
         canSwitchVersions: z.boolean().optional(),
         canSetStatus: z.boolean().optional(),
       }).optional(),
-      password: z.string().optional(),
+      password: z.string().optional().describe('Optional NEW password to set on this guest review link. This is not the user\'s Kolbo password and must never contain an account credential.'),
       allowed_emails: z.array(z.string()).optional(),
       expires_at: z.string().optional().describe('ISO8601 expiry datetime.'),
     },

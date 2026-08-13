@@ -77,6 +77,7 @@ const { registerVoiceTools } = require('./tools/voices');
 const { registerMusicLibraryTools } = require('./tools/music_library');
 const { registerStockLibraryTools } = require('./tools/stock_library');
 const { registerApps, attachToolWidgetMeta } = require('./apps');
+const { attachToolAnnotations } = require('./toolAnnotations');
 
 /**
  * Build a fully-configured Kolbo MCP server (all tool groups registered)
@@ -172,6 +173,10 @@ function createServer(opts = {}) {
   // sees no filesystem, and tells the user Kolbo cannot accept their file —
   // the single most-reported failure, despite the upload tools existing.
   attachFileInputHints(server, toolOptions);
+  // OpenAI public-app review requires every exposed tool to declare the three
+  // safety hints explicitly. The exact contract also fails closed when a tool
+  // is added or removed without a classification.
+  attachToolAnnotations(server);
   // Declaration-level `_meta['ui/resourceUri']` on every widget-carrying tool —
   // claude.ai prepares the widget iframe from tools/list, not from the result.
   attachToolWidgetMeta(server);

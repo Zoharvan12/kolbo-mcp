@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "kolbo": {
+      "type": "http",
+      "url": "https://api.kolbo.ai/mcp"
+    }
+  }
+}

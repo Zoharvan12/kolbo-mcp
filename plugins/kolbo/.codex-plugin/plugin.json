@@ -1,0 +1,47 @@
+{
+  "name": "kolbo",
+  "version": "1.0.0",
+  "description": "Create and manage AI images, video, audio, 3D, documents, and media with Kolbo.AI.",
+  "author": {
+    "name": "Kolbo AI",
+    "email": "support@kolbo.ai",
+    "url": "https://kolbo.ai"
+  },
+  "homepage": "https://app.kolbo.ai/kolbo-mcp",
+  "repository": "https://github.com/Zoharvan12/kolbo-mcp",
+  "license": "MIT",
+  "keywords": [
+    "kolbo",
+    "ai-generation",
+    "image",
+    "video",
+    "audio",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Kolbo.AI",
+    "shortDescription": "Create AI media",
+    "longDescription": "Create and edit images, video, music, speech, sound, 3D assets, documents, and project media through Kolbo.AI. Your work stays synchronized with your Kolbo projects and media library.",
+    "developerName": "Kolbo AI",
+    "category": "Design",
+    "capabilities": [
+      "Interactive",
+      "Generate",
+      "Edit",
+      "Analyze"
+    ],
+    "websiteURL": "https://app.kolbo.ai/kolbo-mcp",
+    "privacyPolicyURL": "https://kolbo.ai/privacy-policy",
+    "termsOfServiceURL": "https://kolbo.ai/terms-of-service",
+    "defaultPrompt": [
+      "Generate a cinematic campaign image in my Kolbo project.",
+      "Turn this product image into a short video with sound.",
+      "Show my recent Kolbo media and organize it by project."
+    ],
+    "brandColor": "#7C3AED",
+    "composerIcon": "./assets/kolbo-logo.png",
+    "logo": "./assets/kolbo-logo.png"
+  },
+  "mcpServers": "./.mcp.json"
+}
