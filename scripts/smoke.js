@@ -301,6 +301,49 @@ async function main() {
     console.log('[smoke] prompts[] + items[] batch caps reject instead of truncating OK');
   }
 
+  // 0e. A requested preset must survive the public tool contract and reach the
+  // API body. This guards both creation and editing: the latter historically
+  // had no preset_id field, so a host could acknowledge the request and then
+  // silently submit an unstyled edit.
+  {
+    const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
+    const { registerGenerateTools } = require(path.join(PKG_ROOT, 'src', 'tools', 'generate'));
+    const sent = [];
+    const client = {
+      apiBase: 'smoke',
+      post: async (url, body) => {
+        sent.push({ url, body });
+        return { generation_id: `preset-${sent.length}`, session_id: 'preset-session' };
+      },
+      get: async (url) => (url === '/v1/models' ? { models: [] } : { state: 'processing' }),
+    };
+    const server = new McpServer({ name: 'preset-smoke', version: '1.0.0' });
+    registerGenerateTools(server, client, { apps: true });
+
+    if (!server._registeredTools.generate_image.inputSchema.shape.preset_id) {
+      throw new Error('generate_image schema lost preset_id');
+    }
+    if (!server._registeredTools.generate_image_edit.inputSchema.shape.preset_id) {
+      throw new Error('generate_image_edit schema does not expose preset_id');
+    }
+
+    await server._registeredTools.generate_image.handler({
+      prompt: 'preset image', model: 'z-image/turbo', preset_id: 'image-preset-1',
+    });
+    await server._registeredTools.generate_image_edit.handler({
+      prompt: 'preset edit', source_images: ['https://cdn.example/source.png'],
+      model: 'z-image/turbo', preset_id: 'edit-preset-1',
+    });
+
+    if (sent[0]?.url !== '/v1/generate/image' || sent[0]?.body?.preset_id !== 'image-preset-1') {
+      throw new Error(`generate_image dropped preset_id: ${JSON.stringify(sent[0])}`);
+    }
+    if (sent[1]?.url !== '/v1/generate/image-edit' || sent[1]?.body?.preset_id !== 'edit-preset-1') {
+      throw new Error(`generate_image_edit dropped preset_id: ${JSON.stringify(sent[1])}`);
+    }
+    console.log('[smoke] image creation + editing preset_id contracts OK');
+  }
+
   // 0f. `session_id` must survive the round trip on every single-output
   // generation tool: into the request body, and back out of the result. This is
   // the ONLY deterministic way an agent groups a related set — the server's

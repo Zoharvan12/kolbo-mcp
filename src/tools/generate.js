@@ -141,7 +141,7 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_image ────────────────────────────────────────
   server.tool(
     'generate_image',
-    'Generate image(s) from a text prompt using Kolbo AI. Supports Visual DNA profiles (for character/style/product consistency), moodboards (for style direction), reference images (for composition guidance), batch generation (num_images for variations of ONE prompt, `prompts` for SEVERAL different prompts in one combined widget), and web-search grounding. When the user wants multiple distinct images, pass all their prompts in `prompts` in ONE call — never a series of separate generate_image calls. For EDITING an existing image, use generate_image_edit instead. For a coordinated multi-scene set planned by AI from a single brief (storyboard, ad campaign), use generate_creative_director. Returns the final image URL(s) when complete.',
+    'Generate image(s) from a text prompt using Kolbo AI. Supports Visual DNA profiles (for character/style/product consistency), moodboards (for style direction), Kolbo image presets, reference images (for composition guidance), batch generation (num_images for variations of ONE prompt, `prompts` for SEVERAL different prompts in one combined widget), and web-search grounding. PRESET CONTRACT: when the user asks to use a preset, a named preset, or "one of my/Kolbo image presets", call list_presets type="image" first, resolve the requested or best-matching preset, and pass its exact id as `preset_id`; never silently generate without it. When the user wants multiple distinct images, pass all their prompts in `prompts` in ONE call — never a series of separate generate_image calls. For EDITING an existing image, use generate_image_edit instead. For a coordinated multi-scene set planned by AI from a single brief (storyboard, ad campaign), use generate_creative_director. Returns the final image URL(s) when complete.',
     {
       prompt: z.string().optional().describe('Text description of the image to generate. Required unless `prompts` is provided.'),
       prompts: promptsField('images'),
@@ -155,7 +155,7 @@ function registerGenerateTools(server, client, options = {}) {
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding for the prompt (useful for current events, brand references, real-world accuracy). Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolution_multipliers on the same model to predict credit cost. Omit to use the model default.'),
       quality: z.string().optional().describe('Quality tier for models that support it (e.g. "low", "medium", "high", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
-      preset_id: z.string().optional().describe('Preset ID from list_presets type="image" to apply a saved style preset to this generation.'),
+      preset_id: z.string().optional().describe('Exact preset ID from list_presets type="image". If the user requests any image preset, resolve it with list_presets and pass it here; do not omit it.'),
       cinematic: CINEMATIC_SCHEMA,
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one image ungraded.'),
       project_id: projectIdField,
@@ -218,7 +218,7 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_image_edit ──────────────────────────────────
   server.tool(
     'generate_image_edit',
-    'THE tool for ANY prompt-driven / content edit of an existing image — changing the scene ("make it night", "change the sky to sunset"), adding/removing/replacing objects, restyling, recoloring, compositing, or any "edit this image to…" request. This is the image-editing equivalent of generate_image and runs on strong dedicated editing models (nano-banana-2, gpt-image-2). Provide the source image URL(s) in `source_images` and the instruction in `prompt`. Supports Visual DNA profiles and moodboards for style-consistent edits. Do NOT use `edit_image` for these — that tool is only for mechanical enhancements (upscale/reframe/remove-background/skin). For a brand-new image from scratch, use generate_image. Returns the edited image URL(s) when complete.',
+    'THE tool for ANY prompt-driven / content edit of an existing image — changing the scene ("make it night", "change the sky to sunset"), adding/removing/replacing objects, restyling, recoloring, compositing, or any "edit this image to…" request. This is the image-editing equivalent of generate_image and runs on strong dedicated editing models (nano-banana-2, gpt-image-2). Provide the source image URL(s) in `source_images` and the instruction in `prompt`. Supports Visual DNA profiles, moodboards, and Kolbo image-editing presets. PRESET CONTRACT: if the user requests a preset, call list_presets type="image_edit" and pass its exact id as `preset_id`; never silently omit it. Do NOT use `edit_image` for these — that tool is only for mechanical enhancements (upscale/reframe/remove-background/skin). For a brand-new image from scratch, use generate_image. Returns the edited image URL(s) when complete.',
     {
       prompt: z.string().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset")'),
       model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Many text-to-image ids double as editors: the server auto-routes a base id to its editing variant when source_images is present (e.g. "gpt-image-2" → gpt-image-2/edit, "nano-banana-2" → nano-banana-2/edit) — passing the bare id is fine, no need to hunt for the "/edit" suffix yourself. BUT this only works for models that actually have a registered edit variant (most flagship models do: gpt-image, nano-banana, flux-2, seedream, qwen, wan, grok-imagine, kling-image families). Models with none (Midjourney, Flux Pro/Ultra, Imagen4, Ideogram, Recraft, Higgsfield Soul, Krea, Dreamina, and others) silently ignore source_images if passed here instead of erroring — if unsure, confirm the model appears in `list_models type="image_editing"` before trusting a bare id, or just use a known-safe default: "nano-banana-pro/edit" (best general prompt editor), "gpt-image-2" (photoreal, strong text), or "flux-2/edit".'),
@@ -230,22 +230,23 @@ function registerGenerateTools(server, client, options = {}) {
       moodboard_id: z.string().optional().describe('Moodboard ID whose master_prompt and style_guide should be applied.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding. Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" / "2K" / "3K" / "4K". Model-dependent — call list_models and read supported_resolutions. Default: "1K" for most edit models.'),
+      preset_id: z.string().optional().describe('Exact preset ID from list_presets type="image_edit" to apply an image-editing preset. If the user requests a preset, resolve and pass it; do not silently omit it.'),
       cinematic: CINEMATIC_SCHEMA,
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one edit ungraded.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, model, source_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id, session_id }) => {
+    async ({ prompt, model, source_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, cinematic, skip_color_palette, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'image_editing'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/image-edit', {
         prompt, model, source_images, aspect_ratio, enhance_prompt, num_images,
-        visual_dna_ids, moodboard_id, enable_web_search, resolution, cinematic, skip_color_palette, project_id, session_id
+        visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, cinematic, skip_color_palette, project_id, session_id
       });
 
       if (ui()) return uiGenerating({
         tool: 'generate_image_edit', kind: 'image', gen, client, model, prompt,
         count: num_images,
-        settings: imageSettings({ resolution, aspect_ratio, enhance_prompt, enable_web_search, visual_dna_ids, moodboard_id, cinematic }),
+        settings: imageSettings({ resolution, aspect_ratio, enhance_prompt, enable_web_search, visual_dna_ids, moodboard_id, preset_id, cinematic }),
         reference_image: source_images?.[0]
       });
 

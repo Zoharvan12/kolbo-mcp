@@ -12,9 +12,9 @@ function registerPresetTools(server, client, options = {}) {
   // ─── list_presets ──────────────────────────────────────────
   server.tool(
     'list_presets',
-    'List generation presets across image, video, music, and text-to-video catalogs. Presets bundle a specific prompt template + style direction that can be passed to a generation tool via its `preset_id` arg for a one-shot creative direction. Filter by `type` to narrow to a specific catalog. Returns id, name, description, thumbnail, category, and (for music) audio preview URL.',
+    'List generation presets across image, image-editing, video, music, and text-to-video catalogs. Use this BEFORE generating whenever the user requests a preset, names a preset, or asks to use one of their/Kolbo presets. Resolve the requested name or choose the closest match from the correct `type`, then pass the returned exact `id` as `preset_id` on the generation tool. Never claim a preset was used unless that id is passed. Returns id, name, description, thumbnail, category, and (for music) audio preview URL.',
     {
-      type: z.string().optional().describe('Filter by catalog: "image" | "video" | "music" | "text_to_video". Omit for all.')
+      type: z.string().optional().describe('Filter by catalog: "image" | "image_edit" | "video" | "music" | "text_to_video". Omit for all.')
     },
     async ({ type }) => {
       const params = new URLSearchParams();
@@ -30,7 +30,7 @@ function registerPresetTools(server, client, options = {}) {
         cap: 60,
         total: result.count || presets.length,
         extra: result.warning ? { warning: result.warning } : undefined,
-        note: 'Filter with `type` (image | video | music | text_to_video) to see a focused set.',
+        note: 'Filter with `type` (image | image_edit | video | music | text_to_video) to see a focused set. Pass the chosen exact id as `preset_id` on the next generation call.',
       });
 
       if (ui()) {

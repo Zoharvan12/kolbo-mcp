@@ -113,13 +113,13 @@ Just ask your agent naturally:
 
 Without the optional skill, the config block alone already exposes every tool — you just describe what you want. With the skill installed, each of these is also routed to the right MCP tool with the right defaults — UGC mode picks 9:16 + sound-off + no-captions, marketplace mode enforces compliance (pure white bg, no text, no props), product photoshoot mode uses the right aspect for the platform (2:3 Pinterest, 16:9 hero banner, 1:1 IG feed), etc. The routing logic is shared with [Kolbo Code](https://github.com/Zoharvan12/kolbo-code), so the behavior is identical however you connect.
 
-## Available Tools (117)
+## Available Tools
 
 **Generation**
 | Tool | Description |
 |------|-------------|
-| `generate_image` | Text → image |
-| `generate_image_edit` | Existing image(s) + prompt → edited image |
+| `generate_image` | Text → image. Supports `preset_id` from `list_presets type="image"`. |
+| `generate_image_edit` | Existing image(s) + prompt → edited image. Supports `preset_id` from `list_presets type="image_edit"`. |
 | `generate_video` | Text → video |
 | `generate_video_from_image` | Still image + motion prompt → video |
 | `generate_video_from_video` | Input video → restyled video, or burn in subtitles (video-to-video). `prompt` optional — prompt-less models (VEED Subtitles, Act Two, Wan Animate) use `preset` / `source_language` / `translation_language`, plus `srt_content` / `srt_file_url` / `vocabulary` / `customization` for VEED |
@@ -233,7 +233,7 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 |------|-------------|
 | `list_models` | Current model catalog with costs and capabilities |
 | `list_voices` | TTS voices (presets + cloned) |
-| `list_presets` | Generation presets across image/video/music/text-to-video catalogs |
+| `list_presets` | Generation presets across image/image-edit/video/music/text-to-video catalogs. Pass the selected exact id as `preset_id`; never claim a preset was applied without it. |
 | `list_cinematic_presets` | "Cinema mode" presets grouped by dimension (camera, lens, focal_length, aperture, angle, shot_type, color_palette, lighting) — pass ids via the `cinematic` arg on `generate_image` / `generate_image_edit`. Only when the user wants a specific cinematic look |
 | `list_projects` | List owned + shared projects (id, name, role, is_default) — call first to resolve a project name into the `project_id` you pass to generation tools |
 | `move_session` | Move a session (generation, chat, transcription…) and ALL its media to another project |
