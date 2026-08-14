@@ -6,7 +6,7 @@
 
 Load this file when the user wants a **GPT Image 2 / gpt-image-2** image (OpenAI). For other image models see `models/nano-banana.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
 
-**Kolbo MCP routing:** call `generate_image` (text-to-image) or `generate_image_edit` (edits with `source_images`). Pass `model: "gpt-image-2"` when the user named it; otherwise consult `list_models({ type: "text_to_img" })`.
+**Kolbo MCP routing:** call `generate_image` (text-to-image) or `generate_image_edit` (edits with `source_images`). Pass `model: "gpt-image-2"` when the user named it. For photoreal photo edits that need identity lock or readable on-image text, default to `gpt-image-2` via `generate_image_edit` — consult `list_models({ type: "image_editing" })`. Do not auto-pick Flux.
 
 ## CRITICAL Kolbo Platform Rules
 

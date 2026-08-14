@@ -2,8 +2,79 @@ const { AsyncLocalStorage } = require('async_hooks');
 
 const storage = new AsyncLocalStorage();
 
-function run(extra, fn) {
-  return storage.run(extra, fn);
+async function run(extra, fn) {
+  return storage.run(extra, async () => {
+    try {
+      return await fn();
+    } finally {
+      if (extra?.signal && extra.__kolboAbortListener) {
+        extra.signal.removeEventListener('abort', extra.__kolboAbortListener);
+      }
+      if (extra) {
+        delete extra.__kolboAbortListener;
+        delete extra.__kolboTrackedGenerations;
+      }
+    }
+  });
+}
+
+function signal() {
+  return storage.getStore()?.signal;
+}
+
+function abortError() {
+  const error = new Error('The MCP tool call was cancelled by the caller.');
+  error.name = 'AbortError';
+  return error;
+}
+
+/** Wait without keeping a cancelled tool call alive until the next poll tick. */
+function wait(ms) {
+  const callerSignal = signal();
+  if (!callerSignal) return new Promise(resolve => setTimeout(resolve, ms));
+  if (callerSignal.aborted) return Promise.reject(abortError());
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      callerSignal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      callerSignal.removeEventListener('abort', onAbort);
+      reject(abortError());
+    };
+    callerSignal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/**
+ * Associate a submitted backend generation with the current MCP tool call.
+ * If Kolbo Code, Claude, or another MCP host cancels the tool while it is
+ * polling, every submitted generation is cancelled server-side as well.
+ */
+function trackGeneration(id, cancel) {
+  const extra = storage.getStore();
+  if (!extra?.signal || !id || typeof cancel !== 'function') return;
+
+  if (!extra.__kolboTrackedGenerations) extra.__kolboTrackedGenerations = new Map();
+  extra.__kolboTrackedGenerations.set(String(id), cancel);
+
+  const cancelTracked = () => {
+    const tracked = extra.__kolboTrackedGenerations;
+    if (!tracked) return;
+    extra.__kolboTrackedGenerations = new Map();
+    for (const cancelOne of tracked.values()) {
+      Promise.resolve().then(cancelOne).catch(() => {});
+    }
+  };
+
+  if (!extra.__kolboAbortListener) {
+    extra.__kolboAbortListener = cancelTracked;
+    extra.signal.addEventListener('abort', cancelTracked, { once: true });
+  }
+
+  if (extra.signal.aborted) cancelTracked();
 }
 
 async function generation(id) {
@@ -52,4 +123,4 @@ async function sendGenerationProgress(extra, token, id) {
   });
 }
 
-module.exports = { run, generation, tick };
+module.exports = { run, generation, tick, signal, wait, trackGeneration };

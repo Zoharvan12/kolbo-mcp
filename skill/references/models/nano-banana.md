@@ -6,7 +6,7 @@
 
 Load this file when the user wants a **Nano Banana 2 (Gemini 3.1 Flash Image)** or **Nano Banana Pro (Gemini 3 Pro Image)** image. For other image models see `models/gpt-image.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
 
-**Kolbo MCP routing:** call `generate_image` or `generate_image_edit`. Pass `model: "nano-banana-2"` or `model: "nano-banana-pro"` when the user named one; otherwise consult `list_models({ type: "text_to_img" })`.
+**Kolbo MCP routing:** call `generate_image` or `generate_image_edit`. Pass `model: "nano-banana-2"` or `model: "nano-banana-pro"` when the user named one. For prompt-driven photoreal photo edits (object removal, keep subject / remove others), default to `nano-banana-2` via `generate_image_edit` — consult `list_models({ type: "image_editing" })`. Do not auto-pick Flux.
 
 ## CRITICAL Kolbo Platform Rules
 

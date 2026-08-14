@@ -258,7 +258,7 @@ src/tools/media.js       — Media library: media_upload_widget, create_upload_t
 src/tools/presets.js     — Preset discovery (list_presets — unified across catalogs)
 src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
 src/tools/docs.js        — AI Docs / Magic Pad (create_doc, list_docs, get_doc, update_doc, share_doc, delete_doc)
-src/tools/projects.js   — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool; move_session — move a session + its media between projects)
+src/tools/projects.js   — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool) + session ORGANIZATION (move_session / bulk_move_sessions between projects; list_session_generations / move_generations_to_session / split_session between sessions; undo_session_organization). All of the organization tools are thin passthroughs to kolbo-api modules/sessionOrganization/service.js — never re-implement a move client-side.
 src/tools/agents.js      — Custom chat agents CRUD (list_agents, create_agent, update_agent, delete_agent — reusable named personas; `description` is the system instruction)
 src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
 src/tools/music_library.js — SYNCI preview discovery plus idempotent paid clean MP3/WAV acquisition/import
@@ -401,6 +401,11 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `list_models` | `GET /v1/models` |
 | `list_projects` | `GET /v1/projects` |
 | `move_session` | `PATCH /v1/sessions/:sessionId/project` |
+| `bulk_move_sessions` | `POST /v1/sessions/move` |
+| `list_session_generations` | `GET /v1/sessions/:sessionId/generations` |
+| `move_generations_to_session` | `POST /v1/sessions/:sessionId/generations/move` |
+| `split_session` | `POST /v1/sessions/:sessionId/split` |
+| `undo_session_organization` | `POST /v1/sessions/organize/undo/:operationId` |
 | `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | `POST/GET /v1/docs`, `GET/PUT/DELETE /v1/docs/:id`, `PATCH /v1/docs/:id/share` |
 | `generate_character_sheet` (in `src/tools/visual_dna.js`) | `POST /v1/visual-dna/character-sheet` |
 | `get_session_usage` | see `src/tools/` — per-session usage stats |
