@@ -99,11 +99,11 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `generate_video` | Text-to-video. Does **not** support Visual DNA — use `generate_elements` for character-consistent video. |
 | `generate_video_from_image` | Animate a still. Prompt describes motion, not subject. |
 | `generate_video_from_video` | Restyle/transform an existing video. Keeps original motion. |
-| `generate_elements` | Reference-driven video. **Primary route for DNA → video.** Supports `multi_shots` / `multi_shot_count` (badge/metadata/native flag only — never rewrites the prompt) and short `session_name`. Crafted demos: `enhance_prompt:false` + put shot structure in the prompt. |
+| `generate_elements` | Reference-driven video. **Primary route for DNA → video.** |
 | `generate_first_last_frame` | Keyframe interpolation between two frames. |
 | `generate_lipsync` | Lipsync audio to an image or video face. |
 | `generate_music` | Music generation (Suno + variants). |
-| `generate_speech` | TTS. Use `list_voices` to pick a voice. Pass provider controls: Google/Gemini `style_instructions_preset_id` (warm/dramatic/whisper/excited/calm/cheerful/serious/storyteller/sad/intimate/british/commercial) or free-form `style_instructions` + `language` as Accent; DeepDub/MiniMax/Cartesia `selected_style`/`emotion`; `speaking_speed`; ElevenLabs `similarity_boost`/`style`; MiniMax `minimax_pitch`/`minimax_vol`/…. |
+| `generate_speech` | TTS. Use `list_voices` to pick a voice. |
 | `generate_sound` | Sound effects. |
 | `generate_3d` | 3D models from text / single image / multi-view. Returns GLB/FBX/OBJ/USDZ. |
 
@@ -125,7 +125,6 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `clone_voice` / `import_elevenlabs_voice` / `delete_voice` | Custom voices (clone CHARGES CREDITS — confirm first; new voices show in `list_voices`) |
 | `trim_video` | Frame-accurate trim of a Kolbo-hosted video (tool waits and returns the URL). `edit_video` also gained `remove_background`. |
 | `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | AI Docs (Magic Pad): YOU author full HTML documents (plans, briefs, scripts, research) saved into the user's project, editable in the Kolbo app. `share_doc` returns a public link. `update_doc` content replaces the WHOLE doc — `get_doc` first. |
-| `create_review_asset` / `list_review_assets` / `get_review_asset` / `update_review_asset` / `add_review_version` / `set_review_status` / `delete_review_asset` / `get_review_storage_usage` / review collection + comment + share-link tools | **Kolbo Review** (Frame.io-style): upload first via `upload_media` / ticket / widget → pass `media_id` to `create_review_asset`. Comments are text + optional timecodes. `create_review_share_link` returns a guest URL. |
 | `chat_send_message` / `chat_list_conversations` / `chat_get_messages` | Kolbo chat with optional `media_urls` (up to 10 per call) |
 | `publish_html_artifact` | Publish HTML / SVG / Mermaid to `sites.kolbo.ai`. Server dedupes by content hash. Strict CSP. |
 
@@ -177,10 +176,9 @@ Model types for `list_models`: `text_to_img`, `image_editing`, `text_to_video`, 
 
 Everything in Kolbo — sessions, generations, media, docs — lives inside a PROJECT. Getting this wrong is the #1 user complaint ("my work went to the wrong project").
 
-1. **User names a project** ("in my Acme project", "for the film") → call `list_projects` ONCE to resolve the name to an ObjectId, then pass that id as `project_id` on **EVERY** subsequent `generate_*` / `upload_media` / `create_doc` / `chat_send_message` call in the conversation. It is **per-call, NOT sticky** — any call that omits it silently lands in the default "API Generations" bucket (`is_default: true`).
+1. **User names a project** ("in my Acme project", "for the film") → call `list_projects` ONCE to resolve the name to an ObjectId, then pass that id as `project_id` on **EVERY** subsequent `generate_*` / `upload_media` / `create_doc` / `chat_send_message` call in the conversation. It is **per-call, NOT sticky** — any call that omits it silently lands in the default "API Generations" bucket (`is_default: true`). Accounts often hold hundreds of projects, so pass `list_projects({ search: "acme" })` rather than listing everything; the list is paginated (50/page) and hides archived projects unless you pass `include_archived: true`.
 2. **No project mentioned** → omit `project_id`; the default bucket is correct. Don't ask unless intent is ambiguous.
 3. **Work landed in the wrong project? MOVE it, never regenerate**: `move_session` relocates a whole session + all its media (works for any session type — the `session_id` from generation responses, chats, transcriptions); `move_media` / `bulk_move_media` / `move_folder_contents` relocate individual media items.
-4. **Inside the project, keep a related set in ONE session.** Every generation response returns a `session_id`. When a set needs several calls — shot 2, 3, 4 of a sequence, or more takes of the same idea — pass the FIRST call's `session_id` back on each follow-up. Without it every call opens its own session and the user's sidebar fills with near-identical single-item sessions. Prefer a real batch where one exists (`prompts` on `generate_image` / `generate_video`, `items` on `generate_video_from_image` — up to 8 `{image_url, prompt}` pairs animated in one call and one widget — `num_images`, `generate_creative_director`); use `session_id` for the tools that animate/edit one thing per call (`generate_elements`, `generate_first_last_frame`, `generate_lipsync`, `generate_video_from_video`, `edit_image`, `edit_video`), and across batches when a sequence runs longer than 8. Start a NEW session (omit it) when the next generation is unrelated.
 
 
 ## Cost Awareness — Quick Rules
@@ -228,7 +226,7 @@ You are NOT allowed to:
 
 Existing video → modify → **single `generate_video_from_video` call** with source video URL + edit prompt.
 
-**Use a TRUE video-to-video model.** Image-to-video models reject with `WRONG_MODEL_TYPE`. Valid: `wan/2-7-videoedit`, `happyhorse/video-edit`, `kling-video/o3-video-to-video`, `pika/pikadditions/video-to-video`, `pika/pikaswaps/video-to-video`, `pika/pikaffects/video-to-video`, or any model whose DB `type` includes `video_to_video` (use `list_models({ type: "video_to_video" })`).
+**Use a TRUE video-to-video model.** Image-to-video models reject with `WRONG_MODEL_TYPE`. Valid: `wan/2-7-videoedit`, `happyhorse/video-edit`, `kling-video/o3-video-to-video`, or any model whose DB `type` includes `video_to_video` (use `list_models({ type: "video_to_video" })`).
 
 **Motion-control / animate-move models invert the inputs**: `reference_images[0]` = the CHARACTER IMAGE to animate, `source_video` = the driving/reference video whose motion is transferred. Omitting the character image returns a `MOTION_CONTROL_INPUTS` error.
 
