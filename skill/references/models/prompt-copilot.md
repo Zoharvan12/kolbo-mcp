@@ -123,6 +123,7 @@ If during the conversation it becomes clear the user is actually working with on
 | User mentions / asks for | Switch to |
 |---|---|
 | Seedance / Seedance 2 / Bytedance video | `models/seedance.md` |
+| Seedance 2.5 | `models/seedance25.md` (also load `models/seedance.md`) |
 | GPT Image 2 / gpt-image-2 / OpenAI image | `models/gpt-image.md` |
 | Nano Banana / Gemini image / Gemini 3 Pro Image | `models/nano-banana.md` |
 | Veo / Veo 3 / Veo 3.1 / Google video | `models/veo.md` |

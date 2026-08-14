@@ -47,6 +47,26 @@ function isAbortError(err) {
   return err && (err.name === 'TimeoutError' || err.name === 'AbortError');
 }
 
+function composeSignals(signals) {
+  const active = signals.filter(Boolean);
+  if (active.length === 0) return { signal: undefined, cleanup: () => {} };
+  if (active.length === 1) return { signal: active[0], cleanup: () => {} };
+
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  for (const item of active) {
+    if (item.aborted) {
+      controller.abort();
+      break;
+    }
+    item.addEventListener('abort', onAbort, { once: true });
+  }
+  return {
+    signal: controller.signal,
+    cleanup: () => active.forEach(item => item.removeEventListener('abort', onAbort))
+  };
+}
+
 // ---------------------------------------------------------------------------
 // 429 handling
 // ---------------------------------------------------------------------------
@@ -279,18 +299,18 @@ class KolboClient {
     return false;
   }
 
-  async request(method, reqPath, body = null) {
+  async request(method, reqPath, body = null, requestOptions = {}) {
     if (!this.apiKey) await this._ensureLogin();
-    const result = await this._doRequest(method, reqPath, body);
+    const result = await this._doRequest(method, reqPath, body, requestOptions);
 
     // On 401, try re-reading auth store and retry once
     if (result._status === 401 && this._tryRefreshKey()) {
-      return this._doRequest(method, reqPath, body);
+      return this._doRequest(method, reqPath, body, requestOptions);
     }
     return result;
   }
 
-  async _doRequest(method, reqPath, body = null) {
+  async _doRequest(method, reqPath, body = null, requestOptions = {}) {
     const url = `${this.baseUrl}${reqPath}`;
     const headers = {
       'X-API-Key': this.apiKey,
@@ -313,21 +333,32 @@ class KolboClient {
       options.body = JSON.stringify(body);
     }
 
-    options.signal = timeoutSignal(REQUEST_TIMEOUT_MS);
+    const callerSignal = requestOptions.ignoreCallerSignal ? null : progress.signal();
+    const requestTimeoutMs = requestOptions.timeoutMs || REQUEST_TIMEOUT_MS;
+    const composed = composeSignals([callerSignal, timeoutSignal(requestTimeoutMs)]);
+    options.signal = composed.signal;
 
     let response;
     try {
       response = await fetch(url, options);
     } catch (err) {
       if (isAbortError(err)) {
+        if (callerSignal?.aborted) {
+          throw new KolboApiError(
+            `Request cancelled by caller: ${method} ${reqPath}`,
+            { code: 'REQUEST_CANCELLED', status: 499 }
+          );
+        }
         throw new KolboApiError(
-          `Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s: ${method} ${reqPath}. ` +
+          `Request timed out after ${requestTimeoutMs / 1000}s: ${method} ${reqPath}. ` +
           'The job may still be running server-side — poll get_generation_status before retrying. ' +
           'Raise KOLBO_HTTP_TIMEOUT_MS if this is a legitimately slow endpoint.',
           { code: 'REQUEST_TIMEOUT', status: 504 }
         );
       }
       throw err;
+    } finally {
+      composed.cleanup();
     }
 
     let data;
@@ -367,16 +398,37 @@ class KolboClient {
     const generationId = data?.generation_id || data?.generationId;
     if (method === 'POST' && generationId) {
       await progress.generation(generationId);
+      if (!requestOptions.suppressGenerationTracking) {
+        progress.trackGeneration(generationId, () => this._cancelAfterCallerAbort(generationId));
+      }
     }
     return data;
   }
 
-  async post(reqPath, body) {
-    return this.request('POST', reqPath, body);
+  async _cancelAfterCallerAbort(generationId) {
+    try {
+      await this._doRequest(
+        'POST',
+        `/v1/generate/${encodeURIComponent(generationId)}/cancel`,
+        {},
+        {
+          ignoreCallerSignal: true,
+          suppressGenerationTracking: true,
+          timeoutMs: 30000
+        }
+      );
+    } catch (_) {
+      // The host has already cancelled the visible tool call. This is a
+      // best-effort cleanup and must never become an unhandled rejection.
+    }
   }
 
-  async get(reqPath) {
-    return this.request('GET', reqPath);
+  async post(reqPath, body, requestOptions) {
+    return this.request('POST', reqPath, body, requestOptions);
+  }
+
+  async get(reqPath, requestOptions) {
+    return this.request('GET', reqPath, null, requestOptions);
   }
 
   async put(reqPath, body = null) {
@@ -426,16 +478,24 @@ class KolboClient {
     const body = formData.getBuffer();
     headers['Content-Length'] = String(body.length);
 
+    const callerSignal = progress.signal();
+    const composed = composeSignals([callerSignal, timeoutSignal(UPLOAD_TIMEOUT_MS)]);
     let response;
     try {
       response = await fetch(url, {
         method: 'POST',
         headers,
         body,
-        signal: timeoutSignal(UPLOAD_TIMEOUT_MS)
+        signal: composed.signal
       });
     } catch (err) {
       if (isAbortError(err)) {
+        if (callerSignal?.aborted) {
+          throw new KolboApiError(
+            `Upload cancelled by caller: POST ${reqPath}`,
+            { code: 'REQUEST_CANCELLED', status: 499 }
+          );
+        }
         throw new KolboApiError(
           `Upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s: POST ${reqPath} ` +
           `(${Math.round(body.length / 1024)}KB). Raise KOLBO_UPLOAD_TIMEOUT_MS for slow links.`,
@@ -443,6 +503,8 @@ class KolboClient {
         );
       }
       throw err;
+    } finally {
+      composed.cleanup();
     }
 
     let data;
@@ -476,6 +538,11 @@ class KolboClient {
       throw apiError;
     }
 
+    const generationId = data?.generation_id || data?.generationId;
+    if (generationId) {
+      await progress.generation(generationId);
+      progress.trackGeneration(generationId, () => this._cancelAfterCallerAbort(generationId));
+    }
     return data;
   }
 }

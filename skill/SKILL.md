@@ -65,6 +65,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | If the user wants to… | Read first |
 |---|---|
 | Generate a **Seedance 2** video | `references/models/seedance.md` |
+| Generate a **Seedance 2.5** video | `references/models/seedance25.md` (also load `seedance.md` for the locked intro + craft layer) |
 | Generate a **GPT Image 2** image | `references/models/gpt-image.md` |
 | Generate a **Nano Banana / Gemini** image | `references/models/nano-banana.md` |
 | Generate a **Veo 3 / 3.1** video | `references/models/veo.md` |
@@ -165,6 +166,7 @@ A user-named tool — in any language — overrides every other rule. Recognized
    - User named one → use it. Model identifiers resolve leniently — shorthand like `"z-image"` or `"nano banana 2"` auto-resolves to the exact identifier, so don't over-engineer exact-id lookups (`list_models` is still authoritative for constraints, caps, and pricing).
    - Auto-select → only from "Auto-selectable" section (models with a `summary`). Cheapest fit. Prefer `[RECOMMENDED]` when cost is similar.
    - Never auto-select from "Named-only" section.
+   - **Photoreal photo edits** (object removal, keep one person / remove the crowd, inpainting, "edit this photo") → `generate_image_edit` with **Nano Banana 2** or **GPT Image 2** only. Do not auto-pick Flux 2 / Flux Klein — those are generate-from-scratch / style, named-only for editing.
 4. **Validate inputs** against model caps — see `references/workflows/cost-and-validation.md`.
 5. **How calls work**: each tool blocks until generation is fully complete. Images: seconds. Video: minutes. Multiple tool calls in one response run concurrently. On hosts with live widgets the tool instead returns `submitted` instantly — the card updates on its own; you only need `get_generation_status` when a follow-up step needs the output URLs.
 6. **Checking status — NEVER poll in a loop**: `get_generation_status` takes `wait=true` (blocks server-side until done, ~3 min) and `generation_ids` (check MANY generations in ONE call — returns `all_done` + which are still running). One `wait=true` call replaces any polling loop. If it comes back with some still processing, call it ONCE more with `wait=true` and the remaining ids.

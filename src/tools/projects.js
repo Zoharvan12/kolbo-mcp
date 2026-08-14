@@ -85,7 +85,6 @@ function registerProjectTools(server, client, options = {}) {
       };
     }
   );
-
   // ─── bulk_move_sessions ────────────────────────────────────
   server.tool(
     'bulk_move_sessions',

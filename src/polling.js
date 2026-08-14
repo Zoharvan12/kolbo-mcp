@@ -80,7 +80,7 @@ async function pollUntilDone(client, generationId, options = {}) {
         }
         const backoff = Math.min(interval * Math.pow(1.5, Math.min(transientFailures - 1, 5)), 30000);
         await progress.tick(); // same keepalive as the normal path — backoff waits up to 30s
-        await new Promise((resolve) => setTimeout(resolve, backoff));
+        await progress.wait(backoff);
         continue;
       }
       // Non-transient (auth, 4xx other than 408/425/429) — bubble up.
@@ -109,7 +109,7 @@ async function pollUntilDone(client, generationId, options = {}) {
     // cadence could return at 60s). That is the difference between landing
     // inside the caller's transport window and blowing straight through it.
     const remaining = timeout - (Date.now() - startTime);
-    await new Promise(resolve => setTimeout(resolve, Math.max(0, Math.min(interval, remaining))));
+    await progress.wait(Math.max(0, Math.min(interval, remaining)));
   }
 }
 
