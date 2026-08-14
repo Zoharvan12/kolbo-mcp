@@ -35,6 +35,20 @@ for (const uri of Object.values(UI)) {
   });
 }
 
+// Generated and catalog media must preserve the complete frame. Square host
+// cells are common even when the output is 3:4 or 16:9; cover crops heads,
+// captions, and product edges. Small navigational thumbnails may still cover.
+const generationHtml = widgetHtml(UI.generation);
+const mediaGridHtml = widgetHtml(UI.mediaGrid);
+assert.ok(/\.k-cell-fill\s*\{[^}]*object-fit:\s*contain/s.test(generationHtml),
+  'generation batch media is cropped with object-fit: cover');
+assert.ok(/\.k-media img, \.k-media video\s*\{[^}]*object-fit:\s*contain/s.test(generationHtml),
+  'generation media tiles do not preserve the full frame');
+assert.ok(/\.k-cell \.k-cell-media img\s*\{[^}]*object-fit:\s*contain/s.test(mediaGridHtml),
+  'media/preset grid thumbnails are cropped with object-fit: cover');
+assert.ok(/object-fit:contain;background:#000/.test(mediaGridHtml),
+  'in-place media grid video playback is cropped');
+
 // ── 2. generation widget behaviour ──────────────────────────────────────────
 function stubEl() {
   const e = {

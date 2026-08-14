@@ -35,7 +35,7 @@ const tools = Object.fromEntries(Object.entries(TOOL_ANNOTATIONS).map(([name, an
 ]));
 
 const output = {
-  $schema: 'https://developers.openai.com/plugins/schemas/chatgpt-app-submission.v1.json',
+  $schema: 'https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json',
   schema_version: 1,
   app_info: {
     display_name: 'Kolbo.AI',

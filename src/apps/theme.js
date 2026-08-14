@@ -140,7 +140,7 @@ body {
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .k-skel.done::after { animation: none; background: none; }
-.k-cell-fill { width: 100%; height: 100%; object-fit: cover; display: block; }
+.k-cell-fill { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
 .k-gen-badge {
   position: absolute; top: 10px; left: 10px; z-index: 2;
   display: inline-flex; align-items: center; gap: 6px;
@@ -170,7 +170,7 @@ body {
 .k-media { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
   background: #000; cursor: pointer; transition: transform 300ms var(--spring), box-shadow 300ms var(--smooth); }
 .k-media:hover { transform: scale(1.015); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45); }
-.k-media img, .k-media video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.k-media img, .k-media video { display: block; width: 100%; height: 100%; object-fit: contain; }
 .k-media.selected { outline: 2px solid var(--brand); outline-offset: 1px; }
 
 /* ---- Per-item hover download button (multi-image grids, CD scenes, viewer) ---- */
@@ -257,7 +257,7 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
   background: var(--surface); cursor: pointer; transition: transform 250ms var(--spring); }
 .k-cell:hover { transform: translateY(-2px) scale(1.01); }
 .k-cell .k-cell-media { position: relative; aspect-ratio: 1; background: #000; }
-.k-cell .k-cell-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.k-cell .k-cell-media img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .k-cell-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 .k-cell .k-cell-label { padding: 6px 8px; font-size: 11px; color: var(--text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

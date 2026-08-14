@@ -278,8 +278,8 @@ Every generation tool below also accepts an optional `project_id` arg that route
 **Generation** (`src/tools/generate.js`)
 | Tool | Route | Timeout | Composition args |
 |------|-------|---------|-----------------|
-| `generate_image` | `POST /v1/generate/image` | 120s | `visual_dna_ids`, `moodboard_id`, `reference_images`, `num_images`, `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette`, `prompts[]` (batch fan-out, v1.57+) |
-| `generate_image_edit` | `POST /v1/generate/image-edit` | 120s | `source_images`, `visual_dna_ids`, `moodboard_id`, `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette` |
+| `generate_image` | `POST /v1/generate/image` | 120s | `visual_dna_ids`, `moodboard_id`, `preset_id` (from `list_presets type="image"`), `reference_images`, `num_images`, `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette`, `prompts[]` (batch fan-out, v1.57+) |
+| `generate_image_edit` | `POST /v1/generate/image-edit` | 120s | `source_images`, `visual_dna_ids`, `moodboard_id`, `preset_id` (from `list_presets type="image_edit"`), `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette` |
 | `generate_video` | `POST /v1/generate/video` | 900s | `visual_dna_ids`, `reference_images`, `resolution`, `sound_enabled`, `skip_color_palette`, `prompts[]` (batch fan-out, v1.57+) |
 | `generate_video_from_image` | `POST /v1/generate/video/from-image` | 900s | `image_url`, `visual_dna_ids`, `aspect_ratio`, `resolution`, `sound_enabled`, `skip_color_palette` |
 | `generate_video_from_video` | `POST /v1/generate/video-from-video` | 600s | `source_video` (URL or local), optional `prompt`, `visual_dna_ids`, `resolution`; VEED Subtitles: `preset` / `source_language` / `translation_language` / `srt_content` / `srt_file_url` / `vocabulary` / `customization` |
@@ -331,7 +331,7 @@ Every generation tool below also accepts an optional `project_id` arg that route
 **Preset Discovery** (`src/tools/presets.js`)
 | Tool | Route | Notes |
 |------|-------|-------|
-| `list_presets` | `GET /v1/presets` | Unified across image/video/music/text_to_video; filter with `type` |
+| `list_presets` | `GET /v1/presets` | Unified across image/image_edit/video/music/text_to_video; filter with `type`, then pass the selected exact id as `preset_id` |
 | `list_cinematic_presets` | `GET /v1/cinematic-presets` | "Cinema mode" presets grouped by dimension; ids feed the optional `cinematic` object on `generate_image` / `generate_image_edit` |
 
 **Chat** (`src/tools/chat.js`)

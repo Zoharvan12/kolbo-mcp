@@ -112,7 +112,7 @@ function wire() {
       e.stopPropagation();
       var url = b.getAttribute('data-video-play');
       var holder = b.parentNode;
-      holder.innerHTML = '<video src="' + esc(url) + '" controls autoplay playsinline style="width:100%;height:100%;object-fit:cover"></video>';
+      holder.innerHTML = '<video src="' + esc(url) + '" controls autoplay playsinline style="width:100%;height:100%;object-fit:contain;background:#000"></video>';
       holder.querySelector('video').onclick = function (ev) { ev.stopPropagation(); };
     };
   });
