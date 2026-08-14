@@ -518,7 +518,7 @@ async function modelChipFields(client, model) {
  *   kind           'image' | 'video' | 'audio' | '3d' | 'scenes'
  *   gen            the submit response ({ generation_id, poll_interval_hint })
  *   client         KolboClient (for model icon lookup)
- *   model, prompt, count, settings, reference_image, estimated_seconds
+ *   model, prompt, count, settings, reference_images, estimated_seconds
  *   voice          resolved voice record { name, thumbnail } (speech only)
  *   poll_tool      widget-side status tool (default 'get_generation_status')
  *   status_args    args for poll_tool (default { generation_id, wait: true })
@@ -542,7 +542,12 @@ async function uiGenerating(p) {
     prompt: p.prompt,
     count: p.count || 1,
     settings: p.settings || {},
-    reference_image: p.reference_image,
+    // `reference_image` is retained for older widget builds. New widgets render
+    // every browser-loadable image supplied to the generation.
+    reference_images: Array.isArray(p.reference_images)
+      ? p.reference_images.filter(Boolean)
+      : (p.reference_image ? [p.reference_image] : []),
+    reference_image: p.reference_image || p.reference_images?.find(Boolean),
     open_url: buildOpenUrl(p.tool, p.gen),
   };
   // Batch mode (prompts[] fan-out): ONE widget tracks every id in the set.
@@ -581,7 +586,10 @@ async function uiCompleted(p, textPayload) {
     prompt: p.prompt,
     count: p.count || 1,
     settings: p.settings || {},
-    reference_image: p.reference_image,
+    reference_images: Array.isArray(p.reference_images)
+      ? p.reference_images.filter(Boolean)
+      : (p.reference_image ? [p.reference_image] : []),
+    reference_image: p.reference_image || p.reference_images?.find(Boolean),
     urls: p.urls,
     thumbnail_url: p.thumbnail_url,
     title: p.title,

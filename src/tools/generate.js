@@ -178,7 +178,7 @@ function registerGenerateTools(server, client, options = {}) {
           generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
           failed_submissions: batch.failed,
           status_args: { generation_ids: batch.ids, wait: true },
-          reference_image: reference_images?.[0]
+          reference_images
         });
         return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 240000 });
       }
@@ -188,7 +188,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_image', kind: 'image', gen, client, model, prompt,
         count: num_images, settings: imageSettings(shared),
-        reference_image: reference_images?.[0]
+        reference_images
       });
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {
@@ -247,7 +247,7 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'generate_image_edit', kind: 'image', gen, client, model, prompt,
         count: num_images,
         settings: imageSettings({ resolution, aspect_ratio, enhance_prompt, enable_web_search, visual_dna_ids, moodboard_id, preset_id, cinematic }),
-        reference_image: source_images?.[0]
+        reference_images: source_images
       });
 
       // Multi-source compositing or DNA-anchored edits routinely exceed 120s
@@ -309,7 +309,7 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'generate_creative_director', kind: 'scenes', gen, client, model, prompt,
         count: scene_count || 4,
         settings: { duration, resolution, aspect_ratio, mode: workflow_type || 'image' },
-        reference_image: reference_images?.[0],
+        reference_images,
         poll_tool: 'get_creative_director_status',
         status_args: { generation_id: gen.generation_id, wait: true }
       });
@@ -466,7 +466,7 @@ function registerGenerateTools(server, client, options = {}) {
           generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
           failed_submissions: batch.failed,
           status_args: { generation_ids: batch.ids, wait: true },
-          reference_image: reference_images?.[0]
+          reference_images
         });
         return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 900000 });
       }
@@ -476,7 +476,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_video', kind: 'video', gen, client, model, prompt,
         settings: { duration, resolution, aspect_ratio },
-        reference_image: reference_images?.[0]
+        reference_images
       });
 
       // 15 min — Kling O3 4K, Veo 3.1 at higher durations/resolutions, Hailuo 2.3,
@@ -550,7 +550,7 @@ function registerGenerateTools(server, client, options = {}) {
           generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
           failed_submissions: batch.failed,
           status_args: { generation_ids: batch.ids, wait: true },
-          reference_image: items[0].image_url
+          reference_images: items.map((item) => item.image_url)
         });
         return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 900000 });
       }
@@ -560,7 +560,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_video_from_image', kind: 'video', gen, client, model, prompt,
         settings: { duration, resolution, aspect_ratio },
-        reference_image: image_url
+        reference_images: [image_url]
       });
 
       // 15 min — same real-world generation times as generate_video (Kling O3 4K,
@@ -791,7 +791,8 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (ui()) return uiGenerating({
         tool: 'generate_sound', kind: 'audio', gen, client, model, prompt,
-        settings: { duration }
+        settings: { duration },
+        reference_images: seed_reference_image_url ? [seed_reference_image_url] : []
       });
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {
@@ -1050,7 +1051,11 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_elements', kind: 'video', gen: startResponse, client, model, prompt,
         settings: { duration, resolution, aspect_ratio },
-        reference_image: reference_images?.[0]
+        reference_images: [
+          ...(reference_images || []),
+          ...(keyframes || []).map((keyframe) => keyframe.image_url),
+          ...(files || []).filter((source) => /^https?:\/\//i.test(source))
+        ]
       });
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
@@ -1134,7 +1139,8 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_first_last_frame', kind: 'video', gen: startResponse, client, model, prompt,
         settings: { duration, resolution, aspect_ratio },
-        reference_image: first_frame_url || undefined
+        reference_images: [first_frame_url || first_frame, last_frame_url || last_frame]
+          .filter((source) => /^https?:\/\//i.test(source || ''))
       });
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
@@ -1249,7 +1255,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_lipsync', kind: 'video', gen: startResponse, client, model,
         prompt: text_prompt, settings: { mode: 'lipsync' },
-        reference_image: sourceIsUrl && !/\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? source : undefined,
+        reference_images: sourceIsUrl && !/\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? [source] : [],
       });
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
@@ -1354,7 +1360,7 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'generate_video_from_video', kind: 'video', gen: startResponse, client, model,
         prompt: prompt || (preset ? `Subtitles preset: ${preset}` : undefined),
         settings: { duration, resolution, aspect_ratio, mode: preset ? 'subtitles' : 'restyle' },
-        reference_image: reference_images?.[0]
+        reference_images: [...(reference_images || []), ...(elements || [])]
       });
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
@@ -1497,7 +1503,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_3d', kind: '3d', gen: startResponse, client, model, prompt,
         settings: { mode: mode || (reference_images?.length > 1 ? 'multi' : reference_images?.length === 1 ? 'single' : 'text') },
-        reference_image: reference_images?.[0]
+        reference_images
       });
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
@@ -1643,7 +1649,7 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'edit_image', kind: 'image', gen, client, model,
         prompt: prompt || operation,
         settings: { mode: operation, aspect_ratio, scale, resolution },
-        reference_image: image_url
+        reference_images: [image_url, mask_image_url, ...(additional_images || [])].filter(Boolean)
       });
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {
@@ -1808,7 +1814,7 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'edit_video', kind: 'video', gen, client, model,
         prompt: prompt || operation,
         settings: { mode: operation, duration, aspect_ratio, resolution },
-        reference_image: image_url
+        reference_images: image_url ? [image_url] : []
       });
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {

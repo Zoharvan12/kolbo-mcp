@@ -121,6 +121,18 @@ async function main() {
       const music = await server._registeredTools.generate_music.handler({ prompt: 'smoke music', model: 'suno-v5.5' });
       const speech = await server._registeredTools.generate_speech.handler({ text: 'smoke speech', model: 'eleven_v3' });
       const sound = await server._registeredTools.generate_sound.handler({ prompt: 'smoke sound', model: 'elevenlabs-sound-effects-v1' });
+      const imageEditRefs = ['https://cdn.example/base.png', 'https://cdn.example/logo.png'];
+      const elementRefs = ['https://cdn.example/product.png', 'https://cdn.example/person.png'];
+      const frameRefs = ['https://cdn.example/first.png', 'https://cdn.example/last.png'];
+      const imageEdit = await server._registeredTools.generate_image_edit.handler({
+        prompt: 'combine these', source_images: imageEditRefs, model: 'z-image/turbo',
+      });
+      const elements = await server._registeredTools.generate_elements.handler({
+        prompt: 'animate together', reference_images: elementRefs, model: 'seedance-2',
+      });
+      const firstLast = await server._registeredTools.generate_first_last_frame.handler({
+        first_frame_url: frameRefs[0], last_frame_url: frameRefs[1],
+      });
       if (video.structuredContent?.phase !== 'generating' || video.structuredContent?.generation_id !== 'video-1') {
         throw new Error('Codex video did not return the submitted widget contract');
       }
@@ -138,6 +150,15 @@ async function main() {
             result.structuredContent?.kind !== 'audio' ||
             result.structuredContent?.status_args?.wait !== true) {
           throw new Error(`Codex ${name} did not return the async audio-widget contract`);
+        }
+      }
+      for (const [name, result, expected] of [
+        ['image edit', imageEdit, imageEditRefs],
+        ['elements', elements, elementRefs],
+        ['first/last frame', firstLast, frameRefs],
+      ]) {
+        if (JSON.stringify(result.structuredContent?.reference_images) !== JSON.stringify(expected)) {
+          throw new Error(`Codex ${name} widget did not preserve every reference image`);
         }
       }
       if (statusReads.length) throw new Error(`Codex widget path performed blocking status reads: ${statusReads.join(', ')}`);

@@ -16,7 +16,8 @@ const { widgetPage } = require('../html');
  *   model, model_icon, prompt, count,
  *   settings: { duration, resolution, aspect_ratio, quality, audio, voice, mode,
  *               enhance_prompt, web_search, visual_dna, moodboard, preset, cinematic },
- *   reference_image,                   // thumbnail URL (optional)
+ *   reference_images,                  // all reference thumbnail URLs (optional)
+ *   reference_image,                   // legacy single-thumbnail fallback
  *   urls, thumbnail_url, title, duration, credits_used,
  *   tracks: [{ title, duration, thumbnail_url, model }], // optional audio metadata by URL index
  *   scenes: [{ scene_number, title, image_urls, video_urls }],
@@ -135,7 +136,11 @@ function renderChips(sc) {
   }
   if (s.mode) h += chip(esc(s.mode));
   if (sc.count > 1) h += chip('×' + sc.count);
-  if (sc.reference_image) h += '<img class="k-ref-thumb" src="' + esc(sc.reference_image) + '" alt="" loading="lazy" title="Reference image" onerror="this.style.display=\\'none\\'">';
+  var refs = Array.isArray(sc.reference_images) && sc.reference_images.length
+    ? sc.reference_images : (sc.reference_image ? [sc.reference_image] : []);
+  for (var i = 0; i < refs.length; i++) {
+    h += '<img class="k-ref-thumb" src="' + esc(refs[i]) + '" alt="" loading="lazy" title="Reference image ' + (i + 1) + ' of ' + refs.length + '" onerror="this.style.display=\\'none\\'">';
+  }
   el('chips').innerHTML = h;
 }
 function chip(inner) { return '<span class="k-chip">' + inner + '</span>'; }
