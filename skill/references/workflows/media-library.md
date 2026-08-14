@@ -42,7 +42,7 @@ client share a filesystem. Choose by transport:
 |---|---|
 | **Local (stdio) install** — `npx @kolbo/mcp` on the same machine | `upload_media` with the absolute path |
 | **Remote connector + you can run shell commands** (Claude Code, Codex, Cursor, CI) | `create_upload_ticket`, then POST each file to `upload_url` |
-| **Remote connector, no filesystem** (claude.ai web/mobile) | `media_upload_widget` — the user picks the file. On Claude iOS/Android the card opens a full-screen uploader (in-chat file pickers are dropped by WebKit); after upload the user pastes the copied CDN URLs back into chat. |
+| **Remote connector, no filesystem** (claude.ai web/mobile) | `media_upload_widget` — the user picks the file |
 
 `create_upload_ticket` returns `upload_url` + a short-lived `token`. Upload with
 multipart field `file` and `Authorization: Bearer <token>`; the stable CDN URL comes
@@ -50,19 +50,8 @@ back at `media.url`. One POST per file, ticket reusable for a batch. Then pass t
 URLs to any generation tool.
 
 ```bash
-curl -X POST "<upload_url>" -H "Authorization: Bearer <token>" -F "file=@/abs/path/clip.mp3;type=audio/mpeg"
+curl -X POST "<upload_url>" -H "Authorization: Bearer <token>" -F "file=@/abs/path/clip.mp3"
 ```
-
-**Declare the type.** `curl` labels the part from its own mime table and falls back to
-`application/octet-stream` for anything missing from it — `.mp3` included — which the
-endpoint can reject as an unsupported type. Append `;type=<mime>` (`audio/mpeg`,
-`audio/wav`, `video/mp4`, `image/png`, `application/pdf`, …) and it never comes up.
-
-**Pace a batch.** The upload endpoint is rate limited — the ticket response says by
-how much in `rate_limit` (currently 40 uploads per 60s). Firing 55 files back to
-back stalls at file 41. Sleep ~2s between files, or read the 429: it carries a
-`Retry-After` header and `retry_after_seconds` in the body. Wait exactly that long
-and continue — a 429 is a "not yet", not a failed upload, and nothing was charged.
 
 Do **not** fall back to `upload_media`'s `source_base64` for anything but a tiny file —
 it pushes the whole file through the model's context, twice. And do not reach for

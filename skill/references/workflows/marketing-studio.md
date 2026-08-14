@@ -123,7 +123,7 @@ If the user gives a **product URL** instead of a photo, see `workflows/research-
 
 ## Multi-Slot Board Method (structured shot specs + character consistency)
 
-For any multi-shot UGC / review / how-to where the SAME presenter must stay identical across shots, compose the prompt as explicit **slots** and lock identity with a **board-first** pass. Prefer `generate_elements` with `multi_shots: true` (and a short `session_name`) when animating a single multi-cut Seedance spot; board-first still uses `generate_image` + `generate_elements` / `generate_video_from_image` per slot when you need separate clips.
+For any multi-shot UGC / review / how-to where the SAME presenter must stay identical across shots, compose the prompt as explicit **slots** and lock identity with a **board-first** pass. This is a prompt-only convention — no special MCP mode; it uses `generate_image` (board) + `generate_elements` / `generate_video_from_image` (per-slot animate) that already exist.
 
 ### 1. Structured input slots
 
