@@ -222,10 +222,39 @@ async function completedCardNamesWhatActuallyRan() {
   assert.ok(stage.includes('Google TTS'), 'audio row did not show the clean model name');
 }
 
+function cardShowsEveryReferenceImage() {
+  const refs = [
+    'https://media.kolbo.ai/first.png',
+    'https://media.kolbo.ai/middle.png',
+    'https://media.kolbo.ai/last.png',
+  ];
+  const w = mountWidget();
+  w.deliver({
+    phase: 'generating', widget: 'generation', kind: 'video',
+    tool: 'generate_elements', generation_id: 'gen-refs',
+    poll_tool: 'get_generation_status', reference_images: refs,
+  });
+  const chips = w.html('chips');
+  refs.forEach((url, i) => {
+    assert.ok(chips.includes(url), `reference thumbnail ${i + 1} was dropped`);
+    assert.ok(chips.includes(`Reference image ${i + 1} of ${refs.length}`), `reference thumbnail ${i + 1} lost its position label`);
+  });
+  assert.strictEqual((chips.match(/k-ref-thumb/g) || []).length, refs.length, 'widget did not render one thumbnail per reference image');
+
+  const legacy = mountWidget();
+  legacy.deliver({
+    phase: 'generating', widget: 'generation', kind: 'image',
+    tool: 'generate_image', generation_id: 'gen-legacy-ref',
+    poll_tool: 'get_generation_status', reference_image: refs[0],
+  });
+  assert.ok(legacy.html('chips').includes(refs[0]), 'legacy reference_image fallback stopped rendering');
+}
+
 (async () => {
   await batchStaysOneGrid({ kind: 'image', tool: 'generate_image', ext: 'png' });
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();
+  cardShowsEveryReferenceImage();
   console.log('✓ widget scripts parse; image + image-to-video batches stay one grouped grid; offscreen cards stay idle; '
-    + 'completed cards name the model + voice that actually ran');
+    + 'completed cards name the model + voice that actually ran; all reference images render');
 })().catch((e) => { console.error(e); process.exit(1); });
