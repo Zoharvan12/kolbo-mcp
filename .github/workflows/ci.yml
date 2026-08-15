@@ -21,3 +21,5 @@ jobs:
       - run: npm run smoke
         env:
           KOLBO_API_KEY: dummy_ci_smoke_test
+      - run: npm run check-skill-bundle
+      - run: npm run check-install

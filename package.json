@@ -9,8 +9,9 @@
   "scripts": {
     "start": "node src/index.js",
     "smoke": "node scripts/smoke.js",
+    "check-skill-bundle": "node scripts/check-skill-bundle.js",
     "check-parity": "node scripts/check-parity.js",
-    "prepublishOnly": "node scripts/smoke.js && node scripts/check-parity.js && node scripts/check-widget-fields.js && node scripts/check-widget-render.js && node scripts/check-model-catalog.js && node scripts/check-skill-tools.js && node scripts/check-submission-contract.js && node scripts/check-install.js",
+    "prepublishOnly": "node scripts/smoke.js && node scripts/check-skill-bundle.js && node scripts/check-parity.js && node scripts/check-widget-fields.js && node scripts/check-widget-render.js && node scripts/check-model-catalog.js && node scripts/check-skill-tools.js && node scripts/check-submission-contract.js && node scripts/check-install.js",
     "check-model-catalog": "node scripts/check-model-catalog.js",
     "check-widget-fields": "node scripts/check-widget-fields.js",
     "check-widget-render": "node scripts/check-widget-render.js",

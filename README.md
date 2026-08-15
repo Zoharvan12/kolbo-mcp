@@ -51,7 +51,7 @@ Or add the config by hand — this block is identical for every MCP client and c
 
 | Client | Where the config goes |
 |--------|----------------------|
-| **Claude Code** | `.claude/settings.json` (or `claude mcp add kolbo -- npx -y @kolbo/mcp@latest`) |
+| **Claude Code** | `~/.claude.json` (or `claude mcp add kolbo -- npx -y @kolbo/mcp@latest`) |
 | **Claude Desktop** | `claude_desktop_config.json` |
 | **Cursor** | `.cursor/mcp.json` |
 | **Kolbo Code** | configured automatically on `kolbo auth login` |
@@ -67,15 +67,15 @@ No install at all — add the custom connector **`https://api.kolbo.ai/mcp`** un
 The config above is all you need. If you want one-word slash-commands (`/kolbo:marketing-studio`, `/kolbo:product-photoshoot`, …) and automatic routing to the best tool with the right defaults, install the Kolbo skill on top — it's an enhancement layer, not a requirement:
 
 ```bash
-# Claude Code (also writes the MCP config for you, so you can skip Step 2 above)
-claude plugin marketplace add Zoharvan12/kolbo-skills
-claude plugin install kolbo@kolbo-skills
+# Claude Code plugin (canonical skill + MCP configuration)
+claude plugin marketplace add Zoharvan12/kolbo-claude-plugin
+claude plugin install kolbo@kolbo
 
-# Cursor / Codex / any agent (cross-agent installer)
-npx skills add Zoharvan12/kolbo-skills
+# Skill only — installs the bundled official skill without changing MCP settings
+npx -y @kolbo/mcp@latest skill
 ```
 
-The skill content is the same canonical routing logic that ships inside [Kolbo Code](https://github.com/Zoharvan12/kolbo-code), so however you connect, the behavior matches. See the full setup guide at [docs.kolbo.ai/developer-api/claude-code-skill](https://docs.kolbo.ai/developer-api/claude-code-skill).
+The skill-only command installs the canonical single `kolbo` skill and does not change MCP configuration. The Claude Code plugin and `npx -y @kolbo/mcp install` routes configure MCP as well. Official installer-created skill folders are marked as Kolbo-managed and refresh automatically when the MCP server starts on a newer package; unmarked or hand-authored folders are never overwritten. The canonical skill ships inside [Kolbo Code](https://github.com/Zoharvan12/kolbo-code), so however you connect, the behavior matches. See the full setup guide at [docs.kolbo.ai/developer-api/claude-code-skill](https://docs.kolbo.ai/developer-api/claude-code-skill).
 
 ### Use it
 
