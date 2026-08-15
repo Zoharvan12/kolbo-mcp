@@ -1,8 +1,7 @@
 # AUTO-GENERATED — do not edit
 
-This skill/ tree is mirrored from kolbo-code (the single source of truth)
-by .github/workflows/sync-skill-to-plugin.yml — synced from kolbo-code@f3f8ad9.
+This tree is mirrored from kolbo-code@0fbb0ce, the single source of truth.
+Canonical source: packages/opencode/skills/kolbo/
+Distribution: .github/workflows/sync-skill-to-plugin.yml
 
 Both 'npx -y @kolbo/mcp@latest skill' and the combined 'install' command deploy it.
-To change it, edit packages/opencode/skills/kolbo/ in kolbo-code and push;
-this workflow re-mirrors the whole tree here. Hand-edits here are overwritten.
