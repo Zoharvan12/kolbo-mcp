@@ -16,6 +16,8 @@ const path = require('path');
 const os = require('os');
 
 const KOLBO_ENTRY = { command: 'npx', args: ['-y', '@kolbo/mcp@latest'] };
+const MANAGED_FILE = '.kolbo-managed.json';
+const PACKAGE_VERSION = require('../package.json').version;
 
 function targets() {
   const home = os.homedir();
@@ -78,6 +80,7 @@ function skillTargets() {
   return [
     { name: 'Claude Code skill', root: path.join(home, '.claude'), dir: path.join(home, '.claude', 'skills', 'kolbo') },
     { name: 'Agents skill (Cursor/Codex)', root: path.join(home, '.agents'), dir: path.join(home, '.agents', 'skills', 'kolbo') },
+    { name: 'Kolbo Code skill', root: path.join(home, '.kolbo'), dir: path.join(home, '.kolbo', 'skills', 'kolbo') },
   ];
 }
 
@@ -85,13 +88,43 @@ function installSkill(t) {
   const src = path.join(__dirname, '..', 'skill');
   if (!fs.existsSync(src)) return { ...t, status: 'skill not bundled' };
   if (!fs.existsSync(t.root)) return { ...t, status: 'not found' };
+  const tmp = `${t.dir}.tmp-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
   try {
-    fs.mkdirSync(t.dir, { recursive: true });
-    fs.cpSync(src, t.dir, { recursive: true });
+    // Replace the generated tree so source deletions propagate too. A simple
+    // recursive copy leaves obsolete references behind indefinitely.
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.mkdirSync(path.dirname(t.dir), { recursive: true });
+    fs.cpSync(src, tmp, { recursive: true });
+    fs.writeFileSync(path.join(tmp, MANAGED_FILE), JSON.stringify({
+      source: '@kolbo/mcp',
+      skill: 'kolbo',
+      version: fs.readFileSync(path.join(src, 'VERSION'), 'utf8').trim(),
+      packageVersion: PACKAGE_VERSION,
+    }, null, 2) + '\n');
+    fs.rmSync(t.dir, { recursive: true, force: true });
+    fs.renameSync(tmp, t.dir);
     return { ...t, status: 'installed' };
   } catch (e) {
+    fs.rmSync(tmp, { recursive: true, force: true });
     return { ...t, status: `failed — ${e.message}` };
   }
+}
+
+// Local MCP launches refresh only installs created by Kolbo. A manually
+// authored `kolbo` skill without the marker is never overwritten.
+function refreshManagedSkills() {
+  return skillTargets().map((t) => {
+    const marker = path.join(t.dir, MANAGED_FILE);
+    if (!fs.existsSync(marker)) return { ...t, status: 'unmanaged' };
+    try {
+      const installed = JSON.parse(fs.readFileSync(marker, 'utf8'));
+      const skillVersion = fs.readFileSync(path.join(__dirname, '..', 'skill', 'VERSION'), 'utf8').trim();
+      if (installed.packageVersion === PACKAGE_VERSION && installed.version === skillVersion) {
+        return { ...t, status: 'current' };
+      }
+    } catch (_) {}
+    return installSkill(t);
+  });
 }
 
 // Versions before this fix wrote the Claude Code entry into
@@ -156,4 +189,30 @@ async function run() {
   return 0;
 }
 
-module.exports = { run };
+async function runSkillOnly() {
+  const out = (s = '') => process.stdout.write(s + '\n');
+  const skills = skillTargets().map(installSkill);
+  const ready = skills.filter((s) => s.status === 'installed');
+
+  out();
+  out('  Kolbo Skill — standalone install');
+  out('  ────────────────────────────────');
+  for (const s of skills) {
+    out(`  ${s.status === 'installed' ? '✓' : '·'} ${s.name}: ${s.status}`);
+  }
+  out();
+
+  if (ready.length === 0) {
+    out('  No supported skill directory found (.claude or .agents).');
+    out('  Install or open a compatible agent, then run this command again.');
+    out();
+    return 0;
+  }
+
+  out('  Done — the Kolbo Skill is installed.');
+  out('  MCP settings were not changed. Restart your agent to load the skill.');
+  out();
+  return 0;
+}
+
+module.exports = { run, runSkillOnly, refreshManagedSkills, MANAGED_FILE };
