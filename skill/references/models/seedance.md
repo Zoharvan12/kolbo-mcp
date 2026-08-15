@@ -12,10 +12,10 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
 ## Universal Rules (apply to EVERY Seedance prompt)
 
 - **First line ALWAYS declares shot structure**: total duration, shot count, aspect ratio. Example: `Total: 15s / 6 shots / 16:9`. Put it at the BOTTOM of the prompt too. For connected narrative sequences the proven phrasing is `N connected cinematic shots, 15 seconds total, 16:9, Multishot ON` — use it and keep `Multishot ON` for any multi-shot story.
-- **Then the Locked Intro** — `[GLOBAL LOOK]` / `[CAST]` / `[LOCATION]` — before any shot. A one-liner `same character throughout` is not a character lock.
-- **Order inside each shot**: Subject → Action → Camera → Constraints → (Audio/SFX if relevant). Do NOT restack GLOBAL LOOK style inside the shot.
-- **Prompt length**: simple single-idea pieces ~120–280 words. Locked-intro cinematic typically 400–900 words. Shorter than ~120 words = random output. The 8000-char cap below always wins.
-- **Shot count is user-directed, not capped at 3 or 6.** If the user asks for N shots, deliver exactly N shots in one prompt unless they explicitly ask to split it.
+- **Order inside each shot**: Subject → Action → Camera → Style → Constraints → (Audio/SFX if relevant).
+- **Prompt length**: aim for ~120–280 words TOTAL across all shots combined (not per shot). Shorter than ~120 words = random output. Longer risks the 8000-char cap below and makes the model forget the opening. For 6-shot prompts, keep each shot 1–2 tight sentences.
+- **Character lock**: if a character recurs, open with `same character throughout all shots` to stop identity drift.
+- **Max 3 shots per single-shot prompt; max 6 shots in a multi-shot montage.** More causes drift.
 - **Always describe at least one camera movement per shot.**
 - **Tell Seedance what the camera is NOT doing** (e.g. `no cuts, no zoom, natural head movement`) — this is what locks POV.
 - **Final prompt is always English**, wrapped in a copy-ready code block. Detect intent in any language and reply in the user's language, but the prompt itself is English.
@@ -26,42 +26,13 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
   - **Never** split into multiple prompts, multiple code blocks, or "part 1 / part 2" to evade the cap.
   - Before outputting, internally count the characters of the final prompt as a single string. If > 8000, rewrite tighter and re-count. Repeat until ≤ 8000. Only then show the user.
 
-## Locked Intro (DEFAULT for any multi-shot cinematic)
-
-After the Total line, every multi-shot prompt — and any piece with recurring people or a recurring place — opens with three locked blocks. Same camera, same people, same world in every cut. Do not skip them. Do not restack this look as per-shot style.
-
-Skip only for: true single-shot POV/orb, 3×3 grid-panel mode, or video-edit tasks. UGC/phone pieces still use the three headers, but GLOBAL LOOK is phone-native (no "cinematic", no film-camera body).
-
-```
-Total: Xs / N shots / AR
-N connected cinematic shots, Xs total, AR, Multishot ON
-
-[GLOBAL LOOK – LOCKED, APPLIES TO EVERY SHOT]
-Arricam LT, Cooke S4/i primes, 35mm Kodak Vision3 500T, 1.85:1 spherical, T2.8. Shallow depth of field, halation on highlights, fine organic grain, lifted milky blacks, low contrast, no sharpening, no HDR. [Named] grade: [hero tone], [field colors], [shadows], [bloom]. Handheld with micro-drift, never locked off. Naturalistic performance, real dialogue sync, no music.
-
-[CAST – IDENTICAL IN EVERY SHOT]
-NAME: age, build, hair, face, wardrobe, skin, signature details. @Tag when a reference or DNA exists.
-PROP: recurring object.
-
-[LOCATION]
-Place in materials + light + color field. Blocking: who sits/stands where. Background LIFE (extras, ambient motion).
-
-SHOT 1 — 0:00–0:02 — Medium / camera position
-(director-dictated action — physical verbs, timed acting, quoted dialogue)
-Total: Xs / N shots / AR
-```
-
-Adapt the GLOBAL LOOK package to THIS world — never paste a beach grade onto a night interior. Equipment names (body / lens / stock / stop) live in GLOBAL LOOK only. Never name a real director.
-
-**Acting:** shot size → physical action → line → timing. `laughs obnoxiously for half a second, then flat and certain` — unbounded laughs eat 2s. Background LIFE on every wide/medium or the frame reads as a ghost town.
-
 ## The 5 Formats
 
 ### 1. Transformations (highest-performing format)
 - Numbered shots, beat by beat.
 - Escalation arc: **calm → threat → transformation → aftermath**.
 - 6 shots / 15s / 16:9 is the proven structure.
-- Prefer the **Locked Intro** over a style dump. For a quick action montage with no recurring cast, a short GLOBAL LOOK still beats the old ARRI-prefix pile.
+- Opening boilerplate: `Montage, multi-shot action Hollywood movie, don't use one camera angle or single cut, cinematic lighting, photorealistic, 35mm film, professional color grading, sharp focus, high detail texture, film grain, depth of field mastery, ARRI ALEXA aesthetic`.
 - **Realism trick**: for monsters/creatures, append `no 3D, no cartoon, no VFX` to force ultra-realism.
 - **Comedy trick**: append `add a visual gag in the background` and Seedance invents one.
 
@@ -81,7 +52,7 @@ Adapt the GLOBAL LOOK package to THIS world — never paste a beach grade onto a
 - Always supply: **clear location, clear power mismatch, defined escalation arc**.
 - Describe choreography beat by beat — Seedance executes what you write.
 - Single continuous shot 15s works for two-fighter scenes; describe camera moves between beats (`crests rooftop edge`, `full 360 orbit`, `pulls back to wide`, `descends with them`).
-- Use speed-ramping with impact slow-motion as the style anchor when comedic/stylized.
+- Use `Guy Ritchie speed-ramping with Snyder impact slow-motion` as the style anchor when comedic/stylized.
 
 ### 5. Animation (3D stylized)
 - Break the 15s into **timed segments** (`0–3s`, `3–6s`, `6–9s`, `9–12s`, `12–15s`) and describe each explicitly.
@@ -93,7 +64,10 @@ Adapt the GLOBAL LOOK package to THIS world — never paste a beach grade onto a
 
 Use whenever the user gives named characters or multiple reference images (`@Image1`, `@Image2`, …) — a tactical unit clearing a bunker, a duel between two referenced characters, a war scene. **This is always an Elements-mode prompt** (route the card to `elements`). Structure:
 
-1. **Locked Intro FIRST** (GLOBAL LOOK / CAST / LOCATION) — CAST is one line per person: `Name @ImageN — wardrobe, position in frame, what they carry`. End CAST with "All must match their character references exactly." LOCATION carries time-of-day + materials + light direction.
+1. **Labeled scene header FIRST** (grounds the scene before any shot):
+   - `Time of day:` — hour + light quality + atmosphere (dust, haze, heavy silence before action).
+   - `Location:` — the environment in concrete physical detail (materials, wear, light direction, high-contrast blown-out entrance, etc.).
+   - `Characters:` — ONE line per person: `Name @ImageN — wardrobe, position in frame, what they carry`. End with "All must match their character references exactly."
 2. **REFERENCE CONSISTENCY block** — map every reference and pin what must NOT change: `Reference Image 1 is <X>. Preserve exact face, hair, anatomy, wardrobe, colors, props.` Add per-character energy/aura color rules, and any already-established story state (e.g. "the gem is already shattered — no intact gem, no red glow"). End with "Do not redesign, morph, recolor, or swap either character, their clothing, anatomy, weapons, or the environment."
 3. **Shots** — either titled (`Shot 1 — Medium Wide / Tactical Positioning`) or timecoded (`SHOT 1 — 0:00–0:03`); timecodes must sum to the total duration. Under each shot use **Camera → Action → Audio** in that order.
 4. **Continuity** — to chain a series, open with `Begin as a seamless continuation from <the exact last beat of the previous video>.`
@@ -128,9 +102,16 @@ The model reacts to what can be **seen and measured**, not to mood words. Transl
 - ❌ "tense scene" → ✅ "man freezes, slowly clenches his fist, light only from the side, half his face in shadow"
 - ❌ "cool cinematic shot of a car, epic, fast" → ✅ "low tracking shot alongside the car as it powers through a wet curve, headlights glowing, spray off the tyres, hard buffeting camera shake"
 
-### Style — LOCKED at the top, not redistributed
+### Style — DISTRIBUTED, not a prefix
 
-The GLOBAL LOOK block is the prefix. Per-shot style is ONLY what changes (shot size, move, height, this-shot light). Do not re-state film stock / lens / grade per shot. Do not pile a second style dump at the end.
+Never pile all style tokens at the top of the prompt. Each aspect lives in the block that already governs it:
+
+- Lighting → inside the shot's LIGHTING description
+- Lens / FOV → in OPTICS
+- Color → either an explicit grade (when strong / stylized) or folded into LOCATION + LIGHTING for naturalistic looks
+- Skin / acting → in PERFORMANCE
+- Physics → in PHYSICS
+- Format / resolution / grain → at the END as a suffix stack (before LOCKS)
 
 ### Shot sizes
 
@@ -170,7 +151,7 @@ Use only the discrete steps. Not "23°" — use 18° or 29°.
 - **Emotion through muscle movement**, not labels. ❌ "she looks sad" → ✅ "her eyes drop to the table, jaw tightens, she swallows once before answering."
 - **WB in Kelvin.** 3200K / 4000K / 5600K / 8500K. Pick ONE for the scene's mood.
 - **Color as material + light + role**, never a flat list. ❌ "she wears red, he wears blue" → ✅ "crimson silk scarf catching the cold tungsten spill from the corridor".
-- **Equipment names live in GLOBAL LOOK only** (body, lens, stock, stop). Never inside shots. **Never name a real director** and never write "in the style of [person]".
+- **No equipment names**, no director references, no "shot on ARRI / Sigma 85mm / Roger Deakins".
 
 ### Cuts and timing
 
@@ -193,19 +174,18 @@ Use only the discrete steps. Not "23°" — use 18° or 29°.
 
 ### Camera placement
 
-Place CAMERA in the **3rd position** of each shot's core layers (Subject → Action → Camera → Constraints). FOV gets ignored at the end, conflicts with identity at the front. GLOBAL LOOK already owns lens / stock / grade.
+Place CAMERA in the **3rd position** of each shot's core layers (Subject → Action → Camera → Style → Constraints). FOV gets ignored at the end, conflicts with identity at the front.
 
 ### Pre-flight checklist (before output)
 
-- Locked Intro present (`[GLOBAL LOOK]`, `[CAST]`, `[LOCATION]`) unless a documented skip?
-- GLOBAL LOOK not restated inside shots? Equipment names only there? No director names?
-- Acting timed? Background LIFE on wides/mediums?
+- Distributed style (no top-pile)?
 - One camera movement per time slice?
 - FOV in degrees from the table (not mm, not arbitrary)?
 - WB in Kelvin?
 - Speed in km/h, atmosphere in % or meters?
-- Color via material + light + role (grade named as law in GLOBAL LOOK)?
+- Color via material + light + role?
 - Positive phrasing (no "does not X")?
+- No equipment / director names?
 - Emotion through muscle, not labels?
 - Multishot: FOV per segment + "no drift mid-segment"?
 - 8000-char cap honored?
