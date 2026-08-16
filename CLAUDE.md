@@ -242,6 +242,8 @@ src/tools/generate.js    — All generation tools (image, image-edit, video, vid
                             creative-director, music, speech, sound, 3d, transcribe,
                             edit_image, edit_video, cancel_generation, trim_video,
                             get_generation_status, get_creative_director_status)
+src/tools/audio_stems.js — Stem separation (separate_audio_stems, clean_dialogue_leftovers,
+                            separate_ambience). Inline routes: explicit timeoutMs, no pollOrTimedOut
 src/tools/voices.js      — Voice tools (list_voices, clone_voice, import_elevenlabs_voice, delete_voice)
 src/tools/models.js      — Discovery tools (list_models, check_credits)
 src/tools/chat.js        — Chat tools (send, list conversations, get messages)
@@ -292,6 +294,9 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `generate_sound` | `POST /v1/generate/sound` | 120s | `duration`, `prompt_influence`; provider-specific (engine ignores non-applicable): `cfg_strength` (Stable Audio); `sound_loop`/`sound_tempo`/`sound_key` (Kie); Seed-Audio `seed_voice`/`seed_speed`/`seed_volume`/`seed_pitch`/`seed_reference_audio_urls`/`seed_reference_image_url` |
 | `generate_3d` | `POST /v1/generate/3d` | 900s | `reference_images`, `mode` (text/single/multi), `topology`, `enable_pbr` |
 | `transcribe_audio` | `POST /v1/transcribe` | 1800s | `source` (URL or local audio/video); `language`, `diarize` (speaker labels), `tag_audio_events`, `remove_punctuation`; SRT formatting: `generate_srt`, `words_per_line`, `lines_per_subtitle`, `stretch_captions` |
+| `separate_audio_stems` | `POST /v1/audio/separate` | 660s (request, not poll) | `audio_url` OR `generation_id` (exactly one), `project_id`. Route answers INLINE — no job id, nothing to poll. URL form is stateless and uncached (two calls = two charges); `generation_id` form persists layers onto the generation and is free on repeat. 15-min source cap |
+| `clean_dialogue_leftovers` | `POST /v1/audio/clean-dialogue` | 660s | `audio_url` (the `me` layer) OR `generation_id`. Billed even when already clean — response carries `already_clean` |
+| `separate_ambience` | `POST /v1/audio/ambience` | 660s | `audio_url` (the `sfx`/`music` layer) + optional `source_type`, OR `generation_id`. Billed even when nothing separable — response carries `skipped` |
 | `get_generation_status` | `GET /v1/generate/:id/status` | 180s w/ `wait` | single id or `generation_ids[]` batch (returns `all_done`/`still_processing`); `wait=true` blocks via pollUntilDone; single-id no-wait shape unchanged (widget contract) |
 | `get_creative_director_status` | see `src/tools/generate.js` | — | dedicated wait-capable status for CD batches (partial per-scene results) |
 | `edit_image` | see `src/tools/generate.js` | — | image edit incl. `zoom_out` outpainting (v1.54+) |

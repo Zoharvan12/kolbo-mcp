@@ -132,6 +132,9 @@ Without the optional skill, the config block alone already exposes every tool �
 | `generate_sound` | Text → sound effect. Duration, prompt influence, and per-provider controls (Stable Audio guidance, Kie loop/tempo/key, Seed-Audio voice/speed/volume/pitch + reference audio/image) |
 | `generate_3d` | Text or reference images → 3D model (GLB/FBX/OBJ/USDZ) |
 | `transcribe_audio` | Audio/video URL or file → text + SRT subtitles. Language, speaker diarization, audio-event tagging, and SRT formatting (words/line, lines/subtitle, caption stretch) |
+| `separate_audio_stems` | Audio/video URL (or a Kolbo `generation_id`) → Dialogue / Music / Effects / without-dialogue (M&E) layers. Kolbo's own masking pipeline with a speech classifier on top, so a centred engine or ambience is not handed back mislabelled as dialogue. 5 credits, runs inline |
+| `clean_dialogue_leftovers` | Strip voices still faintly audible in an M&E layer. 17 credits — escalation only, it trades bed fidelity to remove the leak |
+| `separate_ambience` | Pull room tone / atmosphere out of the Effects (or Music) bed as its own layer. 17 credits |
 
 Every image/video/creative-director tool accepts `visual_dna_ids` and `moodboard_id` for character/style consistency across outputs — you can compose `create_visual_dna` → `generate_image` (with the DNA applied server-side) in a single agent turn. `generate_creative_director` also accepts `moodboard_ids` plural for blending.
 

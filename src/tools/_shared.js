@@ -54,7 +54,8 @@ const FILE_INPUT_TOOLS = [
   'generate_elements', 'generate_first_last_frame', 'generate_lipsync',
   'generate_3d', 'edit_image', 'edit_video', 'transcribe_audio',
   'create_visual_dna', 'generate_character_sheet', 'clone_voice',
-  'chat_send_message', 'create_moodboard'
+  'chat_send_message', 'create_moodboard',
+  'separate_audio_stems', 'clean_dialogue_leftovers', 'separate_ambience'
 ];
 
 const REMOTE_FILE_HINT =
