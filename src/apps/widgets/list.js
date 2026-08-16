@@ -43,17 +43,30 @@ el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openL
 var state = null;
 
 function boot(sc) {
-  if (!sc || !sc.items) return;
-  state = sc;
-  el('title').textContent = sc.title || 'List';
-  var total = sc.total != null ? sc.total : sc.items.length;
+  var list = listPayload(sc);
+  if (!list) return false;
+  state = list;
+  el('title').textContent = list.title || 'List';
+  var total = list.total != null ? list.total : list.items.length;
   el('count-chip').style.display = '';
   el('count-chip').textContent = total + (total === 1 ? ' item' : ' items');
-  if (!sc.items.length) { el('stage').innerHTML = '<div class="k-empty">Nothing here yet</div>'; return; }
-  el('stage').innerHTML = sc.items.slice(0, 40).map(itemHTML).join('');
+  if (!list.items.length) {
+    el('stage').classList.add('k-empty');
+    el('stage').innerHTML = 'Nothing here yet';
+    window.kolbo.notifySize();
+    return true;
+  }
+  el('stage').innerHTML = list.items.slice(0, 40).map(itemHTML).join('');
   el('stage').classList.remove('k-empty');
   wire();
   window.kolbo.notifySize();
+  return true;
+}
+
+function apply(result) {
+  if (!result) return false;
+  var inner = result.result || result;
+  return boot(inner.structuredContent || structured(inner) || inner);
 }
 
 function itemHTML(item, i) {
@@ -86,11 +99,11 @@ function wire() {
 }
 
 window.kolbo.onToolResult(function (result) {
-  var sc = result.structuredContent || structured(result);
-  if (sc && sc.items) return boot(sc);
-  var card = document.querySelector('.k-card');
-  if (card) card.style.display = 'none';
-  window.kolbo.notifySize();
+  apply(result);
+});
+window.kolbo.ready(function (ctx) {
+  var info = ctx && ctx.toolInfo;
+  if (info && info.result) apply(info.result);
 });
 `;
 

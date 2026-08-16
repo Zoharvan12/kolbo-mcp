@@ -166,6 +166,13 @@ function uiResult(uri, text, structured) {
   };
 }
 
+/** List tools always ship structuredContent — Kolbo Code does not advertise
+ *  MCP Apps, so gating on appsEnabled() left list.html / the generation
+ *  fallback stuck on Loading with only `{ sessions }` text. */
+function listResult(text, structured) {
+  return uiResult(UI.list, text, structured);
+}
+
 /* ------------------------------------------------------------------ */
 /* Model icon lookup (name/identifier → absolute avatar URL)           */
 /* ------------------------------------------------------------------ */
@@ -494,6 +501,7 @@ module.exports = {
   attachToolWidgetMeta,
   uiMeta,
   uiResult,
+  listResult,
   appsEnabled,
   modelIcon,
   modelInfo,

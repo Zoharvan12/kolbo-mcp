@@ -4,10 +4,9 @@
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
 const { z } = require('zod');
-const { UI, uiResult, appsEnabled } = require('../apps');
+const { listResult } = require('../apps');
 
-function registerAgentTools(server, client, options = {}) {
-  const ui = () => appsEnabled(server, options);
+function registerAgentTools(server, client) {
   // ─── list_agents ───────────────────────────────────────────
   server.tool(
     'list_agents',
@@ -22,22 +21,18 @@ function registerAgentTools(server, client, options = {}) {
         count: result.count || agents.length
       }, null, 2);
 
-      if (ui()) {
-        return uiResult(UI.list, text, {
-          widget: 'list',
-          title: 'Your Agents',
-          items: agents.map(a => ({
-            id: a.id,
-            title: (a.emoji ? a.emoji + ' ' : '') + a.name,
-            subtitle: a.description,
-            badge: a.is_global ? 'preset' : null,
-            use_hint: 'Use my "{TITLE}" agent (agent_id: {ID}) for this conversation.'
-          })),
-          total: agents.length
-        });
-      }
-
-      return { content: [{ type: 'text', text }] };
+      return listResult(text, {
+        widget: 'list',
+        title: 'Your Agents',
+        items: agents.map(a => ({
+          id: a.id,
+          title: (a.emoji ? a.emoji + ' ' : '') + a.name,
+          subtitle: a.description,
+          badge: a.is_global ? 'preset' : null,
+          use_hint: 'Use my "{TITLE}" agent (agent_id: {ID}) for this conversation.'
+        })),
+        total: agents.length
+      });
     }
   );
 
