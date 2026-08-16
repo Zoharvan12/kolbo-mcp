@@ -465,7 +465,10 @@ const TOOL_WIDGETS = {
   media_upload_widget: UI.upload,
   // generic list widget — flat record lists with no natural thumbnail
   list_projects: UI.list,
+  // Must stay list.html — mapping this to generation.html mounts "Kolbo Generation /
+  // Preparing" empty cards for every session row.
   list_sessions: UI.list,
+  list_session_generations: UI.list,
   list_project_context: UI.list,
   list_agents: UI.list,
   list_docs: UI.list,

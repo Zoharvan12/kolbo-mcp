@@ -129,16 +129,26 @@ function registerProjectTools(server, client, options = {}) {
     async ({ session_id, type }) => {
       const path = `/v1/sessions/${encodeURIComponent(session_id)}/generations`;
       const result = await client.get(path + (type ? `?type=${encodeURIComponent(type)}` : ''));
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            session: result.session,
-            generations: result.generations,
-            _hint: 'Pass the `id` values to `move_generations_to_session` (into an existing session) or `split_session` (into a new one). `in_flight: true` means it is still running and cannot be moved yet.'
-          }, null, 2)
-        }]
-      };
+      const generations = result.generations || [];
+      const text = JSON.stringify({
+        session: result.session,
+        generations,
+        _hint: 'This is an inventory, not a live generation. Pass the `id` values to `move_generations_to_session` (into an existing session) or `split_session` (into a new one). `in_flight: true` means it is still running and cannot be moved yet.'
+      }, null, 2);
+      if (ui()) {
+        return uiResult(UI.list, text, {
+          widget: 'list',
+          title: (result.session && result.session.name) || 'Session generations',
+          items: generations.map((g) => ({
+            id: g.id,
+            title: (g.prompt && String(g.prompt).slice(0, 80)) || g.id,
+            subtitle: [g.status, g.output_count ? g.output_count + ' outputs' : null].filter(Boolean).join(' · '),
+            badge: g.in_flight ? 'running' : g.status
+          })),
+          total: generations.length
+        });
+      }
+      return { content: [{ type: 'text', text }] };
     }
   );
 
@@ -277,38 +287,102 @@ function registerProjectTools(server, client, options = {}) {
   // ─── list_sessions ─────────────────────────────────────────
   server.tool(
     'list_sessions',
-    'List the user\'s sessions across ALL generation types (image, video, music, chat, transcription…), newest-activity first. Use to answer "what\'s in this project?", to find a session_id for `move_session`, or to locate past work. Filter by `project_id` and/or `type`.',
+    'List the user\'s sessions across ALL generation types (image, video, music, chat, transcription…), newest-activity first. Each row includes `session_id`, `name`, pipe `type`, `types[]`, and `project_id` — pass that `project_id` on later generate/chat/upload calls for work in this conversation. Use to answer "what\'s in this project?", to find a session_id for `move_session` / `rename_session` / `delete_session`, or to locate past work. Filter by `project_id` and/or `type` (one key) and/or `types` (several keys).',
     {
       project_id: z.string().optional().describe('Restrict to one project (ObjectId from list_projects).'),
-      type: z.string().optional().describe('Restrict to one session type: image, video, video_from_image, music, speech, sound, image_edit, creative_director, chat, elements, first_last_frame, lipsync, video_from_video, transcription, global_image_edit, global_video_edit, shorts.'),
+      type: z.string().optional().describe('Restrict to one session type (pipe string on the row stays). Keys: image, video, video_from_image, music, speech, sound, image_edit, creative_director, chat, elements, first_last_frame, lipsync, video_from_video, transcription, global_image_edit, global_video_edit, shorts.'),
+      types: z.array(z.string()).optional().describe('Restrict to several session types at once (same keys as `type`). Additive with `type`.'),
       page: z.number().optional().describe('Page number, 1-indexed. Default: 1'),
       limit: z.number().optional().describe('Results per page, max 50. Default: 20')
     },
-    async ({ project_id, type, page, limit }) => {
+    async ({ project_id, type, types, page, limit }) => {
       const params = new URLSearchParams();
       if (project_id) params.set('project_id', project_id);
       if (type) params.set('type', type);
+      if (Array.isArray(types) && types.length) params.set('types', types.join(','));
       if (page) params.set('page', String(page));
       if (limit) params.set('limit', String(limit));
       const qs = params.toString();
       const result = await client.get(`/v1/sessions${qs ? '?' + qs : ''}`);
-      const sessions = result.sessions || [];
-      const text = JSON.stringify({ sessions, pagination: result.pagination || null }, null, 2);
+      const sessions = (result.sessions || []).map((s) => {
+        const kinds = Array.isArray(s.types)
+          ? s.types
+          : String(s.type || '').split('|').filter(Boolean);
+        return { ...s, type: s.type, types: kinds, project_id: s.project_id || null };
+      });
+      const text = JSON.stringify({
+        sessions,
+        pagination: result.pagination || null,
+        _hint: 'Each row has project_id — pass it on every later generate/chat/upload in this conversation. Empty leftover sessions after a move: delete_session.'
+      }, null, 2);
 
       if (ui()) {
         return uiResult(UI.list, text, {
           widget: 'list',
-          title: 'Sessions' + (type ? ' — ' + type : ''),
+          title: 'Sessions' + (type ? ' — ' + type : '') + ' (' + sessions.length + ')',
           items: sessions.map(s => ({
             id: s.session_id,
-            title: s.name || s.type,
-            subtitle: s.type + (s.updated_at ? ' · ' + String(s.updated_at).slice(0, 10) : '')
+            title: s.name || s.types[0] || s.type || 'Session',
+            subtitle: [
+              s.session_id,
+              (s.types || []).join(', '),
+              s.project_id ? 'project ' + s.project_id : null,
+              s.updated_at ? String(s.updated_at).slice(0, 10) : null
+            ].filter(Boolean).join(' · '),
+            badge: (s.types && s.types[0]) || undefined
           })),
           total: sessions.length
         });
       }
 
       return { content: [{ type: 'text', text }] };
+    }
+  );
+
+  server.tool(
+    'rename_session',
+    'Rename a session the user can see in the Kolbo sidebar. Use after `list_sessions` when they say "call this Hero Sequence" or leftover API daily names should become human titles. Does not move the session or its media.',
+    {
+      session_id: z.string().describe('Session ObjectId from `list_sessions` or a generate_* result.'),
+      name: z.string().describe('New sidebar title (1–200 characters).'),
+      type: z.string().optional().describe('Optional session type hint to speed up the lookup. Omit if unsure.')
+    },
+    async ({ session_id, name, type }) => {
+      const body = { name };
+      if (type) body.type = type;
+      const result = await client.patch(`/v1/sessions/${encodeURIComponent(session_id)}`, body);
+      return { content: [{ type: 'text', text: JSON.stringify(result.session || result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'delete_session',
+    'Soft-delete a session (trash). Use for empty leftover sessions after `move_session` / `move_generations_to_session` / `split_session`, or when the user asks to remove a session. Does not permanently wipe media on its own — restore with `restore_session` if they change their mind.',
+    {
+      session_id: z.string().describe('Session ObjectId from `list_sessions`.'),
+      type: z.string().optional().describe('Optional session type hint to speed up the lookup. Omit if unsure.')
+    },
+    async ({ session_id, type }) => {
+      const result = await client.delete(
+        `/v1/sessions/${encodeURIComponent(session_id)}`,
+        type ? { type } : {}
+      );
+      return { content: [{ type: 'text', text: JSON.stringify(result.session || result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'restore_session',
+    'Restore a session previously removed with `delete_session` (clears deletedAt). Use when the user undoes a trash action in this conversation.',
+    {
+      session_id: z.string().describe('Session ObjectId that was just soft-deleted.'),
+      type: z.string().optional().describe('Optional session type hint to speed up the lookup. Omit if unsure.')
+    },
+    async ({ session_id, type }) => {
+      const body = {};
+      if (type) body.type = type;
+      const result = await client.post(`/v1/sessions/${encodeURIComponent(session_id)}/restore`, body);
+      return { content: [{ type: 'text', text: JSON.stringify(result.session || result, null, 2) }] };
     }
   );
 
