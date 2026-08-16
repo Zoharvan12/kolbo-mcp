@@ -75,7 +75,10 @@ function boot(sc) {
 }
 
 window.kolbo.onToolResult(function (result) {
-  if (boot(result.structuredContent || structured(result))) return;
+  // NB: no text fallback here. The old second operand called a structured()
+  // that was never defined, so on any host sending no structuredContent this
+  // threw a ReferenceError and the card sat on Loading instead of collapsing.
+  if (boot(result.structuredContent)) return;
   // No catalog data reached the iframe (host/version mismatch, or a filter
   // that matched nothing) — collapse instead of showing a dead card.
   var card = document.querySelector('.k-card');
