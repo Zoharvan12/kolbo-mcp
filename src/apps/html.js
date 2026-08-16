@@ -109,10 +109,62 @@ function monogram(name) {
 function structured(res) {
   if (!res) return null;
   if (res.structuredContent) return res.structuredContent;
+  if (res.result) return structured(res.result);
   try {
     var t = (res.content || []).filter(function (c) { return c.type === 'text'; })[0];
     return t ? JSON.parse(t.text) : null;
   } catch (e) { return null; }
+}
+// Hosts that do not advertise MCP Apps (Kolbo Code) get plain JSON
+// ({ sessions }, { generations }, { projects }, …) with no items[].
+// Normalize those shapes so list.html and the generation fallback can
+// leave Loading on first paint without waiting for a newer host.
+function listPayload(sc) {
+  if (!sc || typeof sc !== 'object') return null;
+  if (sc.widget && sc.widget !== 'list') return null;
+  if (sc.phase || sc.generation_id || sc.generation_ids) return null;
+  if (Array.isArray(sc.items)) {
+    return {
+      widget: 'list',
+      title: sc.title || 'List',
+      items: sc.items,
+      total: sc.total != null ? sc.total : sc.items.length
+    };
+  }
+  var key = sc.sessions ? 'sessions' : sc.projects ? 'projects' : sc.generations ? 'generations'
+    : sc.agents ? 'agents' : sc.docs ? 'docs' : sc.folders ? 'folders' : sc.sources ? 'sources' : '';
+  var rows = key ? sc[key] : null;
+  if (!Array.isArray(rows)) return null;
+  var titles = {
+    sessions: 'Sessions', projects: 'Projects', generations: 'Generations',
+    agents: 'Agents', docs: 'Docs', folders: 'Folders', sources: 'Knowledge Base'
+  };
+  return {
+    widget: 'list',
+    title: sc.title || titles[key] || 'List',
+    items: rows.map(function (row) {
+      var types = Array.isArray(row.types)
+        ? row.types.filter(function (x) { return typeof x === 'string'; })
+        : String(row.type || '').split('|').filter(Boolean);
+      var id = row.session_id || row.id || row.generation_id || row.file_key;
+      var name = row.name || row.title || (row.prompt ? String(row.prompt).slice(0, 80) : '') || types[0] || 'Item';
+      return {
+        id: id,
+        title: name,
+        subtitle: [
+          types.join(', ') || row.role || row.status || row.description,
+          id,
+          row.project_id ? 'project ' + row.project_id : null,
+          row.updated_at ? String(row.updated_at).slice(0, 10) : null,
+          row.output_count ? row.output_count + ' outputs' : null
+        ].filter(Boolean).join(' · '),
+        badge: types[0] || row.role || row.status,
+        open_url: row.open_url || row.share_url || null,
+        meta: row.item_count != null ? String(row.item_count) : undefined
+      };
+    }),
+    total: sc.total != null ? sc.total : (sc.count != null ? sc.count : rows.length)
+  };
 }
 </script>
 <script>${script}</script>
