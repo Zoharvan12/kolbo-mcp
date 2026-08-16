@@ -321,6 +321,26 @@ function pickForType(candidates, types) {
   return pool.reduce((a, b) => (b.id.length < a.id.length ? b : a)).id;
 }
 
+// Strip modality tokens so a t2v id and its i2v sibling share one family key
+// (grok-imagine-text-to-video ↔ grok-imagine-image-to-video; kling …/text-to-video
+// ↔ …/image-to-video). Version tokens stay (1.5 ≠ 1.0).
+function fam(s) {
+  return normId(s).replace(
+    /texttovideo|imagetovideo|imgtovideo|texttoimage|imagetoimage|imageediting|imageedit|referencetovideo|videotovideo|videoedit|editvideo|firstlastframe|firstlast/g,
+    '',
+  );
+}
+
+function sibling(models, hit, types) {
+  if (!hit || !types.length) return hit;
+  const row = models.find((i) => i.id === hit);
+  if (row && row.types.some((t) => types.includes(t))) return hit;
+  const key = fam(hit);
+  const sibs = models.filter((i) => fam(i.id) === key && i.types.some((t) => types.includes(t)));
+  if (!sibs.length) return hit;
+  return sibs.reduce((a, b) => (b.id.length < a.id.length ? b : a)).id;
+}
+
 /**
  * Lenient model-identifier resolution for LLM-supplied model args.
  * Users say "z-image"; the real identifier is "z-image/turbo" — the backend
@@ -334,6 +354,9 @@ function pickForType(candidates, types) {
  * without it, "Kling 2.6 Pro" from generate_video_from_image resolved to
  * kling-video/v2.6/pro/text-to-video (2026-08-10), so the image-to-video
  * pipeline submitted the TEXT-to-video endpoint and billed against it.
+ * An explicit t2v identifier on an i2v tool remaps to the unique same-family
+ * sibling (grok-imagine-text-to-video → grok-imagine-image-to-video). No
+ * sibling → the id is passed through unchanged (MiniMax H3).
  *
  * Still unresolved: throw with the near misses named. The API answers a bad
  * identifier with a bare INVALID_*_MODEL and no hint, which on 2026-08-09 sent
@@ -362,13 +385,13 @@ async function canonicalModelId(client, input, type) {
   const dashed = key.replace(/\s+/g, '-');
 
   // 1. exact name / identifier hit
-  const exact = pickForType(models.filter((i) => [i.id, i.name].some(
+  const exact = sibling(models, pickForType(models.filter((i) => [i.id, i.name].some(
     (k) => k && (k.toLowerCase() === key || k.toLowerCase() === dashed)
-  )), types);
+  )), types), types);
   if (exact) return exact;
 
   // 2. separator-insensitive exact ("flux-2-flash" → "flux-2/flash")
-  const loose = pickForType(models.filter((i) => normId(i.id) === want || normId(i.name) === want), types);
+  const loose = sibling(models, pickForType(models.filter((i) => normId(i.id) === want || normId(i.name) === want), types), types);
   if (loose) return loose;
 
   // 3. unique prefix ("z-image" → "z-image/turbo") — the modality filter runs

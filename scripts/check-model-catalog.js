@@ -63,7 +63,8 @@ const VIDEO_MODELS = [
   videoModel('minimax-h3', 'MiniMax H3', { supported_durations: [4, 15], supported_resolutions: ['2K'] }),
   videoModel('veo3', 'Veo 3.1', { types: ['text_to_video', 'img_to_video'] }),
   videoModel('flux-2/video', 'Flux 2 Video'),
-  ...Array.from({ length: 40 }, (_, i) => videoModel(`filler-model-${i}/text-to-video`, `Filler ${i}`)),
+  videoModel('grok-imagine-text-to-video', 'Grok Imagine'),
+  ...Array.from({ length: 39 }, (_, i) => videoModel(`filler-model-${i}/text-to-video`, `Filler ${i}`)),
 ];
 assert.strictEqual(VIDEO_MODELS.length, 49, 'fixture must reproduce the reported 49');
 
@@ -77,6 +78,7 @@ const SIBLING_MODELS = [
   videoModel('kling-video/v2.6/pro/image-to-video', 'Kling 2.6 Pro', { types: ['img_to_video'] }),
   videoModel('kling-video/v2.5-turbo/pro/image-to-video', 'Kling 2.5 Turbo Pro', { types: ['img_to_video'] }),
   videoModel('kling-video/v3/pro/video-to-video', 'Kling 3.0 Pro', { types: ['video_to_video'] }),
+  videoModel('grok-imagine-image-to-video', 'Grok Imagine', { types: ['img_to_video'] }),
 ];
 
 const OTHER_MODELS = [
@@ -223,6 +225,8 @@ async function main() {
     ['Seedance 2.0', 'img_to_video', 'seedance-2'],
     ['Seedance 2.0 Fast', 'img_to_video', 'seedance-2-fast'],
     ['Veo 3.1', 'img_to_video', 'veo3'],
+    ['Grok Imagine', 'img_to_video', 'grok-imagine-image-to-video'],
+    ['Grok Imagine', 'text_to_video', 'grok-imagine-text-to-video'],
     // A type the model does not carry must never silently drop the match.
     ['MiniMax H3', 'img_to_video', 'minimax-h3'],
   ];
@@ -231,9 +235,18 @@ async function main() {
       assert.strictEqual(await canonicalModelId(client, input, type), want);
     });
   }
-  await check('canonicalModelId: an explicit identifier is never re-pointed by type', async () => {
-    const id = 'kling-video/v2.6/pro/text-to-video';
-    assert.strictEqual(await canonicalModelId(client, id, 'img_to_video'), id);
+  await check('canonicalModelId: explicit t2v id remaps to the i2v sibling', async () => {
+    assert.strictEqual(
+      await canonicalModelId(client, 'kling-video/v2.6/pro/text-to-video', 'img_to_video'),
+      'kling-video/v2.6/pro/image-to-video',
+    );
+    assert.strictEqual(
+      await canonicalModelId(client, 'grok-imagine-text-to-video', 'img_to_video'),
+      'grok-imagine-image-to-video',
+    );
+  });
+  await check('canonicalModelId: explicit id with no sibling stays put', async () => {
+    assert.strictEqual(await canonicalModelId(client, 'minimax-h3', 'img_to_video'), 'minimax-h3');
   });
   await check('canonicalModelId: array type (lipsync/3D tools) matches any member', async () => {
     assert.strictEqual(
@@ -259,6 +272,7 @@ async function main() {
   const wiring = [
     ['generate_video', { prompt: 'p', model: 'Kling 2.6 Pro' }, 'kling-video/v2.6/pro/text-to-video'],
     ['generate_video_from_image', { image_url: 'https://x/i.png', prompt: 'p', model: 'Kling 2.6 Pro' }, 'kling-video/v2.6/pro/image-to-video'],
+    ['generate_video_from_image', { image_url: 'https://x/i.png', prompt: 'p', model: 'grok-imagine-text-to-video' }, 'grok-imagine-image-to-video'],
     ['generate_video_from_video', { source_video: 'https://x/v.mp4', prompt: 'p', model: 'Kling 3.0 Pro' }, 'kling-video/v3/pro/video-to-video'],
     ['generate_image', { prompt: 'p', model: 'Nano Banana 2' }, 'nano-banana-2'],
     ['generate_image_edit', { prompt: 'p', source_images: ['https://x/i.png'], model: 'Nano Banana 2' }, 'nano-banana-2-image-editing'],

@@ -363,7 +363,7 @@ function registerModelTools(server, client, options = {}) {
       }
 
       if (withSummary.length > 0) {
-        sections.push(`Auto-selectable models (${withSummary.length}) — CHOOSE BY THE SUMMARY after each "—": match it to what the user asked for, then take the CHEAPEST model that fits. Credit cost, [NEW] and [RECOMMENDED] are not reasons to pick a model:\n${withSummary.map(formatModel).join('\n')}`);
+        sections.push(`Auto-selectable models (${withSummary.length}) — If the user already named a model/family (this turn or earlier), use that family — do not cheapest-swap. Otherwise CHOOSE BY THE SUMMARY after each "—": match it to what the user asked for, then take the CHEAPEST model that fits. Credit cost, [NEW] and [RECOMMENDED] are not reasons to pick a model:\n${withSummary.map(formatModel).join('\n')}`);
       }
       if (withoutSummary.length > 0) {
         sections.push(`Named-only models (${withoutSummary.length}) — only use if the user explicitly requests by name:\n${withoutSummary.map(formatModel).join('\n')}`);
