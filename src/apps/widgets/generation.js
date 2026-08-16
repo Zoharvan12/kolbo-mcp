@@ -91,8 +91,40 @@ function makeExpandable(node) {
   }
 }
 
+function renderList(sc) {
+  state = sc;
+  el('tool-title').textContent = sc.title || 'List';
+  el('prompt').style.display = 'none';
+  el('chips').innerHTML = '';
+  el('credits').textContent = '';
+  var items = sc.items || [];
+  var total = sc.total != null ? sc.total : items.length;
+  setPhaseChip(total + (total === 1 ? ' item' : ' items'), false);
+  if (!items.length) {
+    el('stage').innerHTML = '<div class="k-empty">Nothing here yet</div>';
+  } else {
+    el('stage').innerHTML = items.slice(0, 40).map(function (item) {
+      return '<div class="k-audio-row"><div class="k-audio-meta"><div class="k-audio-title">' +
+        esc(item.title || 'Untitled') + '</div>' +
+        (item.subtitle ? '<div class="k-audio-sub">' + esc(item.subtitle) + '</div>' : '') +
+        '</div>' +
+        (item.badge ? '<span class="k-chip" style="flex:none">' + esc(item.badge) + '</span>' : '') +
+        '</div>';
+    }).join('');
+  }
+  window.kolbo.notifySize();
+}
+
+function isListPayload(sc, toolName) {
+  if (!sc && /^list_/.test(toolName || '')) return true;
+  if (!sc) return false;
+  if (sc.widget === 'list' || sc.widget === 'catalog' || sc.widget === 'media-grid') return sc.widget === 'list';
+  return Array.isArray(sc.items) && !sc.phase && !sc.generation_id;
+}
+
 function boot(sc) {
   if (!sc) return;
+  if (isListPayload(sc, sc.tool)) return renderList(sc);
   state = sc;
   el('tool-title').textContent = TOOL_TITLES[sc.tool] || 'Generation';
   el('prompt').textContent = sc.prompt || '';
@@ -800,6 +832,13 @@ function bootPre(toolName, args) {
   if (toolName) originTool = toolName;
   if (args) originArgs = args;
   if (state) return; // real data already arrived
+  if (/^list_/.test(toolName || '')) {
+    el('tool-title').textContent = toolName === 'list_sessions' ? 'Sessions' : 'List';
+    setPhaseChip('Loading', true);
+    el('stage').innerHTML = '';
+    el('prompt').style.display = 'none';
+    return;
+  }
   el('tool-title').textContent = TOOL_TITLES[toolName] || 'Generation';
   if (args && (args.prompt || args.text || (Array.isArray(args.prompts) && args.prompts.length))) {
     el('prompt').textContent = args.prompt || args.text ||

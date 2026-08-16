@@ -248,7 +248,8 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `create_project` / `update_project` / `archive_project` / `unarchive_project` | Project lifecycle (create/rename/describe/archive; deletion stays in-app) |
 | `list_agents` / `create_agent` / `update_agent` / `delete_agent` | Custom chat agents (reusable named personas; `description` is the system instruction) |
 | `get_creative_director_status` | Re-check a Creative Director batch by generation_id until all parallel scenes finish (use after a `_timed_out` Director run) |
-| `list_sessions` | Enumerate sessions across all types, filterable by project and type |
+| `list_sessions` | Enumerate sessions across all types, filterable by project, `type`, and `types[]` |
+| `rename_session` / `delete_session` / `restore_session` | Rename a session; soft-delete leftovers after a move; restore from trash |
 | `add_project_context` / `list_project_context` / `delete_project_context` / `get_project_profile` / `regenerate_project_profile` | Project knowledge base (RAG): feed scripts/URLs/notes, read the synthesized living brief |
 | `create_moodboard` / `update_moodboard` / `delete_moodboard` | Build/edit moodboards from image URLs (AI style analysis → master prompt) |
 | `clone_voice` / `import_elevenlabs_voice` / `delete_voice` | Custom voices: clone from an audio sample, import by ElevenLabs ID, delete |

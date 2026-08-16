@@ -266,6 +266,8 @@ function registerModelTools(server, client, options = {}) {
             ? ` (${m.sound_credit_multiplier}×)`
             : '';
           parts.push(`sound: native${mult}${m.sound_enabled_by_default ? ' on-by-default' : ''}`);
+        } else if (m.sound_baked_in) {
+          parts.push('sound: baked-in (always on; type=none hides the toggle — still real audio)');
         }
 
         // Prompt constraints
