@@ -66,6 +66,7 @@ const DESTRUCTIVE_WRITE = [
   'edit_image', 'edit_video', 'trim_video', 'clone_voice',
   'chat_send_message', 'generate_character_sheet',
   'acquire_clean_music_track', 'import_music_track_to_library',
+  'separate_audio_stems', 'clean_dialogue_leftovers', 'separate_ambience',
 
   // Deletes and whole-value replacement updates are conservatively destructive.
   'delete_voice', 'delete_visual_dna', 'delete_visual_dna_folder',
