@@ -132,12 +132,16 @@ function registerModelTools(server, client, options = {}) {
       // call. On 2026-08-09 that cost a wrong-model generation (minimax-h3).
       // `extra` (json mode) carries the data as structured fields; without it the
       // full text payload is attached verbatim. The widget ignores both.
-      const respond = (text, extra) => (ui()
-        ? uiResult(UI.catalog, text, {
-            ...buildCatalogStructured(result.models, type, !showCatalog),
-            ...(extra || { text }),
-          })
-        : { content: [{ type: 'text', text }] });
+      // Always ship structuredContent, exactly like listResult() does and for
+      // the same reason: the tool DECLARATION carries widget meta, so a host
+      // mounts the catalog iframe on every call — including hosts that never
+      // advertised MCP Apps (Kolbo Code). Gating the payload on ui() left that
+      // iframe with nothing to render and it sat on "Loading..." forever.
+      const respond = (text, extra) =>
+        uiResult(UI.catalog, text, {
+          ...buildCatalogStructured(result.models, type, !showCatalog),
+          ...(extra || { text }),
+        });
 
       // JSON mode — the authoritative shape; every constraint the agent might
       // need to validate a request lives here (durations, reference caps,
