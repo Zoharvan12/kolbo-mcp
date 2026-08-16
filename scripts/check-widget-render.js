@@ -23,7 +23,16 @@
  */
 
 const assert = require('assert');
-const { widgetHtml, UI } = require('../src/apps');
+const { widgetHtml, UI, listResult } = require('../src/apps');
+
+{
+  const result = listResult('{"sessions":[]}', {
+    widget: 'list', title: 'Sessions', items: [], total: 0,
+  });
+  assert.ok(result.structuredContent && result.structuredContent.widget === 'list',
+    'listResult must always ship structuredContent so Kolbo Code can leave Loading');
+  assert.ok(result._meta, 'listResult must carry the list.html widget URI');
+}
 
 const blocks = (html) => html.split('<script>').slice(1).map((s) => s.split('</script>')[0]);
 
@@ -250,11 +259,76 @@ function cardShowsEveryReferenceImage() {
   assert.ok(legacy.html('chips').includes(refs[0]), 'legacy reference_image fallback stopped rendering');
 }
 
+function mountList() {
+  const ids = new Map();
+  let readyFn = null;
+  const document = {
+    documentElement: { classList: { toggle() {} } },
+    getElementById: (id) => (ids.has(id) || ids.set(id, stubEl()), ids.get(id)),
+    querySelector: () => stubEl(),
+    querySelectorAll: () => [],
+    addEventListener() {},
+  };
+  const window = {
+    kolbo: {
+      ready(f) { readyFn = f; },
+      onToolResult(f) { window.__onResult = f; },
+      onToolInput() {}, onThemeChange() {},
+      sendMessage() {}, openLink() {}, notifySize() {},
+    },
+  };
+  const src = blocks(widgetHtml(UI.list)).slice(1).join('\n');
+  new Function('window', 'document', src)(window, document);
+  return {
+    title: () => document.getElementById('title').textContent,
+    stage: () => document.getElementById('stage').innerHTML,
+    deliver: (result) => window.__onResult(result),
+    handshake: (result) => readyFn && readyFn({ toolInfo: { tool: { name: 'list_sessions' }, result } }),
+  };
+}
+
+function listWidgetLeavesLoading() {
+  const sessions = {
+    sessions: [
+      { session_id: 's1', name: 'Hero Sequence', types: ['video'], project_id: 'p1', updated_at: '2026-08-16T10:00:00Z' },
+    ],
+    pagination: null,
+  };
+
+  const fromText = mountList();
+  fromText.deliver({ content: [{ type: 'text', text: JSON.stringify(sessions) }] });
+  assert.ok(fromText.stage().includes('Hero Sequence'), 'list widget did not render sessions[] from content text');
+  assert.ok(!fromText.stage().includes('Loading'), 'list widget stayed on Loading after sessions[] text');
+  assert.strictEqual(fromText.title(), 'Sessions');
+
+  const fromReady = mountList();
+  fromReady.handshake({ structuredContent: { widget: 'list', title: 'Sessions (1)', items: [{ id: 's1', title: 'Hero Sequence', subtitle: 's1' }], total: 1 } });
+  assert.ok(fromReady.stage().includes('Hero Sequence'), 'list widget did not boot from initialize hostContext');
+  assert.ok(!fromReady.stage().includes('Loading'), 'list widget stayed on Loading after ready()');
+
+  const gens = mountList();
+  gens.deliver({ content: [{ type: 'text', text: JSON.stringify({
+    session: { name: 'Clip A' },
+    generations: [{ id: 'g1', prompt: 'wide shot of the harbor', status: 'completed', output_count: 2 }],
+  }) }] });
+  assert.ok(gens.stage().includes('wide shot of the harbor'), 'list widget did not render generations[] from content text');
+
+  const empty = mountList();
+  empty.deliver({ structuredContent: { widget: 'list', title: 'Sessions', items: [], total: 0 } });
+  assert.ok(empty.stage().includes('Nothing here yet'), 'empty list did not show the empty state');
+
+  const genHost = mountWidget();
+  genHost.deliver(sessions);
+  assert.ok(genHost.html('stage').includes('Hero Sequence'), 'generation fallback did not render sessions[] as a list');
+}
+
 (async () => {
   await batchStaysOneGrid({ kind: 'image', tool: 'generate_image', ext: 'png' });
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();
   cardShowsEveryReferenceImage();
+  listWidgetLeavesLoading();
   console.log('✓ widget scripts parse; image + image-to-video batches stay one grouped grid; offscreen cards stay idle; '
-    + 'completed cards name the model + voice that actually ran; all reference images render');
+    + 'completed cards name the model + voice that actually ran; all reference images render; '
+    + 'list widgets leave Loading from sessions[] / generations[] / hostContext');
 })().catch((e) => { console.error(e); process.exit(1); });

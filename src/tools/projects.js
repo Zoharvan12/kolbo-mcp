@@ -5,10 +5,9 @@
 
 const { z } = require('zod');
 const { buildProjectUrl } = require('./_shared');
-const { UI, uiResult, appsEnabled } = require('../apps');
+const { listResult } = require('../apps');
 
-function registerProjectTools(server, client, options = {}) {
-  const ui = () => appsEnabled(server, options);
+function registerProjectTools(server, client) {
   // ─── list_projects ─────────────────────────────────────────
   server.tool(
     'list_projects',
@@ -42,22 +41,18 @@ function registerProjectTools(server, client, options = {}) {
         _hint: 'Pass the chosen `id` as `project_id` on any generate_* tool to drop the generation into that project. Omit project_id to use the project flagged is_default:true. `open_url` opens that project\'s media in the web app (share it with the user). If `pagination.has_more` is true there are more projects — narrow with `search` rather than paging through everything.'
       }, null, 2);
 
-      if (ui()) {
-        return uiResult(UI.list, text, {
-          widget: 'list',
-          title: 'Your Projects',
-          items: projects.map(p => ({
-            id: p.id,
-            title: p.name,
-            subtitle: p.role + (p.is_default ? ' · default' : '') + (p.is_archived ? ' · archived' : ''),
-            open_url: p.open_url,
-            use_hint: 'Use my "{TITLE}" project (project_id: {ID}) for what I do next.'
-          })),
-          total: projects.length
-        });
-      }
-
-      return { content: [{ type: 'text', text }] };
+      return listResult(text, {
+        widget: 'list',
+        title: 'Your Projects',
+        items: projects.map(p => ({
+          id: p.id,
+          title: p.name,
+          subtitle: p.role + (p.is_default ? ' · default' : '') + (p.is_archived ? ' · archived' : ''),
+          open_url: p.open_url,
+          use_hint: 'Use my "{TITLE}" project (project_id: {ID}) for what I do next.'
+        })),
+        total: projects.length
+      });
     }
   );
 
@@ -135,20 +130,17 @@ function registerProjectTools(server, client, options = {}) {
         generations,
         _hint: 'This is an inventory, not a live generation. Pass the `id` values to `move_generations_to_session` (into an existing session) or `split_session` (into a new one). `in_flight: true` means it is still running and cannot be moved yet.'
       }, null, 2);
-      if (ui()) {
-        return uiResult(UI.list, text, {
-          widget: 'list',
-          title: (result.session && result.session.name) || 'Session generations',
-          items: generations.map((g) => ({
-            id: g.id,
-            title: (g.prompt && String(g.prompt).slice(0, 80)) || g.id,
-            subtitle: [g.status, g.output_count ? g.output_count + ' outputs' : null].filter(Boolean).join(' · '),
-            badge: g.in_flight ? 'running' : g.status
-          })),
-          total: generations.length
-        });
-      }
-      return { content: [{ type: 'text', text }] };
+      return listResult(text, {
+        widget: 'list',
+        title: (result.session && result.session.name) || 'Session generations',
+        items: generations.map((g) => ({
+          id: g.id,
+          title: (g.prompt && String(g.prompt).slice(0, 80)) || g.id,
+          subtitle: [g.status, g.output_count ? g.output_count + ' outputs' : null].filter(Boolean).join(' · '),
+          badge: g.in_flight ? 'running' : g.status
+        })),
+        total: generations.length
+      });
     }
   );
 
@@ -316,26 +308,22 @@ function registerProjectTools(server, client, options = {}) {
         _hint: 'Each row has project_id — pass it on every later generate/chat/upload in this conversation. Empty leftover sessions after a move: delete_session.'
       }, null, 2);
 
-      if (ui()) {
-        return uiResult(UI.list, text, {
-          widget: 'list',
-          title: 'Sessions' + (type ? ' — ' + type : '') + ' (' + sessions.length + ')',
-          items: sessions.map(s => ({
-            id: s.session_id,
-            title: s.name || s.types[0] || s.type || 'Session',
-            subtitle: [
-              s.session_id,
-              (s.types || []).join(', '),
-              s.project_id ? 'project ' + s.project_id : null,
-              s.updated_at ? String(s.updated_at).slice(0, 10) : null
-            ].filter(Boolean).join(' · '),
-            badge: (s.types && s.types[0]) || undefined
-          })),
-          total: sessions.length
-        });
-      }
-
-      return { content: [{ type: 'text', text }] };
+      return listResult(text, {
+        widget: 'list',
+        title: 'Sessions' + (type ? ' — ' + type : '') + ' (' + sessions.length + ')',
+        items: sessions.map(s => ({
+          id: s.session_id,
+          title: s.name || s.types[0] || s.type || 'Session',
+          subtitle: [
+            s.session_id,
+            (s.types || []).join(', '),
+            s.project_id ? 'project ' + s.project_id : null,
+            s.updated_at ? String(s.updated_at).slice(0, 10) : null
+          ].filter(Boolean).join(' · '),
+          badge: (s.types && s.types[0]) || undefined
+        })),
+        total: sessions.length
+      });
     }
   );
 
@@ -416,21 +404,17 @@ function registerProjectTools(server, client, options = {}) {
       const sources = result.sources || [];
       const text = JSON.stringify({ sources, count: result.count || 0 }, null, 2);
 
-      if (ui()) {
-        return uiResult(UI.list, text, {
-          widget: 'list',
-          title: 'Project Knowledge Base',
-          items: sources.map(s => ({
-            id: s.file_key,
-            title: s.title || s.type,
-            subtitle: s.type + ' · ' + s.status,
-            open_url: s.url || null
-          })),
-          total: sources.length
-        });
-      }
-
-      return { content: [{ type: 'text', text }] };
+      return listResult(text, {
+        widget: 'list',
+        title: 'Project Knowledge Base',
+        items: sources.map(s => ({
+          id: s.file_key,
+          title: s.title || s.type,
+          subtitle: s.type + ' · ' + s.status,
+          open_url: s.url || null
+        })),
+        total: sources.length
+      });
     }
   );
 

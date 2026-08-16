@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { resolveToBuffer: sharedResolveToBuffer, VISUAL_DNA_MAX_BYTES, projectScopeReadField, compactList } = require('./_shared');
-const { UI, uiResult, appsEnabled } = require('../apps');
+const { UI, uiResult, listResult, appsEnabled } = require('../apps');
 
 // Visual DNA caps reference media at 25MB per file (stricter than the
 // default _shared.resolveToBuffer cap — DNA profiles only need enough
@@ -227,21 +227,17 @@ function registerVisualDnaTools(server, client, options = {}) {
       const folders = result.folders || [];
       const text = JSON.stringify({ folders, count: result.count || 0 }, null, 2);
 
-      if (ui()) {
-        return uiResult(UI.list, text, {
-          widget: 'list',
-          title: 'Visual DNA Folders',
-          items: folders.map(f => ({
-            id: f.id,
-            title: f.name,
-            meta: f.item_count != null ? (f.item_count + (f.item_count === 1 ? ' DNA' : ' DNAs')) : null,
-            use_hint: 'List Visual DNAs in my "{TITLE}" folder (folder_id: {ID}).'
-          })),
-          total: folders.length
-        });
-      }
-
-      return { content: [{ type: 'text', text }] };
+      return listResult(text, {
+        widget: 'list',
+        title: 'Visual DNA Folders',
+        items: folders.map(f => ({
+          id: f.id,
+          title: f.name,
+          meta: f.item_count != null ? (f.item_count + (f.item_count === 1 ? ' DNA' : ' DNAs')) : null,
+          use_hint: 'List Visual DNAs in my "{TITLE}" folder (folder_id: {ID}).'
+        })),
+        total: folders.length
+      });
     }
   );
 

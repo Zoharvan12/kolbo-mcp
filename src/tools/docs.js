@@ -5,12 +5,11 @@
 
 const { z } = require('zod');
 const { projectIdField } = require('./_shared');
-const { UI, uiResult, appsEnabled } = require('../apps');
+const { listResult } = require('../apps');
 
 const CONTENT_GUIDE = 'HTML body content. Use clean semantic HTML the in-app editor understands: <h1>-<h3>, <p>, <ul>/<ol>/<li>, <table>, <blockquote>, <strong>/<em>, <a>. No <script>/<style>/<iframe> (stripped server-side). Write the FULL document yourself — this is where you author the doc.';
 
-function registerDocTools(server, client, options = {}) {
-  const ui = () => appsEnabled(server, options);
+function registerDocTools(server, client) {
   // ─── create_doc ────────────────────────────────────────────
   server.tool(
     'create_doc',
@@ -55,21 +54,17 @@ function registerDocTools(server, client, options = {}) {
       const docs = result.docs || [];
       const text = JSON.stringify({ docs, pagination: result.pagination || null }, null, 2);
 
-      if (ui()) {
-        return uiResult(UI.list, text, {
-          widget: 'list',
-          title: 'Your AI Docs',
-          items: docs.map(d => ({
-            id: d.id,
-            title: d.title,
-            subtitle: (d.updated_at ? String(d.updated_at).slice(0, 10) : '') + (d.is_shared ? ' · shared' : ''),
-            open_url: d.share_url || null
-          })),
-          total: docs.length
-        });
-      }
-
-      return { content: [{ type: 'text', text }] };
+      return listResult(text, {
+        widget: 'list',
+        title: 'Your AI Docs',
+        items: docs.map(d => ({
+          id: d.id,
+          title: d.title,
+          subtitle: (d.updated_at ? String(d.updated_at).slice(0, 10) : '') + (d.is_shared ? ' · shared' : ''),
+          open_url: d.share_url || null
+        })),
+        total: docs.length
+      });
     }
   );
 

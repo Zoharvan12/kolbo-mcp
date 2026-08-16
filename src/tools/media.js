@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { resolveToBuffer, DEFAULT_MAX_FILE_MB, compactList } = require('./_shared');
-const { UI, uiResult, appsEnabled } = require('../apps');
+const { UI, uiResult, listResult, appsEnabled } = require('../apps');
 
 // How many tiles the media grid renders. A rendering limit only — the text
 // payload always carries the full page, and `total` reports the real library
@@ -343,22 +343,18 @@ function registerMediaTools(server, client, options = {}) {
       const folders = result.folders || [];
       const text = JSON.stringify({ folders, count: result.count || 0 }, null, 2);
 
-      if (ui()) {
-        return uiResult(UI.list, text, {
-          widget: 'list',
-          title: 'Media Folders',
-          items: folders.map(f => ({
-            id: f.id,
-            title: f.name,
-            subtitle: f.description,
-            meta: (f.item_count || 0) + (f.item_count === 1 ? ' item' : ' items'),
-            use_hint: 'List media in my "{TITLE}" folder (folder_id: {ID}).'
-          })),
-          total: folders.length
-        });
-      }
-
-      return { content: [{ type: 'text', text }] };
+      return listResult(text, {
+        widget: 'list',
+        title: 'Media Folders',
+        items: folders.map(f => ({
+          id: f.id,
+          title: f.name,
+          subtitle: f.description,
+          meta: (f.item_count || 0) + (f.item_count === 1 ? ' item' : ' items'),
+          use_hint: 'List media in my "{TITLE}" folder (folder_id: {ID}).'
+        })),
+        total: folders.length
+      });
     }
   );
 

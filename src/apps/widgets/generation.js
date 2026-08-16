@@ -889,6 +889,8 @@ function completedFromPlain(sc) {
 /* ---------- wire host events ---------- */
 window.kolbo.onToolResult(function (result) {
   var sc = result.structuredContent || structured(result);
+  var list = listPayload(sc);
+  if (list) return renderList(list);
   if (sc && (sc.phase || sc.widget)) return boot(sc);
   var recovered = completedFromPlain(sc);
   if (recovered) return boot(recovered);
@@ -907,7 +909,10 @@ window.kolbo.ready(function (ctx) {
   var info = ctx && ctx.toolInfo;
   if (!state && info) {
     originTool = (info.tool && info.tool.name) || originTool;
-    if (info.result && info.result.structuredContent) return boot(info.result.structuredContent);
+    var raw = info.result && (info.result.structuredContent || structured(info.result));
+    var list = listPayload(raw);
+    if (list) return renderList(list);
+    if (raw) return boot(raw);
     bootPre(originTool, null);
   }
 });
