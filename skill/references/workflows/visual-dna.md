@@ -112,6 +112,7 @@ The match is **literal and case-insensitive**, so:
 - The `@name` must equal the stored `name` field (e.g. if `name: "esther_model"` → write `@esther_model`, not `@Esther`, not `@אסתר`, not `@the model`).
 - Any-language characters are supported — if the DNA was created with `name: "אסתר"` you write `@אסתר`. Use the EXACT stored string.
 - Mentions terminate at punctuation (`.,!?`), double-spaces, another `@`, or end of string. So `@maya, wearing...` matches `maya`.
+- **Never glue a possessive onto the tag.** Write `the face of @maya stays stable`, not `@maya's face stays stable` — the tag must end at the stored name. kolbo-api does strip a trailing `'s` / `’s` before the lookup, so a possessive no longer loses the DNA, but the apostrophe is left sitting in the prompt text the model sees.
 
 This composes with `@image1` / `@image2` positional tags for plain reference/source images — see "Reference Tagging" below.
 
