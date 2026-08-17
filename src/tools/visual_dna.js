@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { resolveToBuffer: sharedResolveToBuffer, VISUAL_DNA_MAX_BYTES, projectScopeReadField, compactList } = require('./_shared');
-const { UI, uiResult, listResult, appsEnabled } = require('../apps');
+const { UI, uiResult, listResult } = require('../apps');
 
 // Reference sheets are a blocking multi-panel render; the 120s client default
 // aborted them mid-flight while the server finished and charged anyway.
@@ -20,7 +20,6 @@ function resolveToBuffer(source, kind) {
 }
 
 function registerVisualDnaTools(server, client, options = {}) {
-  const ui = () => appsEnabled(server, options);
   // ─── create_visual_dna ─────────────────────────────────────
   server.tool(
     'create_visual_dna',
@@ -133,24 +132,25 @@ function registerVisualDnaTools(server, client, options = {}) {
         note: 'Narrow with `search`, `tags`, or `collection`, or pass `page`/`limit` for the rest; get_visual_dna returns one in full.',
       });
 
-      if (ui()) {
-        return uiResult(UI.mediaGrid, text, {
-          widget: 'media-grid',
-          title: 'Visual DNA Profiles',
-          items: dnas.slice(0, 24).map(d => ({
-            id: d.id,
-            title: d.name,
-            subtitle: (d.dna_type || '') + (Array.isArray(d.tags) && d.tags.length ? ' · ' + d.tags.slice(0, 3).join(', ') : ''),
-            thumbnail: d.thumbnail_url || d.thumbnail,
-            media_type: 'image',
-            use_hint: 'Use Visual DNA "{TITLE}" (id: {ID}) in my next generation for character/style consistency.'
-          })),
-          total,
-          has_more: result.has_more || dnas.length > 24
-        });
-      }
-
-      return { content: [{ type: 'text', text }] };
+      // Always ship structuredContent. Kolbo Code does NOT advertise MCP Apps, so
+      // gating the grid payload on appsEnabled() sent it text only; the host then
+      // rebuilt items from the compactList text, whose field names are
+      // `filename`/`url` — not the `title`/`thumbnail` the grid renders — so every
+      // tile came out black and unlabelled. Same reasoning as listResult().
+      return uiResult(UI.mediaGrid, text, {
+        widget: 'media-grid',
+        title: 'Visual DNA Profiles',
+        items: dnas.slice(0, 24).map(d => ({
+          id: d.id,
+          title: d.name,
+          subtitle: (d.dna_type || '') + (Array.isArray(d.tags) && d.tags.length ? ' · ' + d.tags.slice(0, 3).join(', ') : ''),
+          thumbnail: d.thumbnail_url || d.thumbnail,
+          media_type: 'image',
+          use_hint: 'Use Visual DNA "{TITLE}" (id: {ID}) in my next generation for character/style consistency.'
+        })),
+        total,
+        has_more: result.has_more || dnas.length > 24
+      });
     }
   );
 

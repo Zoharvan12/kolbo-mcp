@@ -4,11 +4,10 @@
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
 const { z } = require('zod');
-const { UI, uiResult, appsEnabled } = require('../apps');
+const { UI, uiResult } = require('../apps');
 const { projectScopeReadField } = require('./_shared');
 
 function registerMoodboardTools(server, client, options = {}) {
-  const ui = () => appsEnabled(server, options);
   // ─── list_moodboards ───────────────────────────────────────
   server.tool(
     'list_moodboards',
@@ -29,25 +28,26 @@ function registerMoodboardTools(server, client, options = {}) {
         count: result.count || 0
       }, null, 2);
 
-      if (ui()) {
-        return uiResult(UI.mediaGrid, text, {
-          widget: 'media-grid',
-          title: 'Moodboards',
-          items: moodboards.slice(0, 24).map(mb => ({
-            id: mb.id,
-            title: mb.name,
-            // API returns thumbnail_url + images[] (sdk listMoodboards) — both
-            // previous keys were wrong, so the fallback never fired either.
-            thumbnail: mb.thumbnail_url || mb.thumbnail || (Array.isArray(mb.images) ? mb.images[0] : undefined),
-            media_type: 'image',
-            use_hint: 'Apply moodboard "{TITLE}" (moodboard_id: {ID}) to my next generation.'
-          })),
-          total: result.count || moodboards.length,
-          has_more: moodboards.length > 24
-        });
-      }
-
-      return { content: [{ type: 'text', text }] };
+      // Always ship structuredContent. Kolbo Code does NOT advertise MCP Apps, so
+      // gating the grid payload on appsEnabled() sent it text only; the host then
+      // rebuilt items from the compactList text, whose field names are
+      // `filename`/`url` — not the `title`/`thumbnail` the grid renders — so every
+      // tile came out black and unlabelled. Same reasoning as listResult().
+      return uiResult(UI.mediaGrid, text, {
+        widget: 'media-grid',
+        title: 'Moodboards',
+        items: moodboards.slice(0, 24).map(mb => ({
+          id: mb.id,
+          title: mb.name,
+          // API returns thumbnail_url + images[] (sdk listMoodboards) — both
+          // previous keys were wrong, so the fallback never fired either.
+          thumbnail: mb.thumbnail_url || mb.thumbnail || (Array.isArray(mb.images) ? mb.images[0] : undefined),
+          media_type: 'image',
+          use_hint: 'Apply moodboard "{TITLE}" (moodboard_id: {ID}) to my next generation.'
+        })),
+        total: result.count || moodboards.length,
+        has_more: moodboards.length > 24
+      });
     }
   );
 
