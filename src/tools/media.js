@@ -291,13 +291,6 @@ function registerMediaTools(server, client, options = {}) {
         total: totalItems != null ? totalItems : media.length,
         shown: Math.min(media.length, GRID_CAP)
       });
-
-      return {
-        content: [{
-          type: 'text',
-          text
-        }]
-      };
     }
   );
 

@@ -63,10 +63,15 @@ function boot(sc) {
 function cellHTML(item, i) {
   var idx = state.items.indexOf(item);
   var isVideo = item.media_type === 'video' && item.url;
-  var media = item.thumbnail
-    ? '<img src="' + esc(item.thumbnail) + '" loading="lazy" alt="">'
-    : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-faint);font-size:22px">' +
+  // onerror matters: a thumbnail that 404s / expires / can't be fetched by the
+  // host webview left a BLACK tile with no glyph and no label hint — visually
+  // identical to "corrupted media". Fall back to the same kind icon a
+  // thumbnail-less item gets, so a dead URL degrades instead of looking broken.
+  var fallbackCell = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-faint);font-size:22px">' +
       kindIcon(item.media_type) + '</div>';
+  var media = item.thumbnail
+    ? '<img src="' + esc(item.thumbnail) + '" loading="lazy" alt="" onerror="this.parentNode.innerHTML=this.getAttribute(\\'data-fb\\')" data-fb="' + esc(fallbackCell) + '">'
+    : fallbackCell;
   return '<div class="k-cell" data-i="' + idx + '">' +
     '<div class="k-cell-media">' + media +
     (isVideo ? '<button class="k-play k-cell-play" data-video-play="' + esc(item.url) + '">' + ICONS.play + '</button>' : '') +

@@ -103,12 +103,46 @@ const BRIDGE_JS = `
     var card = document.querySelector('.k-card');
     var rect = card ? card.getBoundingClientRect() : null;
     var height = rect ? Math.ceil(rect.bottom + 8) : document.documentElement.scrollHeight;
-    // Never ask the host for more than a viewport of inline height — a card
-    // taller than the screen overlaps Claude's prompt area.
-    height = Math.min(height, Math.max(window.innerHeight || 900, 500));
+    // Ceiling comes from the SCREEN, never window.innerHeight. Inside an iframe
+    // innerHeight IS the height the host already granted, so clamping to it made
+    // the request a feedback loop: once the host capped us, we could never ask
+    // for more than the cap, and any content past it became an inner scrollbar
+    // that no amount of growing could clear. The host clamps too, so this is
+    // only a sanity ceiling.
+    var ceiling = (window.screen && window.screen.availHeight) || 1200;
+    height = Math.min(height, Math.max(ceiling, 500));
     notify('ui/notifications/size-changed', {
       width: document.documentElement.scrollWidth, height: height
     });
+    markDraggable();
+  }
+
+  // Every image/video in a widget can be dragged straight into the host's
+  // composer. <img> is natively draggable but <video> is not, and neither sets
+  // a clean URL, so both get an explicit dragstart carrying text/uri-list —
+  // exactly the format the composer's drop handler already reads.
+  // Hooked off notifySize because that is the one thing every render path
+  // already calls, so new render sites are covered without touching them.
+  function markDraggable() {
+    var nodes = document.querySelectorAll('img[src], video[src]');
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      if (node.getAttribute('data-kolbo-drag')) continue;
+      node.setAttribute('data-kolbo-drag', '1');
+      node.setAttribute('draggable', 'true');
+      node.addEventListener('dragstart', onMediaDragStart);
+    }
+  }
+
+  function onMediaDragStart(e) {
+    var node = e.currentTarget;
+    // Strip the #t=0.05 poster fragment videos carry, or the host would attach
+    // a URL the CDN answers differently.
+    var url = String(node.currentSrc || node.getAttribute('src') || '').split('#')[0];
+    if (!/^https?:/i.test(url) || !e.dataTransfer) return;
+    e.dataTransfer.setData('text/uri-list', url);
+    e.dataTransfer.setData('text/plain', url);
+    e.dataTransfer.effectAllowed = 'copy';
   }
 
   var sizeTimer = null;
@@ -149,6 +183,11 @@ const BRIDGE_JS = `
       return request('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
     },
     openLink: function (url) { return request('ui/open-link', { url: url }); },
+    // Hand a piece of this widget's media to the host's composer. Dragging it
+    // out cannot work: a widget is a sandboxed cross-origin iframe, so a native
+    // HTML5 drag started in here never delivers its dataTransfer to the host
+    // document. Hosts that ignore this method simply do nothing.
+    attachMedia: function (url) { return request('ui/attach-media', { url: url }); },
     updateModelContext: function (text) {
       return request('ui/update-model-context', { content: [{ type: 'text', text: text }] });
     },

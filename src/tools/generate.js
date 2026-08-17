@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone, waitWindowMs } = require('../polling');
-const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, sessionIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, appsEnabled } = require('./_shared');
+const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, sessionIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, uiCompleted, appsEnabled } = require('./_shared');
 const { UI, uiResult, canonicalModelId, modelInfo, voiceInfo } = require('../apps');
 
 // ─── Cinematic Dimensions schema (shared by generate_image + generate_image_edit) ───
@@ -224,19 +224,20 @@ function registerGenerateTools(server, client, options = {}) {
       const result = poll.result;
 
       const images = await inlineImageBlocks(result.result.urls, { enabled: inlineImages });
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: gen.session_id,
-            urls: result.result.urls,
-            model: result.result.model,
-            prompt_used: result.result.prompt_used,
-            _followup_hint: 'If the user asks to edit/change/modify this image next (scene, lighting, objects, style, color — any content edit), pass urls[0] to generate_image_edit. Use edit_image ONLY for mechanical ops (upscale/reframe/removebg/enhance_skin). Do NOT call generate_image again.'
-          }, null, 2)
-        }, ...images]
-      };
+      return uiCompleted({
+        tool: 'generate_image', kind: 'image', gen, client, model, prompt,
+        count: num_images, settings: imageSettings(shared),
+        reference_images,
+        urls: result.result.urls,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: gen.session_id,
+        urls: result.result.urls,
+        model: result.result.model,
+        prompt_used: result.result.prompt_used,
+        _followup_hint: 'If the user asks to edit/change/modify this image next (scene, lighting, objects, style, color — any content edit), pass urls[0] to generate_image_edit. Use edit_image ONLY for mechanical ops (upscale/reframe/removebg/enhance_skin). Do NOT call generate_image again.'
+      }, null, 2), images);
     }
   );
 
@@ -311,19 +312,20 @@ function registerGenerateTools(server, client, options = {}) {
       const result = poll.result;
 
       const images = await inlineImageBlocks(result.result.urls, { enabled: inlineImages });
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: gen.session_id,
-            urls: result.result.urls,
-            model: result.result.model,
-            prompt_used: result.result.prompt_used,
-            _followup_hint: 'If the user asks for another edit on this output, pass urls[0] back into generate_image_edit as source_images. For targeted ops (upscale/reframe/removebg/enhance_skin) use edit_image instead. Do NOT call generate_image from scratch.'
-          }, null, 2)
-        }, ...images]
-      };
+      return uiCompleted({
+        tool: 'generate_image_edit', kind: 'image', gen, client, model, prompt,
+        count: num_images, settings: imageSettings(shared),
+        reference_images: source_images,
+        urls: result.result.urls,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: gen.session_id,
+        urls: result.result.urls,
+        model: result.result.model,
+        prompt_used: result.result.prompt_used,
+        _followup_hint: 'If the user asks for another edit on this output, pass urls[0] back into generate_image_edit as source_images. For targeted ops (upscale/reframe/removebg/enhance_skin) use edit_image instead. Do NOT call generate_image from scratch.'
+      }, null, 2), images);
     }
   );
 
@@ -538,21 +540,24 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: gen.session_id,
-            urls: result.result.urls,
-            model: result.result.model,
-            duration: result.result.duration,
-            thumbnail_url: result.result.thumbnail_url,
-            prompt_used: result.result.prompt_used,
-            _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to edit_video (upscale/reframe/face_swap/extend/generate_audio/lipsync/magic_edit) or generate_video_from_video (restyle). Do NOT call generate_video from scratch.'
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'generate_video', kind: 'video', gen, client, model, prompt,
+        settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, preset_id }),
+        reference_images,
+        urls: result.result.urls,
+        thumbnail_url: result.result.thumbnail_url,
+        duration: result.result.duration,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: gen.session_id,
+        urls: result.result.urls,
+        model: result.result.model,
+        duration: result.result.duration,
+        thumbnail_url: result.result.thumbnail_url,
+        prompt_used: result.result.prompt_used,
+        _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to edit_video (upscale/reframe/face_swap/extend/generate_audio/lipsync/magic_edit) or generate_video_from_video (restyle). Do NOT call generate_video from scratch.'
+      }, null, 2));
     }
   );
 
@@ -621,20 +626,23 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: gen.session_id,
-            urls: result.result.urls,
-            model: result.result.model,
-            duration: result.result.duration,
-            thumbnail_url: result.result.thumbnail_url,
-            _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to edit_video or generate_video_from_video. Do NOT re-run generate_video_from_image unless they want a fresh animation from a different source image. Animating more shots of THIS same sequence? Pass the session_id above back on each of those calls so they all land in one session.'
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'generate_video_from_image', kind: 'video', gen, client, model, prompt,
+        settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids }),
+        reference_images: [image_url],
+        urls: result.result.urls,
+        thumbnail_url: result.result.thumbnail_url,
+        duration: result.result.duration,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: gen.session_id,
+        urls: result.result.urls,
+        model: result.result.model,
+        duration: result.result.duration,
+        thumbnail_url: result.result.thumbnail_url,
+        _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to edit_video or generate_video_from_video. Do NOT re-run generate_video_from_image unless they want a fresh animation from a different source image. Animating more shots of THIS same sequence? Pass the session_id above back on each of those calls so they all land in one session.'
+      }, null, 2));
     }
   );
 
@@ -686,19 +694,21 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: gen.session_id,
-            urls: result.result.urls,
-            title: result.result.title,
-            duration: result.result.duration,
-            lyrics: result.result.lyrics
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'generate_music', kind: 'audio', gen, client, model: model || 'Suno', prompt,
+        settings: { mode: instrumental ? 'instrumental' : (style || undefined) },
+        urls: result.result.urls,
+        title: result.result.title,
+        duration: result.result.duration,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: gen.session_id,
+        urls: result.result.urls,
+        title: result.result.title,
+        duration: result.result.duration,
+        lyrics: result.result.lyrics
+      }, null, 2));
     }
   );
 
@@ -788,19 +798,26 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: gen.session_id,
-            urls: result.result.urls,
-            voice: result.result.voice,
-            duration: result.result.duration,
-            ...(unknownVoice ? { _warning: unknownVoice } : {})
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'generate_speech', kind: 'audio', gen, client, model, prompt: text,
+        voice: voiceRecord,
+        settings: {
+          voice: voice || 'Rachel',
+          style: selected_style || emotion || style_instructions_preset_id || style_instructions,
+          speaking_speed,
+          language,
+        },
+        urls: result.result.urls,
+        duration: result.result.duration,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: gen.session_id,
+        urls: result.result.urls,
+        voice: result.result.voice,
+        duration: result.result.duration,
+        ...(unknownVoice ? { _warning: unknownVoice } : {})
+      }, null, 2));
     }
   );
 
@@ -851,17 +868,19 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: gen.session_id,
-            urls: result.result.urls,
-            duration: result.result.duration
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'generate_sound', kind: 'audio', gen, client, model, prompt,
+        settings: { duration },
+        reference_images: seed_reference_image_url ? [seed_reference_image_url] : [],
+        urls: result.result.urls,
+        duration: result.result.duration,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: gen.session_id,
+        urls: result.result.urls,
+        duration: result.result.duration
+      }, null, 2));
     }
   );
 
@@ -1109,7 +1128,12 @@ function registerGenerateTools(server, client, options = {}) {
           ...(reference_images || []),
           ...(keyframes || []).map((keyframe) => keyframe.image_url),
           ...(files || []).filter((source) => /^https?:\/\//i.test(source))
-        ]
+        ],
+        // Elements is the one tool that takes all three modalities. The widget
+        // sorts kind by extension, so a video that arrived via `files` is still
+        // rendered as a video — these two just make sure nothing is dropped.
+        reference_videos: reference_videos || [],
+        reference_audio: [...(reference_audio_urls || []), ...(audio_url ? [audio_url] : [])]
       });
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
@@ -1119,19 +1143,33 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: startResponse.session_id,
-            urls: result.result?.urls || [],
-            thumbnail_url: result.result?.thumbnail_url || null,
-            duration: result.result?.duration || null,
-            model: result.result?.model || null
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'generate_elements', kind: 'video', gen: startResponse, client, model, prompt,
+        settings: videoSettings({
+          duration,
+          reported_duration: result.result?.duration,
+          shots: multi_shot_count ?? (Array.isArray(multi_shots) ? multi_shots.length : undefined),
+          resolution, aspect_ratio, enhance_prompt, visual_dna_ids, preset_id,
+        }),
+        reference_images: [
+          ...(reference_images || []),
+          ...(keyframes || []).map((keyframe) => keyframe.image_url),
+          ...(files || []).filter((source) => /^https?:\/\//i.test(source))
+        ],
+        reference_videos: reference_videos || [],
+        reference_audio: [...(reference_audio_urls || []), ...(audio_url ? [audio_url] : [])],
+        urls: result.result?.urls || [],
+        thumbnail_url: result.result?.thumbnail_url || null,
+        duration: result.result?.duration || null,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: startResponse.session_id,
+        urls: result.result?.urls || [],
+        thumbnail_url: result.result?.thumbnail_url || null,
+        duration: result.result?.duration || null,
+        model: result.result?.model || null
+      }, null, 2));
     }
   );
 
@@ -1204,19 +1242,23 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: startResponse.session_id,
-            urls: result.result?.urls || [],
-            thumbnail_url: result.result?.thumbnail_url || null,
-            duration: result.result?.duration || null,
-            model: result.result?.model || null
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'generate_first_last_frame', kind: 'video', gen: startResponse, client, model, prompt,
+        settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids }),
+        reference_images: [first_frame_url || first_frame, last_frame_url || last_frame]
+          .filter((source) => /^https?:\/\//i.test(source || '')),
+        urls: result.result?.urls || [],
+        thumbnail_url: result.result?.thumbnail_url || null,
+        duration: result.result?.duration || null,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: startResponse.session_id,
+        urls: result.result?.urls || [],
+        thumbnail_url: result.result?.thumbnail_url || null,
+        duration: result.result?.duration || null,
+        model: result.result?.model || null
+      }, null, 2));
     }
   );
 
@@ -1319,19 +1361,23 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: startResponse.session_id,
-            urls: result.result?.urls || [],
-            thumbnail_url: result.result?.thumbnail_url || null,
-            duration: result.result?.duration || null,
-            model: result.result?.model || null
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'generate_lipsync', kind: 'video', gen: startResponse, client, model,
+        prompt: text_prompt, settings: { mode: 'lipsync' },
+        reference_images: sourceIsUrl && !/\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? [source] : [],
+        reference_videos: sourceIsUrl && /\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? [source] : [],
+        urls: result.result?.urls || [],
+        thumbnail_url: result.result?.thumbnail_url || null,
+        duration: result.result?.duration || null,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: startResponse.session_id,
+        urls: result.result?.urls || [],
+        thumbnail_url: result.result?.thumbnail_url || null,
+        duration: result.result?.duration || null,
+        model: result.result?.model || null
+      }, null, 2));
     }
   );
 
@@ -1414,7 +1460,13 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'generate_video_from_video', kind: 'video', gen: startResponse, client, model,
         prompt: prompt || (preset ? `Subtitles preset: ${preset}` : undefined),
         settings: videoSettings({ duration, resolution, aspect_ratio, mode: preset ? 'subtitles' : 'restyle', enhance_prompt, visual_dna_ids }),
-        reference_images: [...(reference_images || []), ...(elements || [])]
+        reference_images: [...(reference_images || []), ...(elements || [])],
+        // The source clip IS the primary reference for a restyle — showing the
+        // extra references while hiding the video being transformed was backwards.
+        reference_videos: [
+          ...(isUrl ? [source_video] : []),
+          ...(reference_videos || [])
+        ]
       });
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
@@ -1424,19 +1476,27 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: startResponse.session_id,
-            urls: result.result?.urls || [],
-            thumbnail_url: result.result?.thumbnail_url || null,
-            duration: result.result?.duration || null,
-            model: result.result?.model || null
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'generate_video_from_video', kind: 'video', gen: startResponse, client, model,
+        prompt: prompt || (preset ? `Subtitles preset: ${preset}` : undefined),
+        settings: videoSettings({ duration, resolution, aspect_ratio, mode: preset ? 'subtitles' : 'restyle', enhance_prompt, visual_dna_ids }),
+        reference_images: [...(reference_images || []), ...(elements || [])],
+        reference_videos: [
+          ...(isUrl ? [source_video] : []),
+          ...(reference_videos || [])
+        ],
+        urls: result.result?.urls || [],
+        thumbnail_url: result.result?.thumbnail_url || null,
+        duration: result.result?.duration || null,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: startResponse.session_id,
+        urls: result.result?.urls || [],
+        thumbnail_url: result.result?.thumbnail_url || null,
+        duration: result.result?.duration || null,
+        model: result.result?.model || null
+      }, null, 2));
     }
   );
 
@@ -1567,18 +1627,20 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            urls: result.result?.urls || [],
-            thumbnail_url: result.result?.thumbnail_url || null,
-            mode: result.result?.mode || null,
-            prompt_used: result.result?.prompt_used || null
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'generate_3d', kind: '3d', gen: startResponse, client, model, prompt,
+        settings: { mode: mode || (reference_images?.length > 1 ? 'multi' : reference_images?.length === 1 ? 'single' : 'text') },
+        reference_images,
+        urls: result.result?.urls || [],
+        thumbnail_url: result.result?.thumbnail_url || null,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        urls: result.result?.urls || [],
+        thumbnail_url: result.result?.thumbnail_url || null,
+        mode: result.result?.mode || null,
+        prompt_used: result.result?.prompt_used || null
+      }, null, 2));
     }
   );
   // ─── edit_image ────────────────────────────────────────────
@@ -1713,18 +1775,20 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: gen.session_id,
-            urls: result.result?.urls || [],
-            edit_type: result.result?.edit_type || null,
-            model: result.result?.model || null
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'edit_image', kind: 'image', gen, client, model,
+        prompt: prompt || operation,
+        settings: { mode: operation, aspect_ratio, scale, resolution },
+        reference_images: [image_url, mask_image_url, ...(additional_images || [])].filter(Boolean),
+        urls: result.result?.urls || [],
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: gen.session_id,
+        urls: result.result?.urls || [],
+        edit_type: result.result?.edit_type || null,
+        model: result.result?.model || null
+      }, null, 2));
     }
   );
 
@@ -1878,20 +1942,23 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...creditFields(result),
-            session_id: gen.session_id,
-            urls: result.result?.urls || [],
-            download_url: result.result?.download_url || null,
-            edit_type: result.result?.edit_type || null,
-            duration: result.result?.duration || null,
-            model: result.result?.model || null
-          }, null, 2)
-        }]
-      };
+      return uiCompleted({
+        tool: 'edit_video', kind: 'video', gen, client, model,
+        prompt: prompt || operation,
+        settings: { mode: operation, duration, aspect_ratio, resolution },
+        reference_images: image_url ? [image_url] : [],
+        urls: result.result?.urls || [],
+        duration: result.result?.duration || null,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: gen.session_id,
+        urls: result.result?.urls || [],
+        download_url: result.result?.download_url || null,
+        edit_type: result.result?.edit_type || null,
+        duration: result.result?.duration || null,
+        model: result.result?.model || null
+      }, null, 2));
     }
   );
 
