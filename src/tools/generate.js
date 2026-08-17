@@ -125,7 +125,13 @@ const imageSettings = (a = {}) => ({
 // Same block for the video tools, which carried only { duration, resolution,
 // aspect_ratio } — a DNA-anchored video card showed no sign a DNA was in play.
 const videoSettings = (a = {}) => ({
-  duration: a.duration,
+  // Multi-shot elements calls usually set shot COUNT and let the model take the
+  // default per-shot length, so `duration` came through undefined and the card
+  // showed model/resolution/ratio but never how long the video actually is —
+  // the one number the user picked and is paying for. Fall back to what the API
+  // echoed back on start, then to per-shot × shots.
+  duration: a.duration ?? a.reported_duration ?? (a.shot_duration && a.shots ? a.shot_duration * a.shots : undefined),
+  ...(a.shots > 1 ? { shots: a.shots } : {}),
   resolution: a.resolution,
   aspect_ratio: a.aspect_ratio,
   ...(a.mode ? { mode: a.mode } : {}),
@@ -1093,7 +1099,12 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (ui()) return uiGenerating({
         tool: 'generate_elements', kind: 'video', gen: startResponse, client, model, prompt,
-        settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids, preset_id }),
+        settings: videoSettings({
+          duration,
+          reported_duration: startResponse?.duration ?? startResponse?.result?.duration,
+          shots: multi_shot_count ?? (Array.isArray(multi_shots) ? multi_shots.length : undefined),
+          resolution, aspect_ratio, enhance_prompt, visual_dna_ids, preset_id,
+        }),
         reference_images: [
           ...(reference_images || []),
           ...(keyframes || []).map((keyframe) => keyframe.image_url),

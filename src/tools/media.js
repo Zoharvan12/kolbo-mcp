@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { resolveToBuffer, DEFAULT_MAX_FILE_MB, compactList } = require('./_shared');
-const { UI, uiResult, listResult, appsEnabled } = require('../apps');
+const { UI, uiResult, listResult } = require('../apps');
 
 // How many tiles the media grid renders. A rendering limit only — the text
 // payload always carries the full page, and `total` reports the real library
@@ -65,8 +65,6 @@ function uploadTicketPayload(ticket) {
 }
 
 function registerMediaTools(server, client, options = {}) {
-  const ui = () => appsEnabled(server, options);
-
   // `opts.apps` is set only by kolbo-api's per-request server (see createServer
   // in ../index.js), which makes it a TRANSPORT signal — deliberately not
   // `appsEnabled()`, which also returns true for stdio hosts that advertise UI.
@@ -101,24 +99,27 @@ function registerMediaTools(server, client, options = {}) {
         expires_in_seconds: ticket.expires_in,
       };
 
-      if (ui()) {
-        // upload_ui_url: top-level page for Claude iOS/Android — in-iframe
-        // <input type=file> selections are dropped by WebKit (see upload widget).
-        const uploadUiUrl = ticket.upload_ui_url
-          || String(ticket.upload_url || '').replace(/\/upload\/?$/, '/upload-ui');
-        return uiResult(UI.upload, JSON.stringify(info, null, 2), {
-          widget: 'upload',
-          title: purpose || 'Upload media',
-          upload_url: ticket.upload_url,
-          upload_ui_url: uploadUiUrl,
-          token: ticket.token,
-          expires_at: Date.now() + (ticket.expires_in || 900) * 1000,
-          kinds: media_types && media_types.length ? media_types : undefined,
-          max_files: Math.min(Math.max(Number(max_files) || 10, 1), 20),
-          max_mb: ticket.max_file_mb || DEFAULT_MAX_FILE_MB,
-          ...(project_id ? { project_id } : {}),
-        });
-      }
+      // Always ship structuredContent. Kolbo Code does NOT advertise MCP Apps, so
+      // gating the grid payload on appsEnabled() sent it text only; the host then
+      // rebuilt items from the compactList text, whose field names are
+      // `filename`/`url` — not the `title`/`thumbnail` the grid renders — so every
+      // tile came out black and unlabelled. Same reasoning as listResult().
+      // upload_ui_url: top-level page for Claude iOS/Android — in-iframe
+      // <input type=file> selections are dropped by WebKit (see upload widget).
+      const uploadUiUrl = ticket.upload_ui_url
+        || String(ticket.upload_url || '').replace(/\/upload\/?$/, '/upload-ui');
+      return uiResult(UI.upload, JSON.stringify(info, null, 2), {
+        widget: 'upload',
+        title: purpose || 'Upload media',
+        upload_url: ticket.upload_url,
+        upload_ui_url: uploadUiUrl,
+        token: ticket.token,
+        expires_at: Date.now() + (ticket.expires_in || 900) * 1000,
+        kinds: media_types && media_types.length ? media_types : undefined,
+        max_files: Math.min(Math.max(Number(max_files) || 10, 1), 20),
+        max_mb: ticket.max_file_mb || DEFAULT_MAX_FILE_MB,
+        ...(project_id ? { project_id } : {}),
+      });
 
       // Text-only host (Claude Code, Codex CLI, Cursor): no iframe to render —
       // but these are exactly the hosts that CAN reach a filesystem, so hand
@@ -263,30 +264,33 @@ function registerMediaTools(server, client, options = {}) {
         note: 'Narrow with `type`, `category`, `project_id`, `folder_id`, or `search`; get_media returns one item in full.',
       });
 
-      if (ui()) {
-        // The SDK envelope reports `total_items` (see sdk/controller.js listMedia);
-        // reading `total` always came back undefined, so the grid claimed the page
-        // size was the whole library. Accept either, then fall back.
-        const totalItems = pagination
-          ? (pagination.total_items != null ? pagination.total_items : pagination.total)
-          : null;
-        const items = media.slice(0, GRID_CAP).map((m) => ({
-          id: m.id,
-          title: m.filename,
-          subtitle: m.media_type + (m.size ? ' · ' + Math.round(m.size / 1024) + 'KB' : ''),
-          thumbnail: m.media_type === 'image' ? m.url : (m.thumbnail_url || null),
-          media_type: m.media_type,
-          url: m.url,
-          use_hint: 'Use this media library asset in my next step:\nURL: {URL}\n(id: {ID})'
-        }));
-        return uiResult(UI.mediaGrid, text, {
-          widget: 'media-grid',
-          title: 'Media Library',
-          items,
-          total: totalItems != null ? totalItems : media.length,
-          shown: Math.min(media.length, GRID_CAP)
-        });
-      }
+      // Always ship structuredContent. Kolbo Code does NOT advertise MCP Apps, so
+      // gating the grid payload on appsEnabled() sent it text only; the host then
+      // rebuilt items from the compactList text, whose field names are
+      // `filename`/`url` — not the `title`/`thumbnail` the grid renders — so every
+      // tile came out black and unlabelled. Same reasoning as listResult().
+      // The SDK envelope reports `total_items` (see sdk/controller.js listMedia);
+      // reading `total` always came back undefined, so the grid claimed the page
+      // size was the whole library. Accept either, then fall back.
+      const totalItems = pagination
+        ? (pagination.total_items != null ? pagination.total_items : pagination.total)
+        : null;
+      const items = media.slice(0, GRID_CAP).map((m) => ({
+        id: m.id,
+        title: m.filename,
+        subtitle: m.media_type + (m.size ? ' · ' + Math.round(m.size / 1024) + 'KB' : ''),
+        thumbnail: m.media_type === 'image' ? m.url : (m.thumbnail_url || null),
+        media_type: m.media_type,
+        url: m.url,
+        use_hint: 'Use this media library asset in my next step:\nURL: {URL}\n(id: {ID})'
+      }));
+      return uiResult(UI.mediaGrid, text, {
+        widget: 'media-grid',
+        title: 'Media Library',
+        items,
+        total: totalItems != null ? totalItems : media.length,
+        shown: Math.min(media.length, GRID_CAP)
+      });
 
       return {
         content: [{

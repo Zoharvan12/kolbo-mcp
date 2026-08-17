@@ -164,7 +164,8 @@ function renderChips(sc) {
   var h = modelChipHTML(modelLabel(sc), sc.model_icon);
   var s = sc.settings || {};
   if (sc.kind) h += chip(iconFor(sc.kind) + ' ' + sc.kind);
-  if (s.duration) h += chip(ICONS.clock + ' ' + fmtDur(s.duration));
+  if (s.duration) h += chip(ICONS.clock + ' ' + fmtDur(s.duration) + (s.shots > 1 ? ' · ' + s.shots + ' shots' : ''));
+  else if (s.shots > 1) h += chip(s.shots + ' shots');
   if (s.resolution) h += chip(esc(s.resolution));
   if (s.aspect_ratio) h += chip(esc(s.aspect_ratio));
   if (s.quality) h += chip(esc(s.quality) + ' quality');
