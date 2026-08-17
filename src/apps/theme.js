@@ -85,6 +85,15 @@ body {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .k-prompt.k-clamped, .k-caption.k-clamped { cursor: pointer; }
 .k-prompt.expanded { -webkit-line-clamp: unset; }
+/* @VisualDNA / #Moodboard mentions are load-bearing prompt syntax, not prose —
+   the server resolves them to the actual asset. Mark them so a glance at the
+   prompt shows which references it pulls in. */
+.k-mention {
+  display: inline; padding: 1px 5px; border-radius: 5px;
+  background: var(--brand-soft); color: var(--brand);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.94em; font-weight: 500;
+}
 /* Single-line media caption (scene / batch prompt under the viewer) */
 .k-caption { font-size: 11px; color: var(--text-faint); margin: 2px 2px 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

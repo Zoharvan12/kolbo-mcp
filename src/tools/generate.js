@@ -101,16 +101,35 @@ async function pollBatch(client, batch, { interval, timeout }) {
 // only values that were really supplied ever surface. This used to be
 // `{ resolution, aspect_ratio }` only — `quality` (and every knob below it) was
 // silently dropped, so three calls at low/medium/high rendered identical cards.
+// `visual_dna`/`moodboard`/`preset` used to collapse to a count and two
+// booleans, which told nobody WHICH asset was applied — not the user reading
+// the card, and not the agent reading the tool result, so a follow-up call
+// could not reuse the same DNA or preset without re-listing. Carry the ids.
+const refSettings = (a = {}) => ({
+  enhance_prompt: a.enhance_prompt || undefined,
+  web_search: a.enable_web_search || undefined,
+  visual_dna_ids: (a.visual_dna_ids && a.visual_dna_ids.length) ? a.visual_dna_ids : undefined,
+  moodboard_id: a.moodboard_id || undefined,
+  moodboard_ids: (a.moodboard_ids && a.moodboard_ids.length) ? a.moodboard_ids : undefined,
+  preset_id: a.preset_id || undefined,
+  cinematic: a.cinematic ? true : undefined,
+});
+
 const imageSettings = (a = {}) => ({
   resolution: a.resolution,
   aspect_ratio: a.aspect_ratio,
   quality: a.quality,
-  enhance_prompt: a.enhance_prompt || undefined,
-  web_search: a.enable_web_search || undefined,
-  visual_dna: (a.visual_dna_ids && a.visual_dna_ids.length) || undefined,
-  moodboard: a.moodboard_id ? true : undefined,
-  preset: a.preset_id ? true : undefined,
-  cinematic: a.cinematic ? true : undefined,
+  ...refSettings(a),
+});
+
+// Same block for the video tools, which carried only { duration, resolution,
+// aspect_ratio } — a DNA-anchored video card showed no sign a DNA was in play.
+const videoSettings = (a = {}) => ({
+  duration: a.duration,
+  resolution: a.resolution,
+  aspect_ratio: a.aspect_ratio,
+  ...(a.mode ? { mode: a.mode } : {}),
+  ...refSettings(a),
 });
 
 const promptsField = (what) => z.array(z.string()).max(MAX_BATCH_PROMPTS).optional().describe(
@@ -220,9 +239,11 @@ function registerGenerateTools(server, client, options = {}) {
     'generate_image_edit',
     'THE tool for ANY prompt-driven / content edit of an existing image — changing the scene ("make it night", "change the sky to sunset"), adding/removing/replacing objects, restyling, recoloring, compositing, or any "edit this image to…" request. This is the image-editing equivalent of generate_image and runs on strong dedicated editing models (nano-banana-2, gpt-image-2). Provide the source image URL(s) in `source_images` and the instruction in `prompt`. Supports Visual DNA profiles, moodboards, and Kolbo image-editing presets. PRESET CONTRACT: if the user requests a preset, call list_presets type="image_edit" and pass its exact id as `preset_id`; never silently omit it. Do NOT use `edit_image` for these — that tool is only for mechanical enhancements (upscale/reframe/remove-background/skin). For a brand-new image from scratch, use generate_image. Returns the edited image URL(s) when complete.',
     {
-      prompt: z.string().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset")'),
+      prompt: z.string().optional().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset"). Required unless `prompts` is provided.'),
+      prompts: promptsField('edits of the SAME source images'),
       model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Many text-to-image ids double as editors: the server auto-routes a base id to its editing variant when source_images is present (e.g. "gpt-image-2" → gpt-image-2/edit, "nano-banana-2" → nano-banana-2-image-editing) — passing the bare id is fine, no need to hunt for the "/edit" suffix yourself. BUT this only works for models that actually have a registered edit variant. For prompt-driven photoreal photo edits (object removal, keep-this-person/remove-the-rest, crowd cleanup, inpainting) the ONLY auto-pick defaults are "nano-banana-2" or "gpt-image-2" (use GPT Image 2 when the image needs readable text). Do NOT auto-pick Flux 2 / flux-2/edit / Flux Klein — those are generate-from-scratch / style models; use them only if the user names Flux. If unsure, confirm the model appears in `list_models type="image_editing"` and choose by the strengths summary — Flux edit variants are named-only.'),
       source_images: z.array(z.string()).describe('PIXEL-ACCURATE compositing. Array of source image URLs whose pixel content is composited into the output. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.** Three modes the model auto-detects from input shape: (1) Single image → edit/transform that image. (2) Multiple images, one base + others → composite the others into the base. (3) Multiple images with no clear base → generate a new scene that pixel-accurately embeds the supplied images at positions described in the prompt. Mode 3 is the canonical pattern for thumbnails / branded compositions where exact-pixel logo + face fidelity matter. Refer to source images in the prompt by ordinal position ("FIRST source image", "SECOND source image") or use @image1/@image2 tags. Add "composite AS-IS, do not redraw or restyle" to lock pixels.'),
+      reference_images: z.array(z.string()).optional().describe('STYLE/COMPOSITION inspiration, alongside `source_images` on the same call — does NOT embed reference pixels. Use when the edit should follow a look sampled from other images ("re-light this shot like these references"). The pixels that must survive the edit go in `source_images`; these only steer the look. **Cap: `source_images` + `reference_images` together must not exceed `max_reference_images` from list_models for the chosen model.**'),
       aspect_ratio: z.string().optional().describe('Output aspect ratio (e.g., "1:1", "16:9", "9:16"). Must be in the chosen model\'s `supported_aspect_ratios` from list_models. Default: "1:1"'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       num_images: z.number().optional().describe('Number of output images. Default: 1'),
@@ -230,23 +251,45 @@ function registerGenerateTools(server, client, options = {}) {
       moodboard_id: z.string().optional().describe('Moodboard ID whose master_prompt and style_guide should be applied.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding. Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" / "2K" / "3K" / "4K". Model-dependent — call list_models and read supported_resolutions. Default: "1K" for most edit models.'),
+      quality: z.string().optional().describe('Quality tier for edit models that support it (e.g. "low", "medium", "high", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
       preset_id: z.string().optional().describe('Exact preset ID from list_presets type="image_edit" to apply an image-editing preset. If the user requests a preset, resolve and pass it; do not silently omit it.'),
       cinematic: CINEMATIC_SCHEMA,
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one edit ungraded.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, model, source_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, cinematic, skip_color_palette, project_id, session_id }) => {
+    async ({ prompt, prompts, model, source_images, reference_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id }) => {
+      if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'image_editing'); // lenient id resolution ("z-image" → "z-image/turbo")
-      const gen = await client.post('/v1/generate/image-edit', {
-        prompt, model, source_images, aspect_ratio, enhance_prompt, num_images,
-        visual_dna_ids, moodboard_id, enable_web_search, resolution, preset_id, cinematic, skip_color_palette, project_id, session_id
-      });
+      const shared = {
+        model, source_images, reference_images, aspect_ratio, enhance_prompt,
+        visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id
+      };
+      const settings = imageSettings(shared);
+
+      // Batch mode: N different edit instructions against the SAME source
+      // images, one widget owning every generation id. Same contract as
+      // generate_image — without it, "give me 4 variations of this edit" came
+      // back as four stacked cards.
+      if (prompts && prompts.length) {
+        const batch = await submitBatch(prompts, (p) => client.post('/v1/generate/image-edit', { ...shared, prompt: p }));
+        if (ui()) return uiGenerating({
+          tool: 'generate_image_edit', kind: 'image', gen: batch.ok[0].gen, client, model,
+          count: batch.ids.length, settings,
+          generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
+          failed_submissions: batch.failed,
+          status_args: { generation_ids: batch.ids, wait: true },
+          reference_images: source_images
+        });
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 240000 });
+      }
+
+      const gen = await client.post('/v1/generate/image-edit', { ...shared, prompt, num_images });
 
       if (ui()) return uiGenerating({
         tool: 'generate_image_edit', kind: 'image', gen, client, model, prompt,
         count: num_images,
-        settings: imageSettings({ resolution, aspect_ratio, enhance_prompt, enable_web_search, visual_dna_ids, moodboard_id, preset_id, cinematic }),
+        settings,
         reference_images: source_images
       });
 
@@ -308,7 +351,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_creative_director', kind: 'scenes', gen, client, model, prompt,
         count: scene_count || 4,
-        settings: { duration, resolution, aspect_ratio, mode: workflow_type || 'image' },
+        settings: videoSettings({ duration, resolution, aspect_ratio, mode: workflow_type || 'image', enhance_prompt, visual_dna_ids, moodboard_id, moodboard_ids }),
         reference_images,
         poll_tool: 'get_creative_director_status',
         status_args: { generation_id: gen.generation_id, wait: true }
@@ -462,7 +505,7 @@ function registerGenerateTools(server, client, options = {}) {
         const batch = await submitBatch(prompts, (p) => client.post('/v1/generate/video', { ...shared, prompt: p }));
         if (ui()) return uiGenerating({
           tool: 'generate_video', kind: 'video', gen: batch.ok[0].gen, client, model,
-          count: batch.ids.length, settings: { duration, resolution, aspect_ratio },
+          count: batch.ids.length, settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, preset_id }),
           generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
           failed_submissions: batch.failed,
           status_args: { generation_ids: batch.ids, wait: true },
@@ -475,7 +518,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (ui()) return uiGenerating({
         tool: 'generate_video', kind: 'video', gen, client, model, prompt,
-        settings: { duration, resolution, aspect_ratio },
+        settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, preset_id }),
         reference_images
       });
 
@@ -546,7 +589,7 @@ function registerGenerateTools(server, client, options = {}) {
         const batch = await submitBatch(items, (it) => client.post('/v1/generate/video/from-image', { ...shared, image_url: it.image_url, prompt: it.prompt }));
         if (ui()) return uiGenerating({
           tool: 'generate_video_from_image', kind: 'video', gen: batch.ok[0].gen, client, model,
-          count: batch.ids.length, settings: { duration, resolution, aspect_ratio },
+          count: batch.ids.length, settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids }),
           generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
           failed_submissions: batch.failed,
           status_args: { generation_ids: batch.ids, wait: true },
@@ -559,7 +602,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (ui()) return uiGenerating({
         tool: 'generate_video_from_image', kind: 'video', gen, client, model, prompt,
-        settings: { duration, resolution, aspect_ratio },
+        settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids }),
         reference_images: [image_url]
       });
 
@@ -1050,7 +1093,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (ui()) return uiGenerating({
         tool: 'generate_elements', kind: 'video', gen: startResponse, client, model, prompt,
-        settings: { duration, resolution, aspect_ratio },
+        settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids, preset_id }),
         reference_images: [
           ...(reference_images || []),
           ...(keyframes || []).map((keyframe) => keyframe.image_url),
@@ -1138,7 +1181,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (ui()) return uiGenerating({
         tool: 'generate_first_last_frame', kind: 'video', gen: startResponse, client, model, prompt,
-        settings: { duration, resolution, aspect_ratio },
+        settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids }),
         reference_images: [first_frame_url || first_frame, last_frame_url || last_frame]
           .filter((source) => /^https?:\/\//i.test(source || ''))
       });
@@ -1359,7 +1402,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (ui()) return uiGenerating({
         tool: 'generate_video_from_video', kind: 'video', gen: startResponse, client, model,
         prompt: prompt || (preset ? `Subtitles preset: ${preset}` : undefined),
-        settings: { duration, resolution, aspect_ratio, mode: preset ? 'subtitles' : 'restyle' },
+        settings: videoSettings({ duration, resolution, aspect_ratio, mode: preset ? 'subtitles' : 'restyle', enhance_prompt, visual_dna_ids }),
         reference_images: [...(reference_images || []), ...(elements || [])]
       });
 

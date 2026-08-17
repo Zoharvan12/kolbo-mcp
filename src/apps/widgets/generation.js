@@ -127,7 +127,7 @@ function boot(sc) {
   if (isListPayload(sc, sc.tool)) return renderList(sc);
   state = sc;
   el('tool-title').textContent = TOOL_TITLES[sc.tool] || 'Generation';
-  el('prompt').textContent = sc.prompt || '';
+  el('prompt').innerHTML = promptHTML(sc.prompt);
   el('prompt').style.display = sc.prompt ? '' : 'none';
   makeExpandable(el('prompt'));
   renderChips(sc);
@@ -144,6 +144,22 @@ function boot(sc) {
 function modelLabel(sc) { return sc.model_name || sc.model; }
 function voiceLabel(sc) { return sc.voice_name || sc.voice || (sc.settings || {}).voice; }
 
+// @VisualDNA / #Moodboard mentions are the tag syntax the server resolves into
+// real reference assets — rendering them as flat prose hid the single most
+// consequential part of the prompt. Escape FIRST, then wrap: the pattern only
+// matches after a boundary, so an email or a #fff hex never lights up.
+var MENTION_RE = /(^|[\s([{"'>])([@#][A-Za-z][\w-]*)/g;
+// #ff8800 / #fff are hex colors, and prompts are full of them. A moodboard tag
+// that happens to be 3 or 6 hex letters loses this coin flip; a grading note
+// mistaken for a moodboard is the worse read.
+var HEX_RE = /^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+function promptHTML(text) {
+  return esc(text || '').replace(MENTION_RE, function (m, pre, tag) {
+    if (HEX_RE.test(tag)) return m;
+    return pre + '<span class="k-mention">' + tag + '</span>';
+  });
+}
+
 function renderChips(sc) {
   var h = modelChipHTML(modelLabel(sc), sc.model_icon);
   var s = sc.settings || {};
@@ -154,9 +170,17 @@ function renderChips(sc) {
   if (s.quality) h += chip(esc(s.quality) + ' quality');
   if (s.enhance_prompt) h += chip(ICONS.sparkle + ' enhanced');
   if (s.web_search) h += chip('web search');
-  if (s.visual_dna) h += chip(s.visual_dna + ' Visual DNA');
-  if (s.moodboard) h += chip('moodboard');
-  if (s.preset) h += chip('preset');
+  // Ids where we have them (title = the id, so it can be copied / reused),
+  // falling back to the old count/boolean shape for payloads generated before
+  // the ids were carried.
+  var dnaIds = s.visual_dna_ids || [];
+  if (dnaIds.length) h += chipT(dnaIds.length + ' Visual DNA', dnaIds.join('\n'));
+  else if (s.visual_dna) h += chip(s.visual_dna + ' Visual DNA');
+  var mbIds = s.moodboard_ids || (s.moodboard_id ? [s.moodboard_id] : []);
+  if (mbIds.length) h += chipT(mbIds.length > 1 ? mbIds.length + ' moodboards' : 'moodboard', mbIds.join('\n'));
+  else if (s.moodboard) h += chip('moodboard');
+  if (s.preset_id) h += chipT('preset', s.preset_id);
+  else if (s.preset) h += chip('preset');
   if (s.cinematic) h += chip('cinematic');
   if (s.audio) h += chip(ICONS.sound + ' audio');
   var voice = voiceLabel(sc);
@@ -176,6 +200,11 @@ function renderChips(sc) {
   el('chips').innerHTML = h;
 }
 function chip(inner) { return '<span class="k-chip">' + inner + '</span>'; }
+// Same chip with a hover title — used to surface the asset id behind a
+// "2 Visual DNA" / "preset" label without spending chip width on it.
+function chipT(inner, title) {
+  return '<span class="k-chip" title="' + esc(title) + '">' + inner + '</span>';
+}
 function iconFor(kind) {
   switch (kind) {
     case 'image': return ICONS.image;
@@ -841,8 +870,8 @@ function bootPre(toolName, args) {
   }
   el('tool-title').textContent = TOOL_TITLES[toolName] || 'Generation';
   if (args && (args.prompt || args.text || (Array.isArray(args.prompts) && args.prompts.length))) {
-    el('prompt').textContent = args.prompt || args.text ||
-      (args.prompts.length + ' prompts — ' + args.prompts.join(' · '));
+    el('prompt').innerHTML = promptHTML(args.prompt || args.text ||
+      (args.prompts.length + ' prompts — ' + args.prompts.join(' · ')));
     el('prompt').style.display = '';
     makeExpandable(el('prompt'));
   }
