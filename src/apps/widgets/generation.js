@@ -174,10 +174,10 @@ function renderChips(sc) {
   // falling back to the old count/boolean shape for payloads generated before
   // the ids were carried.
   var dnaIds = s.visual_dna_ids || [];
-  if (dnaIds.length) h += chipT(dnaIds.length + ' Visual DNA', dnaIds.join('\n'));
+  if (dnaIds.length) h += chipT(dnaIds.length + ' Visual DNA', dnaIds.join('\\n'));
   else if (s.visual_dna) h += chip(s.visual_dna + ' Visual DNA');
   var mbIds = s.moodboard_ids || (s.moodboard_id ? [s.moodboard_id] : []);
-  if (mbIds.length) h += chipT(mbIds.length > 1 ? mbIds.length + ' moodboards' : 'moodboard', mbIds.join('\n'));
+  if (mbIds.length) h += chipT(mbIds.length > 1 ? mbIds.length + ' moodboards' : 'moodboard', mbIds.join('\\n'));
   else if (s.moodboard) h += chip('moodboard');
   if (s.preset_id) h += chipT('preset', s.preset_id);
   else if (s.preset) h += chip('preset');

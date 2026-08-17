@@ -8,6 +8,10 @@ const FormData = require('form-data');
 const { resolveToBuffer: sharedResolveToBuffer, VISUAL_DNA_MAX_BYTES, projectScopeReadField, compactList } = require('./_shared');
 const { UI, uiResult, listResult, appsEnabled } = require('../apps');
 
+// Reference sheets are a blocking multi-panel render; the 120s client default
+// aborted them mid-flight while the server finished and charged anyway.
+const CHARACTER_SHEET_TIMEOUT_MS = Number(process.env.KOLBO_CHARACTER_SHEET_TIMEOUT_MS) || 600000;
+
 // Visual DNA caps reference media at 25MB per file (stricter than the
 // default _shared.resolveToBuffer cap — DNA profiles only need enough
 // source signal to extract features, not full-quality media).
@@ -200,12 +204,33 @@ function registerVisualDnaTools(server, client, options = {}) {
       sheet_type: z.enum(['character', 'character_headless', 'character_bible', 'product', 'environment', 'style']).optional().describe('Sheet layout. character = front/back/face turnaround. character_headless = wardrobe/body refs with a headless front panel (use when clothing must change without fighting the face sheet). character_bible = denser production model-sheet (turnaround + faces + wardrobe + color swatches). product / environment / style = matching DNA types. Defaults to character.')
     },
     async ({ image_urls, sheet_type }) => {
-      const result = await client.post('/v1/visual-dna/character-sheet', { image_urls, ...(sheet_type ? { sheet_type } : {}) });
+      // The endpoint is blocking and a 2K multi-panel sheet routinely runs past the
+      // 120s default: the MCP aborted while kolbo-api kept going, finished, and
+      // billed — the user saw "Failed" for a sheet they had already paid for.
+      const result = await client.post(
+        '/v1/visual-dna/character-sheet',
+        { image_urls, ...(sheet_type ? { sheet_type } : {}) },
+        { timeoutMs: CHARACTER_SHEET_TIMEOUT_MS },
+      );
+      // `urls` is NOT redundant with character_sheet_url. Every generation-card
+      // reader keys on `urls` — the MCP's own widget (apps/widgets/generation.js),
+      // kolbo-code's kolbo-operation.ts mediaUrls(), and its operation.js urlsOf().
+      // Kolbo Code mounts a generation card for ANY tool named `generate_*`, so
+      // returning only character_sheet_url gave the card zero URLs and it rendered
+      // "No output received / Failed" on top of a sheet that generated fine and was
+      // already billed — and "Try Again" then double-charged. `widget`/`phase` mark
+      // the payload as a completed generation so the card stops falling back to the
+      // stale `phase: "review"` envelope built before the tool ran.
+      const urls = result.character_sheet_url ? [result.character_sheet_url] : [];
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
             character_sheet_url: result.character_sheet_url,
+            urls,
+            widget: 'generation',
+            phase: 'completed',
+            kind: 'image',
             credits_used: result.credits_used,
             _hint: 'Show the sheet to the user, then pass character_sheet_url to create_visual_dna as that DNA\'s reference.'
           }, null, 2)

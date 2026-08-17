@@ -447,6 +447,10 @@ const TOOL_WIDGETS = {
   generate_speech: UI.generation,
   generate_sound: UI.generation,
   generate_3d: UI.generation,
+  // Declared explicitly so Apps hosts prepare the card from tools/list rather
+  // than inferring it from the `generate_*` name; result-level _meta alone is
+  // not enough for hosts that read the declaration (see the note below).
+  generate_character_sheet: UI.generation,
   edit_image: UI.generation,
   edit_video: UI.generation,
   // transcript viewer
