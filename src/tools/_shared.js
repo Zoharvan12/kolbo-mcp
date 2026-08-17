@@ -513,6 +513,48 @@ async function modelChipFields(client, model) {
 }
 
 /**
+ * Resolve `visual_dna_ids` to {id, name, thumbnail} so the card can show WHICH
+ * characters are locked in, not just how many. An id tells the user nothing;
+ * the face does.
+ *
+ * One list fetch per process, cached — the DNA catalog barely moves within a
+ * session, and a generation card must never add a round-trip per chip. A miss
+ * (id not in the caller's own DNAs) degrades to the bare id, which is exactly
+ * what the card showed before.
+ */
+const _dnaChipCache = new Map();
+let _dnaChipLoaded = 0;
+const DNA_CHIP_TTL = 5 * 60 * 1000;
+
+async function resolveVisualDnas(client, ids) {
+  const list = Array.isArray(ids) ? ids.filter((id) => typeof id === 'string' && id) : [];
+  if (!list.length) return [];
+
+  const stale = Date.now() - _dnaChipLoaded > DNA_CHIP_TTL;
+  if (stale || list.some((id) => !_dnaChipCache.has(id))) {
+    try {
+      const res = await client.get('/v1/visual-dna?scope=mine');
+      const rows = res?.visual_dnas || res?.data || [];
+      for (const row of rows) {
+        const id = row?.id || row?._id;
+        if (!id) continue;
+        _dnaChipCache.set(String(id), {
+          id: String(id),
+          name: row.name || String(id),
+          // Same hero-image rule as the app: reference sheet, then thumbnail.
+          thumbnail: row.sheet_url || row.thumbnail_url || (Array.isArray(row.images) ? row.images[0] : null) || null,
+        });
+      }
+      _dnaChipLoaded = Date.now();
+    } catch {
+      // Offline / rate-limited — fall through to bare ids.
+    }
+  }
+
+  return list.map((id) => _dnaChipCache.get(id) || { id, name: id, thumbnail: null });
+}
+
+/**
  * Build the "submitted — widget is live" tool result for a UI host.
  * @param {object} p
  *   tool           MCP tool name (e.g. 'generate_image')
@@ -543,6 +585,7 @@ async function uiGenerating(p) {
     prompt: p.prompt,
     count: p.count || 1,
     settings: p.settings || {},
+    visual_dnas: await resolveVisualDnas(p.client, (p.settings || {}).visual_dna_ids),
     // `reference_image` is retained for older widget builds. New widgets render
     // every browser-loadable image supplied to the generation.
     reference_images: Array.isArray(p.reference_images)
@@ -573,10 +616,20 @@ async function uiGenerating(p) {
 }
 
 /**
- * Wrap an already-completed generation result with the widget (used by tools
- * that stay blocking even on UI hosts, e.g. creative director).
+ * Wrap an already-completed generation result with the widget.
+ *
+ * Used by tools that stay blocking even on UI hosts (creative director), AND —
+ * since structuredContent costs a text host nothing — by every generation tool
+ * on its normal blocking return. That second case is why model names, model
+ * avatars and Visual DNA chips were missing in Kolbo Code: it does not advertise
+ * MCP Apps, so `ui()` is false, `uiGenerating` never runs, and the host had to
+ * rebuild the card from raw text that carries only a model IDENTIFIER. Shipping
+ * the resolved payload here fixes every non-Apps host at once, exactly the way
+ * the list tools already do it (see listResult).
+ *
+ * The TEXT is unchanged, so text-only hosts see precisely what they saw before.
  */
-async function uiCompleted(p, textPayload) {
+async function uiCompleted(p, textPayload, extraContent) {
   const chip = await modelChipFields(p.client, p.model);
   const structured = {
     phase: 'completed',
@@ -587,6 +640,7 @@ async function uiCompleted(p, textPayload) {
     prompt: p.prompt,
     count: p.count || 1,
     settings: p.settings || {},
+    visual_dnas: await resolveVisualDnas(p.client, (p.settings || {}).visual_dna_ids),
     reference_images: Array.isArray(p.reference_images)
       ? p.reference_images.filter(Boolean)
       : (p.reference_image ? [p.reference_image] : []),
@@ -599,7 +653,11 @@ async function uiCompleted(p, textPayload) {
     credits_used: p.credits_used,
     open_url: buildOpenUrl(p.tool, p.gen),
   };
-  return uiResult(UI.generation, textPayload, structured);
+  const out = uiResult(UI.generation, textPayload, structured);
+  if (Array.isArray(extraContent) && extraContent.length) {
+    out.content = [...out.content, ...extraContent];
+  }
+  return out;
 }
 
 // ─── Text-payload budget ─────────────────────────────────────────────────────

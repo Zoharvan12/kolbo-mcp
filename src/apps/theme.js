@@ -122,6 +122,12 @@ body {
 }
 .k-chip img.k-voice-thumb { width: 18px; height: 18px; border-radius: 999px; margin-left: -3px; }
 .k-ref-thumb { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-strong); }
+/* Visual DNA chips: the character's face, so you can see WHICH DNA is locked in. */
+.k-dna-face { width: 18px; height: 18px; border-radius: 999px; object-fit: cover; margin-left: -3px; background: var(--border-strong); }
+.k-dna-stack .k-dna-stack-item { display: inline-flex; }
+.k-dna-stack .k-dna-stack-item + .k-dna-stack-item .k-dna-face { margin-left: -9px; }
+.k-dna-stack .k-dna-face { box-shadow: 0 0 0 1.5px var(--card-solid); }
+.k-dna-stack { cursor: default; }
 
 /* ---- Generating state ---- */
 .k-gen-grid { display: grid; gap: 8px; }
@@ -192,6 +198,8 @@ body {
 }
 .k-media:hover .k-dl, .k-viewer:hover .k-dl, .k-skel:hover .k-dl { opacity: 1; }
 .k-dl:hover { background: var(--brand); border-color: var(--brand); }
+/* Attach-to-prompt sits immediately left of Download (30px button + 8px gap). */
+.k-attach { right: 46px; }
 .k-viewer { position: relative; }
 
 /* Keep the whole completed card under the host's iframe height cap (~800px):
@@ -199,7 +207,9 @@ body {
    or claude.ai adds an inner scrollbar. Click the image to expand in-Claude. */
 .k-viewer { margin-bottom: 10px; }
 .k-viewer img, .k-viewer video { display: block; width: 100%;
-  max-height: min(340px, 55vh); object-fit: contain;
+  /* Fixed px, no vh: vh inside an iframe is the height the host granted, so a
+     vh-based cap grew as the iframe grew and the card chased its own tail. */
+  max-height: 320px; object-fit: contain;
   border-radius: 12px; background: #000; border: 1px solid var(--border); cursor: zoom-in; }
 .k-viewer video { cursor: default; }
 

@@ -148,7 +148,19 @@ function voiceLabel(sc) { return sc.voice_name || sc.voice || (sc.settings || {}
 // real reference assets — rendering them as flat prose hid the single most
 // consequential part of the prompt. Escape FIRST, then wrap: the pattern only
 // matches after a boundary, so an email or a #fff hex never lights up.
-var MENTION_RE = /(^|[\s([{"'>])([@#][A-Za-z][\w-]*)/g;
+// DOUBLE backslashes: this whole file is a JS template literal, so a single
+// backslash-s / backslash-w is eaten before the browser ever sees it. This was
+// emitting /(^|[s([{"'>])([@#][A-Za-z][w-]*)/g — character classes of the
+// LITERAL letters s and w — so "@zohar_apocalypse" highlighted as just "@z",
+// and a mention after a space (rather than at the very start of the prompt)
+// did not highlight at all.
+// The boundary is a NEGATIVE set, not a whitelist of openers. The old
+// whitelist ([\s([{"'>]) meant any other character glued to a mention killed
+// the chip — "×@tel_aviv_invasion" rendered as flat text. Excluding word chars
+// keeps the thing that whitelist was really protecting: an email's "a@b.com"
+// has a word char before the @, so it still never lights up. (. and - are in
+// the set for the same reason: "file.name@host", "co-op@x".)
+var MENTION_RE = /(^|[^\\w@.-])([@#][A-Za-z][\\w-]*)/g;
 // #ff8800 / #fff are hex colors, and prompts are full of them. A moodboard tag
 // that happens to be 3 or 6 hex letters loses this coin flip; a grading note
 // mistaken for a moodboard is the worse read.
@@ -174,9 +186,7 @@ function renderChips(sc) {
   // Ids where we have them (title = the id, so it can be copied / reused),
   // falling back to the old count/boolean shape for payloads generated before
   // the ids were carried.
-  var dnaIds = s.visual_dna_ids || [];
-  if (dnaIds.length) h += chipT(dnaIds.length + ' Visual DNA', dnaIds.join('\\n'));
-  else if (s.visual_dna) h += chip(s.visual_dna + ' Visual DNA');
+  h += dnaChipsHTML(sc, s);
   var mbIds = s.moodboard_ids || (s.moodboard_id ? [s.moodboard_id] : []);
   if (mbIds.length) h += chipT(mbIds.length > 1 ? mbIds.length + ' moodboards' : 'moodboard', mbIds.join('\\n'));
   else if (s.moodboard) h += chip('moodboard');
@@ -193,12 +203,94 @@ function renderChips(sc) {
   }
   if (s.mode) h += chip(esc(s.mode));
   if (sc.count > 1) h += chip('×' + sc.count);
-  var refs = Array.isArray(sc.reference_images) && sc.reference_images.length
-    ? sc.reference_images : (sc.reference_image ? [sc.reference_image] : []);
-  for (var i = 0; i < refs.length; i++) {
-    h += '<img class="k-ref-thumb" src="' + esc(refs[i]) + '" alt="" loading="lazy" title="Reference image ' + (i + 1) + ' of ' + refs.length + '" onerror="this.style.display=\\'none\\'">';
-  }
+  h += referenceHTML(sc);
   el('chips').innerHTML = h;
+}
+
+var REF_VIDEO_RE = /\\.(mp4|mov|webm|mkv|avi|m4v)(\\?|#|$)/i;
+var REF_AUDIO_RE = /\\.(mp3|wav|m4a|aac|ogg|flac)(\\?|#|$)/i;
+
+// Every reference the generation was actually given — images, videos AND audio.
+// Kind is taken from the URL rather than from which field it arrived in: callers
+// legitimately pack a video into reference_images (Elements files, v2v
+// elements), and an <img> pointed at an .mp4 renders nothing, so those
+// references were silently invisible. Extension wins, field is the fallback.
+function refKind(url, fallback) {
+  if (REF_VIDEO_RE.test(url)) return 'video';
+  if (REF_AUDIO_RE.test(url)) return 'audio';
+  return fallback;
+}
+function collectRefs(sc) {
+  var out = [];
+  var push = function (list, fallback) {
+    (Array.isArray(list) ? list : []).forEach(function (url) {
+      if (typeof url !== 'string' || !url) return;
+      if (out.some(function (r) { return r.url === url; })) return;
+      out.push({ url: url, kind: refKind(url, fallback) });
+    });
+  };
+  push(sc.reference_images && sc.reference_images.length ? sc.reference_images
+    : (sc.reference_image ? [sc.reference_image] : []), 'image');
+  push(sc.reference_videos, 'video');
+  push(sc.reference_audio, 'audio');
+  return out;
+}
+function referenceHTML(sc) {
+  var refs = collectRefs(sc);
+  var h = '';
+  for (var i = 0; i < refs.length; i++) {
+    var url = esc(refs[i].url);
+    var title = 'Reference ' + refs[i].kind + ' ' + (i + 1) + ' of ' + refs.length;
+    if (refs[i].kind === 'video') {
+      // #t=0.1 so the poster is a real frame, not a black canvas.
+      h += '<video class="k-ref-thumb" src="' + url + '#t=0.1" muted playsinline preload="metadata" title="'
+        + title + '" onerror="this.style.display=\\'none\\'"></video>';
+    } else if (refs[i].kind === 'audio') {
+      h += '<span class="k-chip" title="' + title + '">' + ICONS.sound + ' audio ref</span>';
+    } else {
+      h += '<img class="k-ref-thumb" src="' + url + '" alt="" loading="lazy" title="' + title
+        + '" onerror="this.style.display=\\'none\\'">';
+    }
+  }
+  return h;
+}
+// Which characters/looks are locked into this generation — by face and name,
+// resolved from visual_dna_ids server-side. "1 Visual DNA" told the user nothing
+// about WHICH DNA. Up to DNA_CHIP_MAX get their own named chip; beyond that they
+// collapse into one stack of overlapping faces whose tooltip lists every name,
+// so a 12-DNA scene can't push the model and aspect chips off the card.
+var DNA_CHIP_MAX = 3;
+function dnaFaceHTML(dna, cls) {
+  if (dna.thumbnail) {
+    return '<img class="' + cls + '" src="' + esc(dna.thumbnail) + '" alt="" loading="lazy" onerror="this.style.display=\\'none\\'">';
+  }
+  return '';
+}
+function dnaChipsHTML(sc, s) {
+  var dnas = Array.isArray(sc.visual_dnas) ? sc.visual_dnas : [];
+  if (!dnas.length) {
+    // Payloads from before the ids were resolved (or an offline resolve).
+    var ids = s.visual_dna_ids || [];
+    if (ids.length) return chipT(ids.length + ' Visual DNA', ids.join('\\n'));
+    if (s.visual_dna) return chip(s.visual_dna + ' Visual DNA');
+    return '';
+  }
+  var h = '';
+  if (dnas.length <= DNA_CHIP_MAX) {
+    for (var i = 0; i < dnas.length; i++) {
+      h += '<span class="k-chip" title="' + esc(dnas[i].id) + '">'
+        + dnaFaceHTML(dnas[i], 'k-dna-face') + esc(dnas[i].name) + '</span>';
+    }
+    return h;
+  }
+  var names = [];
+  var stack = '';
+  for (var j = 0; j < dnas.length; j++) {
+    names.push(dnas[j].name);
+    if (j < 4) stack += '<span class="k-dna-stack-item">' + dnaFaceHTML(dnas[j], 'k-dna-face') + '</span>';
+  }
+  return '<span class="k-chip k-dna-stack" title="' + esc(names.join('\\n')) + '">'
+    + stack + dnas.length + ' Visual DNA</span>';
 }
 function chip(inner) { return '<span class="k-chip">' + inner + '</span>'; }
 // Same chip with a hover title — used to surface the asset id behind a
@@ -618,13 +710,24 @@ function renderLinks(urls) {
 // Small hover download button attached to a media cell (per-item downloads —
 // batch grids and CD scenes have no single "current" url for the action row).
 function dlBtnHTML(u) {
-  return '<button class="k-dl" data-dl="' + esc(u) + '" title="Download" aria-label="Download">' + ICONS.download + '</button>';
+  // Attach sits beside Download on the same hover overlay. It is the reliable
+  // route into the composer — see window.kolbo.attachMedia for why dragging the
+  // media out of the iframe cannot be made to work.
+  return '<button class="k-dl k-attach" data-attach="' + esc(u) + '" title="Attach to prompt" aria-label="Attach to prompt">'
+    + ICONS.upload + '</button>'
+    + '<button class="k-dl" data-dl="' + esc(u) + '" title="Download" aria-label="Download">' + ICONS.download + '</button>';
 }
 function wireDlButtons(root) {
   Array.prototype.forEach.call((root || document).querySelectorAll('.k-dl[data-dl]'), function (b) {
     b.onclick = function (e) {
       e.stopPropagation();
       window.kolbo.openLink(downloadUrl(b.getAttribute('data-dl')));
+    };
+  });
+  Array.prototype.forEach.call((root || document).querySelectorAll('.k-attach[data-attach]'), function (b) {
+    b.onclick = function (e) {
+      e.stopPropagation();
+      window.kolbo.attachMedia(b.getAttribute('data-attach'));
     };
   });
 }
