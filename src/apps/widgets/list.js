@@ -15,6 +15,8 @@ const { widgetPage } = require('../html');
  *   title: 'Your Projects',
  *   items: [{
  *     id, title, subtitle,        // main two lines
+ *     thumbnail,                  // optional — real image; falls back to the letter monogram on
+ *                                  // missing/failed load, same idiom as catalog.js model icons
  *     badge,                      // small pill, e.g. role/status ("owner", "default", "shared")
  *     meta,                       // small trailing text, e.g. a date or count
  *     open_url,                   // optional — renders an "Open" button (openLink)
@@ -71,8 +73,11 @@ function apply(result) {
 
 function itemHTML(item, i) {
   var clickable = !!item.use_hint;
+  var avatar = item.thumbnail
+    ? '<img class="k-audio-art" src="' + esc(item.thumbnail) + '" alt="" loading="lazy" onerror="this.outerHTML=monogram(\\'' + esc(item.title || '?').replace(/'/g, '') + '\\')">'
+    : monogram(item.title || '?');
   return '<div class="k-audio-row" data-i="' + i + '"' + (clickable ? ' style="cursor:pointer"' : '') + '>' +
-    monogram(item.title || '?') +
+    avatar +
     '<div class="k-audio-meta"><div class="k-audio-title">' + esc(item.title || '') + '</div>' +
     (item.subtitle ? '<div class="k-audio-sub">' + esc(item.subtitle) + '</div>' : '') + '</div>' +
     (item.badge ? '<span class="k-chip" style="flex:none">' + esc(item.badge) + '</span>' : '') +
