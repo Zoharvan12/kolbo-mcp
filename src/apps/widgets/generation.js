@@ -133,9 +133,18 @@ function boot(sc) {
   makeExpandable(el('prompt'));
   renderChips(sc);
   el('credits').textContent = sc.credits_used != null ? fmtCredits(sc.credits_used) : '';
-  if (sc.phase === 'generating') renderGenerating(sc);
-  else if (sc.phase === 'failed') renderError(sc.error || 'Generation failed');
-  else renderResult(sc);
+  // Every legitimate completed payload sets phase:'completed' explicitly
+  // (uiCompleted, completedFromPlain, the visual_dna character-sheet path) —
+  // there is no real case where "no media yet" should render as a result.
+  // A host that sends some OTHER phase string here (e.g. a host-side
+  // pre-flight envelope built before the tool call even ran) used to fall
+  // through straight to renderResult with no urls/scenes, rendering as a
+  // broken/empty "completed" card — indistinguishable from a real failure —
+  // for however long that phase lingered. Default anything unrecognized to
+  // "still working" instead of assuming it's done.
+  if (sc.phase === 'failed') renderError(sc.error || 'Generation failed');
+  else if (sc.phase === 'completed') renderResult(sc);
+  else renderGenerating(sc);
   window.kolbo.notifySize();
 }
 
