@@ -77,22 +77,35 @@ async function submitBatch(rawItems, submitOne) {
 }
 
 // Blocking path for text-only hosts: wait for every batch member, aggregate.
-async function pollBatch(client, batch, { interval, timeout }) {
+// This is the exact path Kolbo Code takes for a `prompts`-array batch call
+// (ui() is false there, so the uiGenerating branch above never runs) — it was
+// text-only, no structuredContent, so a batch of N prompts rendered as a bare
+// JSON dump instead of N cards. Same class of bug as get_generation_status's
+// multi-id branch, same fix: always ship structuredContent via the shared
+// kind:'status' grid, which already renders any mix of completed/processing
+// items correctly.
+async function pollBatch(client, batch, { interval, timeout }, toolName) {
   const polls = await Promise.all(batch.ids.map((id) => pollOrTimedOut(client, id, { interval, timeout })));
   const generations = polls.map((p, i) => p.timedOut
     ? { prompt: batch.ok[i].prompt, generation_id: batch.ids[i], status: 'processing', note: 'Still running — call get_generation_status with wait=true to collect it.' }
     : { prompt: batch.ok[i].prompt, generation_id: batch.ids[i], status: 'completed', ...creditFields(polls[i].result), urls: p.result.result.urls });
-  return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        batch: true,
-        session_id: batch.ok[0].gen.session_id,
-        generations,
-        failed_submissions: batch.failed.length ? batch.failed : undefined
-      }, null, 2)
-    }]
-  };
+  const text = JSON.stringify({
+    batch: true,
+    session_id: batch.ok[0].gen.session_id,
+    generations,
+    failed_submissions: batch.failed.length ? batch.failed : undefined
+  }, null, 2);
+  return uiCompleted({
+    tool: toolName, kind: 'status', client,
+    model: 'Generations', gen: { generation_id: batch.ids[0], session_id: batch.ok[0].gen.session_id },
+    settings: {},
+    items: generations.map(g => ({
+      id: g.generation_id,
+      state: g.status,
+      title: g.prompt,
+      url: Array.isArray(g.urls) ? g.urls[0] : undefined,
+    })),
+  }, text);
 }
 
 // ─── Widget settings block ──────────────────────────────────────────────────
@@ -205,7 +218,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 240000 });
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 240000 }, 'generate_image');
       }
 
       const gen = await client.post('/v1/generate/image', { ...shared, prompt, num_images });
@@ -288,7 +301,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images: source_images
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 240000 });
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 240000 }, 'generate_image_edit');
       }
 
       const gen = await client.post('/v1/generate/image-edit', { ...shared, prompt, num_images });
@@ -519,7 +532,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 900000 });
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 900000 }, 'generate_video');
       }
 
       const gen = await client.post('/v1/generate/video', { ...shared, prompt });
@@ -606,7 +619,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images: items.map((item) => item.image_url)
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 900000 });
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 900000 }, 'generate_video_from_image');
       }
 
       const gen = await client.post('/v1/generate/video/from-image', { ...shared, image_url, prompt });
@@ -965,17 +978,38 @@ function registerGenerateTools(server, client, options = {}) {
         : '';
       const pendingHint = stillRunningHint(idsPhrase);
 
-      // Single-id calls keep the original flat shape — the generation widget
-      // waits on this tool with { generation_id, wait:true } and reads
-      // state/result at the top level.
+      // Single-id calls keep the original flat TEXT shape — a live uiGenerating
+      // widget (ui()==true, still open from the original generate_* call) polls
+      // this tool directly from its own iframe JS and reads state/result at the
+      // top level, so `text` must stay exactly what it always was.
+      //
+      // But a single id checked here often has NO live widget behind it at all:
+      // Kolbo Code never opens one (ui() is false there), and even on hosts that
+      // do, the original call can have returned poll.timedOut before uiGenerating
+      // ever ran (see pollOrTimedOut) — a parallel batch is exactly when that
+      // happens, since every concurrent generation competes for the same
+      // per-call poll window. Either way this is then a FRESH, standalone tool
+      // response that needs its own renderable card, same reasoning as the
+      // multi-id fix just above. Reuse the same kind:'status' single-item grid
+      // rather than inventing per-media-type rendering here.
       if (!generation_ids || generation_ids.length === 0) {
         const single = results[0];
         single._hint = pending.length === 0
           ? 'This generation is in a FINAL state — do not poll it again.'
           : pendingHint;
-        return {
-          content: [{ type: 'text', text: JSON.stringify(single, null, 2) }]
-        };
+        const singleText = JSON.stringify(single, null, 2);
+        const res = single.result || {};
+        return uiCompleted({
+          tool: 'get_generation_status', kind: 'status', client,
+          model: 'Generations', gen: { generation_id: single.generation_id },
+          settings: {},
+          items: [{
+            id: single.generation_id,
+            state: single.state,
+            title: res.prompt_used || res.prompt || undefined,
+            url: Array.isArray(res.urls) ? res.urls[0] : undefined,
+          }],
+        }, singleText);
       }
 
       const text = JSON.stringify({
