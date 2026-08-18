@@ -476,7 +476,7 @@ function registerGenerateTools(server, client, options = {}) {
         video_urls: s.video_urls || null
       }));
       const completed = scenes.filter(s => s.status === 'completed').length;
-      return { content: [{ type: 'text', text: JSON.stringify({
+      const text = JSON.stringify({
         ...creditFields(status),
         state: status.state,
         generation_id,
@@ -487,7 +487,23 @@ function registerGenerateTools(server, client, options = {}) {
         _hint: status.state === 'completed'
           ? 'All scenes terminal. Every completed scene\'s image_urls/video_urls are final.'
           : `Still running — not a failure. Each wait=true call blocks for at most ~${WAIT_WINDOW_S}s, and a video batch routinely outlasts several windows, so call get_creative_director_status again with wait=true and keep going until state is terminal. Scenes that already carry image_urls/video_urls are done; never re-run generate_creative_director.`
-      }, null, 2) }] };
+      }, null, 2);
+      // Same text-only gap as get_generation_status/pollBatch, called out in
+      // this tool's own comment above ("especially parallel VIDEO scenes that
+      // exceed the blocking poll window") — a CD batch checked here after
+      // outliving one wait window rendered as a bare JSON dump, no scene
+      // thumbnails. Always ship the same kind:'status' grid, one item per scene.
+      return uiCompleted({
+        tool: 'get_creative_director_status', kind: 'status', client,
+        model: 'Generations', gen: { generation_id },
+        settings: {},
+        items: scenes.map(s => ({
+          id: generation_id + '-' + s.scene_number,
+          state: s.status,
+          title: s.title || ('Scene ' + s.scene_number),
+          url: (Array.isArray(s.image_urls) && s.image_urls[0]) || (Array.isArray(s.video_urls) && s.video_urls[0]) || undefined,
+        })),
+      }, text);
     }
   );
 
