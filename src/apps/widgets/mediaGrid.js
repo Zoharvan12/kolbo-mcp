@@ -54,6 +54,16 @@ function boot(sc) {
   if (audioItems.length) {
     h += audioItems.slice(0, 12).map(audioRowHTML).join('');
   }
+  // Only a fixed page ever renders here (24 visual + 12 audio) — with a library
+  // in the thousands there was no way to reach the rest short of asking in
+  // chat. A visible "Load more" turns that into one click; it sends a message
+  // rather than calling the tool directly, since the widget has no host API
+  // to invoke a tool itself — same mechanism every other "Use" action here uses.
+  var shown = visualItems.length + audioItems.length;
+  if (sc.total != null && sc.total > shown) {
+    h += '<button class="k-btn" id="load-more" style="width:100%;margin-top:10px">Load more (' +
+      shown + ' of ' + sc.total + ' shown)</button>';
+  }
   el('stage').innerHTML = h;
   el('stage').classList.remove('k-empty');
   wire();
@@ -78,6 +88,11 @@ function cellHTML(item, i) {
     '</div>' +
     '<div class="k-cell-label">' + esc(item.title || '') + '</div>' +
     (item.subtitle ? '<div class="k-cell-sub">' + esc(item.subtitle) + '</div>' : '') +
+    // Clicking the cell itself already sends the use_hint (see wire()), but that
+    // wasn't discoverable — nothing on the tile signalled it was clickable. A
+    // visible button makes the affordance obvious, same reasoning as the audio
+    // rows' explicit "Use" button.
+    '<button class="k-btn" data-use="' + idx + '" style="margin:0 8px 8px;width:calc(100% - 16px)">Use</button>' +
     '</div>';
 }
 
@@ -121,6 +136,13 @@ function wire() {
       holder.querySelector('video').onclick = function (ev) { ev.stopPropagation(); };
     };
   });
+  var loadMore = el('load-more');
+  if (loadMore) {
+    loadMore.onclick = function () {
+      window.kolbo.sendMessage('Show me the next page of this same media search (already saw ' +
+        (state.items.length) + ' of ' + state.total + ' results).');
+    };
+  }
 }
 
 function useItem(i) {
