@@ -650,6 +650,11 @@ async function uiCompleted(p, textPayload, extraContent) {
     title: p.title,
     duration: p.duration,
     scenes: p.scenes,
+    // Independent per-item results (get_generation_status checking several ids
+    // at once) — each one carries its OWN state/media, unlike `scenes`/`urls`
+    // above which assume everything finished together. Only set when the
+    // caller actually has this shape; every existing caller is unaffected.
+    ...(Array.isArray(p.items) ? { items: p.items } : {}),
     credits_used: p.credits_used,
     open_url: buildOpenUrl(p.tool, p.gen),
   };

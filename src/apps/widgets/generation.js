@@ -70,7 +70,8 @@ var TOOL_TITLES = {
   generate_first_last_frame: 'First–Last Frame', generate_lipsync: 'Lipsync',
   generate_music: 'Music Generation', generate_speech: 'Text to Speech',
   generate_sound: 'Sound Effect', generate_3d: '3D Generation',
-  generate_creative_director: 'Creative Director', edit_image: 'Image Edit', edit_video: 'Video Edit'
+  generate_creative_director: 'Creative Director', edit_image: 'Image Edit', edit_video: 'Video Edit',
+  get_generation_status: 'Generations'
 };
 
 // Long text is clamped by CSS (.k-prompt 2 lines / .k-caption 1 line). When it
@@ -591,6 +592,7 @@ function renderResult(sc) {
   // voice that actually ran, so the finished card must not keep the guess.
   renderChips(sc);
   setPhaseChip('', false);
+  if (sc.kind === 'status' && Array.isArray(sc.items)) return renderStatusGrid(sc);
   if (sc.batch && sc.scenes && sc.scenes.length) return renderBatchGrid(sc);
   if (sc.kind === 'scenes' && sc.scenes && sc.scenes.length) return renderScenes(sc);
   var urls = sc.urls || [];
@@ -767,6 +769,49 @@ function renderBatchGrid(sc) {
   Array.prototype.forEach.call(el('stage').querySelectorAll('[data-focus]'), function (cell) {
     var it = items[+cell.getAttribute('data-focus')];
     if (it.type !== 'image') return; // <video controls> owns its own clicks
+    cell.onclick = function () { focusMedia(it.url); };
+  });
+  renderActions(sc);
+  window.kolbo.notifySize();
+}
+
+// get_generation_status checking SEVERAL ids in one call (the "run these N
+// generations in parallel, then check on all of them" pattern). Each item is
+// independently image/video/audio and independently pending/completed/failed
+// — a single generation-in-progress tile grid can't express that. Completed
+// items get a real thumbnail (same tile markup as renderBatchGrid, so the two
+// grids read as one visual language); pending/failed items get the same
+// spinner/error badge language renderGenerating/renderError already use, so
+// nothing here is a new visual pattern, only a new combination of them.
+function renderStatusGrid(sc) {
+  var items = sc.items;
+  if (!items.length) return renderError('No results');
+  el('stage').innerHTML = '<div class="k-gen-grid n' + Math.min(items.length, 4) + '">' +
+    items.map(function (it, i) {
+      var cap = it.title ? '<span class="k-skel-cap" title="' + esc(it.title) + '">' + esc(it.title) + '</span>' : '';
+      if (it.state === 'completed' && it.url) {
+        // Classify by extension, same as every other reference/thumb in this
+        // file — the tool only knows a url came back, not what kind it is.
+        it.kind = refKind(it.url, 'image');
+        var shape = it.kind === 'video' ? 'video' : 'square';
+        return '<div class="k-skel done ' + shape + '" data-focus="' + i + '">' +
+          (it.kind === 'video'
+            ? '<video class="k-cell-fill" src="' + esc(it.url) + '" controls playsinline preload="metadata"></video>'
+            : it.kind === 'audio'
+              ? '<div class="k-cell-fill" style="display:flex;align-items:center;justify-content:center">' + ICONS.sound + '</div>'
+              : '<img class="k-cell-fill" src="' + esc(it.url) + '" alt="" loading="lazy" style="cursor:zoom-in">') +
+          cap + dlBtnHTML(it.url) + '</div>';
+      }
+      var failed = it.state === 'failed' || it.state === 'cancelled';
+      var badge = failed
+        ? '<span class="k-gen-badge" style="background:var(--error,#e5484d)"><span aria-hidden="true">✕</span>' + esc(it.state) + '</span>'
+        : '<span class="k-gen-badge"><span class="k-spin"></span>' + esc(it.state || 'processing') + '</span>';
+      return '<div class="k-skel square">' + badge + cap + '</div>';
+    }).join('') + '</div>';
+  wireDlButtons(el('stage'));
+  Array.prototype.forEach.call(el('stage').querySelectorAll('[data-focus]'), function (cell) {
+    var it = items[+cell.getAttribute('data-focus')];
+    if (it.kind !== 'image') return; // <video controls> owns its own clicks
     cell.onclick = function () { focusMedia(it.url); };
   });
   renderActions(sc);
