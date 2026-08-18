@@ -32,6 +32,7 @@ function registerProjectTools(server, client) {
         role: p.role,
         is_default: !!p.is_default,
         is_archived: !!p.is_archived,
+        thumbnail_url: p.thumbnail_url || null,
         open_url: buildProjectUrl(p.id, { is_default: !!p.is_default })
       }));
       const text = JSON.stringify({
@@ -48,6 +49,7 @@ function registerProjectTools(server, client) {
           id: p.id,
           title: p.name,
           subtitle: p.role + (p.is_default ? ' · default' : '') + (p.is_archived ? ' · archived' : ''),
+          thumbnail: p.thumbnail_url,
           open_url: p.open_url,
           use_hint: 'Use my "{TITLE}" project (project_id: {ID}) for what I do next.'
         })),
