@@ -998,26 +998,29 @@ function registerGenerateTools(server, client, options = {}) {
       // renderStatusGrid, the one path here that mixes independent
       // pending/completed/failed items in one grid instead of assuming they all
       // finished together.
-      if (ui()) {
-        return uiCompleted({
-          tool: 'get_generation_status', kind: 'status', client,
-          model: 'Generations', gen: { generation_id: ids[0] },
-          settings: {},
-          items: results.map(r => {
-            const res = r.result || {};
-            return {
-              id: r.generation_id,
-              state: r.state,
-              title: res.prompt_used || res.prompt || undefined,
-              url: Array.isArray(res.urls) ? res.urls[0] : undefined,
-            };
-          }),
-        }, text);
-      }
-
-      return {
-        content: [{ type: 'text', text }]
-      };
+      //
+      // Always ship structuredContent, unconditionally — Kolbo Code does NOT
+      // advertise MCP Apps, so gating this behind ui()/appsEnabled() (as this
+      // used to) left that host with text only, and its own generic fallback
+      // renderer built a plain status list with no thumbnails, exactly the
+      // "black tile" class of bug already fixed the same way in media.js /
+      // moodboards.js / visual_dna.js / listResult(). uiResult always embeds
+      // both text and structuredContent, so hosts without a UI-app renderer
+      // are unaffected — only the fallback quality changes.
+      return uiCompleted({
+        tool: 'get_generation_status', kind: 'status', client,
+        model: 'Generations', gen: { generation_id: ids[0] },
+        settings: {},
+        items: results.map(r => {
+          const res = r.result || {};
+          return {
+            id: r.generation_id,
+            state: r.state,
+            title: res.prompt_used || res.prompt || undefined,
+            url: Array.isArray(res.urls) ? res.urls[0] : undefined,
+          };
+        }),
+      }, text);
     }
   );
 
