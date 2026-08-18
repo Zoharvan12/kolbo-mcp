@@ -30,10 +30,12 @@ function registerVisualDnaTools(server, client, options = {}) {
       prompt_helper: z.string().optional().describe('Optional description/notes to guide DNA extraction'),
       images: z.array(z.string()).optional().describe('Array of image sources (URLs or absolute local paths). Max 4.'),
       video: z.string().optional().describe('Optional video source (URL or absolute local path)'),
-      audio: z.string().optional().describe('Optional audio source (URL or absolute local path)'),
+      audio: z.string().optional().describe('Optional audio source (URL or absolute local path) — the character\'s voice, 5-30s of clean speech. Stored on the DNA and used two ways: (1) as REFERENCE AUDIO in video generation — attaching this DNA to an image-to-video generation on a model with audio slots (Seedance 2.x, Wan 3.0) auto-attaches the clip and tells the model it is that character\'s voice; (2) as the source for a real speaking voice, but ONLY when you ask for one — see `voice_source`.'),
+      voice_source: z.enum(['none', 'clone', 'assign', 'design']).optional().describe('What to do about a SPEAKING voice. **Pass "none" when the audio is just a reference clip** (the usual case for video work) — the clip is stored and usable as video reference audio, and nothing else happens. "clone" mints an ElevenLabs voice from the uploaded audio, which consumes a voice slot and may EVICT another of the user\'s voices to free one; it also makes the DNA addressable as `dna_<id>` in text-to-speech. "assign" points at an existing voice (pass `assigned_voice_id`). "design" generates a voice from the character\'s look. ⚠️ Omitting this while passing `audio` keeps the legacy behaviour and CLONES — pass "none" explicitly unless the user asked for a voice.'),
+      assigned_voice_id: z.string().optional().describe('Voice to attach when voice_source="assign" — a `custom_<id>` from the user\'s clones or a voice_id from `list_voices`.'),
       character_sheet_url: z.string().optional().describe('URL of a reference sheet (from `generate_character_sheet`, any sheet_type) to set as the DNA\'s primary reference. Works for ALL DNA types — character turnaround, product detail sheet, location sheet, or style board — and is the single biggest consistency booster. Omit only when the user declines.')
     },
-    async ({ name, dna_type, prompt_helper, images, video, audio, character_sheet_url }) => {
+    async ({ name, dna_type, prompt_helper, images, video, audio, voice_source, assigned_voice_id, character_sheet_url }) => {
       if (!name || !name.trim()) {
         throw new Error('name is required');
       }
@@ -58,6 +60,10 @@ function registerVisualDnaTools(server, client, options = {}) {
       if (dna_type) form.append('dnaType', dna_type);
       if (prompt_helper) form.append('promptHelper', prompt_helper);
       if (character_sheet_url) form.append('characterSheetUrl', character_sheet_url);
+      // Omitted stays omitted: the server infers 'clone' from a present audio clip, which is the
+      // long-standing behaviour older installs depend on. Only an explicit choice is forwarded.
+      if (voice_source) form.append('voiceSource', voice_source);
+      if (assigned_voice_id) form.append('assignedVoiceId', assigned_voice_id);
 
       for (const f of imageFiles) {
         form.append('images', f.buffer, { filename: f.filename, contentType: f.contentType });
@@ -125,8 +131,11 @@ function registerVisualDnaTools(server, client, options = {}) {
       const total = result.total != null ? result.total : (result.count || dnas.length);
       // Full profiles measured 74,310 chars — the embedded analysis/description
       // blobs are large and the model only needs enough to pick an id.
+      // `has_voice_reference` rides along because it changes what a DNA DOES in a generation:
+      // such a DNA brings its own voice as reference audio on models with audio slots. Without
+      // it the model has to fetch each DNA in full just to find out.
       const text = compactList(dnas, {
-        fields: ['id', 'name', 'type', 'folder_id', 'tags', 'thumbnail'],
+        fields: ['id', 'name', 'type', 'folder_id', 'tags', 'thumbnail', 'has_voice_reference'],
         cap: 60,
         total,
         note: 'Narrow with `search`, `tags`, or `collection`, or pass `page`/`limit` for the rest; get_visual_dna returns one in full.',
