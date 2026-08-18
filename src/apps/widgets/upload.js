@@ -295,10 +295,37 @@ function upload(it) {
   var xhr = new XMLHttpRequest();
   xhr.open('POST', state.upload_url, true);
   xhr.setRequestHeader('Authorization', 'Bearer ' + state.token);
+  // A stalled upload used to sit at N% forever: there was no timeout and no
+  // ontimeout/onabort handler, only onload/onerror. A file above the CDN body
+  // cap in front of the API dies exactly this way — the edge sees Content-Length,
+  // kills the connection a few percent in, and the browser never reports it, so
+  // the row froze at 1% with no error and no retry. Watch PROGRESS rather than
+  // total elapsed time, so a genuinely slow large upload is never punished.
+  var STALL_MS = 90000;
+  var lastTick = Date.now();
+  var stalled = false;
+  var watchdog = setInterval(function () {
+    if (Date.now() - lastTick < STALL_MS) return;
+    stalled = true;
+    clearInterval(watchdog);
+    try { xhr.abort(); } catch (e) {}
+  }, 5000);
+  function settle() { clearInterval(watchdog); }
   xhr.upload.onprogress = function (e) {
+    lastTick = Date.now();
     if (e.lengthComputable) { it.pct = Math.round((e.loaded / e.total) * 100); renderRow(it); }
   };
+  xhr.onabort = function () {
+    settle();
+    if (!stalled) return;
+    active--;
+    it.status = 'error';
+    it.err = 'Upload stalled — the file may be too large for this connection';
+    render();
+    pump();
+  };
   xhr.onload = function () {
+    settle();
     active--;
     var res = null;
     try { res = JSON.parse(xhr.responseText); } catch (e) {}
@@ -317,6 +344,7 @@ function upload(it) {
     pump();
   };
   xhr.onerror = function () {
+    settle();
     active--;
     it.status = 'error';
     it.err = 'Network error — try the full-screen uploader';
