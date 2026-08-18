@@ -103,7 +103,7 @@ function registerModelTools(server, client, options = {}) {
   // ─── list_models ───────────────────────────────────────────
   server.tool(
     'list_models',
-    'List available AI models on Kolbo. Filter by `type` to narrow to a generation type, and pass `format: "json"` to enumerate the catalog with exact identifiers — `format: "json"` + `type` returns the full raw model documents (every constraint field, for programmatic comparison / cap validation before submitting a generation); `format: "json"` alone returns a compact index of EVERY model and its identifier. Default `format: "text"` returns the human-readable summary. NEVER guess a model identifier: call this tool.',
+    'List available AI models on Kolbo. Filter by `type` to narrow to a generation type, and pass `format: "json"` to enumerate the catalog with exact identifiers — `format: "json"` + `type` returns the full raw model documents (every constraint field, for programmatic comparison / cap validation before submitting a generation); `format: "json"` alone returns a compact index of EVERY model and its identifier. Default `format: "text"` returns the human-readable summary. NEVER guess a model identifier: call this tool. ⚠️ COST: for any model whose type is video / firstlast / elements / motion_graphic / cast, `credit` is a PER-SECOND rate, not a per-clip price — multiply by the requested `duration` before quoting cost to the user (e.g. `credit: 9` at `duration: 8` is 72 credits, not 9). This is the universal rule, not a per-model exception. The one carve-out is a model with `flat_credit_by_resolution` set — those charge the flat rate regardless of duration. Every other model type (image, audio, 3D, per-token text) already bills flat per generation as `credit` states.',
     {
       type: z.string().optional().describe('Filter by DB type name: "text_to_img", "image_editing", "text_to_video", "img_to_video", "draw_to_video", "video_to_video", "elements", "firstlastgenerations", "lipsync-image", "lipsync-video", "music_gen", "text_to_speech", "text_to_sound", "stt", "text". Legacy aliases also accepted: "image", "image_edit", "video", "video_from_image", "video_from_video", "music", "speech", "sound", "chat", "lipsync" (both lipsync types), "three_d" (all 3D types), "first_last_frame", "transcription". Omit for all models.'),
       format: z.enum(['text', 'json']).optional().describe('Output format. "text" (default) returns a human-readable summary with the most-used caps. "json" is the source of truth for identifiers and caps: with `type` it returns the raw model documents from the API (identifier, credit, supported_durations, supported_resolutions, supported_aspect_ratios, max_reference_images, max_visual_dna, max_video_duration, …) for EVERY model of that type; without `type` it returns a compact index of every model in the catalog and its exact identifier. Use it whenever you need an identifier you have not seen listed, or must verify a cap before passing a value that might exceed a model-specific limit.'),
@@ -334,9 +334,31 @@ function registerModelTools(server, client, options = {}) {
       // Text models bill per token — the flat `credit` is not what the user pays,
       // so show the real per-1K rates when the API supplies them. Without this the
       // "cheapest model that fits" rule is unusable for chat.
+      //
+      // Video-type models are the same problem in a different shape: kolbo-api's
+      // credit engine (credManagment.js) treats "charge per second of requested
+      // duration" as the UNIVERSAL rule for any type in
+      // [video, firstlast, elements, motion_graphic, cast] — not a per-model
+      // exception, the default. So `credit: 9` on a model with duration 8 is
+      // really 72 credits, and nothing in the catalog said so: an agent quoting
+      // cost from the bare `credit` field alone is wrong by exactly the
+      // requested duration, every time. `flat_credit_by_resolution` is the one
+      // carve-out — those models are charged the flat rate regardless of
+      // duration, so they're excluded here the same way credManagment.js
+      // excludes them (resolveFlatCredit wins over the multiplier).
+      const PER_SECOND_TYPES = ['video', 'firstlast', 'elements', 'motion_graphic', 'cast'];
+      const isPerSecondVideo = m => {
+        const types = Array.isArray(m.types) ? m.types : (m.type ? [m.type] : []);
+        const billedPerSecond = types.some(t => PER_SECOND_TYPES.some(kw => String(t).includes(kw)));
+        const hasFlatOverride = m.flat_credit_by_resolution && typeof m.flat_credit_by_resolution === 'object'
+          && Object.keys(m.flat_credit_by_resolution).length > 0;
+        return billedPerSecond && !hasFlatOverride;
+      };
       const cost = m => (m.output_token_rate != null
         ? `${m.input_token_rate ?? '?'}/${m.output_token_rate} credits per 1K tokens (in/out)`
-        : `${m.credit} credits`);
+        : isPerSecondVideo(m)
+          ? `${m.credit} credits/second (× requested duration — NOT a flat per-clip price)`
+          : `${m.credit} credits`);
       const formatModel = m =>
         `${m.identifier} (${m.name}) - ${cost(m)}${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}${m.summary ? ` — ${detailed ? m.summary : brief(m.summary)}` : ''}${detailed ? formatSpecs(m) : ''}`;
 

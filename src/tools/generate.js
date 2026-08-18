@@ -978,18 +978,45 @@ function registerGenerateTools(server, client, options = {}) {
         };
       }
 
+      const text = JSON.stringify({
+        all_done: pending.length === 0,
+        completed: results.filter(r => r.state === 'completed').length,
+        failed: results.filter(r => r.state === 'failed' || r.state === 'cancelled').length,
+        still_processing: pending.map(r => r.generation_id),
+        _hint: pending.length === 0 ? doneHint : pendingHint,
+        generations: results
+      }, null, 2);
+
+      // Checking SEVERAL ids in one call — the "run N generations in parallel,
+      // then check on all of them" pattern — is the one shape hasGeneratedOutput
+      // (the host's card-selection check) cannot see into: media here sits one
+      // level under EACH ARRAY ITEM's own `result`, and nothing walks arrays
+      // looking for it. Without structuredContent the card degrades to a plain
+      // status list — ids and state, no thumbnails, even for completed items
+      // whose media is sitting right there. uiCompleted gives it the same rich
+      // per-item render every generate_* tool already gets; kind:'status' picks
+      // renderStatusGrid, the one path here that mixes independent
+      // pending/completed/failed items in one grid instead of assuming they all
+      // finished together.
+      if (ui()) {
+        return uiCompleted({
+          tool: 'get_generation_status', kind: 'status', client,
+          model: 'Generations', gen: { generation_id: ids[0] },
+          settings: {},
+          items: results.map(r => {
+            const res = r.result || {};
+            return {
+              id: r.generation_id,
+              state: r.state,
+              title: res.prompt_used || res.prompt || undefined,
+              url: Array.isArray(res.urls) ? res.urls[0] : undefined,
+            };
+          }),
+        }, text);
+      }
+
       return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            all_done: pending.length === 0,
-            completed: results.filter(r => r.state === 'completed').length,
-            failed: results.filter(r => r.state === 'failed' || r.state === 'cancelled').length,
-            still_processing: pending.map(r => r.generation_id),
-            _hint: pending.length === 0 ? doneHint : pendingHint,
-            generations: results
-          }, null, 2)
-        }]
+        content: [{ type: 'text', text }]
       };
     }
   );
