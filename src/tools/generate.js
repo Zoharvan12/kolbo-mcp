@@ -508,13 +508,13 @@ function registerGenerateTools(server, client, options = {}) {
   );
 
   // ─── generate_video ────────────────────────────────────────
-  // NOTE: text-to-video does NOT support Visual DNA — the textToVideoGeneration
-  // controller in kolbo-api never reads visualDnaIds. For character-consistent
-  // video, use generate_elements (which DOES honor visual_dna_ids) or animate a
-  // DNA-locked still via generate_video_from_image.
+  // Text-to-video is now a MODE inside videoGeneration/controller.js (sdk/controller.js
+  // posts mode:'text_to_video'), and that controller DOES read visualDnaIds — so Visual
+  // DNA works here. The old "text-to-video never reads visualDnaIds" note described the
+  // retired textToVideoGeneration path and was stale.
   server.tool(
     'generate_video',
-    'Generate a video from a text prompt using Kolbo AI. For SEVERAL different videos, pass all their prompts in `prompts` in ONE call (one combined widget) — never a series of separate calls. For animating an existing still image into motion, use generate_video_from_image instead. For a coordinated multi-scene video campaign, use generate_creative_director with workflow_type="video". Supports reference images (for style/composition guidance). Does NOT support Visual DNA — for character-consistent video use generate_elements or animate a DNA-locked still via generate_video_from_image. Returns the final video URL when complete.',
+    'Generate a video from a text prompt using Kolbo AI. For SEVERAL different videos, pass all their prompts in `prompts` in ONE call (one combined widget) — never a series of separate calls. For animating an existing still image into motion, use generate_video_from_image instead. For a coordinated multi-scene video campaign, use generate_creative_director with workflow_type="video". Supports reference images (for style/composition guidance) and Visual DNA for character consistency. Returns the final video URL when complete.',
     {
       prompt: z.string().optional().describe('Text description of the video to generate. Required unless `prompts` is provided.'),
       prompts: promptsField('videos'),
@@ -525,16 +525,17 @@ function registerGenerateTools(server, client, options = {}) {
       reference_images: z.array(z.string()).optional().describe('Array of image URLs used as visual references (style / composition / subject). **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolution_multipliers to predict cost.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" to apply a saved motion/style preset to this generation.'),
+      visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency. Every DNA passed here MUST also be tagged in the prompt as @ExactDNAName. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
       sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Honored by `sound_generation_type: "native"` models (Veo 3.1, Kling V3/2.6, PixVerse V6). Seedance 2.x reports type "none" (no toggle) but `sound_baked_in: true` — those still emit real audio; do not tell the user the model is silent. Omit to use `sound_enabled_by_default`. Pass `false` only when the user asks for silent AND the model is native (not baked-in). Enabling sound may apply `sound_credit_multiplier` to cost.'),
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one video ungraded.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, aspect_ratio, duration, enhance_prompt = false, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id, session_id }) => {
+    async ({ prompt, prompts, model, aspect_ratio, duration, enhance_prompt = false, reference_images, resolution, preset_id, visual_dna_ids, sound_enabled, skip_color_palette, project_id, session_id }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'text_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
       const shared = {
-        model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, sound_enabled, skip_color_palette, project_id, session_id
+        model, aspect_ratio, duration, enhance_prompt, reference_images, resolution, preset_id, visual_dna_ids, sound_enabled, skip_color_palette, project_id, session_id
       };
 
       // Batch mode: N different prompts, one widget owning all generation ids.
@@ -1147,6 +1148,7 @@ function registerGenerateTools(server, client, options = {}) {
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency across outputs. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.'),
+      sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Honored by `sound_generation_type: "native"` models (Kling O3/V3, Veo 3.1, PixVerse V6). Omit to use `sound_enabled_by_default`. Enabling sound may apply `sound_credit_multiplier` to cost.'),
       keyframes: z.array(z.object({
         image_url: z.string().describe('Public URL of the keyframe image'),
         timestamp_seconds: z.number().describe('Moment on the OUTPUT timeline (seconds, 0 = first frame) where this image is pinned')
@@ -1157,7 +1159,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, keyframes, multi_shots, multi_shot_count, session_name, project_id, session_id }) => {
+    async ({ prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, sound_enabled, keyframes, multi_shots, multi_shot_count, session_name, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'elements'); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!prompt) throw new Error('prompt is required');
 
@@ -1179,6 +1181,7 @@ function registerGenerateTools(server, client, options = {}) {
         if (reference_audio_urls) form.append('reference_audio_urls', JSON.stringify(reference_audio_urls));
         if (audio_url) form.append('audio_url', audio_url);
         if (resolution) form.append('resolution', resolution);
+        if (sound_enabled !== undefined) form.append('sound_enabled', String(sound_enabled));
         if (keyframes) form.append('keyframes', JSON.stringify(keyframes));
         if (multi_shots !== undefined) form.append('multi_shots', String(multi_shots));
         if (multi_shot_count !== undefined) form.append('multi_shot_count', String(multi_shot_count));
@@ -1192,7 +1195,7 @@ function registerGenerateTools(server, client, options = {}) {
       } else {
         // URL-only mode: plain JSON.
         startResponse = await client.post('/v1/generate/elements', {
-          prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, keyframes, multi_shots, multi_shot_count, session_name, project_id, session_id
+          prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, sound_enabled, keyframes, multi_shots, multi_shot_count, session_name, project_id, session_id
         });
       }
 
@@ -1269,10 +1272,11 @@ function registerGenerateTools(server, client, options = {}) {
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Model-dependent — call list_models and read supported_resolutions.'),
+      sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Honored by `sound_generation_type: "native"` models (Kling O3/V3, Veo 3.1, PixVerse V6). Omit to use `sound_enabled_by_default`. Enabling sound may apply `sound_credit_multiplier` to cost.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt = false, visual_dna_ids, resolution, project_id, session_id }) => {
+    async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt = false, visual_dna_ids, resolution, sound_enabled, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'firstlastgenerations'); // lenient id resolution ("z-image" → "z-image/turbo")
       const urlMode = first_frame_url && last_frame_url;
       const fileMode = first_frame && last_frame;
@@ -1299,12 +1303,13 @@ function registerGenerateTools(server, client, options = {}) {
         if (enhance_prompt !== undefined) form.append('enhance_prompt', String(enhance_prompt));
         if (visual_dna_ids) form.append('visual_dna_ids', JSON.stringify(visual_dna_ids));
         if (resolution) form.append('resolution', resolution);
+        if (sound_enabled !== undefined) form.append('sound_enabled', String(sound_enabled));
         if (project_id) form.append('project_id', project_id);
         if (session_id) form.append('session_id', session_id);
         startResponse = await client.postMultipart('/v1/generate/first-last-frame', form);
       } else {
         startResponse = await client.post('/v1/generate/first-last-frame', {
-          first_frame_url, last_frame_url, prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids, resolution, project_id, session_id
+          first_frame_url, last_frame_url, prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids, resolution, sound_enabled, project_id, session_id
         });
       }
 
@@ -1477,6 +1482,7 @@ function registerGenerateTools(server, client, options = {}) {
       reference_images: z.array(z.string()).optional().describe('Array of reference image URLs for models that support additional image inputs. **Cap: pass at most `max_images` URLs from list_models — if `max_images === 0` the model does not accept image refs.** Examples: character reference images for Kling O1/O3, style reference for Aleph/gen4_aleph, character image for WAN VACE video-edit.'),
       reference_videos: z.array(z.string()).optional().describe('Array of additional reference video URLs for models that support multiple video inputs. **Cap: pass at most `max_videos` URLs from list_models — if `max_videos <= 1` only the source_video is accepted.** Example: WAN 2.6 reference-to-video accepts 1–3 reference videos.'),
       elements: z.array(z.string()).optional().describe('Array of element image URLs. **Cap: pass at most `max_elements` URLs from list_models — if `max_elements === 0` the model does not accept elements.** Elements are style or character reference assets alongside the main video.'),
+      sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Honored by `sound_generation_type: "native"` models (Kling O3/V3, Veo 3.1, PixVerse V6). Omit to use `sound_enabled_by_default`. Enabling sound may apply `sound_credit_multiplier` to cost.'),
       // VEED Subtitles (model: veed/subtitles) — burns styled subtitles into the video
       preset: z.string().optional().describe('VEED Subtitles only: caption style preset (e.g. "glass", "whisper", "fusion", "simple", "vegas"). Call list_models type="video_to_video" for the veed/subtitles model. Ignored by other models.'),
       source_language: z.string().optional().describe('VEED Subtitles only: BCP-47 code of the spoken language to improve transcription accuracy (e.g. "en-US", "es-ES", "he-IL"). Omit to auto-detect.'),
@@ -1498,7 +1504,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, project_id, session_id }) => {
+    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, sound_enabled, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'video_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!source_video) throw new Error('source_video is required');
 
@@ -1506,7 +1512,7 @@ function registerGenerateTools(server, client, options = {}) {
       let startResponse;
       if (isUrl) {
         startResponse = await client.post('/v1/generate/video-from-video', {
-          video_url: source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution,
+          video_url: source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled,
           reference_images, reference_videos, elements, preset, source_language, translation_language,
           srt_content, srt_file_url, vocabulary, customization, project_id, session_id
         });
@@ -1528,6 +1534,7 @@ function registerGenerateTools(server, client, options = {}) {
         if (enhance_prompt !== undefined) form.append('enhance_prompt', String(enhance_prompt));
         if (visual_dna_ids) form.append('visual_dna_ids', JSON.stringify(visual_dna_ids));
         if (resolution) form.append('resolution', resolution);
+        if (sound_enabled !== undefined) form.append('sound_enabled', String(sound_enabled));
         if (reference_images) form.append('reference_images', JSON.stringify(reference_images));
         if (reference_videos) form.append('reference_videos', JSON.stringify(reference_videos));
         if (elements) form.append('elements', JSON.stringify(elements));
