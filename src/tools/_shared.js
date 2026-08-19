@@ -655,6 +655,13 @@ async function uiCompleted(p, textPayload, extraContent) {
     // above which assume everything finished together. Only set when the
     // caller actually has this shape; every existing caller is unaffected.
     ...(Array.isArray(p.items) ? { items: p.items } : {}),
+    // The RAW generation state, when the caller has one. `phase` above is
+    // hardcoded 'completed' — it means "this tool call finished", not "the
+    // generation finished" — so a status check on a still-running job looked
+    // done to every reader. A live generation card polls get_generation_status
+    // from its own iframe and reads `state` FIRST; without it, a processing job
+    // resolved as completed-with-no-media and painted a red failure card.
+    ...(p.state ? { state: p.state } : {}),
     credits_used: p.credits_used,
     open_url: buildOpenUrl(p.tool, p.gen),
   };
