@@ -1181,10 +1181,10 @@ function registerGenerateTools(server, client, options = {}) {
     {
       prompt: z.string().describe('Locked Intro prompt (Seedance/Elements): Total line, [GLOBAL LOOK], [CAST] with @ExactDNAName for every visual_dna_ids entry, [LOCATION], then SHOT N. Not SCENE CONTEXT/OPTICS/ACTION packs. Never substitute "the left man" or "Zohar\'s" for @Name.'),
       model: z.string().optional().describe('Model identifier. If the user already named a family (Grok / Kling / Veo / Seedance / …), pass THAT family — never default to Seedance because Elements often uses it. Use list_models type="elements" for exact ids and elements_max_* caps. Do NOT omit (omitting = Smart Select).'),
-      reference_images: z.array(z.string()).optional().describe('Array of image references (product shots, character references, etc.). Accepts a public URL (forwarded as-is, never re-uploaded) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
-      reference_videos: z.array(z.string()).optional().describe('Array of reference videos for models that accept video inputs. Accepts a public URL (forwarded as-is, never re-uploaded) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_videos` URLs from list_models — if the cap is 0 the model rejects videos.**'),
-      reference_audio_urls: z.array(z.string()).optional().describe('Array of reference audio tracks for models that accept audio inputs. Accepts a public URL (forwarded as-is, never re-uploaded) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_audio` URLs from list_models.** `audio_url` remains supported as the legacy single-track form.'),
-      audio_url: z.string().optional().describe('A single reference audio track — legacy form of reference_audio_urls. Accepts a public URL (forwarded as-is, never re-uploaded) OR an absolute local path, which is uploaded for you. **Audio constraints: `elements_max_audio` from list_models gates whether audio is accepted at all; audio duration must fall within `min_audio_duration`-`max_audio_duration`; format must be in `supported_audio_formats` (if specified).**'),
+      reference_images: z.array(z.string()).optional().describe('Array of image references (product shots, character references, etc.). Accepts a public URL (forwarded as-is; if the API rejects an external URL as untrusted, it is auto-rehosted into the media library and retried once) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
+      reference_videos: z.array(z.string()).optional().describe('Array of reference videos for models that accept video inputs. Accepts a public URL (forwarded as-is; if the API rejects an external URL as untrusted, it is auto-rehosted into the media library and retried once) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_videos` URLs from list_models — if the cap is 0 the model rejects videos.**'),
+      reference_audio_urls: z.array(z.string()).optional().describe('Array of reference audio tracks for models that accept audio inputs. Accepts a public URL (forwarded as-is; if the API rejects an external URL as untrusted, it is auto-rehosted into the media library and retried once) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_audio` URLs from list_models.** `audio_url` remains supported as the legacy single-track form.'),
+      audio_url: z.string().optional().describe('A single reference audio track — legacy form of reference_audio_urls. Accepts a public URL (forwarded as-is; if the API rejects an external URL as untrusted, it is auto-rehosted into the media library and retried once) OR an absolute local path, which is uploaded for you. **Audio constraints: `elements_max_audio` from list_models gates whether audio is accepted at all; audio duration must fall within `min_audio_duration`-`max_audio_duration`; format must be in `supported_audio_formats` (if specified).**'),
       files: z.array(z.string()).optional().describe('Untyped catch-all for mixed media — images, videos AND audio, each a URL or an absolute local path. The kind is detected from the file extension and the item is routed to the matching reference list, so a local .mp4 is sent as a video and a local .mp3 as audio. Prefer the typed lists (reference_images / reference_videos / reference_audio_urls) when you already know the kind; they accept local paths too. URLs given here are forwarded as URLs, never re-uploaded. **Caps still apply per kind: `elements_max_images` / `elements_max_videos` / `elements_max_audio` from list_models. Local uploads are capped at 200MB each.**'),
       duration: z.number().optional().describe('Output duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in `supported_aspect_ratios` from list_models. Default: "16:9"'),
@@ -1250,10 +1250,10 @@ function registerGenerateTools(server, client, options = {}) {
         session_name, project_id, session_id
       };
 
-      let startResponse;
-      if (!locals.length) {
-        startResponse = await client.post('/v1/generate/elements', body);
-      } else {
+      const startElements = async () => {
+        if (!locals.length) {
+          return client.post('/v1/generate/elements', body);
+        }
         const resolved = await Promise.all(locals.map(({ src, kind }) =>
           resolveToBuffer(src, kind, { maxBytes: ELEMENTS_MAX_UPLOAD_BYTES })));
         const form = new FormData();
@@ -1277,7 +1277,36 @@ function registerGenerateTools(server, client, options = {}) {
         for (const f of resolved) {
           form.append('files', f.buffer, { filename: f.filename, contentType: f.contentType });
         }
-        startResponse = await client.postMultipart('/v1/generate/elements', form);
+        return client.postMultipart('/v1/generate/elements', form);
+      };
+
+      let startResponse;
+      try {
+        startResponse = await startElements();
+      } catch (err) {
+        // The elements trust gate only accepts remote references that are BOTH
+        // Kolbo-hosted AND registered to this caller's library/project — any
+        // other public URL 400s with this code, even though every schema here
+        // says "public URL, forwarded as-is". Agents used to recover by hand
+        // (upload_media, then resend). Do that detour for them: rehost every
+        // remote reference into the caller's library and retry ONCE. The gate
+        // fires before any charge, so the failed first attempt costs nothing.
+        if (err?.code !== 'UNTRUSTED_REFERENCE_MEDIA_URL') throw err;
+        for (const kind of ['image', 'video', 'audio']) {
+          media[kind] = await Promise.all(media[kind].map(async (src) => {
+            if (!isUrlSource(src)) return src;
+            const file = await resolveToBuffer(src, kind, { maxBytes: ELEMENTS_MAX_UPLOAD_BYTES });
+            const form = new FormData();
+            form.append('file', file.buffer, { filename: file.filename, contentType: file.contentType });
+            if (project_id) form.append('project_id', project_id);
+            const uploaded = await client.postMultipart('/v1/media/upload', form);
+            return uploaded?.media?.url || uploaded?.url || src;
+          }));
+        }
+        body.reference_images = some(urlsOf('image'));
+        body.reference_videos = some(urlsOf('video'));
+        body.reference_audio_urls = some(urlsOf('audio'));
+        startResponse = await startElements();
       }
 
       if (ui()) return uiGenerating({
@@ -1576,10 +1605,18 @@ function registerGenerateTools(server, client, options = {}) {
           highlighted: z.object({ font: z.string().optional(), weight: z.number().int().min(100).max(900).optional(), color: z.string().optional() }).optional().describe('Highlighted word tier styling.'),
         }).optional(),
       }).optional().describe('VEED Subtitles only: style overrides. Any omitted field keeps the preset default. Best supported by Basic presets.'),
+      enhancement_model: z.string().optional()
+        .describe('Topaz Slow Motion only (model "topaz/interpolate/video"): retiming engine — "Apollo" (smooth motion, default), "Chronos" (complex motion and occlusion), or "Aion" (highest quality for extreme slow motion, and the most expensive).'),
+      target_fps: z.number().optional()
+        .describe('Topaz Slow Motion only: frames per second of the OUTPUT (16-120, default 60). Higher rates generate more frames and cost proportionally more.'),
+      slowdown_factor: z.number().optional()
+        .describe('Topaz Slow Motion only: how many times longer the output runs (1-8, default 1). 4 turns a 5s clip into 20s of slow motion. Billing is on the OUTPUT length, so an 8x pass costs 8x a 1x pass.'),
+      output_format: z.string().optional()
+        .describe('Topaz HDR only (model "topaz/sdr-to-hdr/video"): "mp4" for 10-bit H.265 HDR10 (default) or "prores" for 10-bit ProRes 422 HQ. Both are HDR masters — the in-app player shows a tone-mapped SDR preview and the HDR file is the download.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, sound_enabled, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, project_id, session_id }) => {
+    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, sound_enabled, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, enhancement_model, target_fps, slowdown_factor, output_format, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'video_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!source_video) throw new Error('source_video is required');
 
@@ -1589,7 +1626,9 @@ function registerGenerateTools(server, client, options = {}) {
         startResponse = await client.post('/v1/generate/video-from-video', {
           video_url: source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, sound_enabled,
           reference_images, reference_videos, elements, preset, source_language, translation_language,
-          srt_content, srt_file_url, vocabulary, customization, project_id, session_id
+          srt_content, srt_file_url, vocabulary, customization,
+          enhancement_model, target_fps, slowdown_factor, output_format,
+          project_id, session_id
         });
       } else {
         const resolved = await resolveToBuffer(source_video, 'video');
@@ -1613,6 +1652,10 @@ function registerGenerateTools(server, client, options = {}) {
         if (reference_images) form.append('reference_images', JSON.stringify(reference_images));
         if (reference_videos) form.append('reference_videos', JSON.stringify(reference_videos));
         if (elements) form.append('elements', JSON.stringify(elements));
+        if (enhancement_model) form.append('enhancement_model', enhancement_model);
+        if (target_fps !== undefined) form.append('target_fps', String(target_fps));
+        if (slowdown_factor !== undefined) form.append('slowdown_factor', String(slowdown_factor));
+        if (output_format) form.append('output_format', output_format);
         if (project_id) form.append('project_id', project_id);
         if (session_id) form.append('session_id', session_id);
         startResponse = await client.postMultipart('/v1/generate/video-from-video', form);
@@ -1822,7 +1865,8 @@ function registerGenerateTools(server, client, options = {}) {
         'camera_angle',
         'split', 'split_upscale',
         'multi_shot',
-        'magic_edit'
+        'magic_edit',
+        'enhance'
       ]).describe([
         'Edit operation:',
         '"upscale" — increase resolution by 2×, 3×, or 4× (use `scale`). "clarity_upscale" — AI-powered clarity upscale with detail enhancement (use `resolution`).',
@@ -1831,6 +1875,7 @@ function registerGenerateTools(server, client, options = {}) {
         '"removebg" — remove the image background, output is transparent PNG.',
         '"background_replace" — remove background and replace it with AI-generated content from `prompt`.',
         '"enhance_skin" — portrait skin retouching (use `skin_strength`: "subtle" | "realistic" | "pimple" | "freckle").',
+        '"enhance" — Topaz photo correction at the SOURCE resolution (no resizing). Pick the tool with `model`: "topaz/adjust/image" (exposure, white balance, or colorizing a black-and-white photo), "topaz/sharpen/image" (lens / motion / portrait / wildlife blur, or Super Focus for severely blurred shots), "topaz/denoise/image" (high-ISO and night noise), "topaz/restore/image" (old or damaged photos, dust and scratches). Choose the specific engine with `enhancement_model` — call list_models type="graphics_enhance" to see each model\'s engines. To make an image BIGGER use "upscale" instead.',
         '"inpaint" — paint over a masked area using `mask_image_url` (B&W mask, white = fill area) and optional `prompt`. Add reference images via `additional_images`.',
         '"erase" — erase an object defined by `mask_image_url` (white = erase area).',
         '"face_swap" — swap the face in `image_url` with the face from `mask_image_url` (required).',
@@ -1845,7 +1890,13 @@ function registerGenerateTools(server, client, options = {}) {
 
       // ── upscale ────────────────────────────────────────────
       scale: z.number().optional()
-        .describe('Upscale factor: 2, 3, or 4. Used with operation="upscale". Default: 2.'),
+        .describe('Upscale factor: 1, 2, 4 or 8. Used with operation="upscale". Default: 2.'),
+
+      enhancement_model: z.string().optional()
+        .describe('Topaz engine. With operation="upscale" on model "topaz/upscale/image" it selects the engine family: "Standard V2" / "High Fidelity V3" / "CGI" / "Text Refine" (faithful), "Wonder 3.5" (rebuilds natural detail), "Bloom 2" (reinvents detail — most expensive), "Transparent" (keeps the alpha channel). With operation="enhance" it selects the correction engine for the chosen model. Omit for the model default. Call list_models to see the engines a model offers.'),
+
+      output_format: z.string().optional()
+        .describe('Output image format: "jpeg" or "png". Used with Topaz "upscale" and "enhance". Defaults to jpeg (the transparent upscaler always returns png).'),
 
       resolution: z.string().optional()
         .describe('Target output resolution (e.g. "4k", "2k", "1080p"). Used with "clarity_upscale", "split_upscale", "multi_shot".'),
@@ -1902,6 +1953,7 @@ function registerGenerateTools(server, client, options = {}) {
       image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
       mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize = false,
       zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
+      enhancement_model, output_format,
       project_id, session_id
     }) => {
       // No `type` argument: these are operation-routed tools (upscale / reframe /
@@ -1911,6 +1963,9 @@ function registerGenerateTools(server, client, options = {}) {
 
       // Basic validation
       if (operation === 'reframe' && !aspect_ratio) throw new Error('aspect_ratio is required for reframe');
+      if (operation === 'enhance' && !model) {
+        throw new Error('model is required for enhance — pick one of: topaz/adjust/image, topaz/sharpen/image, topaz/denoise/image, topaz/restore/image');
+      }
       if (operation === 'background_replace' && !prompt) throw new Error('prompt is required for background_replace');
       if (operation === 'face_swap' && !mask_image_url && !(additional_images && additional_images.length > 0)) {
         throw new Error('mask_image_url (face reference) is required for face_swap');
@@ -1920,6 +1975,7 @@ function registerGenerateTools(server, client, options = {}) {
         image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
         mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize,
         zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
+        enhancement_model, output_format,
         project_id, session_id
       });
 
@@ -1992,6 +2048,8 @@ function registerGenerateTools(server, client, options = {}) {
         .describe('Target resolution (e.g. "4k", "2k", "1080p"). Used with "upscale" and "reframe".'),
       target_fps: z.number().optional()
         .describe('Target frame rate (e.g. 24, 30, 60). Used with operation="upscale".'),
+      enhancement_model: z.string().optional()
+        .describe('Topaz enhancement engine for operation="upscale" on model "topaz/upscale/video". Families: Precision (faithful — "Proteus", "Artemis High Quality", "Iris", "Dione TV", "Gaia CG", "Gaia 2"), Denoise ("Nyx", "Nyx Fast"), Generative (rebuilds detail that is not in the source — "Starlight Fast 2", "Starlight HQ", "Starlight Precise 2.6"), Creative ("Astra 2", always renders 4K). Generative and Creative engines cost several times the Precision rate. Omit for the default.'),
 
       // ── reframe ────────────────────────────────────────────
       aspect_ratio: z.string().optional()
@@ -2055,7 +2113,7 @@ function registerGenerateTools(server, client, options = {}) {
     async ({
       video_url, operation, model, aspect_ratio, scale, prompt,
       image_url, audio_url, duration, mode,
-      target_fps, resolution,
+      target_fps, resolution, enhancement_model,
       grid_position_x, grid_position_y,
       sound_effect_prompt, background_music_prompt, original_sound, cfg_strength,
       refine_edges, subject_is_person,
@@ -2078,7 +2136,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (operation === 'extend'        && !duration)    throw new Error('duration is required for extend');
 
       const gen = await client.post('/v1/edit/video', {
-        video_url, operation, model, aspect_ratio, scale, prompt,
+        video_url, operation, model, aspect_ratio, scale, prompt, enhancement_model,
         image_url, audio_url, duration, mode,
         target_fps, resolution,
         grid_position_x, grid_position_y,
