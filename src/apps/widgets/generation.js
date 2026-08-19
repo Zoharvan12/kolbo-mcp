@@ -586,8 +586,12 @@ function fillBatchCell(sc, i, g) {
   cell.classList.add('done');
   var cap = (sc.prompts && sc.prompts[i])
     ? '<span class="k-skel-cap" title="' + esc(sc.prompts[i]) + '">' + esc(sc.prompts[i]) + '</span>' : '';
+  if (sc.prompts && sc.prompts[i]) cell.title = sc.prompts[i];
+  // The controls attribute is not optional here: this cell is a FINISHED result
+  // the user is meant to watch, and without it the tile was a muted poster with
+  // no way to play, seek or unmute until the whole batch finished and repainted.
   cell.innerHTML = (sc.kind === 'video'
-    ? '<video class="k-cell-fill" src="' + esc(u) + '"' + (r.thumbnail_url ? ' poster="' + esc(r.thumbnail_url) + '"' : '') + ' muted playsinline preload="metadata"></video>'
+    ? '<video class="k-cell-fill" src="' + esc(u) + '"' + (r.thumbnail_url ? ' poster="' + esc(r.thumbnail_url) + '"' : '') + ' controls playsinline preload="metadata"></video>'
     : '<img class="k-cell-fill" src="' + esc(u) + '" alt="">') + cap;
   window.kolbo.notifySize();
 }
@@ -767,7 +771,8 @@ function renderBatchGrid(sc) {
   var shape = items[0].type === 'video' ? 'video' : 'square';
   el('stage').innerHTML = '<div class="k-gen-grid n' + Math.min(items.length, 4) + '">' +
     items.map(function (it, i) {
-      return '<div class="k-skel done ' + shape + '" data-focus="' + i + '">' +
+      return '<div class="k-skel done ' + shape + '" data-focus="' + i + '"' +
+        (it.label ? ' title="' + esc(it.label) + '"' : '') + '>' +
         (it.type === 'video'
           ? '<video class="k-cell-fill" src="' + esc(it.url) + '" controls playsinline preload="metadata"></video>'
           : '<img class="k-cell-fill" src="' + esc(it.url) + '" alt="" loading="lazy" style="cursor:zoom-in">') +
@@ -803,7 +808,8 @@ function renderStatusGrid(sc) {
         // file — the tool only knows a url came back, not what kind it is.
         it.kind = refKind(it.url, 'image');
         var shape = it.kind === 'video' ? 'video' : 'square';
-        return '<div class="k-skel done ' + shape + '" data-focus="' + i + '">' +
+        return '<div class="k-skel done ' + shape + '" data-focus="' + i + '"' +
+          (it.title ? ' title="' + esc(it.title) + '"' : '') + '>' +
           (it.kind === 'video'
             ? '<video class="k-cell-fill" src="' + esc(it.url) + '" controls playsinline preload="metadata"></video>'
             : it.kind === 'audio'
