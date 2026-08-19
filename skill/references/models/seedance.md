@@ -110,6 +110,7 @@ These elevate rich cinematic / reference-anchored sequences. For a short, tight,
 ## Dialogue & expression
 
 - Dialogue goes in quotes and may be in ANY language (Hebrew included). For silent tension, deliver it as expression, not speech: `He does not speak. His expression clearly says: "…"`.
+- **Seedance PERFORMS quoted dialogue natively** — synced voices, lip movement, and room tone come out of the video model itself. Never route scene dialogue through TTS (`generate_speech`) or `generate_lipsync`; write each line in quotes inside its shot beat (`DANIEL says: "…"`) and generate once.
 
 ## Content tone
 

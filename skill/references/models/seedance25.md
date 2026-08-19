@@ -9,7 +9,7 @@ Load this file when the user wants a **Seedance 2.5** video (they said "2.5" / "
 
 **Kolbo MCP routing:** `generate_video` or `generate_elements` (refs / Visual DNA / first-last). Run `list_models({ type: "text_to_video" })` and pick the Seedance 2.5 variant by name.
 
-**Audio:** Seedance 2.5 still emits real synced audio. `list_models` may show `sound_generation_type: none` because there is no in-app toggle (`sound_baked_in: true`). Do not tell the user the model is silent.
+**Audio:** Seedance 2.5 still emits real synced audio. `list_models` may show `sound_generation_type: none` because there is no in-app toggle (`sound_baked_in: true`). Do not tell the user the model is silent. Quoted dialogue in the prompt is PERFORMED — synced voices, lip movement, room tone — so scene dialogue never goes through `generate_speech` or `generate_lipsync`; write the lines in quotes inside their shot beats.
 
 ## What's NEW in 2.5 (verified — never hedge)
 
