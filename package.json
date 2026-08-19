@@ -1,6 +1,6 @@
 {
   "name": "@kolbo/mcp",
-  "version": "1.76.5",
+  "version": "1.77.3",
   "description": "Kolbo AI MCP Server - Generate images, videos, music, speech, and sound effects from Claude Code",
   "main": "src/index.js",
   "bin": {
