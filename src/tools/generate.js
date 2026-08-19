@@ -1898,7 +1898,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       // ── upscale ────────────────────────────────────────────
       scale: z.number().optional()
-        .describe('Upscale factor: 1, 2, 4 or 8. Used with operation="upscale". Default: 2.'),
+        .describe('Upscale factor: 1, 2 or 4. Used with operation="upscale". Default: 2. There is NO 8 — every Topaz split endpoint declares upscale_factor max 4 in its OpenAPI, so an 8 is a guaranteed provider error. Output size is otherwise unbounded: 4x on a 4K source is a 16K result and is priced pro-rata, not refused.'),
 
       enhancement_model: z.string().optional()
         .describe('Topaz engine. With operation="upscale" on model "topaz/upscale/image" it selects the engine family: "Standard V2" / "High Fidelity V3" / "CGI" / "Text Refine" (faithful), "Wonder 3.5" (rebuilds natural detail), "Bloom 2" (reinvents detail — most expensive), "Transparent" (keeps the alpha channel). With operation="enhance" it selects the correction engine for the chosen model. Omit for the model default. Call list_models to see the engines a model offers.'),
