@@ -424,6 +424,96 @@ async function main() {
     console.log('[smoke] session_id round-trips on every single-output generation tool OK');
   }
 
+  // ── Media sources route by WHAT they are, not which arg carried them ──────
+  // A public URL must reach the API as a URL. Downloading one only to re-upload
+  // it costs the round-trip, risks the route's own upload ceiling, and
+  // duplicates an asset that already lives on the CDN. And a LOCAL file has to
+  // upload under its real kind: kolbo-api's elements controller buckets
+  // req.files by `file.mimetype`, so a .mp3 forced to 'image' is never seen as
+  // audio at all — elements is the one tool that takes all three modalities.
+  {
+    const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
+    const { registerGenerateTools } = require(path.join(PKG_ROOT, 'src', 'tools', 'generate'));
+    const calls = [];
+    const client = {
+      apiBase: 'smoke',
+      post: async (url, body) => { calls.push({ url, kind: 'json', body }); return { generation_id: 'gen-1', session_id: 's' }; },
+      postMultipart: async (url, form) => {
+        calls.push({ url, kind: 'multipart', raw: form.getBuffer().toString('latin1') });
+        return { generation_id: 'gen-1', session_id: 's' };
+      },
+      get: async (url) => (url === '/v1/models'
+        ? { models: [] }
+        : { state: 'completed', result: { urls: ['https://cdn.example/a.mp4'] } }),
+    };
+    const server = new McpServer({ name: 'sources-smoke', version: '1.0.0' });
+    registerGenerateTools(server, client, {});
+    const call = async (name, args) => { calls.length = 0; await server._registeredTools[name].handler(args); return calls; };
+
+    // 1. Every source is a URL — including a video handed to the untyped
+    //    `files` catch-all — so nothing uploads and the video lands in the
+    //    VIDEO list, not the image list.
+    const urlOnly = await call('generate_elements', {
+      prompt: 'p',
+      reference_images: ['https://cdn.example/a.png'],
+      files: ['https://cdn.example/clip.mp4', 'https://cdn.example/track.mp3'],
+    });
+    if (urlOnly.some(c => c.kind === 'multipart')) {
+      throw new Error('generate_elements re-uploaded URLs instead of forwarding them');
+    }
+    const body = urlOnly.find(c => c.url === '/v1/generate/elements').body;
+    if (!(body.reference_videos || []).includes('https://cdn.example/clip.mp4')) {
+      throw new Error('a video URL passed via files did not reach reference_videos');
+    }
+    if (!(body.reference_audio_urls || []).includes('https://cdn.example/track.mp3')) {
+      throw new Error('an audio URL passed via files did not reach reference_audio_urls');
+    }
+    if ((body.reference_images || []).length !== 1) {
+      throw new Error('non-image sources leaked into reference_images');
+    }
+
+    // 2. A LOCAL audio file uploads as audio, and the URL image reference
+    //    survives alongside it. reference_images must go as REPEATED fields:
+    //    the API reads it with a walker that never JSON-decodes, so a
+    //    stringified array is silently dropped (videos/audio use the opposite
+    //    parser and need the JSON string).
+    const tmpAudio = path.join(os.tmpdir(), `kolbo-smoke-${process.pid}.mp3`);
+    fs.writeFileSync(tmpAudio, Buffer.from('ID3'));
+    try {
+      const mixed = await call('generate_elements', {
+        prompt: 'p',
+        reference_images: ['https://cdn.example/a.png'],
+        reference_audio_urls: [tmpAudio],
+      });
+      const multi = mixed.find(c => c.kind === 'multipart');
+      if (!multi) throw new Error('a local file did not trigger a multipart upload');
+      if (!multi.raw.includes('audio/mpeg')) {
+        throw new Error('a local .mp3 uploaded with the wrong content type — the elements controller buckets req.files by mimetype, so it would never be seen as audio');
+      }
+      if (multi.raw.includes('["https://cdn.example/a.png"]')) {
+        throw new Error('image URLs went as a stringified array — the API walker never JSON-decodes one, so every image reference is silently dropped');
+      }
+      if (!/name="reference_images"[\s\S]{0,8}https:\/\/cdn\.example\/a\.png/.test(multi.raw)) {
+        throw new Error('image URLs were not sent as repeated form fields, so the API drops them');
+      }
+    } finally {
+      fs.unlinkSync(tmpAudio);
+    }
+
+    // 3. The two first/last-frame arg pairs are interchangeable — a URL in
+    //    first_frame/last_frame is forwarded, not downloaded and re-uploaded
+    //    through a route with a 10MB ceiling a URL never touches.
+    const flf = await call('generate_first_last_frame', {
+      first_frame: 'https://cdn.example/a.png',
+      last_frame: 'https://cdn.example/b.png',
+    });
+    const flfCall = flf.find(c => c.url === '/v1/generate/first-last-frame');
+    if (flfCall.kind !== 'json' || flfCall.body.first_frame_url !== 'https://cdn.example/a.png') {
+      throw new Error('generate_first_last_frame re-uploaded frame URLs instead of forwarding them');
+    }
+    console.log('[smoke] media sources route by kind; URLs are never re-uploaded OK');
+  }
+
   // 0c. Every media-input tool must carry the transport-correct local-file
   // route in its description. A name that drifts out of FILE_INPUT_TOOLS fails
   // silently, and the tool goes back to promising "absolute local path" over a

@@ -119,6 +119,22 @@ function mediaKind(url) {
   return 'image';
 }
 
+const isUrlSource = (source) => typeof source === 'string' && /^https?:\/\//i.test(source);
+
+// Which multipart kind a LOCAL file should upload as. mediaKind answers for the
+// card; the upload routes only know these three, and the kind decides the
+// content type a receiving controller dispatches on (kolbo-api's elements
+// controller buckets req.files by `file.mimetype`), so guessing 'image' for
+// everything filed a local .mp4 as a reference image.
+const uploadKind = (source) => {
+  const kind = mediaKind(source);
+  return kind === 'video' || kind === 'audio' ? kind : 'image';
+};
+
+// The elements route's own multer ceiling (kolbo-api sdk/index.js). Cap here so
+// an oversized file fails with a readable message instead of after the upload.
+const ELEMENTS_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+
 // ─── Widget settings block ──────────────────────────────────────────────────
 // What the CALLER actually asked for, for the generation card AND for the model
 // reading the tool result. Undefined/false keys are dropped by JSON.stringify, so
@@ -1165,11 +1181,11 @@ function registerGenerateTools(server, client, options = {}) {
     {
       prompt: z.string().describe('Locked Intro prompt (Seedance/Elements): Total line, [GLOBAL LOOK], [CAST] with @ExactDNAName for every visual_dna_ids entry, [LOCATION], then SHOT N. Not SCENE CONTEXT/OPTICS/ACTION packs. Never substitute "the left man" or "Zohar\'s" for @Name.'),
       model: z.string().optional().describe('Model identifier. If the user already named a family (Grok / Kling / Veo / Seedance / …), pass THAT family — never default to Seedance because Elements often uses it. Use list_models type="elements" for exact ids and elements_max_* caps. Do NOT omit (omitting = Smart Select).'),
-      reference_images: z.array(z.string()).optional().describe('Array of public image URLs used as reference elements (product shots, character references, etc.). **Cap: pass at most `elements_max_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
-      reference_videos: z.array(z.string()).optional().describe('Array of reference video URLs for models that accept video inputs. **Cap: pass at most `elements_max_videos` URLs from list_models — if the cap is 0 the model rejects videos.**'),
-      reference_audio_urls: z.array(z.string()).optional().describe('Array of reference audio URLs for models that accept audio inputs. **Cap: pass at most `elements_max_audio` URLs from list_models.** `audio_url` remains supported as the legacy single-track form.'),
-      audio_url: z.string().optional().describe('URL of a reference audio track. **Audio constraints: `elements_max_audio` from list_models gates whether audio is accepted at all; audio duration must fall within `min_audio_duration`-`max_audio_duration`; format must be in `supported_audio_formats` (if specified).**'),
-      files: z.array(z.string()).optional().describe('Array of URLs or absolute local paths — alternative to reference_images. Use this when you have local files to upload. Each item can be a URL OR a local path. **Total count across files + reference_images still capped by `elements_max_images`.**'),
+      reference_images: z.array(z.string()).optional().describe('Array of image references (product shots, character references, etc.). Accepts a public URL (forwarded as-is, never re-uploaded) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
+      reference_videos: z.array(z.string()).optional().describe('Array of reference videos for models that accept video inputs. Accepts a public URL (forwarded as-is, never re-uploaded) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_videos` URLs from list_models — if the cap is 0 the model rejects videos.**'),
+      reference_audio_urls: z.array(z.string()).optional().describe('Array of reference audio tracks for models that accept audio inputs. Accepts a public URL (forwarded as-is, never re-uploaded) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_audio` URLs from list_models.** `audio_url` remains supported as the legacy single-track form.'),
+      audio_url: z.string().optional().describe('A single reference audio track — legacy form of reference_audio_urls. Accepts a public URL (forwarded as-is, never re-uploaded) OR an absolute local path, which is uploaded for you. **Audio constraints: `elements_max_audio` from list_models gates whether audio is accepted at all; audio duration must fall within `min_audio_duration`-`max_audio_duration`; format must be in `supported_audio_formats` (if specified).**'),
+      files: z.array(z.string()).optional().describe('Untyped catch-all for mixed media — images, videos AND audio, each a URL or an absolute local path. The kind is detected from the file extension and the item is routed to the matching reference list, so a local .mp4 is sent as a video and a local .mp3 as audio. Prefer the typed lists (reference_images / reference_videos / reference_audio_urls) when you already know the kind; they accept local paths too. URLs given here are forwarded as URLs, never re-uploaded. **Caps still apply per kind: `elements_max_images` / `elements_max_videos` / `elements_max_audio` from list_models. Local uploads are capped at 200MB each.**'),
       duration: z.number().optional().describe('Output duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
       aspect_ratio: z.string().optional().describe('Aspect ratio (e.g., "16:9", "9:16", "1:1"). Must be in `supported_aspect_ratios` from list_models. Default: "16:9"'),
       motion: z.string().optional().describe('Motion style / intensity hint (optional)'),
@@ -1192,40 +1208,76 @@ function registerGenerateTools(server, client, options = {}) {
       model = await canonicalModelId(client, model, 'elements'); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!prompt) throw new Error('prompt is required');
 
+      // Elements is the one tool that takes all three modalities, and either a
+      // URL or a local path for any of them. Bucket every input by the kind the
+      // API expects, then split by transport:
+      //   URL   → forwarded AS a url. Downloading one only to re-upload it
+      //           costs the round-trip, risks the 200MB multer ceiling, and
+      //           duplicates an asset that already lives on the CDN. `files`
+      //           used to do exactly that to every URL handed to it.
+      //   local → the only thing that becomes a multipart part, uploaded under
+      //           its real kind. `files` forced 'image' on everything, so a
+      //           local .mp4/.mp3 arrived with the wrong content type and the
+      //           elements controller — which buckets req.files by mimetype —
+      //           never saw it as video or audio.
+      const media = { image: [], video: [], audio: [] };
+      const collect = (list, forced) => {
+        for (const src of Array.isArray(list) ? list : (list ? [list] : [])) {
+          if (typeof src !== 'string' || !src.trim()) continue;
+          // The typed lists declare their own kind; `files` is the untyped
+          // catch-all, so it is classified by extension.
+          const bucket = media[forced || uploadKind(src)];
+          if (!bucket.includes(src)) bucket.push(src);
+        }
+      };
+      collect(reference_images, 'image');
+      collect(reference_videos, 'video');
+      collect(reference_audio_urls, 'audio');
+      collect(audio_url, 'audio'); // legacy single-track form; the API merges it into audioUrls anyway
+      collect(files);
+
+      const urlsOf = (kind) => media[kind].filter(isUrlSource);
+      const locals = ['image', 'video', 'audio']
+        .flatMap((kind) => media[kind].filter((src) => !isUrlSource(src)).map((src) => ({ src, kind })));
+      const some = (list) => (list.length ? list : undefined);
+      const body = {
+        prompt, model,
+        reference_images: some(urlsOf('image')),
+        reference_videos: some(urlsOf('video')),
+        reference_audio_urls: some(urlsOf('audio')),
+        duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids,
+        resolution, sound_enabled, keyframes, multi_shots, multi_shot_count,
+        session_name, project_id, session_id
+      };
+
       let startResponse;
-      if (files && files.length > 0) {
-        // Multipart mode: resolve each file source to a buffer and upload.
-        const resolved = await Promise.all(files.map(src => resolveToBuffer(src, 'image')));
+      if (!locals.length) {
+        startResponse = await client.post('/v1/generate/elements', body);
+      } else {
+        const resolved = await Promise.all(locals.map(({ src, kind }) =>
+          resolveToBuffer(src, kind, { maxBytes: ELEMENTS_MAX_UPLOAD_BYTES })));
         const form = new FormData();
-        form.append('prompt', prompt);
-        if (model) form.append('model', model);
-        if (duration !== undefined) form.append('duration', String(duration));
-        if (aspect_ratio) form.append('aspect_ratio', aspect_ratio);
-        if (motion) form.append('motion', motion);
-        if (preset_id) form.append('preset_id', preset_id);
-        if (enhance_prompt !== undefined) form.append('enhance_prompt', String(enhance_prompt));
-        if (visual_dna_ids) form.append('visual_dna_ids', JSON.stringify(visual_dna_ids));
-        if (reference_images) form.append('reference_images', JSON.stringify(reference_images));
-        if (reference_videos) form.append('reference_videos', JSON.stringify(reference_videos));
-        if (reference_audio_urls) form.append('reference_audio_urls', JSON.stringify(reference_audio_urls));
-        if (audio_url) form.append('audio_url', audio_url);
-        if (resolution) form.append('resolution', resolution);
-        if (sound_enabled !== undefined) form.append('sound_enabled', String(sound_enabled));
-        if (keyframes) form.append('keyframes', JSON.stringify(keyframes));
-        if (multi_shots !== undefined) form.append('multi_shots', String(multi_shots));
-        if (multi_shot_count !== undefined) form.append('multi_shot_count', String(multi_shot_count));
-        if (session_name) form.append('session_name', session_name);
-        if (project_id) form.append('project_id', project_id);
-        if (session_id) form.append('session_id', session_id);
+        for (const [key, value] of Object.entries(body)) {
+          if (value === undefined || value === null) continue;
+          // The two URL lists are read by DIFFERENT parsers on the API side and
+          // only one shape satisfies both. reference_videos/_audio_urls go
+          // through parseJsonArray, which needs a JSON string (a bare url makes
+          // JSON.parse throw and the list is dropped). reference_images goes
+          // through collectHttpMediaUrls, which walks strings and arrays but
+          // never JSON-decodes — so a stringified array fails its
+          // `^https?://` test and every URL reference is silently lost. Repeated
+          // form fields arrive as a string (one) or an array (several), and that
+          // walker handles both.
+          if (key === 'reference_images') {
+            for (const url of value) form.append('reference_images', url);
+            continue;
+          }
+          form.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+        }
         for (const f of resolved) {
           form.append('files', f.buffer, { filename: f.filename, contentType: f.contentType });
         }
         startResponse = await client.postMultipart('/v1/generate/elements', form);
-      } else {
-        // URL-only mode: plain JSON.
-        startResponse = await client.post('/v1/generate/elements', {
-          prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, resolution, sound_enabled, keyframes, multi_shots, multi_shot_count, session_name, project_id, session_id
-        });
       }
 
       if (ui()) return uiGenerating({
@@ -1236,16 +1288,11 @@ function registerGenerateTools(server, client, options = {}) {
           shots: multi_shot_count ?? (Array.isArray(multi_shots) ? multi_shots.length : undefined),
           resolution, aspect_ratio, enhance_prompt, visual_dna_ids, preset_id,
         }),
-        reference_images: [
-          ...(reference_images || []),
-          ...(keyframes || []).map((keyframe) => keyframe.image_url),
-          ...(files || []).filter((source) => /^https?:\/\//i.test(source))
-        ],
-        // Elements is the one tool that takes all three modalities. The widget
-        // sorts kind by extension, so a video that arrived via `files` is still
-        // rendered as a video — these two just make sure nothing is dropped.
-        reference_videos: reference_videos || [],
-        reference_audio: [...(reference_audio_urls || []), ...(audio_url ? [audio_url] : [])]
+        // Already bucketed and deduped above, so a URL handed to `files`
+        // renders under its real kind instead of being dropped or double-listed.
+        reference_images: [...urlsOf('image'), ...(keyframes || []).map((keyframe) => keyframe.image_url)],
+        reference_videos: urlsOf('video'),
+        reference_audio: urlsOf('audio')
       });
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
@@ -1263,13 +1310,9 @@ function registerGenerateTools(server, client, options = {}) {
           shots: multi_shot_count ?? (Array.isArray(multi_shots) ? multi_shots.length : undefined),
           resolution, aspect_ratio, enhance_prompt, visual_dna_ids, preset_id,
         }),
-        reference_images: [
-          ...(reference_images || []),
-          ...(keyframes || []).map((keyframe) => keyframe.image_url),
-          ...(files || []).filter((source) => /^https?:\/\//i.test(source))
-        ],
-        reference_videos: reference_videos || [],
-        reference_audio: [...(reference_audio_urls || []), ...(audio_url ? [audio_url] : [])],
+        reference_images: [...urlsOf('image'), ...(keyframes || []).map((keyframe) => keyframe.image_url)],
+        reference_videos: urlsOf('video'),
+        reference_audio: urlsOf('audio'),
         urls: result.result?.urls || [],
         thumbnail_url: result.result?.thumbnail_url || null,
         duration: result.result?.duration || null,
@@ -1288,12 +1331,12 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_first_last_frame ─────────────────────────────
   server.tool(
     'generate_first_last_frame',
-    'Generate a video that morphs / interpolates from a FIRST frame to a LAST frame. Provide the two frames as URLs (first_frame_url + last_frame_url) OR as local file paths (first_frame + last_frame). Optional prompt describes the desired motion/transition. Do NOT mix URL and file inputs. Returns the final video URL when complete.',
+    'Generate a video that morphs / interpolates from a FIRST frame to a LAST frame. Provide the two frames as URLs (first_frame_url + last_frame_url) or as URLs/absolute local paths (first_frame + last_frame) — the pairs are interchangeable and may be mixed. Optional prompt describes the desired motion/transition. Returns the final video URL when complete.',
     {
-      first_frame_url: z.string().optional().describe('Public URL of the first frame image (URL mode)'),
-      last_frame_url: z.string().optional().describe('Public URL of the last frame image (URL mode)'),
-      first_frame: z.string().optional().describe('URL or absolute local path to the first frame (file mode — alternative to first_frame_url)'),
-      last_frame: z.string().optional().describe('URL or absolute local path to the last frame (file mode — alternative to last_frame_url)'),
+      first_frame_url: z.string().optional().describe('Public URL of the first frame image. Interchangeable with first_frame.'),
+      last_frame_url: z.string().optional().describe('Public URL of the last frame image. Interchangeable with last_frame.'),
+      first_frame: z.string().optional().describe('URL or absolute local path to the first frame — alternative to first_frame_url. A URL here is forwarded as a URL, not re-uploaded.'),
+      last_frame: z.string().optional().describe('URL or absolute local path to the last frame — alternative to last_frame_url. A URL here is forwarded as a URL, not re-uploaded.'),
       prompt: z.string().optional().describe('Optional description of the desired motion between the two frames (e.g. "smooth camera dolly in")'),
       model: z.string().optional().describe('Model identifier. Use list_models type="firstlastgenerations" to see options. Pick a SPECIFIC model — do NOT omit (omitting = Smart Select auto-pick, which we avoid); call list_models for this type and choose the model that best fits the user\'s intent.'),
       duration: z.number().optional().describe('Duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
@@ -1307,20 +1350,24 @@ function registerGenerateTools(server, client, options = {}) {
     },
     async ({ first_frame_url, last_frame_url, first_frame, last_frame, prompt, model, duration, aspect_ratio, enhance_prompt = false, visual_dna_ids, resolution, sound_enabled, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'firstlastgenerations'); // lenient id resolution ("z-image" → "z-image/turbo")
-      const urlMode = first_frame_url && last_frame_url;
-      const fileMode = first_frame && last_frame;
-      if (!urlMode && !fileMode) {
-        throw new Error('Provide either both first_frame_url + last_frame_url OR both first_frame + last_frame (URL/local path).');
-      }
-      if (urlMode && fileMode) {
-        throw new Error('Do not mix URL and file inputs. Provide either URLs OR file sources, not both.');
+      // One frame per position, whichever arg carried it. The two arg pairs were
+      // treated as two exclusive MODES, so a URL handed to first_frame/last_frame
+      // (which their own descriptions invite) took the multipart path and got
+      // downloaded and re-uploaded — a pointless round-trip that also had to fit
+      // the route's 10MB upload ceiling a plain URL never touches. Transport is
+      // now decided per frame by what the value IS, not which arg it arrived in,
+      // which also makes one-URL-one-local work instead of erroring out.
+      const firstSource = first_frame_url || first_frame;
+      const lastSource = last_frame_url || last_frame;
+      if (!firstSource || !lastSource) {
+        throw new Error('Provide both frames: first_frame_url + last_frame_url (URLs) or first_frame + last_frame (URL or absolute local path).');
       }
 
       let startResponse;
-      if (fileMode) {
+      if (!isUrlSource(firstSource) || !isUrlSource(lastSource)) {
         const [firstResolved, lastResolved] = await Promise.all([
-          resolveToBuffer(first_frame, 'image'),
-          resolveToBuffer(last_frame, 'image')
+          resolveToBuffer(firstSource, 'image'),
+          resolveToBuffer(lastSource, 'image')
         ]);
         const form = new FormData();
         form.append('files', firstResolved.buffer, { filename: firstResolved.filename, contentType: firstResolved.contentType });
@@ -1338,15 +1385,15 @@ function registerGenerateTools(server, client, options = {}) {
         startResponse = await client.postMultipart('/v1/generate/first-last-frame', form);
       } else {
         startResponse = await client.post('/v1/generate/first-last-frame', {
-          first_frame_url, last_frame_url, prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids, resolution, sound_enabled, project_id, session_id
+          first_frame_url: firstSource, last_frame_url: lastSource,
+          prompt, model, duration, aspect_ratio, enhance_prompt, visual_dna_ids, resolution, sound_enabled, project_id, session_id
         });
       }
 
       if (ui()) return uiGenerating({
         tool: 'generate_first_last_frame', kind: 'video', gen: startResponse, client, model, prompt,
         settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids }),
-        reference_images: [first_frame_url || first_frame, last_frame_url || last_frame]
-          .filter((source) => /^https?:\/\//i.test(source || ''))
+        reference_images: [firstSource, lastSource].filter(isUrlSource)
       });
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
@@ -1359,8 +1406,7 @@ function registerGenerateTools(server, client, options = {}) {
       return uiCompleted({
         tool: 'generate_first_last_frame', kind: 'video', gen: startResponse, client, model, prompt,
         settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids }),
-        reference_images: [first_frame_url || first_frame, last_frame_url || last_frame]
-          .filter((source) => /^https?:\/\//i.test(source || '')),
+        reference_images: [firstSource, lastSource].filter(isUrlSource),
         urls: result.result?.urls || [],
         thumbnail_url: result.result?.thumbnail_url || null,
         duration: result.result?.duration || null,
