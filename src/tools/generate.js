@@ -1044,7 +1044,6 @@ function registerGenerateTools(server, client, options = {}) {
           // generation, so 'Generations' here overwrote the real model name on
           // the finished card the moment the live widget merged this payload in.
           model: res.model || 'Generations', gen: { generation_id: single.generation_id },
-          settings: {},
           state: single.state,
           urls: done ? urls : undefined,
           thumbnail_url: res.thumbnail_url,

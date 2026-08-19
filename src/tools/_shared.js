@@ -639,7 +639,11 @@ async function uiCompleted(p, textPayload, extraContent) {
     ...chip,
     prompt: p.prompt,
     count: p.count || 1,
-    settings: p.settings || {},
+    // Omitted entirely when the caller has none. A live generation card merges
+    // an incoming status payload over its own state, so an empty-but-present
+    // `settings` wiped the resolution / aspect / DNA chips off the finished
+    // card. Every reader already does `sc.settings || {}`.
+    ...(p.settings ? { settings: p.settings } : {}),
     visual_dnas: await resolveVisualDnas(p.client, (p.settings || {}).visual_dna_ids),
     reference_images: Array.isArray(p.reference_images)
       ? p.reference_images.filter(Boolean)
