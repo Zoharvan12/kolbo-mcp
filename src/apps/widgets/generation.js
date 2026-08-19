@@ -668,15 +668,21 @@ function renderAudio(sc, urls) {
     var titleBase = track.title || sc.title || (TOOL_TITLES[sc.tool] || 'Audio');
     var title = titleBase + (urls.length > 1 ? ' — Track ' + (i + 1) : '');
     var duration = track.duration != null ? track.duration : sc.duration;
-    var artwork = track.thumbnail_url || sc.thumbnail_url;
+    // The voice's own portrait is the artwork for speech — a generic note glyph
+    // told the user nothing about the one thing that defines the take.
+    var artwork = track.thumbnail_url || sc.thumbnail_url || sc.voice_thumbnail;
+    var placeholder = sc.tool === 'generate_speech' ? ICONS.mic : ICONS.audio;
     return '<div class="k-audio-row k-generated-audio">' +
-      (artwork ? '<img class="k-audio-art" src="' + esc(artwork) + '" alt="" loading="lazy">' :
-        '<div class="k-audio-art k-audio-placeholder">' + ICONS.audio + '</div>') +
+      (artwork ? '<img class="k-audio-art" src="' + esc(artwork) + '" alt="" loading="lazy" onerror="this.style.display=\\'none\\'">' :
+        '<div class="k-audio-art k-audio-placeholder">' + placeholder + '</div>') +
       '<div class="k-audio-meta"><div class="k-audio-title">' + esc(title) + '</div>' +
-      // Resolved name first: a per-track model field is the raw id, and every
-      // track in one generation came from the same model anyway.
-      '<div class="k-audio-sub">' + esc(modelLabel(sc) || track.model || '') +
-      (duration ? ' · ' + fmtDur(duration) : '') + '</div></div>' +
+      // Voice FIRST where there is one — on a speech row, who is speaking is the
+      // thing that defines the take; the engine is secondary. Resolved names
+      // only: a per-track model field is the raw id, and every track in one
+      // generation came from the same model anyway.
+      '<div class="k-audio-sub">' +
+      [voiceLabel(sc), modelLabel(sc) || track.model, duration ? fmtDur(duration) : '']
+        .filter(Boolean).map(esc).join(' · ') + '</div></div>' +
       '<button class="k-btn k-audio-download" data-audio-download="' + esc(u) +
       '" aria-label="Download ' + esc(title) + '">' + ICONS.download + ' Download</button>' +
       '<audio class="k-audio-player" src="' + esc(u) + '" controls preload="none" aria-label="Play ' +

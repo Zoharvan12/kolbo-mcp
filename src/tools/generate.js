@@ -855,11 +855,19 @@ function registerGenerateTools(server, client, options = {}) {
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
 
+      // What ACTUALLY ran, not what was asked for. The status result reports the
+      // engine's own choice (`model: "google_tts"`, `voice: "he-IL-Chirp3-HD-Kore"`)
+      // and for an omitted model that is the ONLY place the real answer appears —
+      // the card was labelling those "Smart Select", which is not even a text-to-
+      // speech option, and naming the voice the caller typed rather than the one
+      // that spoke. Same resolution addDisplayNames does for the polling path.
+      const ranVoice = (await voiceInfo(client, result.result?.voice).catch(() => null)) || voiceRecord;
       return uiCompleted({
-        tool: 'generate_speech', kind: 'audio', gen, client, model, prompt: text,
-        voice: voiceRecord,
+        tool: 'generate_speech', kind: 'audio', gen, client, prompt: text,
+        model: result.result?.model || model,
+        voice: ranVoice,
         settings: {
-          voice: voice || 'Rachel',
+          voice: (ranVoice && ranVoice.name) || voice || 'Rachel',
           style: selected_style || emotion || style_instructions_preset_id || style_instructions,
           speaking_speed,
           language,

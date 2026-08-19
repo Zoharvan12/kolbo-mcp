@@ -659,6 +659,14 @@ async function uiCompleted(p, textPayload, extraContent) {
     // above which assume everything finished together. Only set when the
     // caller actually has this shape; every existing caller is unaffected.
     ...(Array.isArray(p.items) ? { items: p.items } : {}),
+    // The voice, by name and portrait. uiGenerating has carried this since the
+    // chips were introduced; uiCompleted never did, so it silently dropped a
+    // resolved voice its caller had already looked up — every FINISHED speech
+    // card fell back to `settings.voice`, printing a raw ElevenLabs id where the
+    // name belongs and rendering the generic note placeholder instead of the
+    // voice's face. Exactly the "never show a raw id on a card" rule, broken on
+    // the one path the user actually ends up looking at.
+    ...(p.voice ? { voice_name: p.voice.name, voice_thumbnail: p.voice.thumbnail } : {}),
     // The RAW generation state, when the caller has one. `phase` above is
     // hardcoded 'completed' — it means "this tool call finished", not "the
     // generation finished" — so a status check on a still-running job looked
