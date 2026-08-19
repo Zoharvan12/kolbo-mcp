@@ -611,6 +611,7 @@ async function uiGenerating(p) {
       ? { failed_submissions: p.failed_submissions } : {}),
     ...(p.warning ? { _warning: p.warning } : {}),
     _widget_note: 'A live Kolbo widget is rendering this generation for the user (progress + final result + action buttons). Tell the user it is generating and the card above will update — do NOT poll in a loop. If you need the output URLs (e.g. for a follow-up edit or a report), call get_generation_status ONCE with wait=true — it blocks until done. Tracking several generations? Pass ALL their ids in generation_ids in that one call.',
+    _paid_note: 'This generation is RUNNING and the user is paying for it. If you now realize the tool, model, or parameters were wrong, call cancel_generation with this generation_id FIRST, then start the replacement — never leave a wrong generation running alongside its retry (the user gets two cards and two charges).',
   }, null, 2);
   return uiResult(UI.generation, text, structured);
 }
