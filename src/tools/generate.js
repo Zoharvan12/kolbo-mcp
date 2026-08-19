@@ -108,6 +108,17 @@ async function pollBatch(client, batch, { interval, timeout }, toolName) {
   }, text);
 }
 
+// Same extension sniff the generation widget already does (kindFromTool in
+// apps/widgets/generation.js) — a status check knows a url came back, not what
+// kind of media it is, and the card needs the media kind to pick a renderer.
+function mediaKind(url) {
+  const u = String(url || '').split('?')[0].toLowerCase();
+  if (/\.(mp4|mov|webm|mkv)$/.test(u)) return 'video';
+  if (/\.(mp3|wav|m4a|aac|ogg|flac)$/.test(u)) return 'audio';
+  if (/\.(glb|gltf|fbx|obj|usdz)$/.test(u)) return '3d';
+  return 'image';
+}
+
 // ─── Widget settings block ──────────────────────────────────────────────────
 // What the CALLER actually asked for, for the generation card AND for the model
 // reading the tool result. Undefined/false keys are dropped by JSON.stringify, so
@@ -1016,10 +1027,29 @@ function registerGenerateTools(server, client, options = {}) {
           : pendingHint;
         const singleText = JSON.stringify(single, null, 2);
         const res = single.result || {};
+        // A live generation card polls THIS branch from inside its own iframe,
+        // and it reads structuredContent — never the text (apps/html.js
+        // structured() returns structuredContent first and only falls back to
+        // parsing content[].text). So preserving the flat TEXT shape, as the
+        // comment above intended, protected nothing: the card does
+        // `r = st.result || st` then `r.urls`, found only `items`, and painted
+        // "No output received / Failed" over a generation that had completed
+        // and billed. Every card rendered before v1.74 keeps that old iframe JS
+        // forever, so the flat fields have to live in structuredContent too.
+        const urls = Array.isArray(res.urls) ? res.urls : [];
+        const done = single.state === 'completed' && urls.length > 0;
         return uiCompleted({
-          tool: 'get_generation_status', kind: 'status', client,
-          model: 'Generations', gen: { generation_id: single.generation_id },
+          tool: 'get_generation_status', kind: done ? mediaKind(urls[0]) : 'status', client,
+          // The model that ACTUALLY ran. A single-id check resolves one
+          // generation, so 'Generations' here overwrote the real model name on
+          // the finished card the moment the live widget merged this payload in.
+          model: res.model || 'Generations', gen: { generation_id: single.generation_id },
           settings: {},
+          state: single.state,
+          urls: done ? urls : undefined,
+          thumbnail_url: res.thumbnail_url,
+          prompt: res.prompt_used || res.prompt || undefined,
+          credits_used: creditFields(single).credits_used,
           items: [{
             id: single.generation_id,
             state: single.state,
