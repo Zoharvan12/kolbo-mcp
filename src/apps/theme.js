@@ -144,20 +144,31 @@ body {
 .k-skel.portrait { aspect-ratio: 3 / 4; }
 .k-skel::after {
   content: ''; position: absolute; inset: 0;
+  /* The shimmer covers the WHOLE cell and outlives the skeleton — .k-skel.done
+     only clears its paint, not its box. A pseudo-element hit-tests as its
+     originating element, so every click on a finished cell landed on the cell
+     instead of the media inside it: image cells still worked (their handler is
+     ON the cell), but a <video>'s native controls never saw a single event —
+     play, scrub, volume and fullscreen were all dead. It is decoration; it must
+     never take a click. */
+  pointer-events: none;
   background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 40%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.06) 60%, transparent 100%);
   background-size: 200% 100%;
   animation: k-sweep 1.6s ease-in-out infinite;
 }
 @keyframes k-sweep { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 /* Batch grid: per-cell prompt caption + a cell that already finished */
-.k-skel-cap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+/* bottom: 0 puts this exactly where a <video> draws its control bar, so it has
+   to be click-through too — the caption is a label, not a target. The full text
+   stays reachable: the title tooltip moved onto the cell. */
+.k-skel-cap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; pointer-events: none;
   padding: 12px 8px 6px; font-size: 10.5px; color: #fff;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .k-skel.done::after { animation: none; background: none; }
 .k-cell-fill { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
 .k-gen-badge {
-  position: absolute; top: 10px; left: 10px; z-index: 2;
+  position: absolute; top: 10px; left: 10px; z-index: 2; pointer-events: none;
   display: inline-flex; align-items: center; gap: 6px;
   padding: 4px 10px; border-radius: 999px;
   background: rgba(0, 0, 0, 0.65); /* no backdrop-filter: nested blur over the
