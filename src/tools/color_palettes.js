@@ -31,7 +31,12 @@ function registerColorPaletteTools(server, client, options = {}) {
       const palettes = result.color_palettes || [];
       const text = JSON.stringify({ color_palettes: palettes, pagination: result.pagination }, null, 2);
 
-      if (ui()) {
+      // Ship structuredContent UNCONDITIONALLY. Gating on ui() left every host that
+      // renders widgets without advertising MCP Apps (Kolbo Code) with text-only rows
+      // that carry no thumbnail field at all — and its BY_TOOL map still force-mounts
+      // the media grid on them, so the card rendered one broken-file glyph per cell.
+      // media.js and listResult() have always done it this way; these five lagged.
+      {
         return uiResult(UI.mediaGrid, text, {
           widget: 'media-grid',
           title: 'Color DNA Palettes',

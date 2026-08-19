@@ -78,7 +78,12 @@ function registerStockLibraryTools(server, client, options = {}) {
         : '';
       const text = `${head}\n\n${shownAssets.map(assetLine).join('\n\n')}${moreHint}\n\nUse [source:sourceId] with get_stock_asset for full variants, or import_stock_asset to copy it into the media library.`;
 
-      if (ui()) {
+      // Ship structuredContent UNCONDITIONALLY. Gating on ui() left every host that
+      // renders widgets without advertising MCP Apps (Kolbo Code) with text-only rows
+      // that carry no thumbnail field at all — and its BY_TOOL map still force-mounts
+      // the media grid on them, so the card rendered one broken-file glyph per cell.
+      // media.js and listResult() have always done it this way; these five lagged.
+      {
         const items = assets.slice(0, 24).map((a) => {
           const mt = widgetMediaType(a.mediaType);
           return {
@@ -160,7 +165,12 @@ function registerStockLibraryTools(server, client, options = {}) {
         total: result.count,
       });
 
-      if (ui()) {
+      // Ship structuredContent UNCONDITIONALLY. Gating on ui() left every host that
+      // renders widgets without advertising MCP Apps (Kolbo Code) with text-only rows
+      // that carry no thumbnail field at all — and its BY_TOOL map still force-mounts
+      // the media grid on them, so the card rendered one broken-file glyph per cell.
+      // media.js and listResult() have always done it this way; these five lagged.
+      {
         const collections = result.collections || [];
         const items = collections.slice(0, 24).map((c) => ({
           id: c.id,

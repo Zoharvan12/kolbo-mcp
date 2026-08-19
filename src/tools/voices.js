@@ -80,7 +80,12 @@ function registerVoiceTools(server, client, options = {}) {
       const range = `${start + 1}–${start + shownVoices.length}`;
       const text = `Available voices (showing ${range} of ${voices.length}, page ${pageNum}/${pageCount}):\n\n${lines.join('\n\n')}${narrowHint}\n\nUse the "voice_id" value in generate_speech calls.`;
 
-      if (ui()) {
+      // Ship structuredContent UNCONDITIONALLY. Gating on ui() left every host that
+      // renders widgets without advertising MCP Apps (Kolbo Code) with text-only rows
+      // that carry no thumbnail field at all — and its BY_TOOL map still force-mounts
+      // the media grid on them, so the card rendered one broken-file glyph per cell.
+      // media.js and listResult() have always done it this way; these five lagged.
+      {
         return uiResult(UI.mediaGrid, text, {
           widget: 'media-grid',
           title: 'Voices',
