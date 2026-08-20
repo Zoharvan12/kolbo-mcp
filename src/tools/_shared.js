@@ -290,7 +290,13 @@ async function resolveToBuffer(source, kind, opts = {}) {
 // it instead of duplicating the try/catch. Genuine failures (state
 // failed/cancelled → GenerationFailedError) are NOT caught here; they still
 // throw and surface as a real tool error.
+//
+// CRITICAL: when the poll window times out, we UNTRACK the generation so that
+// when the MCP host eventually aborts the tool call (e.g., at ~180s), it does
+// NOT cancel the server-side generation. The generation keeps running, and the
+// caller can collect it later with get_generation_status.
 const { pollUntilDone } = require('../polling');
+const progress = require('../progress');
 
 /**
  * @returns {Promise<{result: object}|{timedOut: object}>}
@@ -301,6 +307,8 @@ async function pollOrTimedOut(client, generationId, pollOpts) {
     return { result: await pollUntilDone(client, generationId, pollOpts) };
   } catch (err) {
     if (!err || !err.timedOut) throw err;
+    // Untrack so the MCP host aborting this tool call does NOT cancel the generation.
+    progress.untrackGeneration(generationId);
     return {
       timedOut: {
         content: [{

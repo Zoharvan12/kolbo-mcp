@@ -43,9 +43,9 @@ function registerChatTools(server, client) {
         project_id
       });
 
-      // Deep think reasoning can run far longer than normal chat. Also grant
-      // extra time when web_search is on (may fetch + analyze multiple pages).
-      const timeout = deep_think ? 600000 : (web_search ? 240000 : 120000);
+      // Return before host cutoff (150s) even for deep think / web search.
+      // The LLM can call this tool again with the same session_id to continue.
+      const timeout = 150000;
 
       const poll = await pollOrTimedOut(client, gen.message_id, {
         interval: (gen.poll_interval_hint || 2) * 1000,
