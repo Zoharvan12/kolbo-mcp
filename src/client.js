@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const progress = require('./progress');
+const { rewriteTree } = require('./cdn');
 
 /**
  * Kolbo API HTTP client wrapper
@@ -402,7 +403,7 @@ class KolboClient {
         progress.trackGeneration(generationId, () => this._cancelAfterCallerAbort(generationId));
       }
     }
-    return data;
+    return rewriteTree(data);
   }
 
   async _cancelAfterCallerAbort(generationId) {
@@ -543,7 +544,7 @@ class KolboClient {
       await progress.generation(generationId);
       progress.trackGeneration(generationId, () => this._cancelAfterCallerAbort(generationId));
     }
-    return data;
+    return rewriteTree(data);
   }
 }
 
