@@ -245,7 +245,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 240000 }, 'generate_image');
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 150000 }, 'generate_image');
       }
 
       const gen = await client.post('/v1/generate/image', { ...shared, prompt, num_images });
@@ -258,7 +258,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 3) * 1000,
-        timeout: 120000
+        timeout: 150000
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -328,7 +328,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images: source_images
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 240000 }, 'generate_image_edit');
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 150000 }, 'generate_image_edit');
       }
 
       const gen = await client.post('/v1/generate/image-edit', { ...shared, prompt, num_images });
@@ -341,12 +341,12 @@ function registerGenerateTools(server, client, options = {}) {
       });
 
       // Multi-source compositing or DNA-anchored edits routinely exceed 120s
-      // server-side. Extend the polling window in those cases to avoid forcing
-      // every call into the timeout-and-recover path via get_generation_status.
-      const heavy = (source_images && source_images.length > 1) || (visual_dna_ids && visual_dna_ids.length > 0);
+      // server-side. But we still need to return before the 180s host cutoff,
+      // so use 150s for all cases. The LLM can call get_generation_status
+      // with wait=true to continue polling.
       const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 3) * 1000,
-        timeout: heavy ? 240000 : 120000
+        timeout: 150000
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -576,7 +576,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 900000 }, 'generate_video');
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 150000 }, 'generate_video');
       }
 
       const gen = await client.post('/v1/generate/video', { ...shared, prompt });
@@ -592,7 +592,7 @@ function registerGenerateTools(server, client, options = {}) {
       // 5-min window forced routine calls into the timeout-and-recover path.
       const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 8) * 1000,
-        timeout: 900000
+        timeout: 150000
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -678,7 +678,7 @@ function registerGenerateTools(server, client, options = {}) {
       // Veo 3.1, Hailuo 2.3, Seedance 2 at higher durations/resolutions).
       const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 8) * 1000,
-        timeout: 900000
+        timeout: 150000
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -746,7 +746,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 8) * 1000,
-        timeout: 300000
+        timeout: 150000
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -1334,7 +1334,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
-        timeout: 600000
+        timeout: 150000
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -1435,7 +1435,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
-        timeout: 300000
+        timeout: 150000
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -1553,7 +1553,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
-        timeout: 600000
+        timeout: 150000
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -1684,7 +1684,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
-        timeout: 600000
+        timeout: 150000
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -1770,7 +1770,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 5) * 1000,
-        timeout: 1800000 // 30 minutes — long podcasts are a thing
+        timeout: 150000 // Return before host cutoff; LLM can call get_generation_status with wait=true for long podcasts
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -1835,7 +1835,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
         interval: (startResponse.poll_interval_hint || 8) * 1000,
-        timeout: 900000 // 15 minutes — 3D generation is slow
+        timeout: 150000 // Return before host cutoff; LLM can call get_generation_status with wait=true for slow 3D jobs
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -1996,7 +1996,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 5) * 1000,
-        timeout: 300000 // 5 min — split_upscale and multi_shot can take longer
+        timeout: 150000 // Return before host cutoff; LLM can call get_generation_status with wait=true for split_upscale and multi_shot
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;
@@ -2165,7 +2165,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {
         interval: (gen.poll_interval_hint || 8) * 1000,
-        timeout: 600000
+        timeout: 150000
       });
       if (poll.timedOut) return poll.timedOut;
       const result = poll.result;

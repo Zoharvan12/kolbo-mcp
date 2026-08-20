@@ -77,6 +77,19 @@ function trackGeneration(id, cancel) {
   if (extra.signal.aborted) cancelTracked();
 }
 
+/**
+ * Remove a generation from the tracked set so it will NOT be cancelled when
+ * the MCP host aborts the tool call. Use this when the CLIENT-SIDE poll
+ * window times out but the generation should keep running server-side — the
+ * tool returns early with generation_id + _timed_out:true, and the caller
+ * re-issues get_generation_status to collect the result later.
+ */
+function untrackGeneration(id) {
+  const extra = storage.getStore();
+  if (!extra?.__kolboTrackedGenerations || !id) return;
+  extra.__kolboTrackedGenerations.delete(String(id));
+}
+
 async function generation(id) {
   const extra = storage.getStore();
   const token = extra?._meta?.progressToken;
@@ -123,4 +136,4 @@ async function sendGenerationProgress(extra, token, id) {
   });
 }
 
-module.exports = { run, generation, tick, signal, wait, trackGeneration };
+module.exports = { run, generation, tick, signal, wait, trackGeneration, untrackGeneration };
