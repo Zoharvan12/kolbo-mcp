@@ -135,7 +135,7 @@ function registerVisualDnaTools(server, client, options = {}) {
       // such a DNA brings its own voice as reference audio on models with audio slots. Without
       // it the model has to fetch each DNA in full just to find out.
       const text = compactList(dnas, {
-        fields: ['id', 'name', 'type', 'folder_id', 'tags', 'thumbnail', 'has_voice_reference'],
+        fields: ['id', 'name', 'type', 'dna_type', 'folder_id', 'tags', 'thumbnail', 'description', 'sheet_url', 'has_voice_reference'],
         cap: 60,
         total,
         note: 'Narrow with `search`, `tags`, or `collection`, or pass `page`/`limit` for the rest; get_visual_dna returns one in full.',
