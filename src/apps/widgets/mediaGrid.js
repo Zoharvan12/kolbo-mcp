@@ -79,8 +79,11 @@ function cellHTML(item, i) {
   // thumbnail-less item gets, so a dead URL degrades instead of looking broken.
   var fallbackCell = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-faint);font-size:22px">' +
       kindIcon(item.media_type) + '</div>';
+  var peekUrl = item.url || item.thumbnail;
   var media = item.thumbnail
-    ? '<img src="' + esc(item.thumbnail) + '" loading="lazy" alt="" onerror="this.parentNode.innerHTML=this.getAttribute(\\'data-fb\\')" data-fb="' + esc(fallbackCell) + '">'
+    ? '<img class="k-peek-hit" src="' + esc(item.thumbnail) + '" loading="lazy" alt=""'
+      + peekAttrs(peekUrl, item.media_type === 'video' ? 'video' : 'image', item.title)
+      + ' onerror="this.parentNode.innerHTML=this.getAttribute(\\'data-fb\\')" data-fb="' + esc(fallbackCell) + '">'
     : fallbackCell;
   return '<div class="k-cell" data-i="' + idx + '">' +
     '<div class="k-cell-media">' + media +
@@ -100,7 +103,7 @@ function audioRowHTML(item) {
   var idx = state.items.indexOf(item);
   var src = item.preview_audio || item.url;
   return '<div class="k-audio-row k-generated-audio" data-i="' + idx + '">' +
-    (item.thumbnail ? '<img class="k-audio-art" src="' + esc(item.thumbnail) + '">' : '<div class="k-audio-art"></div>') +
+    (item.thumbnail ? '<img class="k-audio-art k-peek-hit" src="' + esc(item.thumbnail) + '"' + peekAttrs(item.thumbnail, 'image', item.title) + '>' : '<div class="k-audio-art"></div>') +
     '<div class="k-audio-meta"><div class="k-audio-title">' + esc(item.title || '') + '</div>' +
     '<div class="k-audio-sub">' + esc(item.subtitle || '') + '</div></div>' +
     '<button class="k-btn" data-use="' + idx + '">Use</button>' +
@@ -109,8 +112,12 @@ function audioRowHTML(item) {
 }
 
 function wire() {
+  bindPeekHits(el('stage'));
   Array.prototype.forEach.call(document.querySelectorAll('.k-cell'), function (c) {
-    c.onclick = function () { useItem(+c.getAttribute('data-i')); };
+    c.onclick = function (e) {
+      if (e.target && e.target.closest && e.target.closest('[data-peek]')) return;
+      useItem(+c.getAttribute('data-i'));
+    };
   });
   Array.prototype.forEach.call(document.querySelectorAll('[data-use]'), function (b) {
     b.onclick = function (e) { e.stopPropagation(); useItem(+b.getAttribute('data-use')); };

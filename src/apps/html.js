@@ -57,7 +57,10 @@ var ICONS = {
   audio: _svg('<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>'),
   document: _svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/>'),
   cube: _svg('<path d="M21 8l-9-5-9 5 9 5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>'),
-  file: _svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>')
+  file: _svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'),
+  copy: _svg('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
+  chevronDown: _svg('<path d="M6 9l6 6 6-6"/>'),
+  chevronUp: _svg('<path d="M18 15l-6-6-6 6"/>')
 };
 // Media-kind → icon (accepts model kind / media_type strings).
 function kindIcon(kind) {
@@ -82,6 +85,36 @@ function downloadUrl(u) {
   if (!u) return u;
   return 'https://api.kolbo.ai/mcp/download?url=' + encodeURIComponent(u);
 }
+// Copy from a sandboxed widget iframe. Order: Clipboard API (Kolbo Code
+// grants clipboard-write) → execCommand → host ui/copy-text (parent clipboard).
+function writeClipboard(text) {
+  text = String(text || '');
+  function fallback() {
+    if (!document.body) return false;
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function host() {
+    if (!window.kolbo || !window.kolbo.copyText) return Promise.resolve(false);
+    return window.kolbo.copyText(text).then(function () { return true; }).catch(function () { return false; });
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text).then(function () { return true; }).catch(function () {
+      return fallback() ? Promise.resolve(true) : host();
+    });
+  }
+  if (fallback()) return Promise.resolve(true);
+  return host();
+}
 function fmtCredits(n) { return (n == null) ? '' : (Math.round(n * 100) / 100) + ' cr'; }
 function fmtDur(s) { if (s == null) return ''; s = Math.round(s); return s >= 60 ? Math.floor(s/60) + 'm ' + (s%60) + 's' : s + 's'; }
 function applyTheme(ctx) {
@@ -105,6 +138,62 @@ function modelChipHTML(name, iconUrl) {
 function monogram(name) {
   return '<span class="k-mono-icon">' + esc(String(name).trim().charAt(0).toUpperCase()) + '</span>';
 }
+// In-widget preview overlay — every card (generation chips, media grid, list
+// rows) uses this so a DNA / reference / library thumb opens a popup in Kolbo
+// Code, Claude Code, Codex, and any other host. Host fullscreen is not required.
+function ensurePeek() {
+  if (el('peek')) return el('peek');
+  var card = document.querySelector('.k-card') || document.body;
+  var box = document.createElement('div');
+  box.id = 'peek';
+  box.className = 'k-peek';
+  box.hidden = true;
+  box.innerHTML = '<button type="button" class="k-peek-close" id="peek-close" aria-label="Close"></button>'
+    + '<img id="peek-img" alt="">'
+    + '<video id="peek-video" muted playsinline controls></video>'
+    + '<div class="k-peek-cap" id="peek-cap"></div>';
+  card.appendChild(box);
+  el('peek-close').innerHTML = ICONS.x;
+  el('peek-close').onclick = function (e) { e.stopPropagation(); closePeek(); };
+  box.onclick = function (e) { if (e.target === box) closePeek(); };
+  return box;
+}
+function peekAttrs(url, kind, cap) {
+  if (!url) return '';
+  return ' data-peek="' + esc(url) + '" data-peek-kind="' + esc(kind || 'image') + '" data-peek-cap="' + esc(cap || '') + '"';
+}
+function bindPeekHits(root) {
+  if (!root) return;
+  Array.prototype.forEach.call(root.querySelectorAll('[data-peek]'), function (node) {
+    node.onclick = function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openPeek(node.getAttribute('data-peek'), node.getAttribute('data-peek-kind'), node.getAttribute('data-peek-cap'));
+    };
+  });
+}
+function openPeek(url, kind, cap) {
+  if (!url) return;
+  var box = ensurePeek();
+  var img = el('peek-img');
+  var vid = el('peek-video');
+  var video = kind === 'video';
+  if (video) { vid.setAttribute('src', url); img.removeAttribute('src'); }
+  else { img.setAttribute('src', url); vid.removeAttribute('src'); }
+  el('peek-cap').textContent = cap || '';
+  box.hidden = false;
+  if (window.kolbo && window.kolbo.notifySize) window.kolbo.notifySize();
+}
+function closePeek() {
+  var box = el('peek');
+  if (!box || box.hidden) return;
+  box.hidden = true;
+  el('peek-img').removeAttribute('src');
+  var vid = el('peek-video');
+  if (vid) { try { vid.pause(); } catch (e) {} vid.removeAttribute('src'); }
+  if (window.kolbo && window.kolbo.notifySize) window.kolbo.notifySize();
+}
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePeek(); });
 // Pull structuredContent out of a tools/call result (host bridge shape).
 function structured(res) {
   if (!res) return null;

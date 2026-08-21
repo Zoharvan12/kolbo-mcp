@@ -77,7 +77,10 @@ function boot(sc) {
   });
   var copyBtn = el('btn-copy');
   if (copyBtn) copyBtn.onclick = function () {
-    try { navigator.clipboard.writeText(state.text || ''); copyBtn.innerHTML = 'Copied ' + ICONS.check; } catch (e) {}
+    writeClipboard(state.text || '').then(function (ok) {
+      copyBtn.innerHTML = ok ? ('Copied ' + ICONS.check) : 'Could not copy';
+      setTimeout(function () { copyBtn.innerHTML = 'Copy text'; }, 1600);
+    });
   };
   window.kolbo.notifySize();
 }

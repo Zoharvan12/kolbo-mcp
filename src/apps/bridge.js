@@ -23,6 +23,7 @@
  *   .callTool(name, args)      — Promise<CallToolResult>
  *   .sendMessage(text)         — append a user chat message (returns Promise)
  *   .openLink(url)             — open external URL
+ *   .copyText(text)            — copy via the host clipboard (ui/copy-text)
  *   .notifySize()              — report content size to host
  */
 
@@ -183,6 +184,7 @@ const BRIDGE_JS = `
       return request('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
     },
     openLink: function (url) { return request('ui/open-link', { url: url }); },
+    copyText: function (text) { return request('ui/copy-text', { text: text }); },
     // Hand a piece of this widget's media to the host's composer. Dragging it
     // out cannot work: a widget is a sandboxed cross-origin iframe, so a native
     // HTML5 drag started in here never delivers its dataTransfer to the host
