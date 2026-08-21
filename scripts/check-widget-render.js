@@ -57,6 +57,11 @@ assert.ok(/\.k-cell \.k-cell-media img\s*\{[^}]*object-fit:\s*contain/s.test(med
   'media/preset grid thumbnails are cropped with object-fit: cover');
 assert.ok(/object-fit:contain;background:#000/.test(mediaGridHtml),
   'in-place media grid video playback is cropped');
+assert.ok(/k-text-tools/.test(generationHtml), 'prompt toolbar class missing');
+assert.ok(/data-act=.copy/.test(generationHtml), 'copy control missing');
+assert.ok(/data-act=.expand/.test(generationHtml), 'expand control missing');
+assert.ok(!/\.k-prompt\.k-clamped, \.k-caption\.k-clamped \{ cursor: pointer; \}/.test(generationHtml),
+  'clamped prompt still uses pointer cursor / click-to-expand');
 
 // ── 2. generation widget behaviour ──────────────────────────────────────────
 function stubEl() {
@@ -66,10 +71,17 @@ function stubEl() {
     scrollHeight: 0, clientHeight: 0, scrollWidth: 0, clientWidth: 0,
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
     setAttribute(k, v) { e.attrs[k] = v; }, getAttribute: (k) => e.attrs[k] ?? null,
+    removeAttribute(k) { delete e.attrs[k]; },
     addEventListener() {}, focus() {}, pause() {},
     getBoundingClientRect: () => ({ bottom: 0 }),
     querySelector: () => stubEl(), querySelectorAll: () => [],
+    appendChild(child) { return child; },
   };
+  e.parentNode = {
+    insertBefore(node) { e._tools = node; return node; },
+    removeChild(node) { if (e._tools === node) e._tools = null; return node; },
+  };
+  Object.defineProperty(e, 'nextSibling', { get() { return e._tools || null; } });
   return e;
 }
 
@@ -87,7 +99,9 @@ function mountWidget() {
     documentElement: { classList: { toggle() {} } },
     getElementById: (id) => (ids.has(id) || ids.set(id, stubEl()), ids.get(id)),
     querySelector: () => stubEl(),
+    createElement: () => stubEl(),
     addEventListener() {},
+    body: stubEl(),
   };
   const window = {
     IntersectionObserver: class { constructor(cb) { ioCallback = cb; } observe() {} disconnect() {} },
@@ -99,7 +113,8 @@ function mountWidget() {
         calls.push({ name, args });
         return Promise.resolve({ content: [{ type: 'text', text: JSON.stringify(window.__status) }] });
       },
-      sendMessage() {}, openLink() {}, updateModelContext() {}, notifySize() {},
+      sendMessage() {}, openLink() {}, copyText() { return Promise.resolve(); },
+      updateModelContext() {}, notifySize() {},
       requestDisplayMode: () => Promise.resolve({ mode: 'inline' }),
     },
   };
@@ -114,6 +129,7 @@ function mountWidget() {
   return {
     calls,
     html: (id) => document.getElementById(id).innerHTML,
+    node: (id) => document.getElementById(id),
     deliver: (structuredContent) => window.__onResult({ structuredContent }),
     status: (s) => { window.__status = s; },
     scrollIntoView: () => ioCallback([{ isIntersecting: true }]),
@@ -259,6 +275,81 @@ function cardShowsEveryReferenceImage() {
   assert.ok(legacy.html('chips').includes(refs[0]), 'legacy reference_image fallback stopped rendering');
 }
 
+function stopNeedsASecondClick() {
+  const w = mountWidget();
+  w.deliver({
+    phase: 'generating', widget: 'generation', kind: 'image',
+    tool: 'generate_image', generation_id: 'gen-stop',
+    poll_tool: 'get_generation_status',
+  });
+  const cancelled = () => w.calls.filter((c) => c.name === 'cancel_generation').length;
+  const before = cancelled();
+  w.node('stop-btn').onclick();
+  assert.strictEqual(cancelled(), before, 'first Stop click cancelled without confirmation');
+  assert.ok(/Stop this generation/.test(w.html('actions')), 'confirm prompt missing');
+  w.node('stop-keep').onclick();
+  assert.ok(!/Stop this generation/.test(w.html('actions')), 'Keep did not dismiss the confirm row');
+  assert.strictEqual(cancelled(), before, 'Keep cancelled the generation');
+  w.node('stop-btn').onclick();
+  w.node('stop-btn').onclick();
+  assert.ok(cancelled() > before, 'confirm Stop did not cancel');
+}
+
+function promptToolsStayOffTheText() {
+  const w = mountWidget();
+  const prompt = w.node('prompt');
+  prompt.scrollHeight = 80;
+  prompt.clientHeight = 32;
+  w.deliver({
+    phase: 'generating', widget: 'generation', kind: 'image',
+    tool: 'generate_image', generation_id: 'gen-prompt',
+    poll_tool: 'get_generation_status',
+    prompt: 'a long cinematic prompt about a red fox walking through snow at dusk',
+  });
+  assert.strictEqual(prompt.onclick, null, 'prompt text still toggles expand on click');
+  assert.ok(prompt._tools, 'prompt toolbar was not inserted');
+  assert.ok(/Copy/.test(prompt._tools.innerHTML), 'copy button missing');
+  assert.ok(/Expand/.test(prompt._tools.innerHTML), 'expand button missing on overflowing prompt');
+
+  const short = mountWidget();
+  short.deliver({
+    phase: 'generating', widget: 'generation', kind: 'image',
+    tool: 'generate_image', generation_id: 'gen-short',
+    poll_tool: 'get_generation_status',
+    prompt: 'short',
+  });
+  assert.strictEqual(short.node('prompt').onclick, null, 'short prompt is still click-to-toggle');
+  assert.ok(/Copy/.test(short.node('prompt')._tools.innerHTML), 'copy button missing on short prompt');
+  assert.ok(!/Expand/.test(short.node('prompt')._tools.innerHTML), 'expand button shown when text does not overflow');
+}
+
+function generatingCardShowsNamedChipsAndPeek() {
+  const thumb = 'https://media.kolbo.ai/rock.jpg';
+  const ref = 'https://media.kolbo.ai/ref.png';
+  const w = mountWidget();
+  w.deliver({
+    phase: 'generating', widget: 'generation', kind: 'image',
+    tool: 'generate_image', generation_id: 'gen-chips',
+    model: 'gpt-image-2', model_name: 'GPT Image 2',
+    model_icon: 'https://kolbo-general-media.fra1.cdn.digitaloceanspaces.com/models_icons/chatgpt-icon.svg',
+    settings: { preset_id: 'bible-1', preset_name: 'Character Bible', visual_dna_ids: ['dna_rock'] },
+    visual_dnas: [{ id: 'dna_rock', name: 'Rock Lead', thumbnail: thumb }],
+    reference_images: [ref],
+  });
+  const chips = w.html('chips');
+  assert.ok(chips.includes('Character Bible'), 'preset chip did not show the preset name');
+  assert.ok(!/k-chip"[^>]*>preset</.test(chips) || chips.includes('Character Bible'), 'preset chip still shows the bare word preset');
+  assert.ok(chips.includes('Rock Lead'), 'DNA chip lost the DNA name');
+  assert.ok(chips.includes(thumb), 'generating DNA chip has no thumbnail');
+  assert.ok(chips.includes('data-peek'), 'reference / DNA thumbs are not clickable');
+  const html = widgetHtml(UI.generation);
+  assert.ok(html.includes('function openPeek'), 'generation widget has no in-card preview popup');
+  const grid = widgetHtml(UI.mediaGrid);
+  assert.ok(grid.includes('function openPeek') && grid.includes('data-peek'), 'media-grid tiles are not previewable');
+  const list = widgetHtml(UI.list);
+  assert.ok(list.includes('function openPeek') && list.includes('data-peek'), 'list thumbs are not previewable');
+}
+
 function mountList() {
   const ids = new Map();
   let readyFn = null;
@@ -327,8 +418,12 @@ function listWidgetLeavesLoading() {
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();
   cardShowsEveryReferenceImage();
+  generatingCardShowsNamedChipsAndPeek();
+  promptToolsStayOffTheText();
+  stopNeedsASecondClick();
   listWidgetLeavesLoading();
   console.log('✓ widget scripts parse; image + image-to-video batches stay one grouped grid; offscreen cards stay idle; '
     + 'completed cards name the model + voice that actually ran; all reference images render; '
-    + 'list widgets leave Loading from sessions[] / generations[] / hostContext');
+    + 'list widgets leave Loading from sessions[] / generations[] / hostContext; '
+    + 'long prompts expand from a button, not a click on the text');
 })().catch((e) => { console.error(e); process.exit(1); });

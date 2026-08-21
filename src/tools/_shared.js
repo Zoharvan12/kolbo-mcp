@@ -372,7 +372,7 @@ const projectIdField = z.string().optional().describe(
 // something a caller can rely on — see kolbo-api sdkSessionManager.) Threading
 // the id returned by the FIRST call is the deterministic way to group a batch.
 const sessionIdField = z.string().optional().describe(
-  'Existing session to add this generation to, so a related set lands in ONE session instead of a stack of single-item sessions in the Kolbo sidebar. HOW TO USE: omit it on the FIRST call of a set, read `session_id` off that call\'s result, then pass that SAME value on every follow-up call belonging to the same set (e.g. shot 2, 3, 4 of one sequence). Only group things that genuinely belong together — an unrelated generation should start a fresh session by omitting this. The id must come from a session of the same kind (image tools share one session type, video tools another); `list_sessions` also returns ids. When set, `project_id` is ignored — the session\'s own project wins.'
+  'Existing session to add this generation to, so a related set lands in ONE session instead of a stack of single-item sessions in the Kolbo sidebar. HOW TO USE: omit it on the FIRST call of a PLAN BUCKET (Cast, Locations, Props, or one Scene NN), read `session_id` off that result, `rename_session` to the plan name, then pass that SAME value on every follow-up in that bucket (another character, shot 2, a retake, "make it darker"). Only omit it again when the plan starts a NEW scene or NEW concept — never per take or per tool call. Image tools and video tools cannot share an id. `list_sessions` also returns ids. When set, `project_id` is ignored — the session\'s own project wins.'
 );
 
 // Read-scope variant for list/get tools that can surface a SHARED project's
@@ -534,6 +534,25 @@ const _dnaChipCache = new Map();
 let _dnaChipLoaded = 0;
 const DNA_CHIP_TTL = 5 * 60 * 1000;
 
+function dnaThumb(row) {
+  if (!row || typeof row !== 'object') return null;
+  const first = Array.isArray(row.images) ? row.images[0] : null;
+  return row.sheet_url
+    || row.thumbnail_url
+    || row.characterSheet
+    || (typeof first === 'string' ? first : first && first.url)
+    || null;
+}
+
+function rememberDna(row, fallbackId) {
+  if (!row || typeof row !== 'object') return null;
+  const id = String(row.id || row._id || fallbackId || '');
+  if (!id) return null;
+  const rec = { id, name: row.name || id, thumbnail: dnaThumb(row) };
+  _dnaChipCache.set(id, rec);
+  return rec;
+}
+
 async function resolveVisualDnas(client, ids) {
   const list = Array.isArray(ids) ? ids.filter((id) => typeof id === 'string' && id) : [];
   if (!list.length) return [];
@@ -543,23 +562,128 @@ async function resolveVisualDnas(client, ids) {
     try {
       const res = await client.get('/v1/visual-dna?scope=mine');
       const rows = res?.visual_dnas || res?.data || [];
-      for (const row of rows) {
-        const id = row?.id || row?._id;
-        if (!id) continue;
-        _dnaChipCache.set(String(id), {
-          id: String(id),
-          name: row.name || String(id),
-          // Same hero-image rule as the app: reference sheet, then thumbnail.
-          thumbnail: row.sheet_url || row.thumbnail_url || (Array.isArray(row.images) ? row.images[0] : null) || null,
-        });
-      }
+      for (const row of rows) rememberDna(row);
       _dnaChipLoaded = Date.now();
     } catch {
-      // Offline / rate-limited — fall through to bare ids.
+      // Offline / rate-limited — fall through to per-id fetch.
     }
   }
 
+  // scope=mine misses global / shared / teammate DNAs. The generating card
+  // then printed "1 Visual DNA" with no face. Fetch the missing ids directly.
+  const missing = list.filter((id) => !_dnaChipCache.has(id));
+  if (missing.length) {
+    await Promise.all(missing.map(async (id) => {
+      try {
+        const res = await client.get(`/v1/visual-dna/${encodeURIComponent(id)}`);
+        rememberDna(res && res.visual_dna ? res.visual_dna : res, id);
+      } catch {
+        // Leave the bare id — the chip still names it.
+      }
+    }));
+  }
+
   return list.map((id) => _dnaChipCache.get(id) || { id, name: id, thumbnail: null });
+}
+
+const _presetCache = new Map();
+let _presetLoaded = 0;
+const PRESET_TTL = 10 * 60 * 1000;
+
+async function resolvePreset(client, presetId) {
+  if (!presetId) return null;
+  const key = String(presetId);
+  const stale = Date.now() - _presetLoaded > PRESET_TTL;
+  if (!stale && _presetCache.has(key)) return _presetCache.get(key);
+  if (stale || _presetCache.size === 0) {
+    try {
+      const res = await client.get('/v1/presets');
+      for (const row of res?.presets || res?.data || []) {
+        const id = row?.id || row?._id || row?.identifier;
+        if (!id) continue;
+        _presetCache.set(String(id), {
+          id: String(id),
+          name: row.name || String(id),
+          thumbnail: row.thumbnail_url || row.thumbnail || null,
+        });
+      }
+      _presetLoaded = Date.now();
+    } catch {
+      // Offline — the chip keeps the word "preset".
+    }
+  }
+  return _presetCache.get(key) || null;
+}
+
+async function decorateSettings(client, settings) {
+  const s = { ...(settings || {}) };
+  if (!s.preset_id) return s;
+  const preset = await resolvePreset(client, s.preset_id);
+  if (!preset) return s;
+  return {
+    ...s,
+    preset_name: preset.name,
+    ...(preset.thumbnail ? { preset_thumbnail: preset.thumbnail } : {}),
+  };
+}
+
+const _mbChipCache = new Map();
+let _mbChipLoaded = 0;
+
+function rememberMoodboard(row, fallbackId) {
+  if (!row || typeof row !== 'object') return null;
+  const id = String(row.id || row._id || fallbackId || '');
+  if (!id) return null;
+  const rec = {
+    id,
+    name: row.name || id,
+    thumbnail: row.thumbnail_url || row.thumbnail || row.cover_url || (Array.isArray(row.images) ? row.images[0] : null) || null,
+  };
+  _mbChipCache.set(id, rec);
+  return rec;
+}
+
+async function resolveMoodboards(client, ids) {
+  const list = Array.isArray(ids) ? ids.filter((id) => typeof id === 'string' && id) : [];
+  if (!list.length) return [];
+  const stale = Date.now() - _mbChipLoaded > DNA_CHIP_TTL;
+  if (stale || list.some((id) => !_mbChipCache.has(id))) {
+    try {
+      const res = await client.get('/v1/moodboards');
+      for (const row of res?.moodboards || res?.data || []) rememberMoodboard(row);
+      _mbChipLoaded = Date.now();
+    } catch { /* fall through to per-id */ }
+  }
+  const missing = list.filter((id) => !_mbChipCache.has(id));
+  if (missing.length) {
+    await Promise.all(missing.map(async (id) => {
+      try {
+        const res = await client.get(`/v1/moodboards/${encodeURIComponent(id)}`);
+        rememberMoodboard(res && res.moodboard ? res.moodboard : res, id);
+      } catch { /* bare id */ }
+    }));
+  }
+  return list.map((id) => _mbChipCache.get(id) || { id, name: id, thumbnail: null });
+}
+
+function mediaRefs(p) {
+  const images = Array.isArray(p.reference_images)
+    ? p.reference_images.filter(Boolean)
+    : (p.reference_image ? [p.reference_image] : []);
+  return {
+    reference_images: images,
+    reference_image: p.reference_image || images[0],
+    ...(Array.isArray(p.reference_videos) && p.reference_videos.length
+      ? { reference_videos: p.reference_videos.filter(Boolean) } : {}),
+    ...(Array.isArray(p.reference_audio) && p.reference_audio.length
+      ? { reference_audio: p.reference_audio.filter(Boolean) } : {}),
+  };
+}
+
+function moodboardIds(settings) {
+  const s = settings || {};
+  if (Array.isArray(s.moodboard_ids) && s.moodboard_ids.length) return s.moodboard_ids;
+  return s.moodboard_id ? [s.moodboard_id] : [];
 }
 
 /**
@@ -577,6 +701,7 @@ async function resolveVisualDnas(client, ids) {
 async function uiGenerating(p) {
   // No ETAs anywhere — just a spinner until the poll flips to completed.
   const chip = await modelChipFields(p.client, p.model);
+  const settings = await decorateSettings(p.client, p.settings || {});
   const structured = {
     phase: 'generating',
     widget: 'generation',
@@ -592,14 +717,12 @@ async function uiGenerating(p) {
     ...(p.voice ? { voice_name: p.voice.name, voice_thumbnail: p.voice.thumbnail } : {}),
     prompt: p.prompt,
     count: p.count || 1,
-    settings: p.settings || {},
-    visual_dnas: await resolveVisualDnas(p.client, (p.settings || {}).visual_dna_ids),
+    settings,
+    visual_dnas: await resolveVisualDnas(p.client, settings.visual_dna_ids),
+    moodboards: await resolveMoodboards(p.client, moodboardIds(settings)),
     // `reference_image` is retained for older widget builds. New widgets render
     // every browser-loadable image supplied to the generation.
-    reference_images: Array.isArray(p.reference_images)
-      ? p.reference_images.filter(Boolean)
-      : (p.reference_image ? [p.reference_image] : []),
-    reference_image: p.reference_image || p.reference_images?.find(Boolean),
+    ...mediaRefs(p),
     open_url: buildOpenUrl(p.tool, p.gen),
   };
   // Batch mode (prompts[] fan-out): ONE widget tracks every id in the set.
@@ -638,8 +761,22 @@ async function uiGenerating(p) {
  *
  * The TEXT is unchanged, so text-only hosts see precisely what they saw before.
  */
+function preferOwnedUrls(urls) {
+  const list = Array.isArray(urls) ? urls.filter((item) => typeof item === 'string' && item) : [];
+  const ours = list.filter((item) => {
+    try {
+      const host = new URL(item).hostname;
+      return /(?:^|\.)kolbo\.ai$/.test(host) || /digitaloceanspaces\.com$/.test(host);
+    } catch {
+      return false;
+    }
+  });
+  return ours.length ? ours : (list.length ? list : urls);
+}
+
 async function uiCompleted(p, textPayload, extraContent) {
   const chip = await modelChipFields(p.client, p.model);
+  const settings = p.settings ? await decorateSettings(p.client, p.settings) : undefined;
   const structured = {
     phase: 'completed',
     widget: 'generation',
@@ -652,13 +789,11 @@ async function uiCompleted(p, textPayload, extraContent) {
     // an incoming status payload over its own state, so an empty-but-present
     // `settings` wiped the resolution / aspect / DNA chips off the finished
     // card. Every reader already does `sc.settings || {}`.
-    ...(p.settings ? { settings: p.settings } : {}),
-    visual_dnas: await resolveVisualDnas(p.client, (p.settings || {}).visual_dna_ids),
-    reference_images: Array.isArray(p.reference_images)
-      ? p.reference_images.filter(Boolean)
-      : (p.reference_image ? [p.reference_image] : []),
-    reference_image: p.reference_image || p.reference_images?.find(Boolean),
-    urls: p.urls,
+    ...(settings ? { settings } : {}),
+    visual_dnas: await resolveVisualDnas(p.client, (settings || {}).visual_dna_ids),
+    moodboards: await resolveMoodboards(p.client, moodboardIds(settings)),
+    ...mediaRefs(p),
+    urls: preferOwnedUrls(p.urls),
     thumbnail_url: p.thumbnail_url,
     title: p.title,
     duration: p.duration,

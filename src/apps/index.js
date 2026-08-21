@@ -193,8 +193,19 @@ const ICON_CDN_BASE = 'https://kolbo-general-media.fra1.cdn.digitaloceanspaces.c
 
 function resolveAvatarUrl(avatar) {
   if (!avatar) return null;
-  if (/^https?:\/\//i.test(avatar)) return avatar;
-  return `${ICON_CDN_BASE}/${encodeURIComponent(avatar)}`;
+  if (/^https?:\/\//i.test(avatar)) {
+    try {
+      const parsed = new URL(avatar);
+      const file = parsed.pathname.match(/\/(?:models_icons|assets)\/([^/]+)$/);
+      // api.kolbo.ai / app.kolbo.ai avatars 404 or get bot-blocked inside
+      // sandboxed widget iframes. The CDN copy is the same file.
+      if (file && /(?:^|\.)kolbo\.ai$|digitaloceanspaces\.com$/i.test(parsed.hostname)) {
+        return `${ICON_CDN_BASE}/${file[1]}`;
+      }
+    } catch (_) { /* keep the original absolute URL */ }
+    return avatar;
+  }
+  return `${ICON_CDN_BASE}/${encodeURIComponent(String(avatar).replace(/^\/+/, ''))}`;
 }
 
 async function modelCatalog(client) {
@@ -219,7 +230,11 @@ async function modelCatalog(client) {
       // the ONLY thing that tells two same-named variants apart. See canonicalModelId.
       const raw = m.types !== undefined ? m.types : m.type;
       const types = (Array.isArray(raw) ? raw : [raw]).filter(Boolean).map(String);
-      const info = { icon, eta, id: m.identifier || null, name: m.name || null, types };
+      const aspects = Array.isArray(m.supported_aspect_ratios)
+        ? m.supported_aspect_ratios
+        : (Array.isArray(m.supportedAspectRatios) ? m.supportedAspectRatios : []);
+      const aspectsByType = m.supported_aspect_ratios_by_type || m.supportedAspectRatiosByType || null;
+      const info = { icon, eta, id: m.identifier || null, name: m.name || null, types, aspects, aspectsByType };
       all.push(info);
       // Display names collide across variants ("Nano Banana 2" names both the
       // t2i model and its editing sibling) — on collision keep the model with
@@ -251,8 +266,138 @@ async function modelInfoMap(client) {
 /** Resolve one model's { icon, eta, name }; missing → all null. */
 async function modelInfo(client, modelName) {
   if (!modelName) return { icon: null, eta: null, name: null };
-  const map = await modelInfoMap(client);
-  return map.get(String(modelName).toLowerCase()) || { icon: null, eta: null, name: null };
+  const catalog = await modelCatalog(client);
+  const exact = catalog.byKey.get(String(modelName).toLowerCase());
+  if (exact) return exact;
+  // Same separator-insensitive / prefix leniency as canonicalModelId — the
+  // chip used to miss "gpt-image-2" when the catalog only keyed the editor
+  // sibling, and the widget fell back to a first-letter monogram.
+  const want = normId(modelName);
+  if (!want) return { icon: null, eta: null, name: null };
+  const rows = catalog.all || [];
+  return rows.find((row) => normId(row.id) === want || normId(row.name) === want)
+    || rows.find((row) => normId(row.id).startsWith(want) || normId(row.name).startsWith(want))
+    || { icon: null, eta: null, name: null };
+}
+
+/**
+ * Snap a requested aspect ratio onto the catalog enum for that model.
+ * Every image/video generate_* tool must call this after canonicalModelId —
+ * list_models already prints supported_aspect_ratios, but the LLM still
+ * invents 21:9 / "widescreen" / "21/9". Fail open only when the catalog is
+ * empty or the model is unpublished (hidden ids still reach the API).
+ */
+const ASPECT_ALIASES = {
+  square: '1:1',
+  landscape: '16:9',
+  widescreen: '16:9',
+  horizontal: '16:9',
+  portrait: '9:16',
+  vertical: '9:16',
+  story: '9:16',
+  stories: '9:16',
+  reel: '9:16',
+  reels: '9:16',
+  ultrawide: '21:9',
+  cinema: '21:9',
+  cinematic: '21:9',
+};
+
+function normalizeAspectRatio(requested) {
+  if (requested == null || requested === '') return requested;
+  const raw = String(requested).trim();
+  const lower = raw.toLowerCase();
+  if (lower === 'auto' || lower === 'adaptive') return lower;
+  if (ASPECT_ALIASES[lower]) return ASPECT_ALIASES[lower];
+  const pair = lower.match(/^(\d+(?:\.\d+)?)\s*[:x×/\-]\s*(\d+(?:\.\d+)?)$/);
+  if (!pair) return raw;
+  const a = Number(pair[1]);
+  const b = Number(pair[2]);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0 || b <= 0) return raw;
+  return Number.isInteger(a) && Number.isInteger(b) ? `${a}:${b}` : `${a}:${b}`;
+}
+
+function parseAspectDecimal(ratio) {
+  const normalized = normalizeAspectRatio(ratio);
+  const parts = String(normalized || '').split(':').map(Number);
+  if (parts.length !== 2 || parts.some((n) => !Number.isFinite(n) || n <= 0)) return 1;
+  return parts[0] / parts[1];
+}
+
+function aspectKey(ratio) {
+  return String(normalizeAspectRatio(ratio) || '').toLowerCase();
+}
+
+function closestAspectRatio(requested, supported) {
+  const normalized = normalizeAspectRatio(requested);
+  if (!normalized) return requested;
+  if (normalized === 'auto' || normalized === 'adaptive') return normalized;
+  if (!Array.isArray(supported) || supported.length === 0) return normalized;
+  const exact = supported.find((ratio) => aspectKey(ratio) === aspectKey(normalized));
+  if (exact) return exact;
+  const concrete = supported.filter((ratio) => {
+    const key = aspectKey(ratio);
+    return key && key !== 'auto' && key !== 'adaptive';
+  });
+  if (!concrete.length) return normalized;
+  const target = parseAspectDecimal(normalized);
+  let best = concrete[0];
+  let bestDist = Infinity;
+  for (const ratio of concrete) {
+    const dist = Math.abs(parseAspectDecimal(ratio) - target);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = ratio;
+    }
+  }
+  return best;
+}
+
+function findCatalogModel(catalog, modelId, type) {
+  if (!catalog || !modelId) return null;
+  const key = String(modelId).toLowerCase().trim();
+  const want = normId(key);
+  if (!want) return null;
+  const byKey = catalog.byKey && catalog.byKey.get(key);
+  if (byKey) return byKey;
+  const all = catalog.all || [];
+  const types = (Array.isArray(type) ? type : [type]).filter(Boolean);
+  const candidates = all.filter((info) =>
+    (info.id && (info.id.toLowerCase() === key || normId(info.id) === want))
+    || (info.name && (info.name.toLowerCase() === key || normId(info.name) === want))
+  );
+  if (!candidates.length) return null;
+  if (types.length) {
+    const typed = candidates.filter((info) => Array.isArray(info.types) && info.types.some((t) => types.includes(t)));
+    if (typed.length) return typed[0];
+  }
+  return candidates[0];
+}
+
+function supportedAspectsFor(info, type) {
+  if (!info) return [];
+  const byType = type && info.aspectsByType;
+  if (byType && typeof byType === 'object') {
+    const typed = Array.isArray(type)
+      ? type.map((t) => byType[t]).find((arr) => Array.isArray(arr) && arr.length)
+      : byType[type];
+    if (Array.isArray(typed) && typed.length) return typed;
+  }
+  return Array.isArray(info.aspects) ? info.aspects : [];
+}
+
+async function resolveCatalogAspectRatio(client, modelId, requested, type) {
+  if (!requested) return requested;
+  const normalized = normalizeAspectRatio(requested);
+  if (!modelId) return normalized;
+  try {
+    const catalog = await modelCatalog(client);
+    const info = findCatalogModel(catalog, modelId, type);
+    if (!info) return normalized;
+    return closestAspectRatio(normalized, supportedAspectsFor(info, type));
+  } catch (_) {
+    return normalized;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -512,6 +657,9 @@ module.exports = {
   modelInfoMap,
   voiceInfo,
   canonicalModelId,
+  normalizeAspectRatio,
+  closestAspectRatio,
+  resolveCatalogAspectRatio,
   resolveAvatarUrl,
   widgetHtml, // exported for smoke tests
 };

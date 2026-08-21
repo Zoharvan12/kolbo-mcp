@@ -59,6 +59,7 @@ body {
 
 /* ---- Card shell ---- */
 .k-card {
+  position: relative;
   background: var(--card);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -81,10 +82,20 @@ body {
 .k-head .k-spacer { flex: 1; }
 
 .k-body { padding: 14px 16px; }
-.k-prompt { color: var(--text-muted); font-size: 12.5px; margin-bottom: 10px; word-break: break-word;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.k-prompt.k-clamped, .k-caption.k-clamped { cursor: pointer; }
+.k-prompt { color: var(--text-muted); font-size: 12.5px; margin-bottom: 4px; word-break: break-word;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  user-select: text; -webkit-user-select: text; cursor: text; }
 .k-prompt.expanded { -webkit-line-clamp: unset; }
+.k-text-tools { display: flex; gap: 2px; justify-content: flex-end; margin: 0 0 10px; }
+.k-text-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--text-faint);
+  font-size: 11px; font-weight: 600; font-family: inherit;
+  cursor: pointer;
+}
+.k-text-btn:hover { color: var(--text); background: var(--surface-2); }
+.k-text-btn svg { width: 12px; height: 12px; }
 /* @VisualDNA / #Moodboard mentions are load-bearing prompt syntax, not prose —
    the server resolves them to the actual asset. Mark them so a glance at the
    prompt shows which references it pulls in. */
@@ -96,8 +107,10 @@ body {
 }
 /* Single-line media caption (scene / batch prompt under the viewer) */
 .k-caption { font-size: 11px; color: var(--text-faint); margin: 2px 2px 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  user-select: text; -webkit-user-select: text; cursor: text; }
 .k-caption.expanded { white-space: normal; word-break: break-word; }
+.k-caption + .k-text-tools { margin: 0 2px 6px; justify-content: flex-start; }
 
 /* ---- Chips ---- */
 .k-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px; }
@@ -122,6 +135,26 @@ body {
 }
 .k-chip img.k-voice-thumb { width: 18px; height: 18px; border-radius: 999px; margin-left: -3px; }
 .k-ref-thumb { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-strong); }
+.k-peek-hit { cursor: zoom-in; }
+.k-peek {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 28px 16px 16px;
+  background: rgba(8, 10, 16, 0.92);
+}
+.k-peek[hidden] { display: none !important; }
+.k-peek img, .k-peek video {
+  display: none; max-width: 100%; max-height: min(360px, 70vh);
+  border-radius: 10px; object-fit: contain; background: #000;
+}
+.k-peek img[src], .k-peek video[src] { display: block; }
+.k-peek-close {
+  position: absolute; top: 8px; right: 8px;
+  width: 28px; height: 28px; border: 0; border-radius: 999px;
+  background: var(--surface-2); color: var(--text); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.k-peek-cap { font-size: 12px; color: var(--text-muted); text-align: center; max-width: 100%; word-break: break-word; }
 /* Visual DNA chips: the character's face, so you can see WHICH DNA is locked in. */
 .k-dna-face { width: 18px; height: 18px; border-radius: 999px; object-fit: cover; margin-left: -3px; background: var(--border-strong); }
 .k-dna-stack .k-dna-stack-item { display: inline-flex; }
@@ -264,6 +297,10 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
   box-shadow: 0 2px 12px rgba(59, 130, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
 .k-btn.primary:hover { background: #2f74e8; }
 .k-btn.ghost { background: transparent; box-shadow: none; border-color: transparent; color: var(--text-muted); }
+.k-btn.danger { background: var(--error); border-color: var(--error); color: #fff;
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25); }
+.k-btn.danger:hover { background: #dc2626; }
+.k-stop-ask { color: var(--text-muted); font-size: 12px; font-weight: 500; margin-right: 4px; }
 .k-btn.ghost:hover { color: var(--text); background: var(--surface-2); }
 .k-btn svg { width: 13px; height: 13px; }
 /* Inline SVG icons (replace emoji) — align with text, inherit color, never shrink. */
@@ -333,6 +370,7 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
   .k-prompt-row { flex-wrap: wrap; }
   .k-prompt-row .k-input { min-width: 0; flex: 1 1 100%; }
   .k-prompt-row .k-btn { flex: 1 1 auto; }
+  .k-text-btn { min-height: 32px; padding: 6px 10px; }
 }
 .k-play {
   width: 32px; height: 32px; border-radius: 50%; flex: none; border: 1px solid rgba(255,255,255,0.18);
