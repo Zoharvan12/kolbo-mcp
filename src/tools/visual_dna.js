@@ -153,7 +153,8 @@ function registerVisualDnaTools(server, client, options = {}) {
           id: d.id,
           title: d.name,
           subtitle: (d.dna_type || '') + (Array.isArray(d.tags) && d.tags.length ? ' · ' + d.tags.slice(0, 3).join(', ') : ''),
-          thumbnail: d.thumbnail_url || d.thumbnail,
+          thumbnail: d.sheet_url || d.thumbnail_url || d.thumbnail,
+          url: d.sheet_url || d.thumbnail_url || d.thumbnail,
           media_type: 'image',
           use_hint: 'Use Visual DNA "{TITLE}" (id: {ID}) in my next generation for character/style consistency.'
         })),
@@ -210,15 +211,22 @@ function registerVisualDnaTools(server, client, options = {}) {
     'STANDARD FIRST STEP OF THE ASSET PASS for any film/ad/scene: inventory the characters, locations and props the script needs, generate a sheet for each, create its Visual DNA from that sheet, confirm the whole set with the user, and only THEN generate video. Sheets for cinematic environments and invented characters run well on `mirage-film-2` (3cr); use `nano-banana-2` (10cr) or `gpt-image-2` (12cr) when reference fidelity or legible text matters. Generate a reference sheet for a Visual DNA from 1+ reference image URLs — the same step the in-app Visual DNA wizard offers, for EVERY DNA type via `sheet_type`: character = multi-angle turnaround, product = angles + branding/material/construction close-ups, environment = location angles + one signature detail, style = a style board (the same look applied to six varied subjects). The sheet is the single strongest consistency booster for a DNA, and it always preserves the reference\'s original art style (2D stays 2D, photo stays photo). CHARGES CREDITS, so when the user is about to create a DNA, OFFER this first ("want me to generate a reference sheet for stronger consistency? it costs a few credits") and only run it on a yes. Returns `character_sheet_url` — pass it as `character_sheet_url` to `create_visual_dna` with the matching `dna_type`.',
     {
       image_urls: z.array(z.string()).min(1).describe('Reference image URLs of the subject (for characters: front/side/varied angles work best). Use generated-image URLs or upload_media output.'),
-      sheet_type: z.enum(['character', 'character_headless', 'character_bible', 'product', 'environment', 'style']).optional().describe('Sheet layout. character = front/back/face turnaround. character_headless = wardrobe/body refs with a headless front panel (use when clothing must change without fighting the face sheet). character_bible = denser production model-sheet (turnaround + faces + wardrobe + color swatches). product / environment / style = matching DNA types. Defaults to character.')
+      sheet_type: z.enum(['character', 'character_headless', 'character_bible', 'product', 'environment', 'style']).optional().describe('Sheet layout. character = front/back/face turnaround. character_headless = wardrobe/body refs with a headless front panel (use when clothing must change without fighting the face sheet). character_bible = denser production model-sheet (turnaround + faces + wardrobe + color swatches). product / environment / style = matching DNA types. Defaults to character. This IS the Character Sheet / Headless / Bible preset — do not call list_presets for those names.'),
+      model: z.string().optional().describe('Image model for the sheet. Default nano-banana-2. Pass gpt-image-2 when the user names it.'),
+      resolution: z.enum(['2K', '4K']).optional().describe('Sheet resolution. 2K or 4K only — never 1K. Default 2K. Use 4K for character_bible, high-detail leads, or when the user asks.')
     },
-    async ({ image_urls, sheet_type }) => {
+    async ({ image_urls, sheet_type, model, resolution }) => {
       // The endpoint is blocking and a 2K multi-panel sheet routinely runs past the
       // 120s default: the MCP aborted while kolbo-api kept going, finished, and
       // billed — the user saw "Failed" for a sheet they had already paid for.
       const result = await client.post(
         '/v1/visual-dna/character-sheet',
-        { image_urls, ...(sheet_type ? { sheet_type } : {}) },
+        {
+          image_urls,
+          ...(sheet_type ? { sheet_type } : {}),
+          ...(model ? { model } : {}),
+          ...(resolution ? { resolution } : {}),
+        },
         { timeoutMs: CHARACTER_SHEET_TIMEOUT_MS },
       );
       // `urls` is NOT redundant with character_sheet_url. Every generation-card

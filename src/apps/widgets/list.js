@@ -74,7 +74,9 @@ function apply(result) {
 function itemHTML(item, i) {
   var clickable = !!item.use_hint;
   var avatar = item.thumbnail
-    ? '<img class="k-audio-art" src="' + esc(item.thumbnail) + '" alt="" loading="lazy" onerror="this.outerHTML=monogram(\\'' + esc(item.title || '?').replace(/'/g, '') + '\\')">'
+    ? '<img class="k-audio-art k-peek-hit" src="' + esc(item.thumbnail) + '" alt="" loading="lazy"'
+      + peekAttrs(item.thumbnail, 'image', item.title)
+      + ' onerror="this.outerHTML=monogram(\\'' + esc(item.title || '?').replace(/'/g, '') + '\\')">'
     : monogram(item.title || '?');
   return '<div class="k-audio-row" data-i="' + i + '"' + (clickable ? ' style="cursor:pointer"' : '') + '>' +
     avatar +
@@ -87,6 +89,7 @@ function itemHTML(item, i) {
 }
 
 function wire() {
+  bindPeekHits(el('stage'));
   Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (b) {
     b.onclick = function (e) {
       e.stopPropagation();
