@@ -6,6 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { resolveToBuffer, DEFAULT_MAX_FILE_MB, compactList } = require('./_shared');
+const { ownedUrl } = require('./owned-url');
 const { UI, uiResult, listResult } = require('../apps');
 
 // How many tiles the media grid renders. A rendering limit only — the text
@@ -160,9 +161,9 @@ function registerMediaTools(server, client, options = {}) {
   // ─── upload_media ──────────────────────────────────────────
   server.tool(
     'upload_media',
-    'Upload a local file (or remote URL) to the user\'s Kolbo media library and get back a stable Kolbo CDN URL. Use this when the user wants to reference a local file in multiple subsequent generation calls — upload once, then pass the returned URL to generate_image / generate_video / visual_dna / etc. Auto-detects media type (image / video / audio) from the file extension. For a single-use reference where you already have a public URL, you can skip this and pass the URL directly to the generation tool.',
+    'Upload a LOCAL file (or a NON-Kolbo remote URL) to the user\'s Kolbo media library and get back a stable Kolbo CDN URL. NEVER call this on a URL that is already Kolbo-hosted: generate_* / list_media / prior upload_media results, media.kolbo.ai, *.kolbo.ai, or DigitalOcean Spaces. Those URLs are already usable — pass them as-is to generate_* as reference_images / source_images / image_url. Use this only for a path on disk or an external (non-Kolbo) URL that needs re-hosting. Auto-detects media type from the file extension.',
     {
-      source: z.string().optional().describe('URL or absolute local path to the file to upload. For local files this is the primary mode; for URLs, this re-hosts the file on Kolbo CDN for stability. Provide this OR source_base64.'),
+      source: z.string().optional().describe('Absolute local path, or a NON-Kolbo URL to re-host. Do not pass a media.kolbo.ai / generate_* / list_media URL — those are already hosted and this tool will refuse to duplicate them. Provide this OR source_base64.'),
       source_base64: z.string().optional().describe('Raw file content as base64 (no data: prefix) — fallback for hosts with no filesystem or public URL (e.g. small images on claude.ai when the upload widget is unavailable). Requires `filename`. Keep under ~10MB; for larger files use media_upload_widget.'),
       filename: z.string().optional().describe('Original filename WITH extension (e.g. photo.png) — required with source_base64; the extension determines the media type.'),
       description: z.string().optional().describe('Optional description / caption for the uploaded media'),
@@ -170,6 +171,19 @@ function registerMediaTools(server, client, options = {}) {
     },
     async ({ source, source_base64, filename, description, project_id }) => {
       if (!source && !source_base64) throw new Error('Provide source (URL or absolute local path) OR source_base64 (+ filename)');
+
+      if (source && ownedUrl(source)) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              reused: true,
+              url: source,
+              hint: 'This URL is already on Kolbo CDN. Pass it as-is to generate_* (reference_images / source_images / image_url / files). Do not upload again.',
+            }, null, 2),
+          }],
+        };
+      }
 
       if (source_base64) {
         if (!filename || !/\.[a-z0-9]{2,5}$/i.test(filename)) {
