@@ -93,7 +93,7 @@ function registerMoodboardTools(server, client, options = {}) {
   // ─── update_moodboard ──────────────────────────────────────
   server.tool(
     'update_moodboard',
-    'Update a moodboard\'s name, style guide, and/or images. Providing `image_urls` REPLACES the whole image set and re-analyzes the style (master prompt regenerates). Owner only.',
+    'Edit a moodboard in place: name, style guide, and/or images. NEVER delete and recreate a board to rename it or swap stills — existing generations already reference this id as moodboard_id / #Name. Providing `image_urls` REPLACES the whole image set and re-analyzes the style (master prompt regenerates). Owner only.',
     {
       moodboard_id: z.string().describe('Moodboard id (from list_moodboards).'),
       name: z.string().optional().describe('New name.'),
@@ -113,7 +113,7 @@ function registerMoodboardTools(server, client, options = {}) {
   // ─── delete_moodboard ──────────────────────────────────────
   server.tool(
     'delete_moodboard',
-    'Permanently delete a moodboard (owner only; system presets cannot be deleted). The underlying image files stay in storage — only the board is removed. Confirm with the user before deleting boards they did not just create.',
+    'Permanently delete a moodboard (owner only; system presets cannot be deleted). Do NOT use this to rename or change images — that is `update_moodboard`. The underlying image files stay in storage — only the board is removed. Confirm with the user before deleting boards they did not just create.',
     { moodboard_id: z.string().describe('Moodboard id to delete.') },
     async ({ moodboard_id }) => {
       const result = await client.delete(`/v1/moodboards/${encodeURIComponent(moodboard_id)}`);

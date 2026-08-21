@@ -84,7 +84,7 @@ function registerDocTools(server, client) {
   // ─── update_doc ────────────────────────────────────────────
   server.tool(
     'update_doc',
-    'Update an AI Doc\'s title and/or content. Content REPLACES the whole document — call `get_doc` first, apply the user\'s edits to the full HTML, and send the complete result back.',
+    'Edit an AI Doc in place: title and/or content. NEVER delete and recreate a doc to change its text — existing share links and the sidebar entry stay on this id. Content REPLACES the whole document — call `get_doc` first, apply the user\'s edits to the full HTML, and send the complete result back.',
     {
       doc_id: z.string().describe('The doc ObjectId to update.'),
       title: z.string().optional().describe('New title. Omit to keep the current one.'),

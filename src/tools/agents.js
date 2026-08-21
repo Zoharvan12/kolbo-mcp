@@ -59,7 +59,7 @@ function registerAgentTools(server, client) {
   // ─── update_agent ──────────────────────────────────────────
   server.tool(
     'update_agent',
-    'Update a custom chat agent\'s name, description (persona/instructions), or emoji/thumbnail. Only personal agents you own can be edited — global preset agents are protected. Resolve the agent id with list_agents first.',
+    'Edit a custom chat agent in place: name, description (persona/instructions), or emoji/thumbnail. NEVER delete and recreate an agent to change its persona — conversations already reference this agent_id. Only personal agents you own can be edited — global preset agents are protected. Resolve the agent id with list_agents first.',
     {
       agent_id: z.string().describe('Agent id (from list_agents).'),
       name: z.string().optional().describe('New name.'),
