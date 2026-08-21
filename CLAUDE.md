@@ -260,7 +260,7 @@ src/tools/media.js       — Media library: media_upload_widget, create_upload_t
 src/tools/presets.js     — Preset discovery (list_presets — unified across catalogs)
 src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
 src/tools/docs.js        — AI Docs / Magic Pad (create_doc, list_docs, get_doc, update_doc, share_doc, delete_doc)
-src/tools/projects.js   — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool) + session ORGANIZATION (move_session / bulk_move_sessions between projects; list_session_generations / move_generations_to_session / split_session between sessions; undo_session_organization). All of the organization tools are thin passthroughs to kolbo-api modules/sessionOrganization/service.js — never re-implement a move client-side.
+src/tools/projects.js   — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool) + CAST roster (list/link/unlink/update_project_asset — tag DNAs/moodboards and write each DNA description) + session ORGANIZATION (move_session / bulk_move_sessions between projects; list_session_generations / move_generations_to_session / split_session between sessions; undo_session_organization). All of the organization tools are thin passthroughs to kolbo-api modules/sessionOrganization/service.js — never re-implement a move client-side.
 src/tools/agents.js      — Custom chat agents CRUD (list_agents, create_agent, update_agent, delete_agent — reusable named personas; `description` is the system instruction)
 src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
 src/tools/music_library.js — SYNCI preview discovery plus idempotent paid clean MP3/WAV acquisition/import
@@ -352,6 +352,7 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | Tool | Route | Notes |
 |------|-------|-------|
 | `create_visual_dna` | `POST /v1/visual-dna` (multipart) | Accepts URLs OR absolute local paths; 25MB/file; max 4 images |
+| `update_visual_dna` | `PUT /v1/visual-dna/:id` (JSON or multipart) | Edit name / description / stills / sheet / type in place. Never delete+recreate. |
 | `list_visual_dnas` | `GET /v1/visual-dna` | — |
 | `get_visual_dna` | `GET /v1/visual-dna/:id` | — |
 | `delete_visual_dna` | `DELETE /v1/visual-dna/:id` | — |
@@ -361,6 +362,7 @@ Every generation tool below also accepts an optional `project_id` arg that route
 |------|-------|
 | `list_moodboards` | `GET /v1/moodboards` |
 | `get_moodboard` | `GET /v1/moodboards/:id` |
+| `create_moodboard` / `update_moodboard` / `delete_moodboard` | `POST /v1/moodboards`, `PUT/DELETE /v1/moodboards/:id` |
 
 **Color DNA** (`src/tools/color_palettes.js`) — sticky, account-wide: the single ACTIVE palette strict-grades EVERY generation automatically (generate_image/_edit/video/video_from_image) until deactivated. Per-call opt-out: `skip_color_palette` on those generation tools.
 | Tool | Route | Notes |
@@ -417,7 +419,8 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `generate_character_sheet` (in `src/tools/visual_dna.js`) | `POST /v1/visual-dna/character-sheet` |
 | `get_session_usage` | see `src/tools/` — per-session usage stats |
 | `*_visual_dna_folder` (5 tools) | `GET/POST /v1/visual-dna/folders`, `PUT/DELETE /v1/visual-dna/folders/:folderId`, `PUT /v1/visual-dna/:id/folder` |
-| `create_project` / `update_project` / `archive_project` / `unarchive_project` | `POST /v1/projects`, `PUT /v1/projects/:id(/archive|/unarchive)` |
+| `create_project` / `get_project` / `update_project` / `archive_project` / `unarchive_project` | `POST /v1/projects`, `GET/PUT /v1/projects/:id`, archive/unarchive |
+| `list_project_assets` / `link_project_asset` / `unlink_project_asset` / `update_project_asset` | `GET/POST /v1/projects/:id/assets`, `PUT .../note`, `DELETE .../:type/:id` — project cast roster + DNA descriptions |
 | `list_sessions` | `GET /v1/sessions` |
 | `rename_session` | `PATCH /v1/sessions/:sessionId` |
 | `delete_session` | `DELETE /v1/sessions/:sessionId` |

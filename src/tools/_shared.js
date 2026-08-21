@@ -53,8 +53,8 @@ const FILE_INPUT_TOOLS = [
   'generate_video', 'generate_video_from_image', 'generate_video_from_video',
   'generate_elements', 'generate_first_last_frame', 'generate_lipsync',
   'generate_3d', 'edit_image', 'edit_video', 'transcribe_audio',
-  'create_visual_dna', 'generate_character_sheet', 'clone_voice',
-  'chat_send_message', 'create_moodboard',
+  'create_visual_dna', 'update_visual_dna', 'generate_character_sheet', 'clone_voice',
+  'chat_send_message', 'create_moodboard', 'update_moodboard',
   'separate_audio_stems', 'clean_dialogue_leftovers', 'separate_ambience'
 ];
 
