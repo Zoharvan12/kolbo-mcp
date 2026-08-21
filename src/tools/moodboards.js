@@ -42,6 +42,7 @@ function registerMoodboardTools(server, client, options = {}) {
           // API returns thumbnail_url + images[] (sdk listMoodboards) — both
           // previous keys were wrong, so the fallback never fired either.
           thumbnail: mb.thumbnail_url || mb.thumbnail || (Array.isArray(mb.images) ? mb.images[0] : undefined),
+          url: mb.thumbnail_url || mb.thumbnail || (Array.isArray(mb.images) ? mb.images[0] : undefined),
           media_type: 'image',
           use_hint: 'Apply moodboard "{TITLE}" (moodboard_id: {ID}) to my next generation.'
         })),

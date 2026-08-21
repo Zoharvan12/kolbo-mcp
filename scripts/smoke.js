@@ -658,6 +658,41 @@ async function main() {
     console.log('[smoke] model/voice display names resolve from the catalog (cached) OK');
   }
 
+  {
+    const { uiGenerating } = require(path.join(PKG_ROOT, 'src', 'tools', '_shared'));
+    const hits = {};
+    const client = {
+      apiBase: 'smoke-chips',
+      async request(_m, p) {
+        hits[p] = (hits[p] || 0) + 1;
+        if (p === '/v1/models') return { models: [{ identifier: 'gpt-image-2', name: 'GPT Image 2', avatar: 'chatgpt-icon.svg' }] };
+        if (p === '/v1/visual-dna?scope=mine') return { visual_dnas: [] };
+        if (p === '/v1/visual-dna/dna_rock') {
+          return { visual_dna: { id: 'dna_rock', name: 'Rock Lead', sheet_url: 'https://media.kolbo.ai/rock.jpg' } };
+        }
+        if (p === '/v1/presets') {
+          return { presets: [{ id: 'bible-1', name: 'Character Bible', thumbnail_url: 'https://media.kolbo.ai/bible.jpg' }] };
+        }
+        throw new Error(`unexpected catalog request ${p}`);
+      },
+      async get(p) { return this.request('GET', p); },
+    };
+    const sc = (await uiGenerating({
+      tool: 'generate_image', kind: 'image', client, model: 'gpt-image-2',
+      prompt: 'bible sheet', gen: { generation_id: 'g-chip' },
+      settings: { visual_dna_ids: ['dna_rock'], preset_id: 'bible-1', resolution: '4K' },
+    })).structuredContent;
+    if (sc.model_name !== 'GPT Image 2') throw new Error(`model chip shows "${sc.model_name}"`);
+    if (!String(sc.model_icon || '').includes('chatgpt-icon.svg')) throw new Error(`model icon was not the CDN file: ${sc.model_icon}`);
+    if (!sc.visual_dnas || sc.visual_dnas[0]?.name !== 'Rock Lead' || !sc.visual_dnas[0]?.thumbnail) {
+      throw new Error(`DNA chip was not resolved: ${JSON.stringify(sc.visual_dnas)}`);
+    }
+    if (sc.settings?.preset_name !== 'Character Bible') {
+      throw new Error(`preset chip kept a raw id: ${JSON.stringify(sc.settings)}`);
+    }
+    console.log('[smoke] generating card resolves DNA thumbs + preset names OK');
+  }
+
   // 0d. Every HTTP request must be bounded. An unbounded fetch is the failure
   // users report as "the tool never finishes": pollUntilDone only checks its
   // deadline BETWEEN polls, so one request that never settles hangs the tool

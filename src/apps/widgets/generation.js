@@ -15,7 +15,9 @@ const { widgetPage } = require('../html');
 
  *   model, model_icon, prompt, count,
  *   settings: { duration, resolution, aspect_ratio, quality, audio, voice, mode,
- *               enhance_prompt, web_search, visual_dna, moodboard, preset, cinematic },
+ *               enhance_prompt, web_search, visual_dna, moodboard, preset,
+ *               preset_id, preset_name, cinematic },
+ *   visual_dnas: [{ id, name, thumbnail }],
  *   reference_images,                  // all reference thumbnail URLs (optional)
  *   reference_image,                   // legacy single-thumbnail fallback
  *   urls, thumbnail_url, title, duration, credits_used,
@@ -74,28 +76,67 @@ var TOOL_TITLES = {
   get_generation_status: 'Generations'
 };
 
-// Long text is clamped by CSS (.k-prompt 2 lines / .k-caption 1 line). When it
-// actually overflows, make it click-to-expand so the full prompt is readable.
-function makeExpandable(node) {
+// Long text is clamped by CSS (.k-prompt 2 lines / .k-caption 1 line). Expand
+// lives on a separate button so the text itself stays selectable.
+function stripTools(node) {
+  var prev = node && node.nextSibling;
+  if (prev && prev.classList && prev.classList.contains('k-text-tools') && prev.parentNode) {
+    prev.parentNode.removeChild(prev);
+  }
+}
+function setPrompt(html, raw) {
+  var node = el('prompt');
+  if (!html) {
+    node.innerHTML = '';
+    node.style.display = 'none';
+    stripTools(node);
+    return;
+  }
+  node.innerHTML = html;
+  node.style.display = '';
+  makeExpandable(node, raw);
+}
+function makeExpandable(node, raw) {
   if (!node) return;
-  node.classList.remove('k-clamped');
+  node.classList.remove('k-clamped', 'expanded');
+  node.onclick = null;
+  node.removeAttribute('title');
+  stripTools(node);
+  var text = raw != null ? String(raw) : (node.innerText || node.textContent || '');
+  if (!text || !node.parentNode) return;
   // Synchronous layout read — rAF would never fire in a hidden/backgrounded
   // iframe, leaving long prompts stuck without the expand affordance.
-  if (node.scrollHeight > node.clientHeight + 2 || node.scrollWidth > node.clientWidth + 2) {
-    node.classList.add('k-clamped');
-    node.title = node.title || 'Show full text';
-    node.onclick = function () {
-      node.classList.toggle('expanded');
-      node.title = node.classList.contains('expanded') ? 'Collapse' : 'Show full text';
-      window.kolbo.notifySize();
-    };
-  }
+  var overflow = node.scrollHeight > node.clientHeight + 2 || node.scrollWidth > node.clientWidth + 2;
+  if (overflow) node.classList.add('k-clamped');
+  var tools = document.createElement('div');
+  tools.className = 'k-text-tools';
+  tools.innerHTML =
+    '<button type="button" class="k-text-btn" data-act="copy">' + ICONS.copy + ' Copy</button>' +
+    (overflow ? '<button type="button" class="k-text-btn" data-act="expand">' + ICONS.chevronDown + ' Expand</button>' : '');
+  node.parentNode.insertBefore(tools, node.nextSibling);
+  var copyBtn = tools.querySelector('[data-act="copy"]');
+  if (copyBtn) copyBtn.onclick = function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    writeClipboard(text).then(function (ok) {
+      copyBtn.innerHTML = ok ? (ICONS.check + ' Copied') : 'Could not copy';
+      setTimeout(function () { copyBtn.innerHTML = ICONS.copy + ' Copy'; }, 1600);
+    });
+  };
+  var exp = tools.querySelector('[data-act="expand"]');
+  if (exp) exp.onclick = function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var on = node.classList.toggle('expanded');
+    exp.innerHTML = on ? (ICONS.chevronUp + ' Collapse') : (ICONS.chevronDown + ' Expand');
+    if (window.kolbo && window.kolbo.notifySize) window.kolbo.notifySize();
+  };
 }
 
 function renderList(sc) {
   state = sc;
   el('tool-title').textContent = sc.title || 'List';
-  el('prompt').style.display = 'none';
+  setPrompt('');
   el('chips').innerHTML = '';
   el('credits').textContent = '';
   var items = sc.items || [];
@@ -128,9 +169,7 @@ function boot(sc) {
   if (isListPayload(sc, sc.tool)) return renderList(sc);
   state = sc;
   el('tool-title').textContent = TOOL_TITLES[sc.tool] || 'Generation';
-  el('prompt').innerHTML = promptHTML(sc.prompt);
-  el('prompt').style.display = sc.prompt ? '' : 'none';
-  makeExpandable(el('prompt'));
+  setPrompt(sc.prompt ? promptHTML(sc.prompt) : '', sc.prompt);
   renderChips(sc);
   el('credits').textContent = sc.credits_used != null ? fmtCredits(sc.credits_used) : '';
   // Every legitimate completed payload sets phase:'completed' explicitly
@@ -182,10 +221,37 @@ function promptHTML(text) {
   });
 }
 
+function ownedHost(url) {
+  try { return /(?:^|\\.)kolbo\\.ai$|digitaloceanspaces\\.com$/i.test(new URL(url).hostname); }
+  catch (e) { return false; }
+}
+function preferKolbo(urls) {
+  var list = (urls || []).filter(function (u) { return typeof u === 'string' && u; });
+  var ours = list.filter(ownedHost);
+  return ours.length ? ours : list;
+}
+function displayKind(sc) {
+  var urls = preferKolbo(sc.urls || []);
+  var first = (urls[0] || '').split('?')[0].toLowerCase();
+  if (/\\.(mp4|mov|webm|mkv)$/.test(first) || /video-elements-results|generated-videos/.test(first)) return 'video';
+  if (/\\.(mp3|wav|m4a|aac|ogg|flac)$/.test(first)) return 'audio';
+  var kind = sc.kind;
+  if (kind === 'video' || kind === 'scenes' || kind === 'audio' || kind === '3d' || kind === 'model3d') {
+    return kind === 'scenes' ? 'video' : kind;
+  }
+  var tool = sc.tool || '';
+  if (/video|elements|lipsync|first_last_frame/.test(tool)) return 'video';
+  if (/music|speech|sound/.test(tool)) return 'audio';
+  if (/3d/.test(tool)) return '3d';
+  if (kind === 'status') return '';
+  return kind || 'image';
+}
+
 function renderChips(sc) {
   var h = modelChipHTML(modelLabel(sc), sc.model_icon);
   var s = sc.settings || {};
-  if (sc.kind) h += chip(iconFor(sc.kind) + ' ' + sc.kind);
+  var kind = displayKind(sc);
+  if (kind) h += chip(iconFor(kind) + ' ' + kind);
   if (s.duration) h += chip(ICONS.clock + ' ' + fmtDur(s.duration) + (s.shots > 1 ? ' · ' + s.shots + ' shots' : ''));
   else if (s.shots > 1) h += chip(s.shots + ' shots');
   if (s.resolution) h += chip(esc(s.resolution));
@@ -197,11 +263,14 @@ function renderChips(sc) {
   // falling back to the old count/boolean shape for payloads generated before
   // the ids were carried.
   h += dnaChipsHTML(sc, s);
-  var mbIds = s.moodboard_ids || (s.moodboard_id ? [s.moodboard_id] : []);
-  if (mbIds.length) h += chipT(mbIds.length > 1 ? mbIds.length + ' moodboards' : 'moodboard', mbIds.join('\\n'));
-  else if (s.moodboard) h += chip('moodboard');
-  if (s.preset_id) h += chipT('preset', s.preset_id);
-  else if (s.preset) h += chip('preset');
+  h += moodboardChipsHTML(sc, s);
+  if (s.preset_id || s.preset_name || s.preset) {
+    var presetName = s.preset_name || (typeof s.preset === 'string' && s.preset !== 'true' ? s.preset : '');
+    var face = s.preset_thumbnail
+      ? '<img src="' + esc(s.preset_thumbnail) + '" alt="" loading="lazy" onerror="this.style.display=\\'none\\'">'
+      : '';
+    h += chipT(face + esc(presetName || 'preset'), s.preset_id || presetName);
+  }
   if (s.cinematic) h += chip('cinematic');
   if (s.audio) h += chip(ICONS.sound + ' audio');
   var voice = voiceLabel(sc);
@@ -215,6 +284,7 @@ function renderChips(sc) {
   if (sc.count > 1) h += chip('×' + sc.count);
   h += referenceHTML(sc);
   el('chips').innerHTML = h;
+  bindPeekHits(el('chips'));
 }
 
 var REF_VIDEO_RE = /\\.(mp4|mov|webm|mkv|avi|m4v)(\\?|#|$)/i;
@@ -251,15 +321,16 @@ function referenceHTML(sc) {
   for (var i = 0; i < refs.length; i++) {
     var url = esc(refs[i].url);
     var title = 'Reference ' + refs[i].kind + ' ' + (i + 1) + ' of ' + refs.length;
+    var peek = ' data-peek="' + url + '" data-peek-kind="' + refs[i].kind + '" data-peek-cap="' + title + '"';
     if (refs[i].kind === 'video') {
       // #t=0.1 so the poster is a real frame, not a black canvas.
-      h += '<video class="k-ref-thumb" src="' + url + '#t=0.1" muted playsinline preload="metadata" title="'
-        + title + '" onerror="this.style.display=\\'none\\'"></video>';
+      h += '<video class="k-ref-thumb k-peek-hit" src="' + url + '#t=0.1" muted playsinline preload="metadata" title="'
+        + title + '"' + peek + ' onerror="this.style.display=\\'none\\'"></video>';
     } else if (refs[i].kind === 'audio') {
       h += '<span class="k-chip" title="' + title + '">' + ICONS.sound + ' audio ref</span>';
     } else {
-      h += '<img class="k-ref-thumb" src="' + url + '" alt="" loading="lazy" title="' + title
-        + '" onerror="this.style.display=\\'none\\'">';
+      h += '<img class="k-ref-thumb k-peek-hit" src="' + url + '" alt="" loading="lazy" title="' + title + '"'
+        + peek + ' onerror="this.style.display=\\'none\\'">';
     }
   }
   return h;
@@ -288,7 +359,8 @@ function dnaChipsHTML(sc, s) {
   var h = '';
   if (dnas.length <= DNA_CHIP_MAX) {
     for (var i = 0; i < dnas.length; i++) {
-      h += '<span class="k-chip" title="' + esc(dnas[i].id) + '">'
+      h += '<span class="k-chip' + (dnas[i].thumbnail ? ' k-peek-hit' : '') + '" title="' + esc(dnas[i].id) + '"'
+        + peekAttrs(dnas[i].thumbnail, 'image', dnas[i].name) + '>'
         + dnaFaceHTML(dnas[i], 'k-dna-face') + esc(dnas[i].name) + '</span>';
     }
     return h;
@@ -297,10 +369,30 @@ function dnaChipsHTML(sc, s) {
   var stack = '';
   for (var j = 0; j < dnas.length; j++) {
     names.push(dnas[j].name);
-    if (j < 4) stack += '<span class="k-dna-stack-item">' + dnaFaceHTML(dnas[j], 'k-dna-face') + '</span>';
+    if (j < 4) {
+      stack += '<span class="k-dna-stack-item' + (dnas[j].thumbnail ? ' k-peek-hit' : '') + '"'
+        + peekAttrs(dnas[j].thumbnail, 'image', dnas[j].name) + '>'
+        + dnaFaceHTML(dnas[j], 'k-dna-face') + '</span>';
+    }
   }
   return '<span class="k-chip k-dna-stack" title="' + esc(names.join('\\n')) + '">'
     + stack + dnas.length + ' Visual DNA</span>';
+}
+function moodboardChipsHTML(sc, s) {
+  var boards = Array.isArray(sc.moodboards) ? sc.moodboards : [];
+  if (!boards.length) {
+    var ids = s.moodboard_ids || (s.moodboard_id ? [s.moodboard_id] : []);
+    if (ids.length) return chipT(ids.length > 1 ? ids.length + ' moodboards' : 'moodboard', ids.join('\\n'));
+    if (s.moodboard) return chip('moodboard');
+    return '';
+  }
+  var h = '';
+  for (var i = 0; i < boards.length; i++) {
+    h += '<span class="k-chip' + (boards[i].thumbnail ? ' k-peek-hit' : '') + '" title="' + esc(boards[i].id) + '"'
+      + peekAttrs(boards[i].thumbnail, 'image', boards[i].name) + '>'
+      + dnaFaceHTML(boards[i], 'k-dna-face') + esc(boards[i].name) + '</span>';
+  }
+  return h;
 }
 function chip(inner) { return '<span class="k-chip">' + inner + '</span>'; }
 // Same chip with a hover title — used to surface the asset id behind a
@@ -324,13 +416,13 @@ function isBatch(sc) { return !!(sc && sc.generation_ids && sc.generation_ids.le
 function renderGenerating(sc) {
   setPhaseChip('Generating', true);
   var n = Math.min(sc.count || 1, isBatch(sc) ? 8 : 4);
-  var shape = sc.kind === 'video' || sc.kind === 'scenes' ? 'video' : (sc.kind === 'audio' ? 'video' : 'square');
+  var kind = displayKind(sc);
+  var shape = kind === 'video' || kind === 'audio' ? 'video' : 'square';
   var cells = '';
   for (var i = 0; i < n; i++) {
     var cap = (sc.prompts && sc.prompts[i])
       ? '<span class="k-skel-cap" title="' + esc(sc.prompts[i]) + '">' + esc(sc.prompts[i]) + '</span>' : '';
-    cells += '<div class="k-skel ' + shape + '" data-cell="' + i + '">' +
-      (i === 0 ? '<span class="k-gen-badge"><span class="k-spin"></span>Generating</span>' : '') + cap + '</div>';
+    cells += '<div class="k-skel ' + shape + '" data-cell="' + i + '">' + cap + '</div>';
   }
   // Grid class caps at n4 — the auto-fill rule handles any larger batch count.
   el('stage').innerHTML = '<div class="k-gen-grid n' + Math.min(n, 4) + '">' + cells + '</div>';
@@ -355,48 +447,66 @@ function cancelSpec(sc) {
 function renderStopButton(sc) {
   var spec = cancelSpec(sc);
   if (!spec) { el('actions').innerHTML = ''; return; }
-  el('actions').innerHTML = '<button class="k-btn ghost" id="stop-btn">' + ICONS.x + ' Stop</button>';
-  el('stop-btn').onclick = function () {
-    var btn = el('stop-btn');
+  var armTimer = null;
+  function idle() {
+    clearTimeout(armTimer);
+    el('actions').innerHTML = '<button class="k-btn ghost" id="stop-btn">' + ICONS.x + ' Stop</button>';
+    el('stop-btn').onclick = function () {
+      el('actions').innerHTML =
+        '<span class="k-stop-ask">Stop this generation?</span>' +
+        '<button class="k-btn ghost" id="stop-keep">Keep</button>' +
+        '<button class="k-btn danger" id="stop-btn">' + ICONS.x + ' Stop</button>';
+      el('stop-keep').onclick = idle;
+      el('stop-btn').onclick = function () { stopNow(sc, spec); };
+      if (window.kolbo && window.kolbo.notifySize) window.kolbo.notifySize();
+      armTimer = setTimeout(idle, 5000);
+    };
+  }
+  idle();
+}
+
+function stopNow(sc, spec) {
+  var btn = el('stop-btn');
+  if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<span class="k-spin"></span> Stopping';
-    // Stop polling immediately so a long-wait status call that lands mid-cancel
-    // cannot repaint the card back into "Generating".
-    cancelRequested = true;
-    clearTimeout(pollTimer);
-    // Batch: cancel every id; report combined refund. Entries that already
-    // finished return cancelled:false — only resume polling if ALL did.
-    var call = spec.batch
-      ? Promise.all(spec.batch.map(function (id) {
-          return window.kolbo.callTool('cancel_generation', { generation_id: id })
-            .then(function (r) { return structured(r) || {}; })
-            .catch(function () { return {}; });
-        })).then(function (sts) {
-          var refund = 0;
-          sts.forEach(function (s) { if (s.credits_refunded) refund += s.credits_refunded; });
-          return {
-            cancelled: sts.some(function (s) { return s.cancelled !== false; }),
-            credits_refunded: refund || undefined
-          };
-        })
-      : window.kolbo.callTool(spec.tool, spec.args).then(function (r) { return structured(r) || {}; });
-    call.then(function (st) {
-      if (st.cancelled === false) {
-        // Already terminal — let the normal poll path report the real outcome
-        // instead of claiming a cancel that did not happen.
-        cancelRequested = false;
-        btn.disabled = false;
-        btn.innerHTML = ICONS.x + ' Stop';
-        return schedulePoll(sc);
-      }
-      renderCancelled(st.credits_refunded);
-    }).catch(function (e) {
+  }
+  var keep = el('stop-keep');
+  if (keep) keep.disabled = true;
+  // Stop polling immediately so a long-wait status call that lands mid-cancel
+  // cannot repaint the card back into "Generating".
+  cancelRequested = true;
+  clearTimeout(pollTimer);
+  // Batch: cancel every id; report combined refund. Entries that already
+  // finished return cancelled:false — only resume polling if ALL did.
+  var call = spec.batch
+    ? Promise.all(spec.batch.map(function (id) {
+        return window.kolbo.callTool('cancel_generation', { generation_id: id })
+          .then(function (r) { return structured(r) || {}; })
+          .catch(function () { return {}; });
+      })).then(function (sts) {
+        var refund = 0;
+        sts.forEach(function (s) { if (s.credits_refunded) refund += s.credits_refunded; });
+        return {
+          cancelled: sts.some(function (s) { return s.cancelled !== false; }),
+          credits_refunded: refund || undefined
+        };
+      })
+    : window.kolbo.callTool(spec.tool, spec.args).then(function (r) { return structured(r) || {}; });
+  call.then(function (st) {
+    if (st.cancelled === false) {
+      // Already terminal — let the normal poll path report the real outcome
+      // instead of claiming a cancel that did not happen.
       cancelRequested = false;
-      btn.disabled = false;
-      btn.innerHTML = ICONS.x + ' Stop';
-      schedulePoll(sc);
-    });
-  };
+      renderStopButton(sc);
+      return schedulePoll(sc);
+    }
+    renderCancelled(st.credits_refunded);
+  }).catch(function () {
+    cancelRequested = false;
+    renderStopButton(sc);
+    schedulePoll(sc);
+  });
 }
 
 function renderCancelled(creditsRefunded) {
@@ -608,12 +718,13 @@ function renderResult(sc) {
   if (sc.kind === 'status' && Array.isArray(sc.items)) return renderStatusGrid(sc);
   if (sc.batch && sc.scenes && sc.scenes.length) return renderBatchGrid(sc);
   if (sc.kind === 'scenes' && sc.scenes && sc.scenes.length) return renderScenes(sc);
-  var urls = sc.urls || [];
+  var urls = preferKolbo(sc.urls || []);
+  var kind = displayKind(Object.assign({}, sc, { urls: urls }));
   if (!urls.length) return renderError('No output received');
-  if (sc.kind === 'image') renderImages(sc, urls);
-  else if (sc.kind === 'video') renderVideo(sc, urls);
-  else if (sc.kind === 'audio') renderAudio(sc, urls);
-  else if (sc.kind === '3d') render3d(sc, urls);
+  if (kind === 'image') renderImages(sc, urls);
+  else if (kind === 'video') renderVideo(sc, urls);
+  else if (kind === 'audio') renderAudio(sc, urls);
+  else if (kind === '3d') render3d(sc, urls);
   else renderLinks(urls);
   renderActions(sc);
   window.kolbo.notifySize();
@@ -624,7 +735,12 @@ function renderImages(sc, urls) {
   // If the host CSP still blocks the image, degrade to open-in-browser rows
   // instead of a broken empty viewer.
   var viewer = '<div class="k-viewer"><img id="main-img" src="' + esc(urls[selected]) + '" alt="" onerror="window.__imgFail && window.__imgFail()">' + dlBtnHTML(urls[selected]) + '</div>';
-  window.__imgFail = function () { renderLinks(urls); window.kolbo.notifySize(); };
+  window.__imgFail = function () {
+    var look = displayKind({ urls: urls, tool: state && state.tool, kind: 'image' });
+    if (look === 'video') renderVideo(state || { urls: urls }, urls);
+    else renderLinks(urls);
+    window.kolbo.notifySize();
+  };
   // Click → expand into an in-Claude fullscreen viewer (all actions stay
   // available); click again (or Exit) collapses back. Hosts that refuse
   // fullscreen fall back to opening the original in a new tab.
@@ -857,7 +973,7 @@ function renderScenes(sc) {
     '<div class="k-viewer">' + mediaHtml + dlBtnHTML(it.url) + '</div>' +
     '<div class="k-caption" id="scene-cap">' + esc(it.label) + '</div>' +
     thumbs;
-  makeExpandable(el('scene-cap'));
+  makeExpandable(el('scene-cap'), it.label);
   wireDlButtons(el('stage'));
   if (it.type === 'image') {
     var main = el('scene-main');
@@ -1035,15 +1151,13 @@ function bootPre(toolName, args) {
     el('tool-title').textContent = toolName === 'list_sessions' ? 'Sessions' : 'List';
     setPhaseChip('Loading', true);
     el('stage').innerHTML = '';
-    el('prompt').style.display = 'none';
+    setPrompt('');
     return;
   }
   el('tool-title').textContent = TOOL_TITLES[toolName] || 'Generation';
   if (args && (args.prompt || args.text || (Array.isArray(args.prompts) && args.prompts.length))) {
-    el('prompt').innerHTML = promptHTML(args.prompt || args.text ||
-      (args.prompts.length + ' prompts — ' + args.prompts.join(' · ')));
-    el('prompt').style.display = '';
-    makeExpandable(el('prompt'));
+    var raw = args.prompt || args.text || (args.prompts.length + ' prompts — ' + args.prompts.join(' · '));
+    setPrompt(promptHTML(raw), raw);
   }
   setPhaseChip('Preparing', true);
   if (!el('stage').innerHTML) {
