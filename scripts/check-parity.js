@@ -155,7 +155,9 @@ function parseExtraModuleRoutes(src, mountPath) {
 
 function normalizeMethod(method) {
   const m = method.toUpperCase();
-  return m === 'POSTMULTIPART' ? 'POST' : m;
+  if (m === 'POSTMULTIPART') return 'POST';
+  if (m === 'PUTMULTIPART') return 'PUT';
+  return m;
 }
 
 function addCall(calls, key, filename) {
@@ -195,8 +197,8 @@ function parseMcpToolCalls() {
   const loosePaths = new Map(); // key = path (method-agnostic), value = Set of filenames
 
   // Strict: client.METHOD(literal) — captures both method and path.
-  const reTemplate = /client\.(post|get|delete|put|patch|postMultipart)\(\s*`([^`]+)`/g;
-  const rePlain = /client\.(post|get|delete|put|patch|postMultipart)\(\s*(['"])([^'"]+)\2/g;
+  const reTemplate = /client\.(post|get|delete|put|patch|postMultipart|putMultipart)\(\s*`([^`]+)`/g;
+  const rePlain = /client\.(post|get|delete|put|patch|postMultipart|putMultipart)\(\s*(['"])([^'"]+)\2/g;
 
   // Loose: any string or template literal starting with /v1/ ANYWHERE in the
   // file. Catches cases where the path is assigned to a variable first

@@ -29,6 +29,7 @@ function registerProjectTools(server, client) {
       const projects = (result.projects || []).map(p => ({
         id: p.id,
         name: p.name,
+        description: p.description || null,
         role: p.role,
         is_default: !!p.is_default,
         is_archived: !!p.is_archived,
@@ -48,7 +49,7 @@ function registerProjectTools(server, client) {
         items: projects.map(p => ({
           id: p.id,
           title: p.name,
-          subtitle: p.role + (p.is_default ? ' · default' : '') + (p.is_archived ? ' · archived' : ''),
+          subtitle: (p.description || p.role) + (p.is_default ? ' · default' : '') + (p.is_archived ? ' · archived' : ''),
           thumbnail: p.thumbnail_url,
           open_url: p.open_url,
           use_hint: 'Use my "{TITLE}" project (project_id: {ID}) for what I do next.'
@@ -240,14 +241,27 @@ function registerProjectTools(server, client) {
     }
   );
 
+  // ─── get_project ───────────────────────────────────────────
+  server.tool(
+    'get_project',
+    'Fetch one project by id including its FULL description (list_projects clips descriptions to ~400 chars). Call this before `update_project` when you need to edit the brief, logline, or notes — read, apply the user\'s edits, send the complete description back.',
+    {
+      project_id: z.string().describe('Project ObjectId from list_projects.')
+    },
+    async ({ project_id }) => {
+      const result = await client.get(`/v1/projects/${encodeURIComponent(project_id)}`);
+      return { content: [{ type: 'text', text: JSON.stringify(result.project || result, null, 2) }] };
+    }
+  );
+
   // ─── update_project ────────────────────────────────────────
   server.tool(
     'update_project',
-    'Rename a project and/or update its description. Changing the description also refreshes the project\'s AI profile in the background.',
+    'Rename a project and/or replace its description. NEVER delete a project or create a new one just to change the brief — this edits in place. Description REPLACES the whole text: call `get_project` first, apply the user\'s edits, send the complete result. Changing the description also refreshes the project\'s AI profile in the background.',
     {
-      project_id: z.string().describe('Project ObjectId (from list_projects).'),
+      project_id: z.string().describe('Project ObjectId (from list_projects / get_project).'),
       name: z.string().optional().describe('New name.'),
-      description: z.string().optional().describe('New description (replaces the old one).')
+      description: z.string().optional().describe('New description (replaces the old one; max 10k chars, markdown OK).')
     },
     async ({ project_id, name, description }) => {
       const body = {};
@@ -331,7 +345,7 @@ function registerProjectTools(server, client) {
 
   server.tool(
     'rename_session',
-    'Rename a session the user can see in the Kolbo sidebar. Use after `list_sessions` when they say "call this Hero Sequence" or leftover API daily names should become human titles. Does not move the session or its media.',
+    'Rename a session the user can see in the Kolbo sidebar. Use this to edit a session title in place — never delete and recreate a session just to change its name. Call this immediately after the first generate of a plan bucket so the title matches the production plan (`Cast`, `Locations`, `Scene 03 — rooftop chase`) instead of an API daily name. Also use when the user says "call this Hero Sequence". Does not move the session or its media.',
     {
       session_id: z.string().describe('Session ObjectId from `list_sessions` or a generate_* result.'),
       name: z.string().describe('New sidebar title (1–200 characters).'),
@@ -440,6 +454,135 @@ function registerProjectTools(server, client) {
     async ({ project_id }) => {
       const result = await client.get(`/v1/projects/${encodeURIComponent(project_id)}/profile`);
       return { content: [{ type: 'text', text: JSON.stringify(result.profile, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'list_project_assets',
+    'List the Visual DNAs and moodboards tagged onto a project\'s CAST roster — the @Name / #Name assets this project actually uses. Each DNA row includes its stored description plus a project-scoped `note` ("what this asset is for here"). Call this before editing the cast, writing DNA descriptions, or generating against a named project. Does not list the user\'s whole library — only what is tagged on THIS project.',
+    { project_id: z.string().describe('Project ObjectId from list_projects.') },
+    async ({ project_id }) => {
+      const result = await client.get(`/v1/projects/${encodeURIComponent(project_id)}/assets`);
+      const dnas = result.visual_dnas || [];
+      const moodboards = result.moodboards || [];
+      const text = JSON.stringify({
+        visual_dnas: dnas,
+        moodboards,
+        _hint: 'Edit a DNA\'s identity description with update_project_asset (description) or update_visual_dna. The `note` is project-scoped purpose (update_project_asset note). Link missing assets with link_project_asset — do not delete+recreate.'
+      }, null, 2);
+      return listResult(text, {
+        widget: 'list',
+        title: 'Project cast',
+        items: [
+          ...dnas.map((d) => ({
+            id: d.id,
+            title: '@' + (d.name || d.id),
+            subtitle: [d.dna_type, d.note || d.description].filter(Boolean).join(' · ')
+          })),
+          ...moodboards.map((m) => ({
+            id: m.id,
+            title: '#' + (m.name || m.id),
+            subtitle: ['moodboard', m.note || m.summary].filter(Boolean).join(' · ')
+          }))
+        ],
+        total: dnas.length + moodboards.length
+      });
+    }
+  );
+
+  server.tool(
+    'link_project_asset',
+    'Tag an existing Visual DNA or moodboard onto a project\'s cast roster so it shows up as @Name / #Name for this project (and in the AI cast list). Does NOT copy or recreate the asset. After linking a DNA, write its description with update_project_asset. Optional `note` is the project-scoped purpose ("hero, dark-bg logo").',
+    {
+      project_id: z.string().describe('Project ObjectId.'),
+      asset_type: z.enum(['visual_dna', 'moodboard']).describe('Kind of asset to tag.'),
+      asset_id: z.string().describe('Visual DNA id or moodboard id (from list_visual_dnas / list_moodboards).'),
+      note: z.string().optional().describe('Optional project-scoped purpose note (max 1000 chars).')
+    },
+    async ({ project_id, asset_type, asset_id, note }) => {
+      const result = await client.post(`/v1/projects/${encodeURIComponent(project_id)}/assets/link`, {
+        asset_type,
+        asset_id
+      });
+      let savedNote = null;
+      if (note !== undefined) {
+        const n = await client.put(
+          `/v1/projects/${encodeURIComponent(project_id)}/assets/${encodeURIComponent(asset_type)}/${encodeURIComponent(asset_id)}/note`,
+          { note }
+        );
+        savedNote = n.note;
+      }
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            asset: result.asset,
+            note: savedNote,
+            _hint: asset_type === 'visual_dna'
+              ? 'DNA is on the cast. Write its identity description with update_project_asset (description) — do not delete and recreate.'
+              : 'Moodboard is on the cast. Set a purpose note with update_project_asset if needed.'
+          }, null, 2)
+        }]
+      };
+    }
+  );
+
+  server.tool(
+    'unlink_project_asset',
+    'Remove a Visual DNA or moodboard from a project\'s cast roster. The asset itself stays in the user\'s library — this only untags it from the project. Do NOT use this to edit a description; that is update_project_asset / update_visual_dna.',
+    {
+      project_id: z.string().describe('Project ObjectId.'),
+      asset_type: z.enum(['visual_dna', 'moodboard']).describe('Kind of asset to untag.'),
+      asset_id: z.string().describe('Asset id from list_project_assets.')
+    },
+    async ({ project_id, asset_type, asset_id }) => {
+      const result = await client.delete(
+        `/v1/projects/${encodeURIComponent(project_id)}/assets/${encodeURIComponent(asset_type)}/${encodeURIComponent(asset_id)}`
+      );
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'update_project_asset',
+    'Edit a tagged project-cast asset in place. `description` writes the Visual DNA\'s identity text (the thing @Name injects — same as update_visual_dna prompt_helper). `note` is the project-scoped purpose ("what this asset is for HERE", fed into the AI cast roster). Pass either or both. NEVER unlink+relink or delete+recreate a DNA to change its description. Moodboards: `note` only here; use update_moodboard for style/images.',
+    {
+      project_id: z.string().describe('Project ObjectId.'),
+      asset_type: z.enum(['visual_dna', 'moodboard']).describe('Kind of tagged asset.'),
+      asset_id: z.string().describe('Asset id from list_project_assets.'),
+      description: z.string().optional().describe('For visual_dna: new identity description (replaces prompt_helper on the DNA itself). Ignored for moodboards.'),
+      note: z.string().optional().describe('Project-scoped purpose note (max 1000 chars). Pass "" to clear.')
+    },
+    async ({ project_id, asset_type, asset_id, description, note }) => {
+      if (description === undefined && note === undefined) {
+        throw new Error('Provide description and/or note');
+      }
+      const out = {};
+      if (note !== undefined) {
+        const n = await client.put(
+          `/v1/projects/${encodeURIComponent(project_id)}/assets/${encodeURIComponent(asset_type)}/${encodeURIComponent(asset_id)}/note`,
+          { note }
+        );
+        out.note = n.note;
+      }
+      if (description !== undefined) {
+        if (asset_type !== 'visual_dna') {
+          throw new Error('description is only valid for asset_type=visual_dna — use update_moodboard for moodboard style notes');
+        }
+        const dna = await client.put(`/v1/visual-dna/${encodeURIComponent(asset_id)}`, {
+          prompt_helper: description
+        });
+        out.visual_dna = dna.visual_dna || dna;
+      }
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            ...out,
+            _hint: 'Cast asset updated in place. Keep using the same id and @Name.'
+          }, null, 2)
+        }]
+      };
     }
   );
 

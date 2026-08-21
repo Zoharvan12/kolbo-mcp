@@ -153,6 +153,7 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | Tool | Description |
 |------|-------------|
 | `create_visual_dna` | Create a profile from URLs or local files |
+| `update_visual_dna` | Edit name, description, stills, sheet, or type in place (never delete+recreate) |
 | `list_visual_dnas` | List your profiles |
 | `get_visual_dna` | Fetch one profile |
 | `delete_visual_dna` | Delete a profile |
@@ -162,6 +163,7 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 |------|-------------|
 | `list_moodboards` | Browse presets + your moodboards |
 | `get_moodboard` | Fetch one moodboard with all image URLs |
+| `create_moodboard` / `update_moodboard` / `delete_moodboard` | Create / edit in place / delete |
 
 **Color DNA** — sticky, account-wide: the ACTIVE palette strict-grades every generation until deactivated. Opt a single generation out with `skip_color_palette`.
 | Tool | Description |
@@ -238,7 +240,8 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `list_voices` | TTS voices (presets + cloned) |
 | `list_presets` | Generation presets across image/image-edit/video/music/text-to-video catalogs. Pass the selected exact id as `preset_id`; never claim a preset was applied without it. |
 | `list_cinematic_presets` | "Cinema mode" presets grouped by dimension (camera, lens, focal_length, aperture, angle, shot_type, color_palette, lighting) — pass ids via the `cinematic` arg on `generate_image` / `generate_image_edit`. Only when the user wants a specific cinematic look |
-| `list_projects` | List owned + shared projects (id, name, role, is_default) — call first to resolve a project name into the `project_id` you pass to generation tools |
+| `list_projects` | List owned + shared projects (id, name, description, role, is_default) — call first to resolve a project name into the `project_id` you pass to generation tools |
+| `get_project` | Full project record including the unclipped description — read this before `update_project` |
 | `move_session` | Move ONE session (generation, chat, transcription…) and ALL its generations + media to another project |
 | `bulk_move_sessions` | Move up to 100 sessions into one project in a single call — mixed types allowed, per-session failures reported |
 | `list_session_generations` | A session's generations as complete groups (prompt + all its outputs) — the ids the two organize tools below take |
@@ -246,7 +249,7 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `split_session` | Carve selected generations out into a brand-new named session, atomically |
 | `undo_session_organization` | Reverse a move/split within 15 minutes, using the `operation_id` it returned |
 | `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | AI Docs (Magic Pad): author project-scoped HTML documents, edit them, get public share links |
-| `generate_character_sheet` | Generate a multi-angle character sheet from reference images (credits) → pass URL to create_visual_dna for stronger character consistency |
+| `generate_character_sheet` | Generate a multi-angle character sheet from reference images (credits) → pass URL to create_visual_dna or update_visual_dna |
 | `list_visual_dna_folders` / `create_visual_dna_folder` / `update_visual_dna_folder` / `delete_visual_dna_folder` / `move_visual_dna_to_folder` | Organize Visual DNA characters into user folders (create/rename/recolor/delete + move DNAs in/out) |
 | `create_project` / `update_project` / `archive_project` / `unarchive_project` | Project lifecycle (create/rename/describe/archive; deletion stays in-app) |
 | `list_agents` / `create_agent` / `update_agent` / `delete_agent` | Custom chat agents (reusable named personas; `description` is the system instruction) |
@@ -254,6 +257,7 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `list_sessions` | Enumerate sessions across all types, filterable by project, `type`, and `types[]` |
 | `rename_session` / `delete_session` / `restore_session` | Rename a session; soft-delete leftovers after a move; restore from trash |
 | `add_project_context` / `list_project_context` / `delete_project_context` / `get_project_profile` / `regenerate_project_profile` | Project knowledge base (RAG): feed scripts/URLs/notes, read the synthesized living brief |
+| `list_project_assets` / `link_project_asset` / `unlink_project_asset` / `update_project_asset` | Project cast: tag Visual DNAs / moodboards onto a project, write each DNA's description and purpose note |
 | `create_moodboard` / `update_moodboard` / `delete_moodboard` | Build/edit moodboards from image URLs (AI style analysis → master prompt) |
 | `clone_voice` / `import_elevenlabs_voice` / `delete_voice` | Custom voices: clone from an audio sample, import by ElevenLabs ID, delete |
 | `trim_video` | Frame-accurate server-side trim of a Kolbo-hosted video (async job, tool waits) |

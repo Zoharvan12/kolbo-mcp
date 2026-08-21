@@ -451,17 +451,25 @@ class KolboClient {
   // poll loop, which does its own capped backoff in polling.js) still surfaces
   // the 429 straight to the caller, now with the wait spelled out in the message.
   async postMultipart(reqPath, formData) {
+    return this._multipart('POST', reqPath, formData);
+  }
+
+  async putMultipart(reqPath, formData) {
+    return this._multipart('PUT', reqPath, formData);
+  }
+
+  async _multipart(method, reqPath, formData) {
     if (!this.apiKey) await this._ensureLogin();
     return retryOnce429(async () => {
-      const result = await this._doMultipart(reqPath, formData);
+      const result = await this._doMultipart(method, reqPath, formData);
       if (result._status === 401 && this._tryRefreshKey()) {
-        return this._doMultipart(reqPath, formData);
+        return this._doMultipart(method, reqPath, formData);
       }
       return result;
     });
   }
 
-  async _doMultipart(reqPath, formData) {
+  async _doMultipart(method, reqPath, formData) {
     const url = `${this.baseUrl}${reqPath}`;
     const headers = {
       'X-API-Key': this.apiKey,
@@ -484,7 +492,7 @@ class KolboClient {
     let response;
     try {
       response = await fetch(url, {
-        method: 'POST',
+        method,
         headers,
         body,
         signal: composed.signal
@@ -493,12 +501,12 @@ class KolboClient {
       if (isAbortError(err)) {
         if (callerSignal?.aborted) {
           throw new KolboApiError(
-            `Upload cancelled by caller: POST ${reqPath}`,
+            `Upload cancelled by caller: ${method} ${reqPath}`,
             { code: 'REQUEST_CANCELLED', status: 499 }
           );
         }
         throw new KolboApiError(
-          `Upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s: POST ${reqPath} ` +
+          `Upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s: ${method} ${reqPath} ` +
           `(${Math.round(body.length / 1024)}KB). Raise KOLBO_UPLOAD_TIMEOUT_MS for slow links.`,
           { code: 'UPLOAD_TIMEOUT', status: 504 }
         );
