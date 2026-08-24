@@ -53,10 +53,16 @@ assert.ok(/\.k-cell-fill\s*\{[^}]*object-fit:\s*contain/s.test(generationHtml),
   'generation batch media is cropped with object-fit: cover');
 assert.ok(/\.k-media img, \.k-media video\s*\{[^}]*object-fit:\s*contain/s.test(generationHtml),
   'generation media tiles do not preserve the full frame');
-assert.ok(/\.k-cell \.k-cell-media img\s*\{[^}]*object-fit:\s*contain/s.test(mediaGridHtml),
-  'media/preset grid thumbnails are cropped with object-fit: cover');
+assert.ok(/insertText\(String\(item.id\)\)/.test(mediaGridHtml),
+  'media-grid Use must paste the item id, not send a prompt sentence');
 assert.ok(/object-fit:contain;background:#000/.test(mediaGridHtml),
   'in-place media grid video playback is cropped');
+
+const listHtml = widgetHtml(UI.list);
+assert.ok(/-webkit-line-clamp:\s*2/.test(listHtml),
+  'list subtitles must clamp so a DNA description cannot blow the row open');
+assert.ok(/insertText\(String\(item.id\)\)/.test(listHtml),
+  'list Use/click must paste the item id, not send a prompt sentence');
 assert.ok(/k-text-tools/.test(generationHtml), 'prompt toolbar class missing');
 assert.ok(/data-act=.copy/.test(generationHtml), 'copy control missing');
 assert.ok(/data-act=.expand/.test(generationHtml), 'expand control missing');
@@ -92,6 +98,7 @@ const genSrc = blocks(widgetHtml(UI.generation)).slice(1).join('\n'); // skip th
 function mountWidget() {
   const ids = new Map();
   const calls = [];
+  const links = [];
   const timers = [];
   let ioCallback = null;
 
@@ -113,7 +120,9 @@ function mountWidget() {
         calls.push({ name, args });
         return Promise.resolve({ content: [{ type: 'text', text: JSON.stringify(window.__status) }] });
       },
-      sendMessage() {}, openLink() {}, copyText() { return Promise.resolve(); },
+      sendMessage() {}, insertText() { return Promise.resolve(); },
+      openLink(url) { links.push(url); },
+      copyText() { return Promise.resolve(); },
       updateModelContext() {}, notifySize() {},
       requestDisplayMode: () => Promise.resolve({ mode: 'inline' }),
     },
@@ -128,8 +137,10 @@ function mountWidget() {
 
   return {
     calls,
+    links,
     html: (id) => document.getElementById(id).innerHTML,
     node: (id) => document.getElementById(id),
+    click: (id) => { const n = document.getElementById(id); if (n && n.onclick) n.onclick(); },
     deliver: (structuredContent) => window.__onResult({ structuredContent }),
     status: (s) => { window.__status = s; },
     scrollIntoView: () => ioCallback([{ isIntersecting: true }]),
@@ -365,7 +376,7 @@ function mountList() {
       ready(f) { readyFn = f; },
       onToolResult(f) { window.__onResult = f; },
       onToolInput() {}, onThemeChange() {},
-      sendMessage() {}, openLink() {}, notifySize() {},
+      sendMessage() {}, insertText() { return Promise.resolve(); }, openLink() {}, notifySize() {},
     },
   };
   const src = blocks(widgetHtml(UI.list)).slice(1).join('\n');
@@ -413,6 +424,57 @@ function listWidgetLeavesLoading() {
   assert.ok(genHost.html('stage').includes('Hero Sequence'), 'generation fallback did not render sessions[] as a list');
 }
 
+async function openInKolboOpensTheSession() {
+  const MP4 = 'https://media.kolbo.ai/clip.mp4';
+  const SID = '64aaaaaaaaaaaaaaaaaaaaaa';
+  const w = mountWidget();
+  w.status({ state: 'completed', result: { urls: [MP4] } });
+  w.deliver({
+    phase: 'generating', widget: 'generation', kind: 'video',
+    tool: 'generate_elements', generation_id: 'gen-el',
+    poll_tool: 'get_generation_status',
+    session_id: SID, project_id: 'proj-1',
+    open_url: 'https://app.kolbo.ai/video-tools?session=' + SID + '&tool=image-to-video&mode=elements&project=proj-1',
+  });
+  w.scrollIntoView();
+  w.drain();
+  await flush();
+  w.click('btn-open');
+  assert.ok(w.links[0] && w.links[0].includes('session=' + SID),
+    'Open in Kolbo lost the session after the status poll merged in');
+  assert.ok(w.links[0].includes('mode=elements'), 'Open in Kolbo dropped the elements mode');
+
+  const rebuilt = mountWidget();
+  rebuilt.deliver({
+    phase: 'completed', widget: 'generation', kind: 'video',
+    tool: 'generate_elements', urls: [MP4], session_id: SID,
+  });
+  rebuilt.click('btn-open');
+  assert.strictEqual(
+    rebuilt.links[0],
+    'https://app.kolbo.ai/video-tools?session=' + SID + '&tool=image-to-video&mode=elements',
+    'Open in Kolbo did not rebuild the session URL from session_id'
+  );
+
+  const home = mountWidget();
+  home.deliver({
+    phase: 'completed', widget: 'generation', kind: 'video',
+    tool: 'generate_elements', urls: [MP4],
+  });
+  home.click('btn-open');
+  assert.strictEqual(home.links[0], 'https://app.kolbo.ai', 'missing session still falls back to the app home');
+}
+
+{
+  const { buildOpenUrl } = require('../src/tools/_shared');
+  const sid = '64bbbbbbbbbbbbbbbbbbbbbb';
+  assert.ok(buildOpenUrl('generate_elements', { session_id: sid }).includes('mode=elements'),
+    'elements Open in Kolbo URL is missing mode=elements');
+  assert.ok(buildOpenUrl('get_generation_status', { session_id: sid, type: 'elements' }).includes('session=' + sid),
+    'status poll cannot rebuild Open in Kolbo from SDK type');
+  assert.equal(buildOpenUrl('generate_elements', {}), undefined);
+}
+
 (async () => {
   await batchStaysOneGrid({ kind: 'image', tool: 'generate_image', ext: 'png' });
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
@@ -422,8 +484,10 @@ function listWidgetLeavesLoading() {
   promptToolsStayOffTheText();
   stopNeedsASecondClick();
   listWidgetLeavesLoading();
+  await openInKolboOpensTheSession();
   console.log('✓ widget scripts parse; image + image-to-video batches stay one grouped grid; offscreen cards stay idle; '
     + 'completed cards name the model + voice that actually ran; all reference images render; '
     + 'list widgets leave Loading from sessions[] / generations[] / hostContext; '
-    + 'long prompts expand from a button, not a click on the text');
+    + 'long prompts expand from a button, not a click on the text; '
+    + 'Open in Kolbo deep-links the generation session');
 })().catch((e) => { console.error(e); process.exit(1); });

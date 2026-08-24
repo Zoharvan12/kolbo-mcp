@@ -458,8 +458,8 @@ const OPEN_URL_ROUTES = {
   edit_image:                 { path: '/image-tools', tool: 'image-editing' },
   generate_video:             { path: '/video-tools', tool: 'text-to-video' },
   generate_video_from_image:  { path: '/video-tools', tool: 'image-to-video' },
-  generate_elements:          { path: '/video-tools', tool: 'image-to-video' },
-  generate_first_last_frame:  { path: '/video-tools', tool: 'image-to-video' },
+  generate_elements:          { path: '/video-tools', tool: 'image-to-video', mode: 'elements' },
+  generate_first_last_frame:  { path: '/video-tools', tool: 'image-to-video', mode: 'first-last' },
   generate_video_from_video:  { path: '/video-tools', tool: 'video-to-video' },
   generate_lipsync:           { path: '/video-tools', tool: 'lipsync' },
   generate_music:             { path: '/audio-tools', tool: 'music-generator' },
@@ -468,6 +468,35 @@ const OPEN_URL_ROUTES = {
   transcribe_audio:           { path: '/audio-tools', tool: 'speech-to-text' },
   generate_creative_director: { path: '/creative-director' },
 };
+// SDK tracking `type` on get_generation_status — same session model as the
+// generate_* tool that created the job, so "Open in Kolbo" still deep-links
+// after a status poll overwrites the live card.
+const TYPE_TO_TOOL = {
+  image: 'generate_image',
+  image_edit: 'generate_image_edit',
+  global_image_edit: 'edit_image',
+  video: 'generate_video',
+  video_from_image: 'generate_video_from_image',
+  elements: 'generate_elements',
+  first_last_frame: 'generate_first_last_frame',
+  video_from_video: 'generate_video_from_video',
+  lipsync: 'generate_lipsync',
+  music: 'generate_music',
+  speech: 'generate_speech',
+  sound: 'generate_sound',
+  transcription: 'transcribe_audio',
+  creative_director: 'generate_creative_director',
+};
+
+function sessionOf(gen) {
+  if (!gen || typeof gen !== 'object') return undefined;
+  return gen.session_id || gen.sessionId || undefined;
+}
+
+function projectOf(gen) {
+  if (!gen || typeof gen !== 'object') return undefined;
+  return gen.project_id || gen.projectId || undefined;
+}
 
 /**
  * Build the "Open in Kolbo" deep link for a generation's actual session.
@@ -476,12 +505,28 @@ const OPEN_URL_ROUTES = {
  * kolbo-api, shorts render, 3D).
  */
 function buildOpenUrl(tool, gen) {
-  const route = OPEN_URL_ROUTES[tool];
-  if (!route || !gen || !gen.session_id) return undefined;
-  let url = `${APP_BASE_URL}${route.path}?session=${encodeURIComponent(gen.session_id)}`;
+  const sid = sessionOf(gen);
+  if (!sid) return undefined;
+  const key = OPEN_URL_ROUTES[tool] ? tool : (TYPE_TO_TOOL[gen && gen.type] || TYPE_TO_TOOL[tool]);
+  const route = OPEN_URL_ROUTES[key];
+  if (!route) return undefined;
+  let url = `${APP_BASE_URL}${route.path}?session=${encodeURIComponent(sid)}`;
   if (route.tool) url += `&tool=${route.tool}`;
-  if (gen.project_id) url += `&project=${encodeURIComponent(gen.project_id)}`;
+  if (route.mode) url += `&mode=${route.mode}`;
+  const pid = projectOf(gen);
+  if (pid) url += `&project=${encodeURIComponent(pid)}`;
   return url;
+}
+
+function linkFields(tool, gen) {
+  const sid = sessionOf(gen);
+  const pid = projectOf(gen);
+  const href = buildOpenUrl(tool, gen);
+  return {
+    ...(sid ? { session_id: String(sid) } : {}),
+    ...(pid ? { project_id: String(pid) } : {}),
+    ...(href ? { open_url: href } : {}),
+  };
 }
 
 /**
@@ -723,7 +768,7 @@ async function uiGenerating(p) {
     // `reference_image` is retained for older widget builds. New widgets render
     // every browser-loadable image supplied to the generation.
     ...mediaRefs(p),
-    open_url: buildOpenUrl(p.tool, p.gen),
+    ...linkFields(p.tool, p.gen),
   };
   // Batch mode (prompts[] fan-out): ONE widget tracks every id in the set.
   if (Array.isArray(p.generation_ids) && p.generation_ids.length > 1) {
@@ -741,7 +786,7 @@ async function uiGenerating(p) {
     ...(p.failed_submissions && p.failed_submissions.length
       ? { failed_submissions: p.failed_submissions } : {}),
     ...(p.warning ? { _warning: p.warning } : {}),
-    _widget_note: 'A live Kolbo widget is rendering this generation for the user (progress + final result + action buttons). Tell the user it is generating and the card above will update — do NOT poll in a loop. If you need the output URLs (e.g. for a follow-up edit or a report), call get_generation_status ONCE with wait=true — it blocks until done. Tracking several generations? Pass ALL their ids in generation_ids in that one call.',
+    _widget_note: 'A live Kolbo widget is rendering this generation for the user (progress + final result + action buttons). Tell the user it is generating and the card above will update. CREDIT GUARD: END YOUR TURN now — do not keep Thinking, writing skills/files, or planning while the card spins (that burns coding credits). Do NOT poll in a loop. If you need the output URLs for a follow-up step, call get_generation_status ONCE with wait=true as the only next tool — it blocks until done. Tracking several generations? Pass ALL their ids in generation_ids in that one call.',
     _paid_note: 'This generation is RUNNING and the user is paying for it. If you now realize the tool, model, or parameters were wrong, call cancel_generation with this generation_id FIRST, then start the replacement — never leave a wrong generation running alongside its retry (the user gets two cards and two charges).',
   }, null, 2);
   return uiResult(UI.generation, text, structured);
@@ -819,7 +864,7 @@ async function uiCompleted(p, textPayload, extraContent) {
     // resolved as completed-with-no-media and painted a red failure card.
     ...(p.state ? { state: p.state } : {}),
     credits_used: p.credits_used,
-    open_url: buildOpenUrl(p.tool, p.gen),
+    ...linkFields(p.tool, p.gen),
   };
   const out = uiResult(UI.generation, textPayload, structured);
   if (Array.isArray(extraContent) && extraContent.length) {
@@ -913,6 +958,7 @@ module.exports = {
   projectScopeReadField,
   inlineImageBlocks,
   buildOpenUrl,
+  linkFields,
   buildProjectUrl,
   uiGenerating,
   uiCompleted,

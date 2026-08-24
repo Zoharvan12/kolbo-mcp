@@ -4,8 +4,14 @@
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
 const { z } = require('zod');
-const { buildProjectUrl } = require('./_shared');
+const { buildProjectUrl, compactList } = require('./_shared');
 const { listResult } = require('../apps');
+
+function blurb(text) {
+  const s = String(text || '').replace(/\s+/g, ' ').trim();
+  if (s.length <= 96) return s;
+  return s.slice(0, 96).replace(/\s+\S*$/, '') + '…';
+}
 
 function registerProjectTools(server, client) {
   // ─── list_projects ─────────────────────────────────────────
@@ -465,11 +471,33 @@ function registerProjectTools(server, client) {
       const result = await client.get(`/v1/projects/${encodeURIComponent(project_id)}/assets`);
       const dnas = result.visual_dnas || [];
       const moodboards = result.moodboards || [];
-      const text = JSON.stringify({
-        visual_dnas: dnas,
-        moodboards,
-        _hint: 'Edit a DNA\'s identity description with update_project_asset (description) or update_visual_dna. The `note` is project-scoped purpose (update_project_asset note). Link missing assets with link_project_asset — do not delete+recreate.'
-      }, null, 2);
+      const text = compactList(
+        [
+          ...dnas.map((d) => ({
+            id: d.id,
+            name: d.name,
+            dna_type: d.dna_type,
+            thumbnail: d.thumbnail_url || d.thumbnail,
+            note: blurb(d.note),
+            description: blurb(d.description),
+          })),
+          ...moodboards.map((m) => ({
+            id: m.id,
+            name: m.name,
+            dna_type: 'moodboard',
+            thumbnail: m.thumbnail_url || m.thumbnail,
+            note: blurb(m.note),
+            description: blurb(m.summary),
+          })),
+        ],
+        {
+          fields: ['id', 'name', 'dna_type', 'thumbnail', 'note', 'description'],
+          cap: 80,
+          total: dnas.length + moodboards.length,
+          extra: { visual_dna_count: dnas.length, moodboard_count: moodboards.length },
+          note: 'Edit identity text with update_project_asset (description) or update_visual_dna. `note` is project-scoped purpose. Link missing assets with link_project_asset — do not delete+recreate.',
+        },
+      );
       return listResult(text, {
         widget: 'list',
         title: 'Project cast',
@@ -477,13 +505,17 @@ function registerProjectTools(server, client) {
           ...dnas.map((d) => ({
             id: d.id,
             title: '@' + (d.name || d.id),
-            subtitle: [d.dna_type, d.note || d.description].filter(Boolean).join(' · ')
+            subtitle: blurb(d.note || d.description),
+            thumbnail: d.thumbnail_url || d.thumbnail,
+            badge: d.dna_type,
           })),
           ...moodboards.map((m) => ({
             id: m.id,
             title: '#' + (m.name || m.id),
-            subtitle: ['moodboard', m.note || m.summary].filter(Boolean).join(' · ')
-          }))
+            subtitle: blurb(m.note || m.summary),
+            thumbnail: m.thumbnail_url || m.thumbnail,
+            badge: 'moodboard',
+          })),
         ],
         total: dnas.length + moodboards.length
       });

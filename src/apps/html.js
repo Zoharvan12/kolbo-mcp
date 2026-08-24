@@ -136,7 +136,8 @@ function modelChipHTML(name, iconUrl) {
   return '<span class="k-chip brand">' + inner + esc(name) + '</span>';
 }
 function monogram(name) {
-  return '<span class="k-mono-icon">' + esc(String(name).trim().charAt(0).toUpperCase()) + '</span>';
+  var ch = String(name || '').replace(/^[@#]+/, '').trim().charAt(0) || '?';
+  return '<span class="k-mono-icon">' + esc(ch.toUpperCase()) + '</span>';
 }
 // In-widget preview overlay — every card (generation chips, media grid, list
 // rows) uses this so a DNA / reference / library thumb opens a popup in Kolbo

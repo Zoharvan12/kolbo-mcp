@@ -340,7 +340,8 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
   background: var(--brand-soft); }
 .k-audio-meta { flex: 1; min-width: 0; }
 .k-audio-title { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.k-audio-sub { font-size: 11px; color: var(--text-faint); }
+.k-audio-sub { font-size: 11px; color: var(--text-faint);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .k-generated-audio {
   display: grid; grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center; gap: 7px 10px;
