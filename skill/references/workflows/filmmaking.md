@@ -30,6 +30,15 @@ Read [routing.md](references/filmmaking/routing.md) for the full decision rules.
 | Revise one failed behavior without losing what worked | Workbench | `validation.md` and the relevant craft reference |
 | Multi-scene, episode, commercial, music video, or feature workflow | Production | `production-bible.md`, `workflows.md`, `validation.md` |
 
+Craft packs named in the table above (load only what the shot needs):
+[scene-engine.md](references/filmmaking/scene-engine.md) ·
+[asset-preproduction.md](references/filmmaking/asset-preproduction.md) ·
+[acting-direction.md](references/filmmaking/acting-direction.md) ·
+[blocking-continuity.md](references/filmmaking/blocking-continuity.md) ·
+[cinematography.md](references/filmmaking/cinematography.md) ·
+[physics-action.md](references/filmmaking/physics-action.md) ·
+[audio-dialogue-music.md](references/filmmaking/audio-dialogue-music.md)
+
 For Seedance 2.5, always read [seedance-2-5.md](references/models/seedance25.md) before final compilation. Treat capability numbers as a dated adapter snapshot and verify them against current provider/catalog truth when real money or production delivery depends on them.
 
 ## Keep two layers separate
