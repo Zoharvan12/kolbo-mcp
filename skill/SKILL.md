@@ -1,5 +1,5 @@
 ---
-version: 0.9.9
+version: 0.9.10
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images,
@@ -300,14 +300,6 @@ Four surfaces show the same job. Use this map — never invent a fifth:
 
 **Checking status — NEVER poll in a loop.** `get_generation_status` takes `wait=true` (blocks server-side until done, ~3 min) and `generation_ids` (check MANY generations in ONE call — returns `all_done` + which are still running). One `wait=true` call replaces any polling loop: check ALL in-flight ids in ONE call, never one by one, never without `wait`. If it comes back with some still processing, call it ONCE more with `wait=true` and the remaining ids.
 
-**🛑 Runaway-loop guard — ONE generation per requested item.** When the user asks for **one specific change**, the answer is **a single tool call**. After URLs return, **stop**. Surface and wait. You are NOT allowed to:
-- Fire the same tool 3+ times in a single turn unless the user explicitly asked for "N variations".
-- Re-fire because you think the result might not be exactly what the user wanted.
-- Auto-retry on success.
-- Fire 5+ parallel `generate_video*` calls speculatively.
-
-**Only re-fire when:** user explicitly asked for variations with a count, OR previous call returned `failure.retryable === true` (ONE retry), OR previous call returned `completed` but `urls.length === 0` (ONE retry).
-
 **Detecting failure — a generation can fail three ways. Treat ALL as failure:**
 
 1. **Tool returns `error`** — explicit. Surface, suggest retry, log `generation_id`.
@@ -367,6 +359,18 @@ Write each session's `session_id` + plan name into `.kolbo/production.md` `### S
 **Never loop `generate_image` sequentially.** Either Creative Director or one parallel batch.
 
 **Parameter gotcha:** `num_images` (1–4, same prompt different seeds) on `generate_image` vs `scene_count` (1–8, distinct prompt per scene) on `generate_creative_director`. **Never pass `num_images` to Creative Director.**
+
+## 🛑 Runaway-Loop Guard — ONE Generation per Requested Item (CRITICAL)
+
+When the user asks for **one specific change**, the answer is **a single tool call**. After URLs return, **stop**. Surface and wait.
+
+You are NOT allowed to:
+- Fire the same tool 3+ times in a single turn unless the user explicitly asked for "N variations".
+- Re-fire because you think the result might not be exactly what the user wanted.
+- Auto-retry on success.
+- Fire 5+ parallel `generate_video*` calls speculatively.
+
+**Only re-fire when:** user explicitly asked for variations with a count, OR previous call returned `failure.retryable === true` (ONE retry), OR previous call returned `completed` but `urls.length === 0` (ONE retry).
 
 ## ⚠️ Editing an Existing Video → ONE Call, Not Frames-First (CRITICAL)
 
