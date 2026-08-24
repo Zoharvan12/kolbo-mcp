@@ -716,8 +716,11 @@ function mediaRefs(p) {
     ? p.reference_images.filter(Boolean)
     : (p.reference_image ? [p.reference_image] : []);
   return {
-    reference_images: images,
-    reference_image: p.reference_image || images[0],
+    // Omitted when empty: a live card MERGES status payloads over its own
+    // state, so a present-but-empty reference_images (the single-id status
+    // path has no input refs of its own) wiped the submit-time thumbnails
+    // off the finished card.
+    ...(images.length ? { reference_images: images, reference_image: p.reference_image || images[0] } : {}),
     ...(Array.isArray(p.reference_videos) && p.reference_videos.length
       ? { reference_videos: p.reference_videos.filter(Boolean) } : {}),
     ...(Array.isArray(p.reference_audio) && p.reference_audio.length

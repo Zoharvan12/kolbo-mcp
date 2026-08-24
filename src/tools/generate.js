@@ -282,7 +282,10 @@ function registerGenerateTools(server, client, options = {}) {
       return uiCompleted({
         tool: 'generate_image', kind: 'image', gen, client, model, prompt,
         count: num_images, settings: imageSettings(shared),
-        reference_images,
+        // The status result reports what the server ACTUALLY conditioned on
+        // (reference_details: DNA stills, merged sources, auto-routing) — the
+        // input arg is only what the caller happened to name.
+        reference_images: result.result.reference_images || reference_images,
         urls: result.result.urls,
         credits_used: creditFields(result).credits_used,
       }, JSON.stringify({
@@ -371,7 +374,8 @@ function registerGenerateTools(server, client, options = {}) {
       return uiCompleted({
         tool: 'generate_image_edit', kind: 'image', gen, client, model, prompt,
         count: num_images, settings: imageSettings(shared),
-        reference_images: [...(source_images || []), ...(reference_images || [])],
+        reference_images: result.result.reference_images
+          || [...(source_images || []), ...(reference_images || [])],
         urls: result.result.urls,
         credits_used: creditFields(result).credits_used,
       }, JSON.stringify({
@@ -1096,6 +1100,11 @@ function registerGenerateTools(server, client, options = {}) {
           state: single.state,
           urls: done ? urls : undefined,
           thumbnail_url: res.thumbnail_url,
+          // The refs the server actually conditioned on (reference_details) —
+          // the live card merges this payload over its submit-time state, so
+          // the finished card shows every reference, including server-side
+          // additions (DNA stills, merged sources) the tool call never named.
+          reference_images: res.reference_images,
           prompt: res.prompt_used || res.prompt || undefined,
           credits_used: creditFields(single).credits_used,
           items: [{
@@ -1136,9 +1145,19 @@ function registerGenerateTools(server, client, options = {}) {
       // moodboards.js / visual_dna.js / listResult(). uiResult always embeds
       // both text and structuredContent, so hosts without a UI-app renderer
       // are unaffected — only the fallback quality changes.
+      // A live batch card (prompts[] fan-out) merges this payload over its
+      // submit-time state, so a hardcoded 'Generations' model here painted
+      // over the real model chip on every finished batch. When all results
+      // ran the same model (the batch case), name it; only a genuinely mixed
+      // multi-id check falls back to the generic label. Same for the
+      // references actually used — one shared set per batch.
+      const modelsRan = [...new Set(results.map(r => r.result && r.result.model).filter(Boolean))];
+      const actualRefs = results
+        .map(r => r.result && r.result.reference_images)
+        .find(refs => Array.isArray(refs) && refs.length);
       return uiCompleted({
         tool: 'get_generation_status', kind: 'status', client,
-        model: 'Generations',
+        model: modelsRan.length === 1 ? modelsRan[0] : 'Generations',
         gen: {
           generation_id: ids[0],
           session_id: results[0] && results[0].session_id,
@@ -1146,6 +1165,7 @@ function registerGenerateTools(server, client, options = {}) {
           type: results[0] && results[0].type,
         },
         settings: {},
+        reference_images: actualRefs,
         items: results.map(r => {
           const res = r.result || {};
           return {
