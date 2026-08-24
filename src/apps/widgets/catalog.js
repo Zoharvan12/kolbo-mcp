@@ -67,7 +67,7 @@ function boot(sc) {
   Array.prototype.forEach.call(document.querySelectorAll('[data-g]'), function (row) {
     row.onclick = function () {
       var m = state.groups[+row.getAttribute('data-g')].models[+row.getAttribute('data-m')];
-      window.kolbo.sendMessage(m.use_hint || ('Generate something with the "' + m.name + '" model — ask me what I want to make.'));
+      window.kolbo.insertText(m.identifier || m.name || '');
     };
   });
   window.kolbo.notifySize();

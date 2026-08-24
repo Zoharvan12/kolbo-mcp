@@ -20,7 +20,7 @@ const { widgetPage } = require('../html');
  *     badge,                      // small pill, e.g. role/status ("owner", "default", "shared")
  *     meta,                       // small trailing text, e.g. a date or count
  *     open_url,                   // optional — renders an "Open" button (openLink)
- *     use_hint                    // optional — row becomes clickable, sends this on click
+ *     use_hint                    // unused — a click pastes `id` into the composer
  *   }],
  *   total
  * }
@@ -72,7 +72,7 @@ function apply(result) {
 }
 
 function itemHTML(item, i) {
-  var clickable = !!item.use_hint;
+  var clickable = !!item.id;
   var avatar = item.thumbnail
     ? '<img class="k-audio-art k-peek-hit" src="' + esc(item.thumbnail) + '" alt="" loading="lazy"'
       + peekAttrs(item.thumbnail, 'image', item.title)
@@ -98,10 +98,10 @@ function wire() {
   });
   Array.prototype.forEach.call(document.querySelectorAll('.k-audio-row'), function (row) {
     var item = state.items[+row.getAttribute('data-i')];
-    if (!item || !item.use_hint) return;
-    row.onclick = function () {
-      var msg = item.use_hint.replace('{TITLE}', item.title || '').replace('{ID}', item.id || '');
-      window.kolbo.sendMessage(msg);
+    if (!item || !item.id) return;
+    row.onclick = function (e) {
+      if (e.target && e.target.closest && e.target.closest('[data-open],[data-peek]')) return;
+      window.kolbo.insertText(String(item.id));
     };
   });
 }

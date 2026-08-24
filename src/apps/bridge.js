@@ -22,6 +22,7 @@
  *   .onThemeChange(fn)         — fn(hostContext) on host-context-changed
  *   .callTool(name, args)      — Promise<CallToolResult>
  *   .sendMessage(text)         — append a user chat message (returns Promise)
+ *   .insertText(text)          — paste into the host composer, do not send
  *   .openLink(url)             — open external URL
  *   .copyText(text)            — copy via the host clipboard (ui/copy-text)
  *   .notifySize()              — report content size to host
@@ -182,6 +183,9 @@ const BRIDGE_JS = `
     callTool: function (name, args) { return request('tools/call', { name: name, arguments: args || {} }); },
     sendMessage: function (text) {
       return request('ui/message', { role: 'user', content: [{ type: 'text', text: text }] });
+    },
+    insertText: function (text) {
+      return request('ui/insert-text', { text: text });
     },
     openLink: function (url) { return request('ui/open-link', { url: url }); },
     copyText: function (text) { return request('ui/copy-text', { text: text }); },

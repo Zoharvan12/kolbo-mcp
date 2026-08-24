@@ -58,12 +58,12 @@ Or add the config by hand — this block is identical for every MCP client and c
 
 Restart your app, then ask it to generate something. The first time, a Kolbo login opens in your browser — click **Allow** (no API key to create). _Prefer an API key? Create one at [app.kolbo.ai/developer](https://app.kolbo.ai/developer) and add `"env": { "KOLBO_API_KEY": "kolbo_live_..." }` to the block above._
 
-### Browser-only (claude.ai / ChatGPT / Codex): connector + zip
+### Browser-only (claude.ai / ChatGPT / Codex): connector + skill
 
 1. Add the custom connector **`https://api.kolbo.ai/mcp`** under Settings → Connectors, then Connect → log in → Allow.
-2. Download **[`kolbo.zip`](https://github.com/Zoharvan12/kolbo-skills/raw/main/kolbo.zip)** and upload it as a skill (Claude.ai: Settings → Features → Skills; ChatGPT/Codex: Settings → Skills). Codex CLI: unzip into `~/.codex/skills/`.
+2. [Download the Skill](https://kolbo.ai/skills/kolbo.zip) and upload it (Claude.ai: Settings → Features → Skills; ChatGPT/Codex: Settings → Skills). Codex CLI: unzip into `~/.codex/skills/`.
 
-The zip is the canonical routing skill. Without it the tools still work, but the model will not load Seedance / Visual DNA / filmmaking rules.
+The Skill is the canonical routing layer. Without it the tools still work, but the model will not load Seedance / Visual DNA / filmmaking rules.
 
 ### Optional upgrade: add the Kolbo skill for slash-commands + smart routing
 

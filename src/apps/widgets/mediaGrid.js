@@ -14,7 +14,7 @@ const { widgetPage } = require('../html');
  *     id, title, subtitle, thumbnail, media_type: 'image'|'video'|'audio'|'3d',
  *     url,                 // full asset / playback URL
  *     preview_audio,       // audio preview URL (voices, music)
- *     use_hint             // message template sent when "Use" clicked, {URL}/{ID}/{TITLE} substituted
+ *     use_hint             // unused — Use pastes `id` into the composer
  *   }],
  *   total, has_more,
  *   import_tool_hint       // e.g. 'import via import_stock_asset' — shown on Use
@@ -154,11 +154,8 @@ function wire() {
 
 function useItem(i) {
   var item = state.items[i];
-  if (!item) return;
-  var msg = item.use_hint
-    ? item.use_hint.replace('{URL}', item.url || '').replace('{ID}', item.id || '').replace('{TITLE}', item.title || '')
-    : 'Use this asset: "' + (item.title || item.id) + '"\\nURL: ' + (item.url || '') + (item.id ? '\\nID: ' + item.id : '');
-  window.kolbo.sendMessage(msg);
+  if (!item || !item.id) return;
+  window.kolbo.insertText(String(item.id));
 }
 
 window.kolbo.onToolResult(function (result) {

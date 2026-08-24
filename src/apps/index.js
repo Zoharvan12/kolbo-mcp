@@ -630,6 +630,7 @@ const TOOL_WIDGETS = {
   list_docs: UI.list,
   list_media_folders: UI.list,
   list_visual_dna_folders: UI.list,
+  list_project_assets: UI.list,
 };
 
 function attachToolWidgetMeta(server) {

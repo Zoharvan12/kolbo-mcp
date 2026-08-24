@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone, waitWindowMs } = require('../polling');
-const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, sessionIdField, inlineImageBlocks, buildOpenUrl, uiGenerating, uiCompleted, appsEnabled } = require('./_shared');
+const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, sessionIdField, inlineImageBlocks, linkFields, uiGenerating, uiCompleted, appsEnabled } = require('./_shared');
 const { ownedUrl } = require('./owned-url');
 const { UI, uiResult, canonicalModelId, modelInfo, voiceInfo, resolveCatalogAspectRatio } = require('../apps');
 
@@ -1086,7 +1086,13 @@ function registerGenerateTools(server, client, options = {}) {
           // The model that ACTUALLY ran. A single-id check resolves one
           // generation, so 'Generations' here overwrote the real model name on
           // the finished card the moment the live widget merged this payload in.
-          model: res.model || 'Generations', gen: { generation_id: single.generation_id },
+          model: res.model || 'Generations',
+          gen: {
+            generation_id: single.generation_id,
+            session_id: single.session_id,
+            project_id: single.project_id,
+            type: single.type,
+          },
           state: single.state,
           urls: done ? urls : undefined,
           thumbnail_url: res.thumbnail_url,
@@ -1132,7 +1138,13 @@ function registerGenerateTools(server, client, options = {}) {
       // are unaffected — only the fallback quality changes.
       return uiCompleted({
         tool: 'get_generation_status', kind: 'status', client,
-        model: 'Generations', gen: { generation_id: ids[0] },
+        model: 'Generations',
+        gen: {
+          generation_id: ids[0],
+          session_id: results[0] && results[0].session_id,
+          project_id: results[0] && results[0].project_id,
+          type: results[0] && results[0].type,
+        },
         settings: {},
         items: results.map(r => {
           const res = r.result || {};
@@ -1786,7 +1798,7 @@ function registerGenerateTools(server, client, options = {}) {
           poll_tool: 'get_generation_status',
           status_args: { generation_id: startResponse.generation_id, wait: true },
           audio_url: isUrl ? source : undefined,
-          open_url: buildOpenUrl('transcribe_audio', startResponse),
+          ...linkFields('transcribe_audio', startResponse),
         });
       }
 
@@ -2056,7 +2068,7 @@ function registerGenerateTools(server, client, options = {}) {
         'inpaint', 'retake'
       ]).describe([
         'Edit operation:',
-        '"upscale" — boost to 4K/2K resolution (use `scale` for factor, `resolution` for target, `target_fps` for frame rate).',
+        '"upscale" — boost to 4K/2K resolution (use `scale` for factor, `resolution` for target, `target_fps` for frame rate). On model "blackforestlabs/flux-video-upscale" (Flux Video Upscale): `scale` is 1.5-3x (no named `resolution` target — billed on the OUTPUT tier it lands in), `mode` is "precise" (source-faithful, default) or "creative" (reimagines detail — a pricier tier), and `prompt` optionally guides the creative-mode enhancement.',
         '"reframe" — change aspect ratio (requires `aspect_ratio`; use `grid_position_x`/`grid_position_y` to control where the original sits).',
         '"generate_audio" — add AI-generated audio from `prompt`. Optionally split into `sound_effect_prompt` and `background_music_prompt`. Set `original_sound=true` to keep original audio alongside.',
         '"remove_watermark" — AI-powered watermark removal.',
@@ -2074,9 +2086,9 @@ function registerGenerateTools(server, client, options = {}) {
 
       // ── upscale ────────────────────────────────────────────
       scale: z.number().optional()
-        .describe('Upscale factor (e.g. 2, 4). Used with operation="upscale".'),
+        .describe('Upscale factor (e.g. 2, 4). Used with operation="upscale". On "blackforestlabs/flux-video-upscale" the valid range is 1.5-3 (default 2).'),
       resolution: z.string().optional()
-        .describe('Target resolution (e.g. "4k", "2k", "1080p"). Used with "upscale" and "reframe".'),
+        .describe('Target resolution (e.g. "4k", "2k", "1080p"). Used with "upscale" and "reframe". Not used by "blackforestlabs/flux-video-upscale" — use `scale` instead.'),
       target_fps: z.number().optional()
         .describe('Target frame rate (e.g. 24, 30, 60). Used with operation="upscale".'),
       enhancement_model: z.string().optional()
@@ -2092,7 +2104,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       // ── generate_audio ─────────────────────────────────────
       prompt: z.string().optional()
-        .describe('Text prompt. Required for "magic_edit". Used with "generate_audio", "extend", "inpaint", "retake", and optionally "lipsync" (for text-to-speech instead of audio_url).'),
+        .describe('Text prompt. Required for "magic_edit". Used with "generate_audio", "extend", "inpaint", "retake", optionally "lipsync" (for text-to-speech instead of audio_url), and optionally "upscale" on model "blackforestlabs/flux-video-upscale" (guides creative-mode detail enhancement).'),
       sound_effect_prompt: z.string().optional()
         .describe('Separate prompt for sound effects layer. Used with operation="generate_audio" when you want to specify SFX and music independently.'),
       background_music_prompt: z.string().optional()
@@ -2110,7 +2122,7 @@ function registerGenerateTools(server, client, options = {}) {
       duration: z.number().optional()
         .describe('Seconds of content to generate. Used with "extend" (required) and "retake" (optional). Typical range: 1–20.'),
       mode: z.string().optional()
-        .describe('Extension direction: "start" or "end". Used with "extend". For "retake": replacement mode (default: "replace_audio_and_video"). Default: "end".'),
+        .describe('Extension direction: "start" or "end". Used with "extend". For "retake": replacement mode (default: "replace_audio_and_video"). For "upscale" on model "blackforestlabs/flux-video-upscale": "precise" (source-faithful, default) or "creative" (reimagines detail — pricier). Default: "end".'),
       context: z.string().optional()
         .describe('Additional context to guide what gets generated in the extended segment. Used with "extend".'),
 

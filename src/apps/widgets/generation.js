@@ -75,6 +75,34 @@ var TOOL_TITLES = {
   generate_creative_director: 'Creative Director', edit_image: 'Image Edit', edit_video: 'Video Edit',
   get_generation_status: 'Generations'
 };
+var OPEN_ROUTES = {
+  generate_image: { path: '/image-tools', tool: 'text-to-image' },
+  generate_image_edit: { path: '/image-tools', tool: 'image-editing' },
+  edit_image: { path: '/image-tools', tool: 'image-editing' },
+  generate_video: { path: '/video-tools', tool: 'text-to-video' },
+  generate_video_from_image: { path: '/video-tools', tool: 'image-to-video' },
+  generate_elements: { path: '/video-tools', tool: 'image-to-video', mode: 'elements' },
+  generate_first_last_frame: { path: '/video-tools', tool: 'image-to-video', mode: 'first-last' },
+  generate_video_from_video: { path: '/video-tools', tool: 'video-to-video' },
+  generate_lipsync: { path: '/video-tools', tool: 'lipsync' },
+  generate_music: { path: '/audio-tools', tool: 'music-generator' },
+  generate_speech: { path: '/audio-tools', tool: 'text-to-speech' },
+  generate_sound: { path: '/audio-tools', tool: 'text-to-sound' },
+  transcribe_audio: { path: '/audio-tools', tool: 'speech-to-text' },
+  generate_creative_director: { path: '/creative-director' }
+};
+function kolboUrl(sc) {
+  if (sc && typeof sc.open_url === 'string' && sc.open_url) return sc.open_url;
+  var sid = sc && (sc.session_id || sc.sessionId);
+  var route = OPEN_ROUTES[(sc && sc.tool) || originTool];
+  if (!route || !sid) return 'https://app.kolbo.ai';
+  var url = 'https://app.kolbo.ai' + route.path + '?session=' + encodeURIComponent(sid);
+  if (route.tool) url += '&tool=' + route.tool;
+  if (route.mode) url += '&mode=' + route.mode;
+  var pid = sc && (sc.project_id || sc.projectId);
+  if (pid) url += '&project=' + encodeURIComponent(pid);
+  return url;
+}
 
 // Long text is clamped by CSS (.k-prompt 2 lines / .k-caption 1 line). Expand
 // lives on a separate button so the text itself stays selectable.
@@ -488,20 +516,20 @@ function stopNow(sc, spec) {
         var refund = 0;
         sts.forEach(function (s) { if (s.credits_refunded) refund += s.credits_refunded; });
         return {
-          cancelled: sts.some(function (s) { return s.cancelled !== false; }),
+          cancelled: sts.some(function (s) { return s.cancelled === true; }),
           credits_refunded: refund || undefined
         };
       })
     : window.kolbo.callTool(spec.tool, spec.args).then(function (r) { return structured(r) || {}; });
-  call.then(function (st) {
-    if (st.cancelled === false) {
-      // Already terminal — let the normal poll path report the real outcome
-      // instead of claiming a cancel that did not happen.
-      cancelRequested = false;
-      renderStopButton(sc);
-      return schedulePoll(sc);
-    }
-    renderCancelled(st.credits_refunded);
+    call.then(function (st) {
+      if (!st || st.cancelled !== true) {
+        // Empty host ack used to land here as {} and the card painted
+        // cancelled while the job kept running. Only an explicit cancel counts.
+        cancelRequested = false;
+        renderStopButton(sc);
+        return schedulePoll(sc);
+      }
+      renderCancelled(st.credits_refunded);
   }).catch(function () {
     cancelRequested = false;
     renderStopButton(sc);
@@ -608,7 +636,12 @@ function poll(sc) {
       var done = Object.assign({}, sc, r, {
         phase: 'completed',
         urls: r.urls || st.urls || [],
-        credits_used: st.credits_used != null ? st.credits_used : sc.credits_used
+        credits_used: st.credits_used != null ? st.credits_used : sc.credits_used,
+        // Status structuredContent used to set open_url:undefined and wipe the
+        // session deep-link the generating card already had.
+        open_url: (sc && sc.open_url) || r.open_url,
+        session_id: (sc && (sc.session_id || sc.sessionId)) || r.session_id || st.session_id,
+        project_id: (sc && (sc.project_id || sc.projectId)) || r.project_id || st.project_id
       });
       state = done;
       el('credits').textContent = done.credits_used != null ? fmtCredits(done.credits_used) : '';
@@ -652,6 +685,11 @@ function handleBatchStatus(sc, st) {
   if (!st.all_done) return schedulePoll(sc);
 
   var scenes = [], failedCount = 0, credits = 0, haveCredits = false, allUrls = [];
+  // get_generation_status resolves model_name/model_icon into EACH result
+  // (addDisplayNames in generate.js) — sc is only the submit-time guess
+  // (usually "Smart Select"). Every id in one batch ran the same model, so the
+  // first resolved one is enough to replace the guess on the finished card.
+  var resolved = {};
   gens.forEach(function (g, i) {
     var r = g.result || g;
     var urls = (r && r.urls) || [];
@@ -659,6 +697,11 @@ function handleBatchStatus(sc, st) {
     allUrls = allUrls.concat(urls);
     var c = g.credits_used != null ? g.credits_used : (r.credits_used != null ? r.credits_used : null);
     if (c != null) { credits += c; haveCredits = true; }
+    if (!resolved.model_name && r.model_name) {
+      resolved.model = r.model;
+      resolved.model_name = r.model_name;
+      resolved.model_icon = r.model_icon;
+    }
     scenes.push({
       scene_number: i + 1,
       title: (sc.prompts && sc.prompts[i]) || '',
@@ -668,7 +711,7 @@ function handleBatchStatus(sc, st) {
   });
   if (!scenes.length) return renderError('All ' + gens.length + ' generations failed');
 
-  var done = Object.assign({}, sc, {
+  var done = Object.assign({}, sc, resolved, {
     phase: 'completed', kind: 'scenes', batch: true, scenes: scenes, urls: [],
     credits_used: haveCredits ? credits : sc.credits_used
   });
@@ -902,10 +945,14 @@ function renderBatchGrid(sc) {
         dlBtnHTML(it.url) + '</div>';
     }).join('') + '</div>';
   wireDlButtons(el('stage'));
+  // In-widget popup, not the host round-trip focusMedia() uses — a batch grid
+  // tile has no visible full-size image otherwise, so a host that never resolves
+  // requestDisplayMode() (or drops window.open after the async round trip eats
+  // the click's user-activation window) leaves the click doing nothing at all.
   Array.prototype.forEach.call(el('stage').querySelectorAll('[data-focus]'), function (cell) {
     var it = items[+cell.getAttribute('data-focus')];
     if (it.type !== 'image') return; // <video controls> owns its own clicks
-    cell.onclick = function () { focusMedia(it.url); };
+    cell.onclick = function () { openPeek(it.url, 'image', it.label); };
   });
   renderActions(sc);
   window.kolbo.notifySize();
@@ -949,7 +996,7 @@ function renderStatusGrid(sc) {
   Array.prototype.forEach.call(el('stage').querySelectorAll('[data-focus]'), function (cell) {
     var it = items[+cell.getAttribute('data-focus')];
     if (it.kind !== 'image') return; // <video controls> owns its own clicks
-    cell.onclick = function () { focusMedia(it.url); };
+    cell.onclick = function () { openPeek(it.url, 'image', it.title); };
   });
   renderActions(sc);
   window.kolbo.notifySize();
@@ -1030,7 +1077,7 @@ function renderTrackingIssue(msg) {
       (state && state.generation_id ? '\\nGeneration ID: ' + state.generation_id : ''));
   };
   el('tracking-open').onclick = function () {
-    window.kolbo.openLink((state && state.open_url) || 'https://app.kolbo.ai');
+    window.kolbo.openLink(kolboUrl(state));
   };
   window.kolbo.notifySize();
 }
@@ -1100,7 +1147,7 @@ function renderActions(sc) {
   el('actions').innerHTML = a.join('');
 
   bind('btn-download', function () { window.kolbo.openLink(downloadUrl(currentUrl())); });
-  bind('btn-open', function () { window.kolbo.openLink(state.open_url || 'https://app.kolbo.ai'); });
+  bind('btn-open', function () { window.kolbo.openLink(kolboUrl(state)); });
   bind('btn-recreate', function () {
     window.kolbo.sendMessage('Recreate this with the same settings' +
       (state.model ? '\\nModel: ' + state.model : '') +
@@ -1195,7 +1242,10 @@ function completedFromPlain(sc) {
       aspect_ratio: originArgs.aspect_ratio,
       quality: originArgs.quality
     },
-    urls: sc.urls || []
+    urls: sc.urls || [],
+    session_id: sc.session_id || originArgs.session_id,
+    project_id: sc.project_id || originArgs.project_id,
+    open_url: sc.open_url
   });
 }
 
