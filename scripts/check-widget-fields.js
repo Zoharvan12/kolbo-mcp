@@ -60,8 +60,29 @@ const sdkSrc = fs.readFileSync(SDK_CONTROLLER, 'utf8');
 function sdkBody(exportName) {
   const start = sdkSrc.indexOf(`exports.${exportName} =`);
   if (start === -1) return null;
-  const next = sdkSrc.indexOf('\nexports.', start + 1);
-  return sdkSrc.slice(start, next === -1 ? sdkSrc.length : next);
+  const body = sdkSrc.slice(start, (() => {
+    const next = sdkSrc.indexOf('\nexports.', start + 1);
+    return next === -1 ? sdkSrc.length : next;
+  })());
+  // A responder can emit fields via a projection helper defined elsewhere in
+  // the file (`..._sdkVisualDnaMedia(vd)`, `const media = _sdkVisualDnaMedia(vd)`)
+  // — append the body of every locally-defined function the responder calls
+  // (one level), so moving a field into a shared helper doesn't read as
+  // "never emitted". Only names that resolve to a top-level `function NAME(`
+  // in this same file are followed, so res.json / require / etc. are ignored.
+  let out = body;
+  const seen = new Set();
+  for (const m of body.matchAll(/\b(_?[A-Za-z]\w*)\s*\(/g)) {
+    const name = m[1];
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const idx = sdkSrc.indexOf(`function ${name}(`);
+    if (idx === -1) continue;
+    const stops = [sdkSrc.indexOf('\nfunction ', idx + 1), sdkSrc.indexOf('\nexports.', idx + 1)]
+      .filter((i) => i !== -1);
+    out += sdkSrc.slice(idx, stops.length ? Math.min(...stops) : sdkSrc.length);
+  }
+  return out;
 }
 
 let failures = 0;

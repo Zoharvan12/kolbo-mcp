@@ -702,6 +702,11 @@ function handleBatchStatus(sc, st) {
       resolved.model_name = r.model_name;
       resolved.model_icon = r.model_icon;
     }
+    // Same for the references actually used (reference_details from the
+    // server) — every id in the batch shares one reference set.
+    if (!resolved.reference_images && r.reference_images && r.reference_images.length) {
+      resolved.reference_images = r.reference_images;
+    }
     scenes.push({
       scene_number: i + 1,
       title: (sc.prompts && sc.prompts[i]) || '',
