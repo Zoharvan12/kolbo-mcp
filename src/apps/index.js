@@ -22,6 +22,7 @@ const { catalogWidgetHtml } = require('./widgets/catalog');
 const { transcriptWidgetHtml } = require('./widgets/transcript');
 const { uploadWidgetHtml } = require('./widgets/upload');
 const { listWidgetHtml } = require('./widgets/list');
+const { plansWidgetHtml } = require('./widgets/plans');
 
 const UI = {
   generation: 'ui://kolbo/generation.html',
@@ -30,6 +31,7 @@ const UI = {
   transcript: 'ui://kolbo/transcript.html',
   upload: 'ui://kolbo/upload.html',
   list: 'ui://kolbo/list.html',
+  plans: 'ui://kolbo/plans.html',
 };
 
 const WIDGET_BUILDERS = {
@@ -39,6 +41,7 @@ const WIDGET_BUILDERS = {
   [UI.transcript]: transcriptWidgetHtml,
   [UI.upload]: uploadWidgetHtml,
   [UI.list]: listWidgetHtml,
+  [UI.plans]: plansWidgetHtml,
 };
 
 // Widgets are pure functions of source — build once per process.
@@ -105,6 +108,7 @@ function registerApps(server) {
     [UI.transcript, 'Kolbo Transcription Widget'],
     [UI.upload, 'Kolbo Upload Widget'],
     [UI.list, 'Kolbo List Widget'],
+    [UI.plans, 'Kolbo Plans Widget'],
   ]) {
     registerAppResource(
       server, name, uri,
@@ -630,6 +634,7 @@ const TOOL_WIDGETS = {
   list_docs: UI.list,
   list_media_folders: UI.list,
   list_visual_dna_folders: UI.list,
+  show_plans: UI.plans,
   list_project_assets: UI.list,
 };
 

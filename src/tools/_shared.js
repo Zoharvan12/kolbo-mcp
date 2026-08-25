@@ -939,6 +939,61 @@ function compactList(items, { fields, cap = 50, total, extra, note } = {}) {
   return text;
 }
 
+/**
+ * Turn a 403 INSUFFICIENT_CREDITS into the plans/upgrade card.
+ *
+ * Without this the user just sees the raw API sentence and has to go find the
+ * pricing page themselves. The card states the shortfall, shows live
+ * promo-adjusted plans, and links to app.kolbo.ai/pricing.
+ *
+ * Returns null for any other error so callers can rethrow untouched. The plan
+ * fetch is best-effort: if it fails we still return a card carrying the
+ * balance/shortfall and the pricing link, because the ONE thing this path must
+ * never do is swallow the reason the generation did not run.
+ */
+async function insufficientCreditsResult(client, err) {
+  if (!err || err.code !== 'INSUFFICIENT_CREDITS') return null;
+
+  let data = null;
+  try {
+    data = await client.get('/v1/account/plans');
+  } catch {
+    // Offline / rate-limited — fall through to the minimal card.
+  }
+
+  const balance = err.data?.balance ?? data?.credits?.total;
+  const required = err.data?.required;
+  const structured = {
+    widget: 'plans',
+    reason: 'insufficient_credits',
+    balance,
+    required,
+    shortfall: (Number.isFinite(balance) && Number.isFinite(required))
+      ? Math.max(0, required - balance) : undefined,
+    current_plan: data?.current_plan || null,
+    plans: data?.plans || [],
+    credit_packs: data?.credit_packs || [],
+    pricing_url: err.data?.pricing_url || data?.pricing_url || 'https://app.kolbo.ai/pricing',
+  };
+
+  // structuredContent shadows the text on widget hosts, so the refusal reason
+  // has to be inside the object too — an agent that only reads structured
+  // content must still understand that nothing was generated.
+  structured.error = err.message;
+  structured._hint = 'The generation did NOT run and nothing was charged. An upgrade card is shown to the user. Tell them they are out of credits and point at the card; do not retry the generation, and do not attempt to purchase anything for them.';
+
+  const text = JSON.stringify({
+    error: err.message,
+    code: 'INSUFFICIENT_CREDITS',
+    balance,
+    required,
+    pricing_url: structured.pricing_url,
+    _hint: structured._hint,
+  }, null, 2);
+
+  return uiResult(UI.plans, text, structured);
+}
+
 module.exports = {
   MAX_FILE_BYTES,
   MAX_TEXT_CHARS,
@@ -965,5 +1020,6 @@ module.exports = {
   buildProjectUrl,
   uiGenerating,
   uiCompleted,
+  insufficientCreditsResult,
   appsEnabled,
 };
