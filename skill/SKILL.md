@@ -1,5 +1,5 @@
 ---
-version: 0.9.10
+version: 0.9.11
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images,
@@ -57,6 +57,7 @@ Then generate **only** with the confirmed parameters. If the user changes an opt
 - **Batch totalling 100+ credits**: run `check_credits` first.
 - **Quote real cost**: after firing, log `credits_used` (from the tool result) to `.kolbo/production.md` — never `base × count`.
 - **Never state "credits remaining" from arithmetic** (opening balance − generation costs). Coding/chat usage deducts credits too, so the math is always wrong. Report cost only; if the user asks for their balance, call `check_credits` fresh at that moment.
+- **Out of credits → `show_plans`.** A generation refused for credits already returns the upgrade card automatically — do NOT retry it, and do not re-run the tool "to be sure". Call `show_plans` yourself when the user asks about pricing, plans, upgrading, or how to get more credits. Prices are live and promo-adjusted; never quote them from memory. The user completes any purchase themselves on app.kolbo.ai/pricing — you cannot buy for them.
 
 For multi-scene / batch work this pairs with `generate_creative_director` (see below) — still confirm the brief first.
 
@@ -122,7 +123,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 ### Discovery, Library, Visual DNA, Moodboards, Chat, Publishing
 | Tool | Purpose |
 |------|---------|
-| `list_models` / `list_voices` / `check_credits` / `get_generation_status` / `cancel_generation` / `get_session_usage` | Discovery + status. `list_models` with no args returns the recommended shortlist out of ~428 — pass `type` for a full category with per-model caps. `cancel_generation` stops an in-flight job and refunds what it can: use it when the user changes their mind mid-generation instead of letting it run. |
+| `list_models` / `list_voices` / `check_credits` / `show_plans` / `get_generation_status` / `cancel_generation` / `get_session_usage` | Discovery + status. `list_models` with no args returns the recommended shortlist out of ~428 — pass `type` for a full category with per-model caps. `cancel_generation` stops an in-flight job and refunds what it can: use it when the user changes their mind mid-generation instead of letting it run. `show_plans` renders the balance + upgrade card for pricing/plan/upgrade questions. |
 | `upload_media` / `create_upload_ticket` / `list_media` / `get_media` / `get_media_stats` / `favorite_media` / `unfavorite_media` / `delete_media` / `restore_media` / `permanently_delete_media` / `move_media` / `bulk_*_media` / `*_media_folder` | Media library — see `workflows/media-library.md`. Getting a LOCAL file in depends on where the server runs: `upload_media` with a path only works on a local (stdio) install; over a remote connector use `create_upload_ticket` and POST the file yourself. |
 | `create_visual_dna` / `update_visual_dna` / `generate_character_sheet` / `list_visual_dnas` / `get_visual_dna` / `delete_visual_dna` / `*_visual_dna_folder` (5 folder tools) | Visual DNA (+ character sheet, character folders) — see `workflows/visual-dna.md`. Edit with `update_visual_dna`; never delete+recreate. |
 | `list_moodboards` / `get_moodboard` / `list_presets` | Style overlays + sheet presets — see **Preset contract** in Core Workflow. Never omit `preset_id` after claiming a preset was used. |
