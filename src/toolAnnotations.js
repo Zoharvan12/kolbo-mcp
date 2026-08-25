@@ -10,7 +10,7 @@
 
 const READ_ONLY = [
   'get_creative_director_status', 'get_generation_status', 'list_models',
-  'check_credits', 'get_session_usage', 'list_voices',
+  'check_credits', 'show_plans', 'get_session_usage', 'list_voices',
   'chat_list_conversations', 'chat_get_messages',
   'list_visual_dnas', 'get_visual_dna', 'list_visual_dna_folders',
   'list_moodboards', 'get_moodboard',

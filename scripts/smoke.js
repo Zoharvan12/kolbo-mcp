@@ -810,6 +810,58 @@ async function main() {
       delete require.cache[require.resolve(path.join(PKG_ROOT, 'src', 'client.js'))];
     }
     console.log('[smoke] upload rate limit is announced + bounded-retried OK');
+
+    // ─── out-of-credits → upgrade card ─────────────────────────────────────
+    // A refusal for credits is the one failure with an obvious next step, so it
+    // renders the plans card instead of raw error prose. Both halves matter:
+    // the card must carry the shortfall AND must still tell the agent that
+    // nothing generated — structuredContent shadows the text on widget hosts,
+    // so an agent reading only the object must not think the job ran.
+    {
+      const { insufficientCreditsResult } = require(path.join(PKG_ROOT, 'src', 'tools', '_shared.js'));
+      const { UI } = require(path.join(PKG_ROOT, 'src', 'apps'));
+
+      const err = new Error('Insufficient credits for image. Your balance is 2, minimum required: 8.');
+      err.code = 'INSUFFICIENT_CREDITS';
+      err.data = { balance: 2, required: 8, pricing_url: 'https://app.kolbo.ai/pricing' };
+
+      const fakeClient = {
+        get: async () => ({
+          credits: { total: 2 },
+          current_plan: { key: 'free-plan', name: 'Free' },
+          plans: [{ key: 'plus', name: 'PLUS', interval: 'year', credits: 1000, price: 468, currency: 'usd' }],
+          credit_packs: [],
+          pricing_url: 'https://app.kolbo.ai/pricing',
+        }),
+      };
+
+      const card = await insufficientCreditsResult(fakeClient, err);
+      if (!card) throw new Error('INSUFFICIENT_CREDITS did not produce an upgrade card');
+      const sc = card.structuredContent;
+      if (!sc || sc.widget !== 'plans') throw new Error('upgrade card is not the plans widget');
+      if (sc.shortfall !== 6) throw new Error(`upgrade card shortfall wrong: ${sc.shortfall}`);
+      if (!sc.plans.length) throw new Error('upgrade card carries no plans');
+      if (!sc.error || !/_hint/.test(JSON.stringify(Object.keys(sc)))) {
+        throw new Error('upgrade card structuredContent omits the refusal reason — an agent reading it would think the generation ran');
+      }
+      if (card._meta?.['ui/resourceUri'] !== UI.plans && !JSON.stringify(card).includes('plans.html')) {
+        throw new Error('upgrade card does not point at the plans widget resource');
+      }
+      // Any other error must pass straight through — this path must never
+      // swallow a real failure and show a billing card for it.
+      const other = new Error('boom');
+      other.code = 'SOMETHING_ELSE';
+      if (await insufficientCreditsResult(fakeClient, other)) {
+        throw new Error('non-credit error was converted into an upgrade card');
+      }
+      // A dead plans endpoint still has to produce the card, not throw.
+      const offline = await insufficientCreditsResult(
+        { get: async () => { throw new Error('offline'); } }, err);
+      if (!offline || offline.structuredContent.widget !== 'plans') {
+        throw new Error('upgrade card must survive a failing plans fetch');
+      }
+    }
+    console.log('[smoke] out-of-credits renders the upgrade card OK');
   }
 
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'kolbo-mcp-smoke-'));
