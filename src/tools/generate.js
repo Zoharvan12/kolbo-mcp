@@ -186,6 +186,9 @@ const videoSettings = (a = {}) => ({
   // echoed back on start, then to per-shot × shots.
   duration: a.duration ?? a.reported_duration ?? (a.shot_duration && a.shots ? a.shot_duration * a.shots : undefined),
   ...(a.shots > 1 ? { shots: a.shots } : {}),
+  // Multishot with no explicit count: the provider decides how many, so there
+  // is no number to show — but the card still has to say the toggle applied.
+  ...(a.multi_shot ? { multi_shot: true } : {}),
   resolution: a.resolution,
   aspect_ratio: a.aspect_ratio,
   ...(a.mode ? { mode: a.mode } : {}),
@@ -1374,7 +1377,14 @@ function registerGenerateTools(server, client, options = {}) {
         settings: videoSettings({
           duration,
           reported_duration: startResponse?.duration ?? startResponse?.result?.duration,
-          shots: multi_shot_count ?? (Array.isArray(multi_shots) ? multi_shots.length : undefined),
+          // `multi_shots` is a boolean (z.boolean()); the old
+          // `Array.isArray(multi_shots) ? multi_shots.length : undefined`
+          // branch could never be true, so enabling multishot WITHOUT an
+          // explicit count left shots undefined and the card silently showed
+          // no multishot indicator at all. Carry the flag so the chip can
+          // render even when the shot count is the provider's to decide.
+          shots: multi_shot_count,
+          multi_shot: multi_shots === true || undefined,
           resolution, aspect_ratio, enhance_prompt, visual_dna_ids, preset_id,
         }),
         // Already bucketed and deduped above, so a URL handed to `files`
@@ -1396,7 +1406,14 @@ function registerGenerateTools(server, client, options = {}) {
         settings: videoSettings({
           duration,
           reported_duration: result.result?.duration,
-          shots: multi_shot_count ?? (Array.isArray(multi_shots) ? multi_shots.length : undefined),
+          // `multi_shots` is a boolean (z.boolean()); the old
+          // `Array.isArray(multi_shots) ? multi_shots.length : undefined`
+          // branch could never be true, so enabling multishot WITHOUT an
+          // explicit count left shots undefined and the card silently showed
+          // no multishot indicator at all. Carry the flag so the chip can
+          // render even when the shot count is the provider's to decide.
+          shots: multi_shot_count,
+          multi_shot: multi_shots === true || undefined,
           resolution, aspect_ratio, enhance_prompt, visual_dna_ids, preset_id,
         }),
         reference_images: [...urlsOf('image'), ...(keyframes || []).map((keyframe) => keyframe.image_url)],

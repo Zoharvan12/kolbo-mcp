@@ -280,8 +280,12 @@ function renderChips(sc) {
   var s = sc.settings || {};
   var kind = displayKind(sc);
   if (kind) h += chip(iconFor(kind) + ' ' + kind);
-  if (s.duration) h += chip(ICONS.clock + ' ' + fmtDur(s.duration) + (s.shots > 1 ? ' · ' + s.shots + ' shots' : ''));
-  else if (s.shots > 1) h += chip(s.shots + ' shots');
+  // Shot count when we know it, otherwise just say multishot is on — the
+  // provider picks the count in that case, and showing nothing made an
+  // enabled toggle look like it had not applied.
+  var shotLabel = s.shots > 1 ? (s.shots + ' shots') : (s.multi_shot ? 'multishot' : '');
+  if (s.duration) h += chip(ICONS.clock + ' ' + fmtDur(s.duration) + (shotLabel ? ' · ' + shotLabel : ''));
+  else if (shotLabel) h += chip(shotLabel);
   if (s.resolution) h += chip(esc(s.resolution));
   if (s.aspect_ratio) h += chip(esc(s.aspect_ratio));
   if (s.quality) h += chip(esc(s.quality) + ' quality');
