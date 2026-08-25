@@ -102,7 +102,7 @@ function registerVisualDnaTools(server, client, options = {}) {
     {
       scope: z.enum(['all', 'personal', 'global', 'organization']).optional().describe('Default: "personal" — the user\'s own DNAs (plus a shared project\'s when project_id is set). "global" = the ~1000 system cast/preset DNAs, for browsing when the user needs a character and has none of their own. "organization" = org-shared. "all" = everything, rarely wanted.'),
       search: z.string().optional().describe('Search by name, tags, or description (case-insensitive). Matches at WORD STARTS, so "man" finds "Man"/"Manager" but not "woman" or "romantic". Name matches are ranked first.'),
-      collection: z.string().optional().describe('Filter global presets by collection: cast, influencers, props, locations, styles, glamour, street'),
+      collection: z.string().optional().describe('Filter global presets by collection: cast, influencers, props, locations, styles, street'),
       tags: z.string().optional().describe('Comma-separated tags to filter by (OR logic)'),
       page: z.number().optional().describe('Page number, 1-indexed. Default: 1. Needed to reach the global cast beyond the first page.'),
       limit: z.number().optional().describe('Results per page, max 100. Default: 50'),
