@@ -155,6 +155,10 @@ body {
   display: inline-flex; align-items: center; justify-content: center;
 }
 .k-peek-cap { font-size: 12px; color: var(--text-muted); text-align: center; max-width: 100%; word-break: break-word; }
+/* Peek granted host fullscreen: the overlay owns the whole viewport, not the card. */
+html.k-peek-fs, html.k-peek-fs body { height: 100%; overflow: hidden; }
+html.k-peek-fs .k-peek { position: fixed; inset: 0; z-index: 50; }
+html.k-peek-fs .k-peek img, html.k-peek-fs .k-peek video { max-height: calc(100vh - 72px); }
 /* Visual DNA chips: the character's face, so you can see WHICH DNA is locked in. */
 .k-dna-face { width: 18px; height: 18px; border-radius: 999px; object-fit: cover; margin-left: -3px; background: var(--border-strong); }
 .k-dna-stack .k-dna-stack-item { display: inline-flex; }
