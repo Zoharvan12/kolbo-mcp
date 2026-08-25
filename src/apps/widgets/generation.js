@@ -441,6 +441,47 @@ function iconFor(kind) {
 /* ---------- generating ---------- */
 function isBatch(sc) { return !!(sc && sc.generation_ids && sc.generation_ids.length > 1); }
 
+// Columns for a batch grid. Video caps at 2 per row: a 16:9 cell in a 4-up
+// grid lands around 200px inside a chat card, which is too small to judge a
+// shot and far too small to scrub once <video controls> appears. Images stay
+// 4-up — they read fine as contact-sheet tiles.
+function gridCols(count, kind) {
+  return Math.min(count, kind === 'video' ? 2 : 4);
+}
+
+// Batch prompts routinely share a long identical preamble (a locked global
+// look, style rules, duration). Clamping from the left then renders EVERY
+// caption as the same string — four cells all reading "Total: 8s [GLOBAL LOOK
+// - LOCKED]…" identify nothing. Drop the shared prefix so the caption shows
+// the part that actually differs. Full text stays in the tooltip.
+function batchCaptions(prompts) {
+  var list = (prompts || []).map(function (p) { return String(p == null ? '' : p); });
+  if (list.length < 2) return list;
+  var first = list[0], n = first.length;
+  for (var i = 1; i < list.length && n > 0; i++) {
+    var j = 0;
+    while (j < n && j < list[i].length && list[i].charAt(j) === first.charAt(j)) j++;
+    n = j;
+  }
+  // Short shared runs are just coincidence ("A ", "The "), not a preamble.
+  if (n < 12) return list;
+  // Back up to a word boundary so a label never starts mid-word.
+  var cut = n;
+  while (cut > 0 && !/\s/.test(first.charAt(cut - 1))) cut--;
+  if (!cut) cut = n;
+  return list.map(function (p) {
+    var rest = p.slice(cut).trim();
+    // A prompt identical to the prefix has nothing distinct to show — keep it
+    // whole rather than rendering an empty chip.
+    return rest ? '… ' + rest : p;
+  });
+}
+function capAt(sc, i) {
+  if (!sc || !sc.prompts || !sc.prompts[i]) return '';
+  if (!sc._caps) sc._caps = batchCaptions(sc.prompts);
+  return sc._caps[i] || sc.prompts[i];
+}
+
 function renderGenerating(sc) {
   setPhaseChip('Generating', true);
   var n = Math.min(sc.count || 1, isBatch(sc) ? 8 : 4);
@@ -449,11 +490,11 @@ function renderGenerating(sc) {
   var cells = '';
   for (var i = 0; i < n; i++) {
     var cap = (sc.prompts && sc.prompts[i])
-      ? '<span class="k-skel-cap" title="' + esc(sc.prompts[i]) + '">' + esc(sc.prompts[i]) + '</span>' : '';
+      ? '<span class="k-skel-cap" title="' + esc(sc.prompts[i]) + '">' + esc(capAt(sc, i)) + '</span>' : '';
     cells += '<div class="k-skel ' + shape + '" data-cell="' + i + '">' + cap + '</div>';
   }
   // Grid class caps at n4 — the auto-fill rule handles any larger batch count.
-  el('stage').innerHTML = '<div class="k-gen-grid n' + Math.min(n, 4) + '">' + cells + '</div>';
+  el('stage').innerHTML = '<div class="k-gen-grid n' + gridCols(n, kind) + '">' + cells + '</div>';
   renderStopButton(sc);
   schedulePoll(sc);
 }
@@ -709,7 +750,7 @@ function handleBatchStatus(sc, st) {
     }
     scenes.push({
       scene_number: i + 1,
-      title: (sc.prompts && sc.prompts[i]) || '',
+      title: capAt(sc, i),
       image_urls: sc.kind === 'video' ? [] : urls,
       video_urls: sc.kind === 'video' ? urls : []
     });
@@ -743,7 +784,7 @@ function fillBatchCell(sc, i, g) {
   cell.setAttribute('data-done', '1');
   cell.classList.add('done');
   var cap = (sc.prompts && sc.prompts[i])
-    ? '<span class="k-skel-cap" title="' + esc(sc.prompts[i]) + '">' + esc(sc.prompts[i]) + '</span>' : '';
+    ? '<span class="k-skel-cap" title="' + esc(sc.prompts[i]) + '">' + esc(capAt(sc, i)) + '</span>' : '';
   if (sc.prompts && sc.prompts[i]) cell.title = sc.prompts[i];
   // The controls attribute is not optional here: this cell is a FINISHED result
   // the user is meant to watch, and without it the tile was a muted poster with
@@ -939,7 +980,7 @@ function renderBatchGrid(sc) {
   var items = sceneItems(sc);
   if (!items.length) return renderError('No completed results received');
   var shape = items[0].type === 'video' ? 'video' : 'square';
-  el('stage').innerHTML = '<div class="k-gen-grid n' + Math.min(items.length, 4) + '">' +
+  el('stage').innerHTML = '<div class="k-gen-grid n' + gridCols(items.length, items[0].type) + '">' +
     items.map(function (it, i) {
       return '<div class="k-skel done ' + shape + '" data-focus="' + i + '"' +
         (it.label ? ' title="' + esc(it.label) + '"' : '') + '>' +
