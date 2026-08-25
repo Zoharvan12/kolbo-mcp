@@ -173,6 +173,9 @@ function bindPeekHits(root) {
     };
   });
 }
+// Whether THIS peek took the iframe fullscreen (vs. opening inside a card the
+// user had already fullscreened) — only then does closing it hand the mode back.
+var peekWentFullscreen = false;
 function openPeek(url, kind, cap) {
   if (!url) return;
   var box = ensurePeek();
@@ -184,6 +187,23 @@ function openPeek(url, kind, cap) {
   el('peek-cap').textContent = cap || '';
   box.hidden = false;
   if (window.kolbo && window.kolbo.notifySize) window.kolbo.notifySize();
+  // Go big when the host allows it: the overlay is ALREADY visible inside the
+  // card, so a host that refuses fullscreen (or never answers the request)
+  // still shows the preview — the failure mode is "smaller", never "nothing".
+  // Skip the request when the card itself is fullscreen; the overlay covers it.
+  if (!window.kolbo || !window.kolbo.requestDisplayMode) return;
+  if (document.documentElement.classList.contains('k-fullscreen')) return;
+  try {
+    window.kolbo.requestDisplayMode('fullscreen').then(function (res) {
+      // The user may have closed the peek before the host answered — hand the
+      // grant straight back instead of fullscreening an empty card.
+      if (!(res && res.mode === 'fullscreen')) return;
+      if (box.hidden) { window.kolbo.requestDisplayMode('inline').catch(function () {}); return; }
+      peekWentFullscreen = true;
+      document.documentElement.classList.add('k-peek-fs');
+      if (window.kolbo.setFullscreen) window.kolbo.setFullscreen(true);
+    }).catch(function () {});
+  } catch (e) {}
 }
 function closePeek() {
   var box = el('peek');
@@ -192,6 +212,12 @@ function closePeek() {
   el('peek-img').removeAttribute('src');
   var vid = el('peek-video');
   if (vid) { try { vid.pause(); } catch (e) {} vid.removeAttribute('src'); }
+  if (peekWentFullscreen) {
+    peekWentFullscreen = false;
+    document.documentElement.classList.remove('k-peek-fs');
+    try { window.kolbo.requestDisplayMode('inline').catch(function () {}); } catch (e) {}
+    if (window.kolbo.setFullscreen) window.kolbo.setFullscreen(false);
+  }
   if (window.kolbo && window.kolbo.notifySize) window.kolbo.notifySize();
 }
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePeek(); });
