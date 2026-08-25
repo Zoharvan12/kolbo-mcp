@@ -133,12 +133,27 @@ function createServer(opts = {}) {
     ].join('\n')
   });
   const progress = require('./progress');
+  const { insufficientCreditsResult } = require('./tools/_shared');
   const tool = server.tool.bind(server);
   server.tool = (...args) => {
     const index = args.length - 1;
     const handler = args[index];
     if (typeof handler !== 'function') return tool(...args);
-    args[index] = (params, extra) => progress.run(extra, () => handler(params, extra));
+    args[index] = (params, extra) => progress.run(extra, async () => {
+      try {
+        return await handler(params, extra);
+      } catch (err) {
+        // Running out of credits is the one refusal with an obvious next step,
+        // so it gets a card instead of raw error prose. Wrapped HERE rather
+        // than at each of the ~17 generation submit sites: any tool the server
+        // can refuse for credits (generation, chat, stems) routes through this
+        // single seam, which is also the only way a tool added later inherits
+        // the behavior for free.
+        const card = await insufficientCreditsResult(client, err).catch(() => null);
+        if (card) return card;
+        throw err;
+      }
+    });
     return tool(...args);
   };
 

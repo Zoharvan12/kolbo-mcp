@@ -159,6 +159,30 @@ body {
 html.k-peek-fs, html.k-peek-fs body { height: 100%; overflow: hidden; }
 html.k-peek-fs .k-peek { position: fixed; inset: 0; z-index: 50; }
 html.k-peek-fs .k-peek img, html.k-peek-fs .k-peek video { max-height: calc(100vh - 72px); }
+/* ---- Plans / upgrade card ---- */
+.k-plan-toggle { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 12px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
+.k-toggle-btn { border: 0; border-radius: 999px; padding: 5px 14px; cursor: pointer;
+  background: transparent; color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 600; }
+.k-toggle-btn.active { background: var(--brand); color: #fff; }
+.k-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.k-plan { display: flex; flex-direction: column; gap: 7px; padding: 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--specular); }
+.k-plan.current { border-color: var(--brand); }
+.k-plan-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.k-plan-name { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.k-plan-badge { padding: 2px 7px; border-radius: 999px; background: var(--brand-soft); color: var(--brand);
+  font-size: 10px; font-weight: 700; }
+.k-plan-badge.current { background: var(--surface-2); color: var(--text-faint); }
+.k-plan-credits { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); }
+.k-plan-pricing { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
+.k-plan-price { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.k-plan-was { font-size: 13px; color: var(--text-faint); text-decoration: line-through; }
+.k-plan-note { font-size: 11px; color: var(--text-faint); }
+.k-plan .k-btn { margin-top: auto; justify-content: center; }
+.k-pack-head { margin: 14px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-faint); }
+.k-pack-row { margin-bottom: 6px; }
 /* Visual DNA chips: the character's face, so you can see WHICH DNA is locked in. */
 .k-dna-face { width: 18px; height: 18px; border-radius: 999px; object-fit: cover; margin-left: -3px; background: var(--border-strong); }
 .k-dna-stack .k-dna-stack-item { display: inline-flex; }

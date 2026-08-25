@@ -466,6 +466,38 @@ function registerModelTools(server, client, options = {}) {
       }
     }
   );
+
+  // ─── show_plans ──────────────────────────────────
+  // The upgrade card. Also rendered automatically when a generation is refused
+  // for credits — see insufficientCreditsResult() in _shared.js.
+  server.tool(
+    'show_plans',
+    'Show the user their Kolbo credit balance, current plan, and the available upgrade plans / credit packs as an interactive card. Use when the user asks about pricing, plans, upgrading, or how to get more credits. Prices shown are live and promo-adjusted. The card links to app.kolbo.ai/pricing to complete a purchase — never quote prices from memory, and never claim to have made a purchase for them.',
+    {},
+    async () => {
+      const data = await client.get('/v1/account/plans');
+      const structured = {
+        widget: 'plans',
+        reason: 'requested',
+        balance: data?.credits?.total,
+        current_plan: data?.current_plan || null,
+        plans: data?.plans || [],
+        credit_packs: data?.credit_packs || [],
+        pricing_url: data?.pricing_url || 'https://app.kolbo.ai/pricing',
+      };
+      // structuredContent SHADOWS the text on widget hosts, so everything the
+      // agent needs to talk about pricing has to live in the object above.
+      const text = JSON.stringify({
+        credits: structured.balance,
+        current_plan: structured.current_plan,
+        plans: structured.plans,
+        credit_packs: structured.credit_packs,
+        pricing_url: structured.pricing_url,
+        _hint: 'A plans card is rendered for the user. Summarise briefly; do NOT paste the price table. Purchases are completed by the user on the pricing page — you cannot buy on their behalf.',
+      }, null, 2);
+      return uiResult(UI.plans, text, structured);
+    }
+  );
 }
 
 module.exports = { registerModelTools };
