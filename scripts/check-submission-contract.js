@@ -27,10 +27,11 @@ async function main() {
   const staleWidgets = Object.keys(TOOL_WIDGETS).filter((name) => !server._registeredTools[name]);
   assert.deepStrictEqual(staleWidgets, [], `stale widget mappings: ${staleWidgets.join(', ')}`);
 
-  const cspDomains = [...WIDGET_CSP.resourceDomains, ...WIDGET_CSP.connectDomains];
+  const cspDomains = [...WIDGET_CSP.resourceDomains, ...WIDGET_CSP.connectDomains, ...(WIDGET_CSP.frameDomains || [])];
   assert.ok(cspDomains.every((domain) => !domain.includes('*')), 'widget CSP must not use wildcard domains');
   assert.ok(cspDomains.every((domain) => !/(dev|staging)/i.test(new URL(domain).hostname)), 'widget CSP must be production-only');
   assert.deepStrictEqual(WIDGET_CSP.connectDomains, ['https://api.kolbo.ai'], 'only the production MCP upload host may receive widget connections');
+  assert.deepStrictEqual(WIDGET_CSP.frameDomains, ['https://app.kolbo.ai'], 'plans widget may iframe only the production app');
 
   // Exercise the real protocol serialization path. Internal registrations can
   // look correct while tools/list drops a property during SDK conversion.

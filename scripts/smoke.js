@@ -615,6 +615,17 @@ async function main() {
         throw new Error('an image tool is back to the truncated settings block — quality would be dropped from the card');
       }
     }
+    const plansHtml = widgetHtml(UI.plans);
+    if (!plansHtml.includes('https://app.kolbo.ai/pricing/embed')) {
+      throw new Error('plans widget must iframe the live pricing embed, not a cloned card grid');
+    }
+    if (!plansHtml.includes('k-pricing-frame')) {
+      throw new Error('plans widget is missing the pricing embed iframe');
+    }
+    const plansSrc = fs.readFileSync(path.join(PKG_ROOT, 'src', 'apps', 'widgets', 'plans.js'), 'utf8');
+    if (plansSrc.includes('k-plan-grid')) {
+      throw new Error('plans widget still clones plan cards instead of embedding /pricing/embed');
+    }
     console.log('[smoke] widget scripts parse OK');
   }
 

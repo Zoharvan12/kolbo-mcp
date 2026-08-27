@@ -97,6 +97,11 @@ const WIDGET_CSP = {
   connectDomains: [
     'https://api.kolbo.ai',
   ],
+  // Nested iframes. Empty/omitted → frame-src 'none' and the live pricing
+  // embed inside the upgrade card is a blank box.
+  frameDomains: [
+    'https://app.kolbo.ai',
+  ],
 };
 
 /** Register all Kolbo widget resources on an McpServer. */
