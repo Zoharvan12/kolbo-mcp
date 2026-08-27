@@ -76,13 +76,13 @@ var TOOL_TITLES = {
   get_generation_status: 'Generations'
 };
 var OPEN_ROUTES = {
-  generate_image: { path: '/image-tools', tool: 'text-to-image' },
-  generate_image_edit: { path: '/image-tools', tool: 'image-editing' },
-  edit_image: { path: '/image-tools', tool: 'image-editing' },
-  generate_video: { path: '/video-tools', tool: 'text-to-video' },
-  generate_video_from_image: { path: '/video-tools', tool: 'image-to-video' },
-  generate_elements: { path: '/video-tools', tool: 'image-to-video', mode: 'elements' },
-  generate_first_last_frame: { path: '/video-tools', tool: 'image-to-video', mode: 'first-last' },
+  generate_image: { path: '/image-tools', tool: 'create-image' },
+  generate_image_edit: { path: '/image-tools', tool: 'create-image' },
+  edit_image: { path: '/image-tools', tool: 'canvas' },
+  generate_video: { path: '/video-tools', tool: 'create-video' },
+  generate_video_from_image: { path: '/video-tools', tool: 'create-video' },
+  generate_elements: { path: '/video-tools', tool: 'create-video', mode: 'elements' },
+  generate_first_last_frame: { path: '/video-tools', tool: 'create-video', mode: 'first-last' },
   generate_video_from_video: { path: '/video-tools', tool: 'video-to-video' },
   generate_lipsync: { path: '/video-tools', tool: 'lipsync' },
   generate_music: { path: '/audio-tools', tool: 'music-generator' },
@@ -794,7 +794,7 @@ function fillBatchCell(sc, i, g) {
   // the user is meant to watch, and without it the tile was a muted poster with
   // no way to play, seek or unmute until the whole batch finished and repainted.
   cell.innerHTML = (sc.kind === 'video'
-    ? '<video class="k-cell-fill" src="' + esc(u) + '"' + (r.thumbnail_url ? ' poster="' + esc(r.thumbnail_url) + '"' : '') + ' controls playsinline preload="metadata"></video>'
+    ? '<video class="k-cell-fill" src="' + esc(playableAt(r, r.urls || [], 0)) + '"' + (r.thumbnail_url ? ' poster="' + esc(r.thumbnail_url) + '"' : '') + ' controls playsinline preload="metadata"></video>'
     : '<img class="k-cell-fill" src="' + esc(u) + '" alt="">') + cap;
   window.kolbo.notifySize();
 }
@@ -862,10 +862,28 @@ function renderImages(sc, urls) {
   });
 }
 
+/**
+ * The url to PLAY, which is not always the url to DOWNLOAD.
+ *
+ * Seedance 2.5 at 1080p returns HEVC Main 10 (10-bit). Chrome and Edge decode HEVC in
+ * hardware only — with no software fallback — and Firefox on Windows not at all, so the
+ * widget showed a black frame with sound. The API therefore returns playback_urls
+ * alongside urls whenever it had to build an H.264 proxy.
+ *
+ * urls stays the MASTER and is what every download button must keep using: handing
+ * someone the 8-bit proxy for a file they paid the 1080p multiplier for is a silent
+ * quality downgrade. Backend: kolbo-api/src/services/webPlaybackProxy.js
+ */
+function playableAt(src, urls, i) {
+  var proxies = (src && src.playback_urls) || [];
+  return proxies[i] || (urls || [])[i];
+}
+
 function renderVideo(sc, urls) {
   // preload="none" behind a poster: the card shows the still until the user
   // hits play, instead of pulling the video header on mount.
-  el('stage').innerHTML = '<div class="k-viewer"><video id="main-video" src="' + esc(urls[0]) + '"' +
+  // PLAY the proxy when there is one; the download button below keeps urls[0] (master).
+  el('stage').innerHTML = '<div class="k-viewer"><video id="main-video" src="' + esc(playableAt(sc, urls, 0)) + '"' +
     (sc.thumbnail_url ? ' poster="' + esc(sc.thumbnail_url) + '" preload="none"' : ' preload="metadata"') + ' controls playsinline></video>' +
     dlBtnHTML(urls[0]) + '</div>';
   wireDlButtons(el('stage'));

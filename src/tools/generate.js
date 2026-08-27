@@ -89,7 +89,7 @@ async function pollBatch(client, batch, { interval, timeout }, toolName) {
   const polls = await Promise.all(batch.ids.map((id) => pollOrTimedOut(client, id, { interval, timeout })));
   const generations = polls.map((p, i) => p.timedOut
     ? { prompt: batch.ok[i].prompt, generation_id: batch.ids[i], status: 'processing', note: 'Still running — call get_generation_status with wait=true to collect it.' }
-    : { prompt: batch.ok[i].prompt, generation_id: batch.ids[i], status: 'completed', ...creditFields(polls[i].result), urls: p.result.result.urls });
+    : { prompt: batch.ok[i].prompt, generation_id: batch.ids[i], status: 'completed', ...creditFields(polls[i].result), urls: p.result.result.urls, playback_urls: p.result.result.playback_urls });
   const text = JSON.stringify({
     batch: true,
     session_id: batch.ok[0].gen.session_id,
@@ -290,11 +290,13 @@ function registerGenerateTools(server, client, options = {}) {
         // input arg is only what the caller happened to name.
         reference_images: result.result.reference_images || reference_images,
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         credits_used: creditFields(result).credits_used,
       }, JSON.stringify({
         ...creditFields(result),
         session_id: gen.session_id,
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         model: result.result.model,
         prompt_used: result.result.prompt_used,
         _followup_hint: 'If the user asks to edit/change/modify this image next (scene, lighting, objects, style, color — any content edit), pass urls[0] to generate_image_edit. Use edit_image ONLY for mechanical ops (upscale/reframe/removebg/enhance_skin). Do NOT call generate_image again.'
@@ -380,11 +382,13 @@ function registerGenerateTools(server, client, options = {}) {
         reference_images: result.result.reference_images
           || [...(source_images || []), ...(reference_images || [])],
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         credits_used: creditFields(result).credits_used,
       }, JSON.stringify({
         ...creditFields(result),
         session_id: gen.session_id,
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         model: result.result.model,
         prompt_used: result.result.prompt_used,
         _followup_hint: 'If the user asks for another edit on this output, pass urls[0] back into generate_image_edit as source_images. For targeted ops (upscale/reframe/removebg/enhance_skin) use edit_image instead. Do NOT call generate_image from scratch.'
@@ -627,6 +631,7 @@ function registerGenerateTools(server, client, options = {}) {
         settings: videoSettings(shared),
         reference_images,
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         thumbnail_url: result.result.thumbnail_url,
         duration: result.result.duration,
         credits_used: creditFields(result).credits_used,
@@ -634,6 +639,7 @@ function registerGenerateTools(server, client, options = {}) {
         ...creditFields(result),
         session_id: gen.session_id,
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         model: result.result.model,
         duration: result.result.duration,
         thumbnail_url: result.result.thumbnail_url,
@@ -714,6 +720,7 @@ function registerGenerateTools(server, client, options = {}) {
         settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids }),
         reference_images: [image_url],
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         thumbnail_url: result.result.thumbnail_url,
         duration: result.result.duration,
         credits_used: creditFields(result).credits_used,
@@ -721,6 +728,7 @@ function registerGenerateTools(server, client, options = {}) {
         ...creditFields(result),
         session_id: gen.session_id,
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         model: result.result.model,
         duration: result.result.duration,
         thumbnail_url: result.result.thumbnail_url,
@@ -781,6 +789,7 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'generate_music', kind: 'audio', gen, client, model: model || 'Suno', prompt,
         settings: { mode: instrumental ? 'instrumental' : (style || undefined), preset_id },
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         title: result.result.title,
         duration: result.result.duration,
         credits_used: creditFields(result).credits_used,
@@ -788,6 +797,7 @@ function registerGenerateTools(server, client, options = {}) {
         ...creditFields(result),
         session_id: gen.session_id,
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         title: result.result.title,
         duration: result.result.duration,
         lyrics: result.result.lyrics
@@ -899,12 +909,14 @@ function registerGenerateTools(server, client, options = {}) {
           language,
         },
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         duration: result.result.duration,
         credits_used: creditFields(result).credits_used,
       }, JSON.stringify({
         ...creditFields(result),
         session_id: gen.session_id,
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         voice: result.result.voice,
         duration: result.result.duration,
         ...(unknownVoice ? { _warning: unknownVoice } : {})
@@ -964,12 +976,14 @@ function registerGenerateTools(server, client, options = {}) {
         settings: { duration },
         reference_images: seed_reference_image_url ? [seed_reference_image_url] : [],
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         duration: result.result.duration,
         credits_used: creditFields(result).credits_used,
       }, JSON.stringify({
         ...creditFields(result),
         session_id: gen.session_id,
         urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
         duration: result.result.duration
       }, null, 2));
     }
