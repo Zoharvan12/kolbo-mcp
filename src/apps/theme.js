@@ -183,6 +183,8 @@ html.k-peek-fs .k-peek img, html.k-peek-fs .k-peek video { max-height: calc(100v
 .k-pack-head { margin: 14px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--text-faint); }
 .k-pack-row { margin-bottom: 6px; }
+.k-pricing-frame { display: block; width: 100%; height: 560px; border: 0; border-radius: 12px;
+  background: #0f0f0f; }
 /* Visual DNA chips: the character's face, so you can see WHICH DNA is locked in. */
 .k-dna-face { width: 18px; height: 18px; border-radius: 999px; object-fit: cover; margin-left: -3px; background: var(--border-strong); }
 .k-dna-stack .k-dna-stack-item { display: inline-flex; }
