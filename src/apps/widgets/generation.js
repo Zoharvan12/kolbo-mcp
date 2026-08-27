@@ -76,13 +76,13 @@ var TOOL_TITLES = {
   get_generation_status: 'Generations'
 };
 var OPEN_ROUTES = {
-  generate_image: { path: '/image-tools', tool: 'create-image' },
-  generate_image_edit: { path: '/image-tools', tool: 'create-image' },
-  edit_image: { path: '/image-tools', tool: 'canvas' },
-  generate_video: { path: '/video-tools', tool: 'create-video' },
-  generate_video_from_image: { path: '/video-tools', tool: 'create-video' },
-  generate_elements: { path: '/video-tools', tool: 'create-video', mode: 'elements' },
-  generate_first_last_frame: { path: '/video-tools', tool: 'create-video', mode: 'first-last' },
+  generate_image: { path: '/image-tools', tool: 'text-to-image' },
+  generate_image_edit: { path: '/image-tools', tool: 'image-editing' },
+  edit_image: { path: '/image-tools', tool: 'image-editing' },
+  generate_video: { path: '/video-tools', tool: 'text-to-video' },
+  generate_video_from_image: { path: '/video-tools', tool: 'image-to-video' },
+  generate_elements: { path: '/video-tools', tool: 'image-to-video', mode: 'elements' },
+  generate_first_last_frame: { path: '/video-tools', tool: 'image-to-video', mode: 'first-last' },
   generate_video_from_video: { path: '/video-tools', tool: 'video-to-video' },
   generate_lipsync: { path: '/video-tools', tool: 'lipsync' },
   generate_music: { path: '/audio-tools', tool: 'music-generator' },
