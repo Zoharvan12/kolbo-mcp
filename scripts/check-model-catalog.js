@@ -97,12 +97,24 @@ const OTHER_MODELS = [
   { identifier: 'claude-fable-5', name: 'Claude Fable 5', types: ['text'], credit: 2, new_model: true, summary: '' },
   { identifier: 'grok-4-5', name: 'Grok 4.5', types: ['text'], credit: 1, new_model: true, summary: '' },
 ];
-const ALL_MODELS = [...VIDEO_MODELS, ...SIBLING_MODELS, ...OTHER_MODELS];
+const EDIT_MODELS = [
+  { identifier: 'blackforestlabs/flux-video-upscale', name: 'Flux Video Upscale', types: ['video_upscale'], credit: 10, supported_resolutions: ['1080p', '2k', '4k'], params: { creativity: { values: ['precise', 'creative'] } }, summary: '' },
+  { identifier: 'topaz/upscale/video', name: 'Topaz Upscale', types: ['video_upscale'], credit: 10, supported_resolutions: ['720p', '1080p', '4k'], params: { enhancement_model: { values: ['Proteus', 'Starlight HQ'] } }, summary: '' },
+  { identifier: 'luma-ray-3-2-reframe', name: 'Luma Ray 3.2', types: ['video_reframe'], credit: 12, supported_aspect_ratios: ['16:9', '9:16', '1:1'], summary: '' },
+  { identifier: 'sonilo/v1.1/video-to-video-sound-effects', name: 'Sonilo Sound Effects', types: ['video_to_sound'], credit: 8, summary: '' },
+  { identifier: 'kolbo_gateway_upscale', name: 'Upscale Video', types: ['video_to_video'], credit: 0, summary: '' },
+  { identifier: 'kolbo_gateway_reframe', name: 'Reframe Video', types: ['video_to_video'], credit: 0, summary: '' },
+];
+const ALL_MODELS = [...VIDEO_MODELS, ...SIBLING_MODELS, ...OTHER_MODELS, ...EDIT_MODELS];
 
 const client = {
   apiBase: 'https://test.invalid',
   async get(path) {
-    const models = /type=text_to_video/.test(path) ? VIDEO_MODELS : ALL_MODELS;
+    const match = path.match(/[?&]type=([^&]+)/);
+    const requestedType = match ? decodeURIComponent(match[1]) : null;
+    const models = requestedType
+      ? ALL_MODELS.filter((m) => Array.isArray(m.types) && m.types.includes(requestedType))
+      : ALL_MODELS;
     return { count: models.length, models };
   },
   // modelInfoMap()'s channel — always the unfiltered catalog.
@@ -179,12 +191,43 @@ async function main() {
     assert.strictEqual(nameOnly.length, 0, `${nameOnly.length} rows carry a name with no identifier to pass on`);
   });
 
+  // Edit operations live in dedicated model families. The gateway rows under
+  // video_to_video are navigation aliases and must never be the only models an
+  // agent can discover for upscale/reframe/etc.
+  const upscaleCatalog = await list({ type: 'video_upscale', format: 'json' });
+  await check('edit catalogs: video_upscale exposes every concrete engine + params', () => {
+    const models = upscaleCatalog.structuredContent.models;
+    assert.deepStrictEqual(models.map((m) => m.identifier), [
+      'blackforestlabs/flux-video-upscale',
+      'topaz/upscale/video',
+    ]);
+    assert.deepStrictEqual(models[0].params.creativity.values, ['precise', 'creative']);
+    assert.deepStrictEqual(models[1].params.enhancement_model.values, ['Proteus', 'Starlight HQ']);
+  });
+
   // 4. Lenient resolution + actionable failure.
   for (const id of KNOWN_GOOD) {
     await check(`canonicalModelId: "${id}" resolves to itself`, async () => {
       assert.strictEqual(await canonicalModelId(client, id), id);
     });
   }
+
+  await check('canonicalModelId refreshes a typed catalog before rejecting a newly published model', async () => {
+    const staleClient = {
+      apiBase: 'https://stale-catalog.invalid',
+      async request() {
+        return { models: [{ identifier: 'luma-old-reframe', name: 'Luma Old', types: ['video_reframe'] }] };
+      },
+      async get(path) {
+        assert.match(path, /type=video_reframe/);
+        return { models: [{ identifier: 'luma-new-reframe', name: 'Luma New', types: ['video_reframe'] }] };
+      }
+    };
+    assert.strictEqual(
+      await canonicalModelId(staleClient, 'luma-new-reframe', 'video_reframe'),
+      'luma-new-reframe'
+    );
+  });
   const lenient = [
     ['flux-2-flash', 'flux-2/flash'],   // separator swap — burned credits on 2026-08-09
     ['flux 2 flash', 'flux-2/flash'],   // display name with spaces
@@ -276,6 +319,8 @@ async function main() {
     ['generate_video_from_video', { source_video: 'https://x/v.mp4', prompt: 'p', model: 'Kling 3.0 Pro' }, 'kling-video/v3/pro/video-to-video'],
     ['generate_image', { prompt: 'p', model: 'Nano Banana 2' }, 'nano-banana-2'],
     ['generate_image_edit', { prompt: 'p', source_images: ['https://x/i.png'], model: 'Nano Banana 2' }, 'nano-banana-2-image-editing'],
+    ['edit_video', { video_url: 'https://x/v.mp4', operation: 'upscale', model: 'Flux Video Upscale' }, 'blackforestlabs/flux-video-upscale'],
+    ['edit_video', { video_url: 'https://x/v.mp4', operation: 'reframe', aspect_ratio: '9:16', model: 'Luma Ray 3.2' }, 'luma-ray-3-2-reframe'],
   ];
   for (const [tool, args, want] of wiring) {
     await check(`${tool}: "${args.model}" reaches the API as "${want}"`, async () => {
@@ -286,6 +331,44 @@ async function main() {
       assert.strictEqual(posted[0].body.model, want);
     });
   }
+
+  await check('edit_video rejects kolbo_gateway_* navigation aliases before submit', async () => {
+    posted.length = 0;
+    await assert.rejects(
+      tools.edit_video({ video_url: 'https://x/v.mp4', operation: 'upscale', model: 'kolbo_gateway_upscale' }),
+      /not an executable AI model/
+    );
+    assert.strictEqual(posted.length, 0, 'gateway alias reached the generation API');
+  });
+
+  await check('edit_video rejects a concrete model from the wrong operation family', async () => {
+    posted.length = 0;
+    await assert.rejects(
+      tools.edit_video({ video_url: 'https://x/v.mp4', operation: 'reframe', aspect_ratio: '9:16', model: 'topaz/upscale/video' }),
+      /expected type: video_reframe/
+    );
+    assert.strictEqual(posted.length, 0, 'wrong-family model reached the generation API');
+  });
+
+  await check('edit_video allows promptless Sonilo auto-caption audio generation', async () => {
+    posted.length = 0;
+    await tools.edit_video({
+      video_url: 'https://x/v.mp4',
+      operation: 'generate_audio',
+      model: 'sonilo/v1.1/video-to-video-sound-effects'
+    });
+    assert.strictEqual(posted[0].body.model, 'sonilo/v1.1/video-to-video-sound-effects');
+    assert.strictEqual(posted[0].body.prompt, undefined);
+  });
+
+  await check('edit_image rejects model selection for pinned multi_shot processing', async () => {
+    posted.length = 0;
+    await assert.rejects(
+      tools.edit_image({ image_url: 'https://x/i.png', operation: 'multi_shot', model: 'nano-banana-2-image-editing' }),
+      /model is not configurable for multi_shot/
+    );
+    assert.strictEqual(posted.length, 0, 'multi_shot model override reached the generation API');
+  });
 
   // 5c. chat_send_message posts to a different route than the generate tools,
   //     so it needs its own wiring assertion — it is the call site that had

@@ -562,6 +562,30 @@ async function canonicalModelId(client, input, type) {
   const ids = new Set((narrowed.length ? narrowed : prefixed).map((i) => i.id));
   if (ids.size === 1) return [...ids][0];
 
+  // The general catalog is cached for widget performance, while list_models
+  // is intentionally live. On a just-published model, refresh only the typed
+  // family before reporting an unknown identifier so a model discovered one
+  // moment ago is immediately usable.
+  if (types.length && typeof client.get === 'function') {
+    try {
+      const freshRows = [];
+      for (const expectedType of types) {
+        const response = await client.get(`/v1/models?type=${encodeURIComponent(expectedType)}`);
+        freshRows.push(...(response?.models || response?.data?.models || []));
+      }
+      const freshMatches = freshRows.filter((row) => {
+        const id = row?.identifier;
+        const name = row?.name;
+        return (id && (id.toLowerCase() === key || normId(id) === want))
+          || (name && (name.toLowerCase() === key || normId(name) === want));
+      });
+      const freshIds = [...new Set(freshMatches.map((row) => row.identifier).filter(Boolean))];
+      if (freshIds.length === 1) return freshIds[0];
+    } catch (_) {
+      // Keep the existing actionable near-miss error when the refresh fails.
+    }
+  }
+
   // 4. unknown — name the near misses instead of dead-ending at the API.
   const stem = normId(key.split(/[\s._/-]+/).filter(Boolean)[0] || key);
   const near = [...new Set(
@@ -574,6 +598,31 @@ async function canonicalModelId(client, input, type) {
     `Unknown model identifier "${input}". Did you mean: ${near.join(', ')}? `
     + 'Never guess an identifier — call list_models with the matching `type` and `format: "json"` '
     + 'to get the exact identifiers and caps.'
+  );
+}
+
+/**
+ * Reject a published model that belongs to a different operation family.
+ * Hidden/unpublished identifiers still fail open so existing pinned engines
+ * remain usable; the API remains authoritative for those.
+ */
+async function assertModelSupportsType(client, modelId, type) {
+  if (!modelId || !type) return modelId;
+  let all;
+  try {
+    all = (await modelCatalog(client)).all;
+  } catch (_) {
+    return modelId;
+  }
+
+  const row = (all || []).find((item) => item.id === modelId);
+  if (!row) return modelId;
+  const expected = (Array.isArray(type) ? type : [type]).filter(Boolean);
+  if (!expected.length || row.types.some((value) => expected.includes(value))) return modelId;
+
+  throw new Error(
+    `Model "${modelId}" cannot be used for this operation (expected type: ${expected.join(' or ')}). `
+    + `Call list_models with type="${expected[0]}" and pass a concrete identifier it returns.`
   );
 }
 
@@ -668,6 +717,7 @@ module.exports = {
   modelInfoMap,
   voiceInfo,
   canonicalModelId,
+  assertModelSupportsType,
   normalizeAspectRatio,
   closestAspectRatio,
   resolveCatalogAspectRatio,
