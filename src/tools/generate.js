@@ -8,7 +8,8 @@ const FormData = require('form-data');
 const { pollUntilDone, waitWindowMs } = require('../polling');
 const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, sessionIdField, inlineImageBlocks, linkFields, uiGenerating, uiCompleted, appsEnabled } = require('./_shared');
 const { ownedUrl } = require('./owned-url');
-const { UI, uiResult, canonicalModelId, modelInfo, voiceInfo, resolveCatalogAspectRatio } = require('../apps');
+const { UI, uiResult, canonicalModelId, assertModelSupportsType, modelInfo, voiceInfo, resolveCatalogAspectRatio } = require('../apps');
+const { modelTypeForEditOperation, assertExecutableEditModel } = require('./editModelCatalog');
 
 // ─── Cinematic Dimensions schema (shared by generate_image + generate_image_edit) ───
 // Kolbo's "Cinema mode": eight independent photographic dimensions, each an OPTIONAL
@@ -1979,7 +1980,7 @@ function registerGenerateTools(server, client, options = {}) {
       ].join(' ')),
 
       model: z.string().optional()
-        .describe('Model identifier override. Omit to use the platform default for the operation.'),
+        .describe('Concrete model identifier for this operation. Dynamically discover it with list_models using the operation-specific type: upscale/clarity_upscale/split_upscale → "image_upscale"; reframe → "image_reframe"; zoom_out → "image_zoom_out"; inpaint → "inpaint"; erase → "erase"; face_swap → "face_swap"; removebg → "background_remove"; background_replace → "background_replace"; enhance_skin → "skin_enhancer"; enhance → "graphics_enhance"; magic_edit/camera_angle → "image_editing". multi_shot and split use pinned/non-selectable processing, so omit model for those operations. Omit elsewhere to use the platform default. Never pass a kolbo_gateway_* navigation alias.'),
 
       // ── upscale ────────────────────────────────────────────
       scale: z.number().optional()
@@ -2049,11 +2050,15 @@ function registerGenerateTools(server, client, options = {}) {
       enhancement_model, output_format,
       project_id, session_id
     }) => {
-      // No `type` argument: these are operation-routed tools (upscale / reframe /
-      // removebg / …), each operation with its own model family — there is no single
-      // catalog type to disambiguate against.
-      model = await canonicalModelId(client, model);
-      aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio);
+      const editModelType = modelTypeForEditOperation('image', operation);
+      if ((operation === 'multi_shot' || operation === 'split') && model) {
+        throw new Error(`model is not configurable for ${operation}; omit it to use the operation's pinned processing path`);
+      }
+      assertExecutableEditModel(model, 'image', operation);
+      model = await canonicalModelId(client, model, editModelType || undefined);
+      assertExecutableEditModel(model, 'image', operation);
+      await assertModelSupportsType(client, model, editModelType || undefined);
+      aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, editModelType || undefined);
 
       // Basic validation
       if (operation === 'reframe' && !aspect_ratio) throw new Error('aspect_ratio is required for reframe');
@@ -2133,7 +2138,7 @@ function registerGenerateTools(server, client, options = {}) {
       ].join(' ')),
 
       model: z.string().optional()
-        .describe('Model identifier override. Omit to use the platform default for the operation.'),
+        .describe('Concrete model identifier for this operation. Dynamically discover it with list_models using the operation-specific type: upscale → "video_upscale"; reframe → "video_reframe"; generate_audio → "video_to_sound"; remove_watermark → "video_watermark_removal"; face_swap → "video_face_swap"; extend → "video_extend"; magic_edit → "video_to_video"; lipsync → "lipsync-video"; remove_background → "video_background_removal"; inpaint → "video_inpaint"; retake → "video_retake". Compare the returned credit, supported resolutions/aspect ratios, duration limits, resolution multipliers, and params, then pass a concrete identifier. Omit to use the platform default. Never pass a kolbo_gateway_* navigation alias.'),
 
       // ── upscale ────────────────────────────────────────────
       scale: z.number().optional()
@@ -2164,6 +2169,14 @@ function registerGenerateTools(server, client, options = {}) {
         .describe('When true, keeps the original video audio and mixes in the generated audio. Used with "generate_audio". Default: false.'),
       cfg_strength: z.number().optional()
         .describe('Guidance strength for audio generation (higher = follows prompt more strictly). Used with "generate_audio".'),
+      audio_format: z.enum(['wav', 'mp3', 'aac', 'flac']).optional()
+        .describe('Separate generated-audio format for Sonilo sound-effects models. Read output_audio_formats/default_output_audio_format from list_models; default is "aac".'),
+      segments: z.array(z.object({
+        start: z.number().nonnegative(),
+        end: z.number().positive(),
+        prompt: z.string()
+      })).optional()
+        .describe('Optional contiguous Sonilo sound-design ranges. The first start must be 0, each end must equal the next start, and the final end must not exceed the video duration. Omit to let Sonilo detect scenes automatically.'),
 
       // ── face_swap ──────────────────────────────────────────
       image_url: z.string().optional()
@@ -2210,21 +2223,26 @@ function registerGenerateTools(server, client, options = {}) {
       target_fps, resolution, enhancement_model,
       grid_position_x, grid_position_y,
       sound_effect_prompt, background_music_prompt, original_sound, cfg_strength,
+      audio_format, segments,
       refine_edges, subject_is_person,
       text_prompt, context,
       mask_video_url, object_prompt, video_strength,
       start_time,
       project_id, session_id
     }) => {
-      // No `type` argument: these are operation-routed tools (upscale / reframe /
-      // removebg / …), each operation with its own model family — there is no single
-      // catalog type to disambiguate against.
-      model = await canonicalModelId(client, model);
-      aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio);
+      const editModelType = modelTypeForEditOperation('video', operation);
+      assertExecutableEditModel(model, 'video', operation);
+      model = await canonicalModelId(client, model, editModelType || undefined);
+      assertExecutableEditModel(model, 'video', operation);
+      await assertModelSupportsType(client, model, editModelType || undefined);
+      aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, editModelType || undefined);
 
       // Validation
       if (operation === 'magic_edit'    && !prompt)      throw new Error('prompt is required for magic_edit');
-      if (operation === 'generate_audio'&& !prompt)      throw new Error('prompt is required for generate_audio');
+      if (operation === 'generate_audio' && !prompt && !sound_effect_prompt && !background_music_prompt
+          && !(typeof model === 'string' && model.includes('sonilo'))) {
+        throw new Error('prompt is required for generate_audio unless dedicated sound/music prompts are provided or the selected model supports automatic captioning');
+      }
       if (operation === 'reframe'       && !aspect_ratio)throw new Error('aspect_ratio is required for reframe');
       if (operation === 'face_swap'     && !image_url)   throw new Error('image_url (reference face) is required for face_swap');
       if (operation === 'lipsync' && !audio_url && !text_prompt) throw new Error('audio_url or text_prompt is required for lipsync');
@@ -2236,6 +2254,7 @@ function registerGenerateTools(server, client, options = {}) {
         target_fps, resolution,
         grid_position_x, grid_position_y,
         sound_effect_prompt, background_music_prompt, original_sound, cfg_strength,
+        audio_format, segments,
         refine_edges, subject_is_person,
         text_prompt, context,
         mask_video_url, object_prompt, video_strength,

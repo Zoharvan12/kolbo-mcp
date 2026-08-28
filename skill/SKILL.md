@@ -105,10 +105,12 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 |------|-------------|
 | `generate_image` | Single image from a text prompt. Supports Visual DNA, moodboards, image presets (custom instructions live here), reference images, web-search grounding. Named sheets/styles: `list_presets({ type: "image", search: "headless" })` then `preset_id`. |
 | `generate_image_edit` | Edit/transform an existing image. Pass `source_images` + edit prompt. Image-editing presets are supported through `preset_id` from `list_presets({ type: "image_edit" })`. |
+| `edit_image` | Operation-routed image tools such as upscale, reframe, outpaint, background work, inpaint and enhance. Before choosing `model`, call `list_models` with the operation family (`image_upscale`, `image_reframe`, `image_zoom_out`, `background_remove`, `graphics_enhance`, etc.) and pass a concrete returned identifier. `multi_shot` and `split` use pinned processing, so omit `model` for those. |
 | `generate_creative_director` | **2–8 related images or videos as one coherent set.** Use INSTEAD of multiple `generate_image` calls for any related multi-output. |
 | `generate_video` | Text-to-video. Accepts `visual_dna_ids` and `sound_enabled`; `generate_elements` is still the primary reference-driven route for a DNA-anchored film. |
 | `generate_video_from_image` | Animate a still. Prompt describes motion, not subject. |
 | `generate_video_from_video` | Restyle/transform an existing video. Keeps original motion. |
+| `edit_video` | Operation-routed video tools such as upscale, reframe, audio generation, watermark/background removal, face swap, extend, inpaint and retake. Discover the real engines through the operation family (`video_upscale`, `video_reframe`, `video_to_sound`, `video_extend`, etc.), compare caps/cost/`params`, and pass a concrete identifier — never a `kolbo_gateway_*` navigation row. |
 | `generate_elements` | Reference-driven video. **Primary route for DNA → video.** Prompt = Seedance Locked Intro (`Total` + `[GLOBAL LOOK]` / `[CAST]` / `[LOCATION]` + `SHOT N`). Every DNA in `visual_dna_ids` must also be `@Name` in that prompt. |
 | `generate_first_last_frame` | Keyframe interpolation between two frames. |
 | `generate_lipsync` | Lipsync an existing waveform onto a face. **Not the route for dialogue in a film you are generating** — write the line in the Seedance prompt instead. |
