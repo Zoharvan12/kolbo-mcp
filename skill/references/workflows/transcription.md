@@ -149,7 +149,7 @@ visual_dna_ids: ["vdna_8f2c"]   // maya
 
 The point is **not** to dump an essay into the prompt — it's to make sure every concrete detail the next model needs to preserve (or change) is named, so the chain doesn't lose continuity across steps.
 
-**Production-log tie-in:** when you analyze a generated still/clip, write a one-line description into `.kolbo/production.md` next to the URL — that way the next chained step can read the log instead of re-analyzing.
+**Production-log tie-in:** only if the still/clip is already user-approved and present in `.kolbo/production.md`, add a one-line analysis beside its URL. Never create an entry for an unapproved asset merely because it was analyzed.
 
 ## Image Analysis Detail (when the user uploads images)
 

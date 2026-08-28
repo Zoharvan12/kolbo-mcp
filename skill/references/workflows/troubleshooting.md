@@ -68,7 +68,7 @@ When a generation fails, `get_generation_status` returns a structured `failure` 
 
 Branch on `failure.category` / `failure.retryable`:
 
-- `category === "content_policy"` (or `code === "CONTENT_FLAGGED_SENSITIVE"`) → **do not retry the same prompt**. Tell the user the model refused, suggest a less explicit phrasing or a Visual DNA fallback. Log to `.kolbo/production.md` Failures section with the exact reason.
+- `category === "content_policy"` (or `code === "CONTENT_FLAGGED_SENSITIVE"`) → **do not retry the same prompt**. Tell the user the model refused and suggest a less explicit phrasing or a Visual DNA fallback. Keep the failure out of `.kolbo/production.md`.
 - `category === "auth"` or `code === "[KOLBO_AUTH_EXPIRED]"` → surface the reconnect flow, don't auto-retry.
 - `retryable === true` (transient: network, rate limit, provider 5xx) → retry once with the same payload after a short pause. If it fails again, surface to user.
 - `retryable === false` and unknown category → surface the raw `message` to the user, don't retry.

@@ -63,7 +63,7 @@ When the user says "use the model אסתר" but you've only created a DNA for "�
 
 ## ⚠️ Don't re-fetch / re-list your own outputs (CRITICAL)
 
-After a generation tool returns its URLs, those URLs are **already** in **Library** (right panel — This session) and in `.kolbo/production.md`. Do **NOT** call `list_media`, `get_media`, `get_media_stats`, `list_visual_dnas`, or `chat_send_message` with `media_urls` on those URLs just to "verify" or "fetch thumbnails of the results":
+After a generation tool returns its URLs, those URLs are already in **Library** (right panel — This session). They enter `.kolbo/production.md` only after the user approves the actual result. Do **NOT** call `list_media`, `get_media`, `get_media_stats`, `list_visual_dnas`, or `chat_send_message` with `media_urls` just to "verify" or "fetch thumbnails":
 
 - It burns credits and time for zero new information.
 - Every such tool call streams partial output into the session, which forces Library to re-evaluate (visible flicker on the gallery tiles).
@@ -75,7 +75,7 @@ After a generation tool returns its URLs, those URLs are **already** in **Librar
 - You need details about something generated in an **earlier session** that you don't have a record of.
 - You're chasing a specific user reference like "the rainy clip from yesterday" that isn't in the current chat's `.kolbo/production.md`.
 
-For media you generated this session, you already know the prompt, model, and result URL — write that into `.kolbo/production.md` and reference it from context.
+For media generated this session, use the current tool result while approval is pending. After explicit output approval, write the winner's prompt, model, and URL into `.kolbo/production.md`.
 
 ## ⚠️ Presenting list results — show thumbnails (MANDATORY)
 
@@ -179,7 +179,7 @@ Lipsync @video1's speaker to the dialogue track @Audio1, keeping the original am
 2. **For edits, the source is `@image1` (or `@video1`).** In `generate_image_edit`, the first entry of `source_images` is the canonical base.
 3. **Visual DNA tags are name-based, not positional.** `@maya` always means the DNA you registered as `name: "maya"`, regardless of where its id sits in `visual_dna_ids`.
 4. **Tag every reference you actually pass.** If you pass a reference but never mention it in the prompt, the engine often treats it as decorative — either drop it or name it explicitly.
-5. **Tags carry across the production log.** When you log a generation to `.kolbo/production.md`, write the prompt with the tags intact and record the `@name → URL` / `@name → vdna_id` binding alongside.
+5. **Tags carry across the production log.** When the user approves a generation and you log it, preserve the prompt tags and record the `@name → URL` / `@name → vdna_id` binding alongside.
 6. **Tag even single-reference calls when a DNA, video, or audio is involved.** Single plain image with no DNA can use prose ("this image"), but as soon as the call also carries a DNA, a video ref, or an audio ref, tag every asset so the engine knows the subject vs. the modifier role.
 
 **Failure modes the tags fix:**

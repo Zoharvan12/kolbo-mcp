@@ -20,7 +20,7 @@ allowed-tools: Bash, Read, Write, Edit
 
 You have direct access to the Kolbo AI creative platform via MCP tools (auto-configured by `kolbo auth login`). Use them to generate and deliver real content — do NOT just describe what you would create.
 
-> 🚫 **Don't dump generated URLs as bare text or markdown links in chat** — the UI already shows results in **Library** (right panel) and on the generation card. Refer by description ("the rainy scene"), store URLs in `.kolbo/production.md`. INLINE `![](url)` images ARE allowed for catalog-style replies (per-item thumbs in numbered lists).
+> 🚫 **Don't dump generated URLs as bare text or markdown links in chat** — the UI already shows results in **Library** (right panel) and on the generation card. Refer by description ("the rainy scene"). Store only user-approved results in `.kolbo/production.md`; pending takes stay out. INLINE `![](url)` images ARE allowed for catalog-style replies (per-item thumbs in numbered lists).
 
 This file is the **always-loaded core**: tool inventory + universal hard rules + routing index — for model-specific prompt rules, workflows, cost validation, etc., Read the matching `references/` file from the index below; loading is mandatory, not optional flavor (users never invoke the bundled skills themselves — skipping them yields a lazy one-line prompt).
 
@@ -55,7 +55,7 @@ Then generate **only** with the confirmed parameters. If the user changes an opt
 
 - **Video/lipsync `credit` is per-SECOND, not per-clip**: `total = credit × duration`. This is the universal rule for video/firstlast/elements/motion_graphic/cast types, not a per-model exception — `list_models` states it inline now. The one carve-out is a model with `flat_credit_by_resolution` set.
 - **Batch totalling 100+ credits**: run `check_credits` first.
-- **Quote real cost**: after firing, log `credits_used` (from the tool result) to `.kolbo/production.md` — never `base × count`.
+- **Quote real cost**: when the user approves the result, log its actual `credits_used` (from the tool result) to `.kolbo/production.md` — never `base × count`.
 - **Never state "credits remaining" from arithmetic** (opening balance − generation costs). Coding/chat usage deducts credits too, so the math is always wrong. Report cost only; if the user asks for their balance, call `check_credits` fresh at that moment.
 - **Out of credits → `show_plans`.** A generation refused for credits already returns the upgrade card automatically — do NOT retry it, and do not re-run the tool "to be sure". Call `show_plans` yourself when the user asks about pricing, plans, upgrading, or how to get more credits. Prices are live and promo-adjusted; never quote them from memory. The user completes any purchase themselves on app.kolbo.ai/pricing — you cannot buy for them.
 
@@ -105,12 +105,10 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 |------|-------------|
 | `generate_image` | Single image from a text prompt. Supports Visual DNA, moodboards, image presets (custom instructions live here), reference images, web-search grounding. Named sheets/styles: `list_presets({ type: "image", search: "headless" })` then `preset_id`. |
 | `generate_image_edit` | Edit/transform an existing image. Pass `source_images` + edit prompt. Image-editing presets are supported through `preset_id` from `list_presets({ type: "image_edit" })`. |
-| `edit_image` | Operation-routed image tools such as upscale, reframe, outpaint, background work, inpaint and enhance. Before choosing `model`, call `list_models` with the operation family (`image_upscale`, `image_reframe`, `image_zoom_out`, `background_remove`, `graphics_enhance`, etc.) and pass a concrete returned identifier. `multi_shot` and `split` use pinned processing, so omit `model` for those. |
 | `generate_creative_director` | **2–8 related images or videos as one coherent set.** Use INSTEAD of multiple `generate_image` calls for any related multi-output. |
 | `generate_video` | Text-to-video. Accepts `visual_dna_ids` and `sound_enabled`; `generate_elements` is still the primary reference-driven route for a DNA-anchored film. |
 | `generate_video_from_image` | Animate a still. Prompt describes motion, not subject. |
 | `generate_video_from_video` | Restyle/transform an existing video. Keeps original motion. |
-| `edit_video` | Operation-routed video tools such as upscale, reframe, audio generation, watermark/background removal, face swap, extend, inpaint and retake. Discover the real engines through the operation family (`video_upscale`, `video_reframe`, `video_to_sound`, `video_extend`, etc.), compare caps/cost/`params`, and pass a concrete identifier — never a `kolbo_gateway_*` navigation row. |
 | `generate_elements` | Reference-driven video. **Primary route for DNA → video.** Prompt = Seedance Locked Intro (`Total` + `[GLOBAL LOOK]` / `[CAST]` / `[LOCATION]` + `SHOT N`). Every DNA in `visual_dna_ids` must also be `@Name` in that prompt. |
 | `generate_first_last_frame` | Keyframe interpolation between two frames. |
 | `generate_lipsync` | Lipsync an existing waveform onto a face. **Not the route for dialogue in a film you are generating** — write the line in the Seedance prompt instead. |
@@ -209,7 +207,9 @@ Scene dialogue is **never** `generate_speech` or `generate_lipsync`. Seedance 2 
 
 ## ⚠️ Load the matching skill BEFORE generating (HARD RULE)
 
-Do **not** call `generate_*` / `generate_elements` / `generate_image_edit` until you have loaded the matching skill **in this turn** (the `skill` tool for bundled skills, and/or Read of the `references/` file). "I already know this" is not a load. Users will never invoke these skills themselves.
+This `kolbo` skill is the mandatory first layer for every Kolbo media task. Do **not** call `generate_*` / `generate_elements` / `generate_image_edit`, or write the billable prompt for them, until you have loaded every matching dependency **in this turn** (the `skill` tool for bundled skills and Read of the required Kolbo references). "I already know this," memory, or a prior-turn load does not count. Users will never invoke these skills themselves.
+
+Dependencies accumulate: narrative Elements work requires **Kolbo + filmmaking + elements-prompting**, not whichever one was loaded first. Before the first paid call, silently check the stack and load anything missing.
 
 | About to call / user intent | `skill` tool | Also Read |
 |---|---|---|
@@ -295,7 +295,7 @@ Four surfaces show the same job. Use this map — never invent a fifth:
 | **Library** (right panel — "This session" / "All media") | User-facing gallery of **completed** media | "Is the user's output there?" Point humans here — never to chat history. Finished clips/images land automatically — do **not** call `list_media` / `get_media` / `list_session_generations` to "check if it worked" after a generate you already submitted (burns credits/context, can pollute the session). A K/logo spinner tile **is** the in-progress placeholder for the same job, not a missing one. |
 | **Chat generation card** | Progress chrome while a job is in flight | Status badge only (`Generating` / done). A **black / empty preview while Generating is NORMAL** — the iframe has nothing to paint yet. It is **not** failure, not "lost", not a reason to re-fire. |
 | **`get_generation_status`** (MCP) | Agent API for job state | Whether the server job is `completed` / `failed` / still running, and the final `urls`. This is your SoT for in-flight work — **not** the card pixels. |
-| **`.kolbo/production.md`** | Your private log across turns | Ids + URLs after success. Compaction-safe memory — not the user gallery. |
+| **`.kolbo/production.md`** | Your private log across turns | User-approved ids + URLs only. Compaction-safe memory — not the user gallery or a candidate scratchpad. |
 
 **🛑 NEVER re-fire a generation you already called.** Aborted / timed-out / `submitted` calls still process server-side. Finish with `get_generation_status` (`wait=true`) — never a second `generate_*`.
 
@@ -305,14 +305,14 @@ Four surfaces show the same job. Use this map — never invent a fifth:
 
 **Detecting failure — a generation can fail three ways. Treat ALL as failure:**
 
-1. **Tool returns `error`** — explicit. Surface, suggest retry, log `generation_id`.
+1. **Tool returns `error`** — explicit. Surface it and suggest a retry. Keep the `generation_id` in the active run for recovery; never put failures in production.md.
 2. **Tool returns `completed` but `urls` is empty** — silent failure (NSFW filter, model OOM, upstream 5xx). Tell user "completed without an output — retrying" and re-fire ONCE. Do NOT claim it worked.
 3. **Tool hangs / never returns** — MCP poll timed out. Call `get_generation_status(generation_id, wait=true)` IMMEDIATELY. The server might be done.
 
 **Reporting:**
 - Don't celebrate before reading the result. Verify `urls` is non-empty.
 - Don't auto-retry without surfacing the failure. Partial batches: list failed items + reasons + successful count, and surface the user's count — "6 of 8 ready", not "videos ready". Never "✅ all done!" on partials.
-- Log only successes to `.kolbo/production.md` — never failed items.
+- Log only successful results the user explicitly approves to `.kolbo/production.md` — never pending, rejected, or failed items.
 - When done: say the result is in **Library → This session**. "Where is it?" → Library (This session). "Is it done?" with no urls yet → `get_generation_status` once.
 
 `failure` envelope structure + retry rules: `references/workflows/troubleshooting.md`.
@@ -345,13 +345,13 @@ How to thread:
 3. New scene or new concept → new session. Same scene / same cast pass → never a new session.
 4. Image tools and video tools cannot share an id (server kinds differ). Cast/Locations stay image; scene clips stay video.
 
-Write each session's `session_id` + plan name into `.kolbo/production.md` `### Sessions`. Do **not** mark the phase Approved or jump to the next bucket until the user confirms (or you asked a labeled GATE and they answered). Full rules: `references/workflows/production-planning.md` + `production-log.md`.
+After the user approves a bucket, write its `session_id` + plan name into `.kolbo/production.md` `### Sessions`. Do not create or update the file for a pending bucket. Full rules: `references/workflows/production-planning.md` + `production-log.md`.
 
 ## Rate Limiting & Batch Generation
 
 - `generate_image`: 30/min. All other generation tools: 10/min per type. 300/min global. `upload_media`: 300/min, no credit cost.
 - **Batch ≤10 items**: output ALL tool calls in one response — they run concurrently.
-- **Bulk >10 items**: real-world ceilings — `generate_image` 8–10 in-flight, image-edit 5–8, video tools 3–5, `generate_video_from_video` 3, music/speech/sound 5–8. Fire one batch → wait → fire next. Persist every `generation_id` in `.kolbo/production.md`.
+- **Bulk >10 items**: real-world ceilings — `generate_image` 8–10 in-flight, image-edit 5–8, video tools 3–5, `generate_video_from_video` 3, music/speech/sound 5–8. Fire one batch → wait → fire next. Keep pending ids in the current run; persist only the user-approved winners in `.kolbo/production.md`.
 
 ## ⚠️ Multi-output? Default to `generate_creative_director` (CRITICAL)
 
@@ -406,7 +406,7 @@ Avoid bare URL dumps and HTML `<table>` grids — Library already provides a gal
 
 **After `generate_creative_director` completes** — share results as individual URLs, one per scene. Do NOT create an HTML grid artifact.
 
-**Always** park every successful URL + `session_id` in `.kolbo/production.md` as a **candidate**. Promote to Approved and advance the plan only after the user confirms — see `references/workflows/production-log.md`.
+**Never update `.kolbo/production.md` merely because a generation succeeded.** Keep the result provisional in the generation card / Library, ask the user to choose, and write only the explicitly approved winner in the same turn as approval. Brief approval before generation is not output approval; silence, a topic change, or requesting the next task is not approval. See `references/workflows/production-log.md`.
 
 ## Limitations & Safety
 

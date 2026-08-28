@@ -143,7 +143,7 @@ For `social_carousel` / `ad_creative_pack` (multi-output by design):
 - Call the chosen MCP tool — single command, no preamble.
 - For multi-output: `generate_creative_director` returns N URLs; share them as individual lines (do NOT build an HTML grid artifact — the canvas already shows the gallery).
 - For single-output: one image URL.
-- Log every URL + model + resolution + mode into `.kolbo/production.md` under `### <Mode>` subsection.
+- After the user approves a result, log only that URL + model + resolution + mode into `.kolbo/production.md` under `### <Mode>`.
 
 ## UX Rules
 

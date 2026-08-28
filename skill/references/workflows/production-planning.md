@@ -59,9 +59,10 @@ Omitting `session_id` on generate creates a new session. First call of a bucket
 omits it, then `rename_session` immediately; every later call in that bucket
 passes the same id. Image and video kinds cannot share an id.
 
-Write those planned names into `.kolbo/production.md` `### Sessions` as
-`(pending)` during MAP. Fill in the real `session_id` when the first generate
-returns. See `production-log.md`.
+Keep planned names in the working plan during MAP. Do not create or update
+`.kolbo/production.md` for pending buckets. After the user approves a bucket,
+write its plan name and real `session_id` under `### Sessions`. See
+`production-log.md`.
 
 Separate **states** from **identities**: clean vs bloodied, day vs night, intact
 vs broken are their own assets. Do not expect one DNA to carry both.
@@ -123,7 +124,7 @@ parse — not a vague "looks good?":
 
 ```
 GATE — Cast
-Presented: @maya, @doron (candidates in the log)
+Presented: @maya, @doron (provisional; not yet in the production log)
 Lock + next: "lock cast" / "yes" / "next" / "now locations"
 Stay: "redo @maya" / "another take of the leather jacket"
 ```
@@ -135,8 +136,9 @@ Treat as confirmation: `yes`, `ok`, `lock`, `approved`, `that's the one`,
 Not confirmation: silence, "maybe", a question about something else, another
 take request. Ask the GATE again once; do not invent a yes.
 
-On lock: promote candidates → Approved in `.kolbo/production.md`, then start
-the next planned bucket in **its** session.
+On lock: write the approved result into `.kolbo/production.md`, then start the
+next planned bucket in **its** session. Rejected and pending takes never enter
+the log.
 
 ## 4. Shoot
 

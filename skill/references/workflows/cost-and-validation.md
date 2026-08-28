@@ -115,6 +115,6 @@ Cost formula: `final_cost = credit × resolution_multipliers[resolution] × (sou
 - **Video**: `720p` (or the cheapest), with `default_duration` (or shortest in `supported_durations`).
 - **Sound**: respect `sound_enabled_by_default`; if false, leave off.
 
-## Always Log the Resolution / Duration / Sound Choices
+## Log Approved Resolution / Duration / Sound Choices
 
-Log `credits_used`, resolution, duration and sound state per entry — format in `production-log.md`.
+After the user approves the actual result, log its `credits_used`, resolution, duration, and sound state. Pending and rejected outputs stay out; use the format in `production-log.md`.

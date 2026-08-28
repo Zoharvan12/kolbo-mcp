@@ -70,12 +70,12 @@ For ads featuring a specific product:
 
 | User provides | Do |
 |---|---|
-| **Product photo** (local file or URL) | `upload_media({ source })` → tag as `@image1` in prompt → log to `.kolbo/production.md` under `### Products` |
+| **User-approved product photo** (local file or URL) | `upload_media({ source })` → tag as `@image1` in prompt → log to `.kolbo/production.md` under `### Products` |
 | **Product URL only** (no photo) | Run `workflows/research-first.md` first to scrape hero images + brand palette; re-host via `upload_media` → use Kolbo CDN URL |
 | **Multiple angles** | Upload all in parallel (one `upload_media` call each) → pass all in `reference_images` → tag `@image1`, `@image2`, … per `workflows/visual-dna.md` reference-tagging rules |
 | **Nothing — text only** | Ask once: "Do you have a product photo? It dramatically improves fidelity." If they say no, proceed text-only but warn quality may be lower |
 
-**Always log products in `.kolbo/production.md`** so subsequent ads in the same workspace reuse the same CDN URL without re-uploading.
+**Log user-approved products in `.kolbo/production.md`** so subsequent ads reuse the same CDN URL. Generated variants stay out until approved.
 
 ## Reference Media Cap
 
@@ -121,6 +121,6 @@ Default-to-cheapest when the user hasn't expressed a quality intent and the diff
 1. **Always pick an ad format explicitly** with the user — never auto-pick.
 2. **Always confirm aspect ratio + resolution + quantity** before firing.
 3. **Always check for a brand kit** before scraping fresh — `Read .kolbo/brand-kits/<slug>.md` first.
-4. **Always log products + brand kits in `.kolbo/production.md`** so future ads reuse instead of re-uploading / re-scraping.
+4. **Log approved products + brand kits in `.kolbo/production.md`** so future ads reuse them. Do not log generated variants before output approval.
 5. **Retries:** one retry only when `failure.retryable === true` or the generation completed with empty URLs (SKILL.md "⚠️ Generation lifecycle"); otherwise surface the reason and let the user adjust.
 6. **Strict NO uninvited additions** in every ad prompt: "NO captions, NO subtitles, NO watermarks, NO extra text beyond what's specified."
