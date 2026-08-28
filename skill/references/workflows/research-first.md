@@ -50,7 +50,7 @@ The bulk-API rule applies: **external** (non-Kolbo) URLs in `reference_images` /
 1. `Bash: curl -fsSL "<external-url>" -o /tmp/<name>.<ext>` (or use WebFetch where it returns the binary)
 2. `mcp__kolbo__upload_media` with the local file → returns Kolbo CDN URL
 3. Use the returned CDN URL in any subsequent generation call
-4. Log both URLs in the production log (so the user can trace provenance)
+4. After the user approves the researched direction, log its two source URLs in the production log for provenance
 
 ## Synthesizing the research
 
@@ -154,7 +154,7 @@ The other workflow files consume the brand kit:
 - `workflows/marketplace-cards.md` — palette + fonts critical for A+ module consistency
 - `workflows/marketing-studio.md` — voice/tone shapes UGC presenter dialogue; palette shapes any branded overlays
 
-Always cite the brand-kit slug in the production log so reviewers can trace which kit drove a given generation.
+When an approved generation is logged, cite the brand-kit slug so reviewers can trace which kit drove it. Do not update the log for pending results.
 
 ## Building prompts informed by the research
 

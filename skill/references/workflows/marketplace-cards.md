@@ -125,7 +125,7 @@ Skip questions whose answer is obvious from the request.
   ...
   ```
   Do NOT wrap them in an HTML grid artifact — the canvas already shows the gallery.
-- Log all URLs to `.kolbo/production.md` under `## Production: <product name>` → `### Marketplace Cards` subsection.
+- After the user approves specific cards, log only those URLs to `.kolbo/production.md` under `## Production: <product name>` → `### Marketplace Cards`.
 - If a `main_image` came back with text / props (compliance failure), surface the issue and re-fire with stronger prompt prohibitions — don't ship a non-compliant main image.
 
 ## Existing Main-Image Reuse
@@ -143,4 +143,4 @@ If the user already has an approved `main_image` from a prior session and wants 
 3. **Always reuse brand kit** — Read `.kolbo/brand-kits/<slug>.md` first; pass palette + fonts to every A+ module.
 4. **Recommend GPT Image 2 + 2K/4K for dense-text A+ modules** — Nano Banana renders text well but GPT Image 2 wins at multi-line technical layouts.
 5. **For bundles, always use `generate_creative_director`** — never fire 13 parallel `generate_image` calls.
-6. **Log everything to `.kolbo/production.md`** — marketplace listings get updated quarterly; reuse beats regenerate.
+6. **After approval, log the approved cards to `.kolbo/production.md`** — pending and rejected variants stay out; approved listings can then be reused.

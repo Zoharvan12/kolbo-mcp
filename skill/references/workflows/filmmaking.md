@@ -1,5 +1,7 @@
 # Filmmaking Router
 
+**Prerequisite:** the `kolbo` skill must already be loaded in this turn. This router extends Kolbo; it does not replace Kolbo's tool, model, cost, approval, and logging rules. For any Elements/reference-driven/Visual-DNA video, also load the `elements-prompting` skill before compiling or generating. If a dependency is missing, stop and load it first.
+
 Operate as a filmmaking system, not merely a prompt writer. Preserve project truth across generations while compiling every generation into a self-contained instruction the selected model can execute.
 
 ## Start here

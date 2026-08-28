@@ -126,7 +126,7 @@ For ads that feature a specific product:
 1. **Upload product photo** via `upload_media` → Kolbo CDN URL.
 2. **Pass as `reference_images`** to `generate_creative_director` / `generate_elements` / `generate_video_from_image`.
 3. **Tag with `@image1`** in the prompt.
-4. **Log in `.kolbo/production.md`** under a `### Products` subsection so future ads in the same workspace reuse the same CDN URL (don't re-upload).
+4. **After the user approves the product asset, log it in `.kolbo/production.md`** under `### Products` so future ads reuse the same CDN URL. Pending variants stay out.
 
 If the user gives a **product URL** instead of a photo, see `workflows/research-first.md` — scrape, extract images, re-host via `upload_media`, persist as a brand kit at `.kolbo/brand-kits/<slug>.md`.
 
