@@ -25,7 +25,7 @@ Creative generations bill against the user's Kolbo credit balance. **Billing uni
 Apply when confirming cost before firing:
 
 - **Video / Lipsync**: normally `total = model_credit_per_second × output_duration_seconds`. Never assume the credit shown is a flat per-generation cost for these types.
-- **Video-input tariff**: when the request contains one or more video inputs and the model returns `video_input_credit`, use `ceil(video_input_credit × (sum ceil(each input video duration) + output_seconds) × video_input_resolution_multipliers[resolution])`. Dedicated Seedance Video Edit output seconds follow the selected source clip; Seedance Extend output seconds are only the requested added duration. Do not also apply the ordinary `credit` profile.
+- **Video-input tariff**: when the request contains one or more video inputs and the model returns `video_input_credit`, use `ceil(video_input_credit × (sum nominal_video_seconds(each input) + nominal_output_seconds) × video_input_resolution_multipliers[resolution])`. A probed duration within 0.15s of an integer is encoder padding and snaps to that integer; any larger fraction rounds up. Dedicated Seedance Video Edit output seconds follow the selected source clip; Seedance Extend output seconds are only the requested added duration. Do not also apply the ordinary `credit` profile.
 - **Music**: flat per generation — `total = model_credit` (duration does not change cost).
 - **TTS**: `total = model_credit × ceil(character_count / 100)`. Count actual characters first. 1000 chars with ElevenLabs = 50 credits.
 - **Images / 3D / Sound effects**: `total = model_credit × quantity`.
