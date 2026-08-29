@@ -106,6 +106,7 @@ const identifierRow = (m) => ({
   name: m.name,
   types: m.types,
   credit: m.credit,
+  ...(m.video_input_credit != null ? { video_input_credit: m.video_input_credit } : {}),
   ...(m.recommended ? { recommended: true } : {}),
   ...(m.new_model ? { new_model: true } : {}),
 });
@@ -115,7 +116,7 @@ function registerModelTools(server, client, options = {}) {
   // ─── list_models ───────────────────────────────────────────
   server.tool(
     'list_models',
-    'List available AI models on Kolbo. Filter by `type` to narrow to a generation type, and pass `format: "json"` to enumerate the catalog with exact identifiers — `format: "json"` + `type` returns the full raw model documents (every constraint field, for programmatic comparison / cap validation before submitting a generation); `format: "json"` alone returns a compact index of EVERY model and its identifier. Default `format: "text"` returns the human-readable summary. NEVER guess a model identifier: call this tool. ⚠️ COST: for any model whose type is video / firstlast / elements / motion_graphic / cast, `credit` is a PER-SECOND rate, not a per-clip price — multiply by the requested `duration` before quoting cost to the user (e.g. `credit: 9` at `duration: 8` is 72 credits, not 9). This is the universal rule, not a per-model exception. The one carve-out is a model with `flat_credit_by_resolution` set — those charge the flat rate regardless of duration. Every other model type (image, audio, 3D, per-token text) already bills flat per generation as `credit` states.',
+    'List available AI models on Kolbo. Filter by `type` to narrow to a generation type, and pass `format: "json"` to enumerate the catalog with exact identifiers — `format: "json"` + `type` returns the full raw model documents (every constraint field, for programmatic comparison / cap validation before submitting a generation); `format: "json"` alone returns a compact index of EVERY model and its identifier. Default `format: "text"` returns the human-readable summary. NEVER guess a model identifier: call this tool. ⚠️ COST: video / firstlast / elements / motion_graphic / cast rates are normally per output second. If a model publishes `video_input_credit` and the request includes one or more input videos, use that alternate rate and bill `sum(ceil(each input video duration)) + output duration`; each input rounds separately. A `flat_credit_by_resolution` model instead charges the flat tier regardless of duration. Every other model type (image, audio, 3D, per-token text) bills as its catalog fields state.',
     {
       type: z.string().optional().describe('Filter by DB type name. Generation: "text_to_img", "image_editing", "text_to_video", "img_to_video", "draw_to_video", "video_to_video", "elements", "firstlastgenerations", "lipsync-image", "lipsync-video", "music_gen", "text_to_speech", "text_to_sound", "stt", "text". Image-edit engines: "image_upscale", "image_reframe", "image_zoom_out", "inpaint", "erase", "face_swap", "background_remove", "background_replace", "skin_enhancer", "graphics_enhance". Video-edit engines: "video_upscale", "video_reframe", "video_background_removal", "video_to_sound", "video_face_swap", "video_watermark_removal", "video_extend", "video_inpaint", "video_retake". For edit_image/edit_video, query the operation-specific type and pass a CONCRETE returned identifier; never submit a kolbo_gateway_* row, because those are web-navigation aliases rather than AI engines. Legacy aliases also accepted: "image", "image_edit", "video", "video_from_image", "video_from_video", "music", "speech", "sound", "chat", "lipsync", "three_d", "first_last_frame", "transcription". Omit for all models.'),
       format: z.enum(['text', 'json']).optional().describe('Output format. "text" (default) returns a human-readable summary with the most-used caps. "json" is the source of truth for identifiers and caps: with `type` it returns the raw model documents from the API (identifier, credit, supported_durations, supported_resolutions, supported_aspect_ratios, max_reference_images, max_visual_dna, max_video_duration, …) for EVERY model of that type; without `type` it returns a compact index of every model in the catalog and its exact identifier. Use it whenever you need an identifier you have not seen listed, or must verify a cap before passing a value that might exceed a model-specific limit.'),
@@ -211,6 +212,14 @@ function registerModelTools(server, client, options = {}) {
                 .map(r => (mult[r] != null && mult[r] !== 1 ? `${r} (${mult[r]}×)` : r))
                 .join(' · ')
           );
+        }
+
+        if (m.video_input_credit != null) {
+          const vm = m.video_input_resolution_multipliers || {};
+          const tiers = Object.keys(vm).length
+            ? ' · ' + Object.entries(vm).map(([r, mult]) => `${r} (${mult}×)`).join(' · ')
+            : '';
+          parts.push(`video_input_price: ${m.video_input_credit} credits/combined-second${tiers} · bill sum(ceil(each input video)) + output`);
         }
 
         // Output durations (video gen output, not source video)
@@ -369,7 +378,7 @@ function registerModelTools(server, client, options = {}) {
       const cost = m => (m.output_token_rate != null
         ? `${m.input_token_rate ?? '?'}/${m.output_token_rate} credits per 1K tokens (in/out)`
         : isPerSecondVideo(m)
-          ? `${m.credit} credits/second (× requested duration — NOT a flat per-clip price)`
+          ? `${m.credit} credits/output-second${m.video_input_credit != null ? `; ${m.video_input_credit} credits/combined-second with video input` : ''}`
           : `${m.credit} credits`);
       const formatModel = m =>
         `${m.identifier} (${m.name}) - ${cost(m)}${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}${m.summary ? ` — ${detailed ? m.summary : brief(m.summary)}` : ''}${detailed ? formatSpecs(m) : ''}`;
