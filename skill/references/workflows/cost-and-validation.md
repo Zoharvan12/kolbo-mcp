@@ -12,7 +12,7 @@ Creative generations bill against the user's Kolbo credit balance. **Billing uni
 | **Image edit** | per image (flat) | 2–20 cr | |
 | **Video** | **cr/s × duration** | 2–30 cr/s | Kandinsky 5 Fast × 5s = 10 cr; Seedance 2.0 × 10s = 300 cr. Check `resolution_multipliers` + `sound_credit_multiplier`. |
 | **Video from image** | **cr/s × duration** | 4–30 cr/s | Same per-second rule. |
-| **Elements (ref-to-video)** | **cr/s × duration** | 4–30 cr/s | Check `credit` and multipliers in `list_models type="elements"`. |
+| **Elements (ref-to-video)** | output seconds normally; combined input + output seconds when `video_input_credit` exists and video is attached | 4–40 cr/s | Read both pricing profiles from `list_models type="elements"`. |
 | **Lipsync** | **cr/s × duration** | 5–20 cr/s | |
 | **Music** | per generation (flat) | 15–60 cr | Suno v5 = 15 cr; ElevenLabs Music = 60 cr |
 | **Speech (TTS)** | per 100 characters | 2–5 cr/100 chars | ElevenLabs (5) × 500 chars = 25 cr |
@@ -24,7 +24,8 @@ Creative generations bill against the user's Kolbo credit balance. **Billing uni
 
 Apply when confirming cost before firing:
 
-- **Video / Lipsync**: `total = model_credit_per_second × duration_seconds`. Never assume the credit shown is a flat per-generation cost for these types.
+- **Video / Lipsync**: normally `total = model_credit_per_second × output_duration_seconds`. Never assume the credit shown is a flat per-generation cost for these types.
+- **Video-input tariff**: when the request contains one or more video inputs and the model returns `video_input_credit`, use `ceil(video_input_credit × (sum ceil(each input video duration) + output_seconds) × video_input_resolution_multipliers[resolution])`. Dedicated Seedance Video Edit output seconds follow the selected source clip; Seedance Extend output seconds are only the requested added duration. Do not also apply the ordinary `credit` profile.
 - **Music**: flat per generation — `total = model_credit` (duration does not change cost).
 - **TTS**: `total = model_credit × ceil(character_count / 100)`. Count actual characters first. 1000 chars with ElevenLabs = 50 credits.
 - **Images / 3D / Sound effects**: `total = model_credit × quantity`.
@@ -60,7 +61,7 @@ Before submitting:
 1. Call `list_models type=<tool-type>` (text mode is enough for picking; `format: "json"` for programmatic comparison).
 2. For each input array (refs / DNAs / elements) — check `length <= <cap>` from the canonical field reference below. If over, drop the lowest-priority entries OR ask the user.
 3. For each enumerated value (`aspect_ratio` / `resolution` / `duration`) — check it's in `supported_*`. If not, **do not silently substitute**; show the user the allowed set and ask.
-4. For each duration-bearing file (source_video for lipsync/v2v, audio for lipsync/elements) — pre-check duration against the min/max range. Use ffmpeg if needed.
+4. For each duration-bearing file (source/reference video for elements/v2v/extend, audio for lipsync/elements) — pre-check duration against the min/max range. Use ffmpeg if needed. Seedance 2/2.5 video inputs are rejected below `min_video_duration` (currently 4 seconds).
 5. For uploads — pre-check size against `max_file_size`.
 
 The MCP tool descriptions also embed the cap field name on the relevant parameter (e.g. `reference_images: "...Cap: pass at most max_reference_images..."`) — use those as inline reminders.
@@ -82,7 +83,7 @@ The same conceptual slot (e.g. "max reference images") lives under **different f
 | `aspect_ratio` | any | `supported_aspect_ratios` (or `_by_type[<type>]` when multimodal) | empty → `default_aspect_ratio` if set |
 | `resolution` | any | `supported_resolutions` (+ `resolution_multipliers` for cost) | empty → no resolution tiering |
 | `duration` (video output) | video tools | `supported_durations`, else `min_output_duration`–`max_output_duration` | both null → omit and let server default |
-| **input** video duration | `lipsync-video`, `generate_video_from_video` | `min_video_duration` – `max_video_duration` | outside range → reject |
+| **input** video duration | `lipsync-video`, `generate_video_from_video`, `generate_elements` with video refs | `min_video_duration` – `max_video_duration` | outside range → reject |
 | input audio duration | `generate_lipsync`, `generate_elements` audio | `min_audio_duration` – `max_audio_duration` (+ `audio_max_follows_video_duration` for lipsync) | outside range → reject |
 | audio file format | any audio input | `supported_audio_formats` (e.g. `["mp3","wav","m4a"]`; empty = all) | pre-validate before upload |
 | recording duration | `text_to_speech` recording UX | `min_recording_duration` – `max_recording_duration` | usually null for plain TTS |
@@ -92,7 +93,7 @@ The same conceptual slot (e.g. "max reference images") lives under **different f
 | sound on/off | video tools | `sound_generation_type` (`"native"` vs `"none"`), `sound_enabled_by_default`, `sound_credit_multiplier` | not `"native"` → can't emit synced audio |
 | capability gate | route decision | `supports_visual_dna`, `supports_first_last_frame`, `supports_audio_input` | `false` → the controller silently drops that param |
 
-Cost formula: `final_cost = credit × resolution_multipliers[resolution] × (sound_enabled ? sound_credit_multiplier : 1)`, multiplied by `num_images` / `scene_count` as applicable.
+Normal cost formula: `final_cost = credit × output_seconds × resolution_multipliers[resolution] × (sound_enabled ? sound_credit_multiplier : 1)`, multiplied by `num_images` / `scene_count` as applicable. When `video_input_credit` applies, replace it with the combined input/output formula above and use `video_input_resolution_multipliers`.
 
 ## Decision Rule for Resolution
 
