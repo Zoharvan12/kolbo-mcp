@@ -4,6 +4,34 @@ const os = require('os');
 const progress = require('./progress');
 const { rewriteTree } = require('./cdn');
 
+const UPSTREAM_NAME = /\b(?:fal(?:\.ai)?|kie(?:\.ai)?|toapis?|kinovi|piapi|yike|goapi|wavespeed|openrouter|cometapi|dashscope|volcengine|laozhang)\b/i;
+const UPSTREAM_LABEL = /(^|\|\s*)\s*(?:fal(?:\.ai)?|kie(?:\.ai)?|toapis?|kinovi|piapi|yike|goapi|wavespeed|openrouter|cometapi|dashscope|volcengine|laozhang|bytedance|replicate|pika)\s*:\s*/gi;
+const UPSTREAM_TAG = /\[\s*(?:fal(?:\.ai)?|kie(?:\.ai)?|toapis?|kinovi|piapi|yike|goapi|wavespeed|openrouter|cometapi|dashscope|volcengine|laozhang|bytedance|replicate|pika)\s*\]\s*/gi;
+
+function publicApiErrorMessage(value, fallback) {
+  if (typeof value !== 'string' || !value.trim()) return fallback;
+  const stripped = value.replace(UPSTREAM_LABEL, '$1').replace(UPSTREAM_TAG, '').replace(/^\s*\|\s*/, '').trim();
+  return (!stripped || UPSTREAM_NAME.test(stripped) || /\bpika\b(?!\s*\d)/i.test(stripped))
+    ? fallback
+    : stripped;
+}
+
+function publicApiErrorData(data) {
+  if (!data || typeof data !== 'object') return null;
+  return {
+    ...(data.code && { code: data.code }),
+    ...(typeof data.retryable === 'boolean' && { retryable: data.retryable }),
+    ...(data.category && { category: data.category }),
+    ...(data.failure && typeof data.failure === 'object' && {
+      failure: {
+        ...(data.failure.code && { code: data.failure.code }),
+        ...(data.failure.category && { category: data.failure.category }),
+        ...(typeof data.failure.retryable === 'boolean' && { retryable: data.failure.retryable }),
+      }
+    }),
+  };
+}
+
 /**
  * Kolbo API HTTP client wrapper
  *
@@ -373,7 +401,10 @@ class KolboClient {
     }
 
     if (!response.ok || data.success === false) {
-      const message = data.error || data.message || `API error: ${response.status}`;
+      const message = publicApiErrorMessage(
+        data.error || data.message,
+        `The Kolbo request could not be completed (HTTP ${response.status}).`
+      );
       const code = data.code || null;
       let fullMessage = code ? `${message} [${code}]` : message;
       if (response.status === 401) {
@@ -390,7 +421,7 @@ class KolboClient {
       const apiError = new KolboApiError(fullMessage, {
         code,
         status: response.status,
-        data
+        data: publicApiErrorData(data)
       });
       if (response.status === 429) apiError.retryAfterSeconds = retryAfterSeconds(response);
       throw apiError;
@@ -527,7 +558,10 @@ class KolboClient {
     }
 
     if (!response.ok || data.success === false) {
-      const message = data.error || data.message || `API error: ${response.status}`;
+      const message = publicApiErrorMessage(
+        data.error || data.message,
+        `The Kolbo request could not be completed (HTTP ${response.status}).`
+      );
       const code = data.code || null;
       let fullMessage = code ? `${message} [${code}]` : message;
       if (response.status === 401) {
@@ -541,7 +575,7 @@ class KolboClient {
       const apiError = new KolboApiError(fullMessage, {
         code,
         status: response.status,
-        data
+        data: publicApiErrorData(data)
       });
       if (response.status === 429) apiError.retryAfterSeconds = retryAfterSeconds(response);
       throw apiError;
