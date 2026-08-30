@@ -236,6 +236,21 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `analyze_script_for_stock` | AI: turn a script into b-roll search terms (`queries[]`, `mediaType`, `keywords`). |
 | `import_stock_asset` | Copy a stock asset into the media library (CDN copy, stable URL). Free. |
 
+**Blender Bridge**
+| Tool | Description |
+|------|-------------|
+| `blender_list_sessions` | List the caller's connected Blender processes before choosing a target session |
+| `blender_get_scene` | Queue a bounded scene summary or full scene inspection |
+| `blender_search_docs` | Inspect local Blender RNA and return relevant official API/manual URLs without fetching them |
+| `blender_capture_viewport` | Capture the active viewport to managed cache and optionally Kolbo media |
+| `blender_apply_operations` | Apply approved structured object, material, world, camera, light, animation, duplication, or deletion operations |
+| `blender_import_media` | Import a Kolbo media item or exact-allowlisted Kolbo-owned HTTPS media/CDN asset using smart GLB/image/video placement |
+| `blender_render` | Render a still or an animation capped by Blender at 250 scene frames and 100,000,000 pixel-frames, to managed output and optionally Kolbo media |
+| `blender_undo` | Undo the most recent Blender change in the selected process |
+| `blender_file_operation` | Perform sensitive new/open/save/save-as operations with in-Blender approval |
+| `blender_execute_python` | Execute explicitly reviewed Python plus a required plain-language purpose with full host authority; approval required unless trusted mode is visibly active |
+| `blender_get_command_status` | Read bounded command status/result/error plus absolute `expires_at`; records and idempotency claims expire after 24 hours, and `awaiting_approval` means stop and wait for the user |
+
 **Discovery & Account**
 | Tool | Description |
 |------|-------------|

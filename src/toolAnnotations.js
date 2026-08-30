@@ -30,6 +30,11 @@ const READ_ONLY = [
   'get_stock_collections', 'get_stock_asset', 'analyze_script_for_stock',
 ];
 
+const OPEN_WORLD_READ_ONLY = [
+  'blender_list_sessions', 'blender_get_scene', 'blender_search_docs',
+  'blender_get_command_status',
+];
+
 const PRIVATE_WRITE = [
   'media_upload_widget', 'create_upload_ticket', 'upload_media',
   'favorite_media', 'unfavorite_media',
@@ -86,15 +91,18 @@ const DESTRUCTIVE_WRITE = [
 ];
 
 const OPEN_WORLD_WRITE = [
-  'publish_html_artifact', 'create_review_share_link',
+  'publish_html_artifact', 'create_review_share_link', 'blender_capture_viewport',
 ];
 
 const OPEN_WORLD_DESTRUCTIVE = [
   'share_doc', 'revoke_review_share_link',
+  'blender_apply_operations', 'blender_import_media', 'blender_render',
+  'blender_undo', 'blender_file_operation', 'blender_execute_python',
 ];
 
 const CONTRACT_GROUPS = [
   [READ_ONLY, { readOnlyHint: true, openWorldHint: false, destructiveHint: false }],
+  [OPEN_WORLD_READ_ONLY, { readOnlyHint: true, openWorldHint: true, destructiveHint: false }],
   [PRIVATE_WRITE, { readOnlyHint: false, openWorldHint: false, destructiveHint: false }],
   [DESTRUCTIVE_WRITE, { readOnlyHint: false, openWorldHint: false, destructiveHint: true }],
   [OPEN_WORLD_WRITE, { readOnlyHint: false, openWorldHint: true, destructiveHint: false }],

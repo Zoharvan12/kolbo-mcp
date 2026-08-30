@@ -37,6 +37,7 @@ const SDK_INDEX = path.join(KOLBO_API, 'src', 'modules', 'sdk', 'index.js');
 const EXTRA_ROUTE_SOURCES = [
   { file: path.join(KOLBO_API, 'src', 'modules', 'creditUsage', 'index.js'), mountPath: '/credit-usage' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'artifact', 'routes.js'), mountPath: '/v1/artifact' },
+  { file: path.join(KOLBO_API, 'src', 'modules', 'blender', 'index.js'), mountPath: '/v1/blender' },
 ];
 const MCP_TOOLS_DIR = path.join(MCP_REPO, 'src', 'tools');
 
@@ -49,6 +50,9 @@ const KNOWN_GAPS = new Set([
   'GET /v1/project/lightweight',
   // Visual DNA ZIP import — SDK/web only for now (multipart package ingest).
   'POST /v1/visual-dna/:param/import',
+  // Project duplication can clone large storage trees and remains an explicit
+  // web/SDK workflow until MCP has a dedicated confirmation contract.
+  'POST /v1/projects/:param/duplicate',
 ]);
 
 // MCP tool call patterns that trigger false-positive STALE warnings.
