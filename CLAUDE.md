@@ -404,6 +404,13 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `get_stock_collections` | see `src/tools/stock_library.js` | Stock music collections/albums. |
 | `import_stock_asset` | `POST /v1/stock/import` | Copy asset → media library (CDN copy). Free. Music not importable here. |
 
+**Blender Bridge** (`src/tools/blender.js`)
+| Tool | Route |
+|------|-------|
+| `blender_list_sessions` | `GET /v1/blender/sessions` |
+| `blender_get_scene` / `blender_search_docs` / `blender_capture_viewport` / `blender_apply_operations` / `blender_import_media` / `blender_render` / `blender_undo` / `blender_file_operation` / `blender_execute_python` | `POST /v1/blender/commands` with a strict `command_type` + bounded payload |
+| `blender_get_command_status` | `GET /v1/blender/commands/:commandId` — never poll through `awaiting_approval` |
+
 **Discovery & Account** (`src/tools/models.js`, `src/tools/projects.js`)
 | Tool | Route |
 |------|-------|

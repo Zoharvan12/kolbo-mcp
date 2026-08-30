@@ -56,6 +56,18 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
+    "show_plans": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "show_plans retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
     "get_session_usage": {
       "annotations": {
         "readOnlyHint": true,
@@ -604,6 +616,54 @@
       },
       "justifications": {
         "read_only_justification": "analyze_script_for_stock retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "blender_list_sessions": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "blender_list_sessions retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "blender_get_scene": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "blender_get_scene retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "blender_search_docs": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "blender_search_docs retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "blender_get_command_status": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "blender_get_command_status retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
@@ -1868,6 +1928,18 @@
         "destructive_justification": "create_review_share_link does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
+    "blender_capture_viewport": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "blender_capture_viewport creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "blender_capture_viewport can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "blender_capture_viewport does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
     "share_doc": {
       "annotations": {
         "readOnlyHint": false,
@@ -1890,6 +1962,78 @@
         "read_only_justification": "revoke_review_share_link changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "revoke_review_share_link can create, update, expose, or revoke content through a publicly accessible link.",
         "destructive_justification": "revoke_review_share_link can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "blender_apply_operations": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "blender_apply_operations changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "blender_apply_operations can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "blender_apply_operations can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "blender_import_media": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "blender_import_media changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "blender_import_media can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "blender_import_media can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "blender_render": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "blender_render changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "blender_render can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "blender_render can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "blender_undo": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "blender_undo changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "blender_undo can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "blender_undo can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "blender_file_operation": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "blender_file_operation changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "blender_file_operation can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "blender_file_operation can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "blender_execute_python": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "blender_execute_python changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "blender_execute_python can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "blender_execute_python can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     }
   },
