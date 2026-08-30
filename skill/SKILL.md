@@ -1,11 +1,12 @@
 ---
-version: 0.9.12
+version: 0.9.13
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images,
   video (Seedance, Veo, Kling, Hailuo), music, speech, sound, 3D, transcription,
   Visual DNA, Creative Director batches, marketing assets, HTML artifacts, and
-  AI Docs. Use for sophisticated AI filmmaking as well as individual media:
+  AI Docs, and approved Blender scene control. Use for sophisticated AI
+  filmmaking as well as individual media:
   scripts, production bibles, recurring characters and locations, acting,
   dialogue, music performance, blocking, physics, multi-shot continuity,
   connected scenes, prompt audits, and feature-length production planning.
@@ -53,7 +54,7 @@ Then generate **only** with the confirmed parameters. If the user changes an opt
 
 **Cost rules** (full tables + formulas in `references/workflows/cost-and-validation.md`):
 
-- **Video/lipsync `credit` is per-SECOND, not per-clip**: normally `total = credit × output_duration`. If video references are attached and `video_input_credit` is present, use the alternate provider tariff instead: `video_input_credit × (sum nominal input seconds + nominal output seconds) × video_input_resolution_multiplier`. MP4 encoder padding within 0.15s of an integer snaps to that integer; other fractional durations round up. Dedicated Seedance Edit uses its selected source duration as output; Extend uses the requested added duration. The other carve-out is `flat_credit_by_resolution`.
+- **Video/lipsync `credit` is per-SECOND, not per-clip**: normally `total = credit × output_duration`. If video references are attached and `video_input_credit` is present, use the alternate provider tariff instead: `video_input_credit × (sum ceil(each input video duration) + output seconds) × video_input_resolution_multiplier`. Dedicated Seedance Edit uses its selected source duration as output; Extend uses the requested added duration. The other carve-out is `flat_credit_by_resolution`.
 - **Batch totalling 100+ credits**: run `check_credits` first.
 - **Quote real cost**: when the user approves the result, log its actual `credits_used` (from the tool result) to `.kolbo/production.md` — never `base × count`.
 - **Never state "credits remaining" from arithmetic** (opening balance − generation costs). Coding/chat usage deducts credits too, so the math is always wrong. Report cost only; if the user asks for their balance, call `check_credits` fresh at that moment.
@@ -95,6 +96,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Run a **client review / approval loop** — share a cut for feedback, timestamped comments, versions (v1→v2), approve / request-changes, guest links | `references/workflows/review-collections.md` |
 | Confirm **cost** or validate **resolution / aspect / duration** against model caps | `references/workflows/cost-and-validation.md` |
 | Hit an **auth / MCP / 429** issue | `references/workflows/troubleshooting.md` |
+| Inspect or change a connected **Blender** scene, render, import Kolbo media, or run approved Blender Python | `references/workflows/blender.md` |
 
 Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/src/config/systemPrompt.js` — same battle-tuned rules that power Kolbo's web-app help widget. Keep parity (see `packages/opencode/CLAUDE.md` "MCP & Skill Sync Rule").
 
@@ -143,6 +145,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `chat_send_message` / `chat_list_conversations` / `chat_get_messages` | Kolbo chat with optional `media_urls` (up to 10 per call) |
 | `create_review_asset` / `add_review_version` / `set_review_status` / `create_review_comment` / `reply_review_comment` / `resolve_review_comment` / `unresolve_review_comment` / `create_review_collection` / `create_review_share_link` / `revoke_review_share_link` / `get_review_storage_usage` (+ list/get/update/delete siblings) | **Kolbo Review** — Frame.io-style client review: asset = media + appended versions (new cut = `add_review_version`, never delete+recreate), timecoded comments per version, approve/request-changes status, guest share links (no Kolbo account; comment-only unless `canSetStatus`). 5GB review storage cap. See `workflows/review-collections.md`. |
 | `publish_html_artifact` | Publish HTML / SVG / Mermaid to `sites.kolbo.ai`. Server dedupes by content hash. Strict CSP. |
+| `blender_list_sessions` / `blender_get_scene` / `blender_search_docs` / `blender_capture_viewport` / `blender_apply_operations` / `blender_import_media` / `blender_render` / `blender_undo` / `blender_file_operation` / `blender_execute_python` / `blender_get_command_status` | Connected Blender control through the Kolbo extension. Every tool crosses into an external desktop host; read `workflows/blender.md` before the first call. |
 
 ## ⚠️ Edit in place — never delete+recreate (HARD RULE — always on)
 
