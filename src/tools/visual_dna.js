@@ -28,6 +28,7 @@ function registerVisualDnaTools(server, client, options = {}) {
       name: z.string().describe('Name of the Visual DNA profile. **Pick a short, lowercase, no-space single token** (e.g. `maya`, `tokyo_neon`, `brand_red`, `esther_model`) — never names with spaces (`Sarah Johnson` ❌). The user/LLM types this as `@<name>` inside generation prompts, and the @ parser stops at the first space, so `@Sarah Johnson` matches only `Sarah` and the binding silently drops. Multi-word concepts should use underscores or be a single token. Names are case-insensitive on lookup, but **reserved** values rejected on creation: `Image1`, `Image2`, …, `Video1`, …, `Audio1`, … (any-language characters allowed; max 100 chars).'),
       dna_type: z.string().optional().describe('Type: "character", "style", "product", "scene", "environment". Default: "character"'),
       prompt_helper: z.string().optional().describe('Optional description/notes to guide DNA extraction'),
+      description: z.string().optional().describe('Alias for `prompt_helper`. Accepted because every tool here REPORTS this field as `description`, so callers round-trip that name back in; without the alias zod stripped it and the notes were silently lost. Ignored when `prompt_helper` is also given.'),
       images: z.array(z.string()).optional().describe('Array of image sources (URLs or absolute local paths). Max 4. All of them can reach the model on later gens — same subject, same vibe only; no extra heroes on character DNAs, no main characters on environment DNAs.'),
       video: z.string().optional().describe('Optional video source (URL or absolute local path)'),
       audio: z.string().optional().describe('Optional audio source (URL or absolute local path) — the character\'s voice, 5-30s of clean speech. Stored on the DNA and used two ways: (1) as REFERENCE AUDIO in video generation — attaching this DNA to an image-to-video generation on a model with audio slots (Seedance 2.x, Wan 3.0) auto-attaches the clip and tells the model it is that character\'s voice; (2) as the source for a real speaking voice, but ONLY when you ask for one — see `voice_source`.'),
@@ -35,7 +36,8 @@ function registerVisualDnaTools(server, client, options = {}) {
       assigned_voice_id: z.string().optional().describe('Voice to attach when voice_source="assign" — a `custom_<id>` from the user\'s clones or a voice_id from `list_voices`.'),
       character_sheet_url: z.string().optional().describe('URL of a reference sheet (from `generate_character_sheet`, any sheet_type) to set as the DNA\'s primary reference. Works for ALL DNA types — character turnaround, product detail sheet, location sheet, or style board — and is the single biggest consistency booster. Omit only when the user declines.')
     },
-    async ({ name, dna_type, prompt_helper, images, video, audio, voice_source, assigned_voice_id, character_sheet_url }) => {
+    async ({ name, dna_type, prompt_helper, description, images, video, audio, voice_source, assigned_voice_id, character_sheet_url }) => {
+      const helper = prompt_helper !== undefined ? prompt_helper : description;
       if (!name || !name.trim()) {
         throw new Error('name is required');
       }
@@ -58,7 +60,7 @@ function registerVisualDnaTools(server, client, options = {}) {
       const form = new FormData();
       form.append('name', name);
       if (dna_type) form.append('dnaType', dna_type);
-      if (prompt_helper) form.append('promptHelper', prompt_helper);
+      if (helper) form.append('promptHelper', helper);
       if (character_sheet_url) form.append('characterSheetUrl', character_sheet_url);
       // Omitted stays omitted: the server infers 'clone' from a present audio clip, which is the
       // long-standing behaviour older installs depend on. Only an explicit choice is forwarded.
@@ -193,6 +195,7 @@ function registerVisualDnaTools(server, client, options = {}) {
       name: z.string().optional().describe('New name. Same no-space single-token rule as create_visual_dna — @Name binding stops at the first space.'),
       dna_type: z.string().optional().describe('Type: "character", "style", "product", "scene", "environment". Changing type re-analyzes the profile.'),
       prompt_helper: z.string().optional().describe('New description / intent notes. Replaces the old ones and re-synthesizes the DNA analysis when the text actually changes. Pass "" to clear.'),
+      description: z.string().optional().describe('Alias for `prompt_helper`. Accepted because every tool here REPORTS this field as `description`, so callers round-trip that name back in; without the alias zod stripped it and the edit silently did nothing. Ignored when `prompt_helper` is also given.'),
       images: z.array(z.string()).optional().describe('Full replacement still set (URLs or absolute local paths). Max 4. Omit to keep current stills. Same purity rules as create: one identity, one vibe.'),
       video: z.string().optional().describe('Replacement video source (URL or absolute local path).'),
       audio: z.string().optional().describe('Replacement audio source (URL or absolute local path).'),
@@ -208,14 +211,15 @@ function registerVisualDnaTools(server, client, options = {}) {
       specific_age: z.number().optional().describe('Character attribute (character DNAs).')
     },
     async ({
-      visual_dna_id, name, dna_type, prompt_helper, images, video, audio,
+      visual_dna_id, name, dna_type, prompt_helper, description, images, video, audio,
       character_sheet_url, remove_character_sheet,
       gender, ethnicity, body_type, hair_color, eye_color, skin_tone, age_range, specific_age
     }) => {
+      const helper = prompt_helper !== undefined ? prompt_helper : description;
       const imageList = Array.isArray(images) ? images.filter(Boolean) : [];
       if (imageList.length > 4) throw new Error('Maximum 4 images allowed');
       const hasMedia = imageList.length > 0 || !!video || !!audio;
-      const hasMeta = name !== undefined || dna_type !== undefined || prompt_helper !== undefined
+      const hasMeta = name !== undefined || dna_type !== undefined || helper !== undefined
         || character_sheet_url !== undefined || remove_character_sheet !== undefined
         || gender !== undefined || ethnicity !== undefined || body_type !== undefined
         || hair_color !== undefined || eye_color !== undefined || skin_tone !== undefined
@@ -240,7 +244,7 @@ function registerVisualDnaTools(server, client, options = {}) {
         const body = { ...attrs };
         if (name !== undefined) body.name = name;
         if (dna_type !== undefined) body.dna_type = dna_type;
-        if (prompt_helper !== undefined) body.prompt_helper = prompt_helper;
+        if (helper !== undefined) body.prompt_helper = helper;
         if (character_sheet_url !== undefined) body.character_sheet_url = character_sheet_url;
         if (remove_character_sheet !== undefined) body.remove_character_sheet = remove_character_sheet;
         const result = await client.put(path, body);
@@ -264,7 +268,7 @@ function registerVisualDnaTools(server, client, options = {}) {
       const form = new FormData();
       if (name !== undefined) form.append('name', name);
       if (dna_type) form.append('dnaType', dna_type);
-      if (prompt_helper !== undefined) form.append('promptHelper', prompt_helper);
+      if (helper !== undefined) form.append('promptHelper', helper);
       if (character_sheet_url) form.append('characterSheetUrl', character_sheet_url);
       if (remove_character_sheet !== undefined) {
         form.append('removeCharacterSheet', remove_character_sheet ? 'true' : 'false');
