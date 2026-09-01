@@ -92,11 +92,10 @@ const BANNED = [
     why: 'Seedance does not perform Hebrew — it returns accented gibberish or English-shaped mouth movement. '
        + 'This exact claim made an agent recommend "Hebrew dialogue directly" to a user.',
   },
-  {
-    re: /30,000[- ]character|30,000 characters|cap 30000|≤30,000 characters/i,
-    why: 'The Seedance 2.5 prompt cap is 15,000 characters (2.0 is 10,000) — `max_prompt_length` in the catalog. '
-       + '30,000 was documented for months and is double the real budget.',
-  },
+  // 2026-08-30: the "30,000 characters" ban is GONE — the cap was raised back to
+  // 30,000 (catalog + every provider leg verified live). The cap guard is now the
+  // agreement check (§3) + the live catalog comparison (§4), which track whatever
+  // the catalog says instead of banning a specific number.
 ];
 
 for (const { re, why } of BANNED) {
