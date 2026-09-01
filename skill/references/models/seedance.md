@@ -13,6 +13,8 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
 
 ## Universal Rules (apply to EVERY Seedance / Elements prompt)
 
+- **NO MUSIC BY DEFAULT (HARD):** Unless the user explicitly asks for music, every final Seedance prompt—including every Elements/reference-driven prompt—must explicitly say `No music. No musical score.` Keep requested dialogue, synchronized production sound, ambience, and SFX; "no music" does not mean "no audio." If the user explicitly requests music, describe that music instead and omit the no-music lock. Never invent background music from cinematic tone alone.
+- **NO FAMOUS NAMES OR IP IN PROMPTS (HARD):** Never put celebrity/public-figure names, real directors or artists, copyrighted character/franchise/IP names, famous campaign names or slogans, or famous studio/company names into a final Seedance or Elements prompt. Translate user-supplied references into concrete visual traits—medium, shape language, palette, lighting, texture, camera behavior, pacing, and mood—without repeating the famous name. Preserve exact user-owned Visual DNA and asset tags.
 - **Visual DNA names are immutable anchors:** when `visual_dna_ids` is passed, every DNA MUST appear in the prompt as the exact literal `@DNA_name` (CAST + every shot it is in). Never "Zohar's", "the left man", "the man on the LEFT", a nickname, or a Visual DNA anchors paragraph without `@tags`.
 - **Rewrites never thin out or rename anchors.** "`@X anchors Odysseus`" is NOT a reference line, and `Odysseus` must never replace `@X` later. Every referenced asset keeps its exact literal tag plus a full role line on every rewrite. Re-use the exact DNA tag in every shot it participates in. A compile that dropped `@gal_suit` / `@yonatan` / `#Board` is a failed turn.
 - **DURATION + SHOT STRUCTURE (HARD — same as help widget):** every text-to-video / Elements prompt MUST open AND close with total duration, shot count, and aspect. Omit only for video-edit tasks (source duration is locked). Required first lines:
@@ -97,7 +99,7 @@ FORBIDDEN: omitting Total / Multishot; "same character throughout" as the only l
 - Always supply: **clear location, clear power mismatch, defined escalation arc**.
 - Describe choreography beat by beat — Seedance executes what you write.
 - Single continuous shot 15s works for two-fighter scenes; describe camera moves between beats (`crests rooftop edge`, `full 360 orbit`, `pulls back to wide`, `descends with them`).
-- Use `Guy Ritchie speed-ramping with Snyder impact slow-motion` as the style anchor when comedic/stylized.
+- Use `playful speed-ramping with heavy impact slow-motion` as the style anchor when comedic/stylized.
 
 ### 5. Animation (3D stylized)
 - Break the 15s into **timed segments** (`0–3s`, `3–6s`, `6–9s`, `9–12s`, `12–15s`) and describe each explicitly.
@@ -196,7 +198,7 @@ Use only the discrete steps. Not "23°" — use 18° or 29°.
 - **Emotion through muscle movement**, not labels. ❌ "she looks sad" → ✅ "her eyes drop to the table, jaw tightens, she swallows once before answering."
 - **WB in Kelvin.** 3200K / 4000K / 5600K / 8500K. Pick ONE for the scene's mood.
 - **Color as material + light + role**, never a flat list. ❌ "she wears red, he wears blue" → ✅ "crimson silk scarf catching the cold tungsten spill from the corridor".
-- **No equipment names**, no director references, no "shot on ARRI / Sigma 85mm / Roger Deakins".
+- **No equipment names and no famous creative references**; describe the observable lens, lighting, movement, texture, and grade instead.
 
 ### Cuts and timing
 

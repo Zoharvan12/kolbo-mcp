@@ -19,9 +19,11 @@ Load this file when the user wants a **Seedance 2.5** video (they said "2.5" / "
 
 - **Duration 4–30 seconds**, whole seconds. 30s IS supported.
 - **Up to 30 shots/cuts in ONE generation.** Deliver exactly N if N ≤ 30.
-- **Prompt cap 15,000 characters** for the entire prompt as one string (`max_prompt_length` in the catalog; Seedance 2.0 is 10,000). Verify with `list_models` rather than trusting this number — it was documented as 30,000 for months, which is double the real limit.
+- **Prompt cap 30,000 characters** for the entire prompt as one string (`max_prompt_length` in the catalog; Seedance 2.0 is 10,000). Raised from 15,000 on 2026-08-30 after the whole provider chain was verified live to serve it. Verify with `list_models` rather than trusting this number — it has moved before.
 - **Large reference / Visual DNA capacity** (`@Name`, `@ImageN`, `#Moodboard`) — read the exact caps from `max_visual_dna` / `elements_max_images` in `list_models`. Every referenced asset must be tagged in the prompt text. A rewrite that drops or renames a tag ( `@doron_fauda_1` → `DORON` / `the hero` ) is a failed turn — put the exact tag back.
 - **Multimodal refs:** images + video clips + audio can all anchor one generation.
+- **NO MUSIC BY DEFAULT (HARD):** Unless the user explicitly asks for music, every final Seedance 2.5 prompt—including every Elements/reference-driven prompt—must explicitly say `No music. No musical score.` Preserve requested dialogue, synchronized production sound, ambience, and SFX; no music does not mean "no audio." If music is explicitly requested, describe it and omit the no-music lock.
+- **NO FAMOUS NAMES OR IP IN PROMPTS (HARD):** Never put celebrity/public-figure names, real directors or artists, copyrighted character/franchise/IP names, famous campaign names or slogans, or famous studio/company names into a final Seedance 2.5 or Elements prompt. Translate user-supplied references into concrete visual traits without repeating the famous name; preserve exact user-owned Visual DNA and asset tags.
 
 ## Universal Rules (HARD — same as help widget OUTPUT CONTRACT)
 
@@ -65,7 +67,7 @@ FORBIDDEN: "same character throughout" as the only lock; one fence per shot; cla
 
 ## Prompt length
 
-Simple ≤15s ~120–280 words. Locked-intro cinematic 15s typically 400–900 words. Full 30s / 15+ shots typically 700–1200 words / ~4k–9k chars. Hard cap 15,000 characters. Never split into part 1 / part 2.
+Simple ≤15s ~120–280 words. Locked-intro cinematic 15s typically 400–900 words. Full 30s / 15+ shots typically 700–1200 words / ~4k–9k chars. Hard cap 30,000 characters. Never split into part 1 / part 2.
 
 A one-line shot beat is UNDER-WRITTEN. At 30s / 8+ shots you have ~15k characters to work with and a thin prompt wastes them: every beat carries its own camera move, performance task for BOTH the speaker and the listeners, prop/hand state, and the sound in that beat. If a 30s compile lands under ~4k characters, it is too thin — go back and direct it.
 

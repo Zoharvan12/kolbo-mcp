@@ -184,6 +184,21 @@ by the centre-square-crop test below. State this explicitly in the prompt ("gene
 margin on both sides, nothing touches the left/right edge") rather than fixing it after
 generation.
 
+**Multi-element layout recipe that shipped (Aug 2026, nano-banana-2):** when a comp
+carries 4+ graphic elements (headline, badge, app tile, still cards, brand chip), three
+prompt clauses turned a cluttered mess into an approved final:
+- **Glassmorphism containers** — put every element in its own "frosted translucent
+  glass container, soft blur, subtle white border, delicate shadow". Unifies the pile
+  into one designed system; solid stickers read as clutter.
+- **STRICT NON-OVERLAP RULE** stated as its own sentence — "clear margin between every
+  element; nothing touches the face or hair" — models honour it remarkably well.
+- **LIKENESS PRIORITY preamble** — face fidelity *drifts as element count grows*. With
+  4+ elements, open the prompt with "preserve his EXACT face, identical to the Visual
+  DNA identity, do not drift the facial features" or the subject becomes a stranger.
+- **Pin each mark to its container** — with two logos in one comp the model WILL swap
+  them; write "the tile shows ONLY the [X] mark; NEVER put [Y] on this tile; [Y]
+  appears ONLY in the bottom chip". Verify every logo placement on delivery.
+
 ## Variation ladder
 
 Vary the **concept**, never the words: bold dynamic · clean minimal · vibrant saturated ·

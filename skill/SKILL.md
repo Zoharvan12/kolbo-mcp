@@ -9,7 +9,8 @@ description: |
   filmmaking as well as individual media:
   scripts, production bibles, recurring characters and locations, acting,
   dialogue, music performance, blocking, physics, multi-shot continuity,
-  connected scenes, prompt audits, and feature-length production planning.
+  connected scenes, prompt audits, feature-length production planning, and
+  direct Blender scene building through the connected Kolbo Blender plugin.
 
   NOT for: video editing / FFmpeg (use video-production), motion graphics
   (use remotion-best-practices), code editing, or general chat.
@@ -68,6 +69,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 |---|---|
 | Make a **film / ad / scene / episode / campaign / any video with multiple or recurring characters** — read BEFORE planning a single shot | `references/workflows/production-planning.md` |
 | Direct, develop, audit, or continue a **film / episode / connected scene / complex performance** with continuity, acting, dialogue, music, blocking, or physics | `references/workflows/filmmaking.md` |
+| Build, inspect, animate, light, render, or edit a **Blender scene through Kolbo Blender MCP** | `references/workflows/blender-mcp.md` |
 | Generate a **Seedance 2.5** video | `skill` `elements-prompting` + `references/models/seedance25.md` + Locked Intro in `references/models/seedance.md`. For narrative/continuity also load `references/workflows/filmmaking.md` — but compile the prompt as Locked Intro, NOT the SCENE CONTEXT / OPTICS / ACTION pack |
 | Generate a **Seedance 2 / WAN / MiniMax H3 / Gemini / Elements** video (`generate_elements` or Visual DNA) | `skill` `elements-prompting` + `references/models/seedance.md` — same Locked Intro. Elements is NOT a different prompt language |
 | Generate a **GPT Image 2** image | `references/models/gpt-image.md` |
@@ -86,6 +88,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Compose a **DTC ad image** (brand kit + ad format + avatar + product + reference media) | `references/workflows/dtc-ads.md` |
 | Generate **brand product imagery** (studio shot, lifestyle, Pinterest pin, hero banner, carousel, ad pack, virtual try-on, conceptual, restyle) | `references/workflows/product-photoshoot.md` |
 | Generate **marketplace listing cards** (Amazon main + secondary + A+ content) | `references/workflows/marketplace-cards.md` |
+| Apply a **preset** — a named look, sheet, thumbnail, grading, camera move, Seedance shot recipe, music style — or decide whether one fits what the user just asked for | `references/workflows/presets.md` |
 | Use **Visual DNA** / character consistency / `@name` syntax | `references/workflows/visual-dna.md` |
 | Use **Color DNA** / brand palette grading | `references/workflows/color-dna.md` |
 | Start or continue a **multi-step production** (storyboard → scenes → final cut) | `references/workflows/production-log.md` |
@@ -128,7 +131,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `list_models` / `list_voices` / `check_credits` / `show_plans` / `get_generation_status` / `cancel_generation` / `get_session_usage` | Discovery + status. `list_models` with no args returns the recommended shortlist out of ~428 — pass `type` for a full category with per-model caps. `cancel_generation` stops an in-flight job and refunds what it can: use it when the user changes their mind mid-generation instead of letting it run. `show_plans` renders the balance + upgrade card for pricing/plan/upgrade questions. |
 | `upload_media` / `create_upload_ticket` / `list_media` / `get_media` / `get_media_stats` / `favorite_media` / `unfavorite_media` / `delete_media` / `restore_media` / `permanently_delete_media` / `move_media` / `bulk_*_media` / `*_media_folder` | Media library — see `workflows/media-library.md`. Getting a LOCAL file in depends on where the server runs: `upload_media` with a path only works on a local (stdio) install; over a remote connector use `create_upload_ticket` and POST the file yourself. |
 | `create_visual_dna` / `update_visual_dna` / `generate_character_sheet` / `list_visual_dnas` / `get_visual_dna` / `delete_visual_dna` / `*_visual_dna_folder` (5 folder tools) | Visual DNA (+ character sheet, character folders) — see `workflows/visual-dna.md`. Edit with `update_visual_dna`; never delete+recreate. |
-| `list_moodboards` / `get_moodboard` / `list_presets` | Style overlays + sheet presets — see **Preset contract** in Core Workflow. Never omit `preset_id` after claiming a preset was used. |
+| `list_moodboards` / `get_moodboard` / `list_presets` / `list_cinematic_presets` | Style overlays + presets. `list_presets` spans FOUR distinct catalogs (`image`, `image_edit`, `video`, `music`; `text_to_video` is an alias for `video`, `shorts` is empty) — the `video` one holds 200+ Seedance shot recipes. `list_cinematic_presets` is a separate tool feeding the `cinematic` arg, never `preset_id`. Full doctrine + intent→catalog map: `references/workflows/presets.md`. Never omit `preset_id` after claiming a preset was used. |
 | `list_color_palettes` / `analyze_color_palette` / `create_color_palette` / `update_color_palette` / `delete_color_palette` / `activate_color_palette` / `deactivate_color_palette` | **Color DNA — sticky + account-wide; at most one palette active at a time**, and while active it strict-grades **every** image and video generation automatically. Per-generation opt-out: `skip_color_palette: true`. Details: `workflows/color-dna.md`. |
 | `list_agents` / `create_agent` / `update_agent` / `delete_agent` | Custom chat agents — reusable named personas for `chat_send_message`. The agent's `description` IS the system instruction. Resolve a name the user mentions ("use my SEO agent") to an id with `list_agents`, then pass `agent_id`. Global/preset agents are read-only; only the user's own can be updated or deleted. |
 | `search_stock_media` / `get_stock_sources` / `get_stock_categories` / `get_stock_collections` / `get_stock_asset` / `analyze_script_for_stock` / `import_stock_asset` | Stock library (free, no credits) — EXISTING photos / videos / 3D / SFX / music. For stock **music** use `search_stock_media` with `mediaType: "music"` (semantic vibe query, e.g. "uplifting corporate background") → `get_stock_asset` for downloads. The older `*_music_library` tools are deprecated adapters over this — prefer the stock tools, except for the licensed-catalog tools in the next row. |
@@ -234,7 +237,7 @@ Dependencies accumulate: narrative Elements work requires **Kolbo + filmmaking +
 
 `N connected cinematic shots, Xs total, AR, Multishot ON` → `Total: Xs / N shots / AR` → `[GLOBAL LOOK – LOCKED, APPLIES TO EVERY SHOT]` → `[CAST – IDENTICAL IN EVERY SHOT]` (each person is `@DNAName`) → `[LOCATION]` → LOCATION MAP / CONTINUITY / PHYSICS → `SHOT N — 0:00–0:02 — …` (ranges sum to Xs) → closing `Total: Xs / N shots / AR`. Pass MCP `duration: X` matching that Total. Omitting Total / Multishot is a failed compile — same contract as the Kolbo help widget.
 
-Write the beats at FULL DEPTH. The cap is 15,000 characters on Seedance 2.5 (10,000 on 2.0) — a 30s / 8+ shot compile should land around 4k–9k, and every beat carries its own camera move, a performance task for the speaker AND the listeners, prop/hand state, and the sound in that beat. A one-line shot beat is under-written; the structure alone is not the craft. Read `references/models/seedance25.md` before compiling.
+Write the beats at FULL DEPTH. The cap is 30,000 characters on Seedance 2.5 (10,000 on 2.0) — a 30s / 8+ shot compile should land around 4k–9k, and every beat carries its own camera move, a performance task for the speaker AND the listeners, prop/hand state, and the sound in that beat. A one-line shot beat is under-written; the structure alone is not the craft. Read `references/models/seedance25.md` before compiling.
 
 Do **not** default Elements to `SCENE CONTEXT` / `OPTICS` / `ACTION` / `ACTIVE REFERENCES` department packs (those live in filmmaking audit/contracts for other models). `elements-prompting` is the craft skill (formerly `seedance-2-prompting`); Locked Intro is the compile shape.
 
@@ -267,11 +270,14 @@ A user-named tool — in any language — overrides every other rule. Recognized
 
 ## Core Workflow
 
-**Preset contract:**
-- Custom instructions live on the **preset**. Prefer `generate_image` + `preset_id` (not `generate_character_sheet`) for Character Sheet / Headless / Bible / location / product sheets.
-- Always `list_presets({ type: "image", search: "<name>" })` — `headless`, `bible`, `character sheet`. That is a silent id lookup. Do **not** omit `search` (that dumps the whole catalog). Reuse the id after the first hit.
+**Preset contract** (full doctrine — catalogs, intent→search map, cinematic dimensions: `references/workflows/presets.md`):
+- Custom instructions live on the **preset**, and it is almost always better than the paragraph you would improvise. Prefer `generate_image` + `preset_id` (not `generate_character_sheet`) for Character Sheet / Headless / Bible / location / product sheets.
+- **Presets are not image-only.** `type: "video"` holds 200+ Seedance 2 shot recipes (chase, orbital, drift, showcase, VFX, storyboard) and feeds `generate_video` + `generate_elements`; `image_edit` and `music` have their own catalogs. `image` and `image_edit` ids are NOT interchangeable.
+- **Search on the user's own noun when their request matches a catalog** — they rarely say "preset". `list_presets({ type, search: "<their word>" })` matches name + description + category together.
+- Always pass `search`. That is a silent id lookup. Do **not** omit it (that dumps a 632k-char catalog). Reuse the id after the first hit.
 - Browse (no search) only when the user asked to see presets.
-- Pass the exact returned `id` as `preset_id`. Never invent an id.
+- Pass the exact returned `id` as `preset_id`. Never invent an id. Never claim a preset was used without passing it.
+- Cinematic presets are a DIFFERENT tool (`list_cinematic_presets` → the `cinematic` arg, one id per dimension, omit for Auto) — never `preset_id`.
 
 1. **Check credits** ONCE per conversation (Step 0). Skip if already checked.
 2. **Load the matching skill** (HARD RULE above) before the first paid call in the turn.
