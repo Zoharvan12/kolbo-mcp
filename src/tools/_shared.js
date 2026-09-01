@@ -851,6 +851,18 @@ async function uiCompleted(p, textPayload, extraContent) {
     // above which assume everything finished together. Only set when the
     // caller actually has this shape; every existing caller is unaffected.
     ...(Array.isArray(p.items) ? { items: p.items } : {}),
+    // Transcription payload. get_generation_status is the ONLY way the live
+    // transcript widget learns its result, and it reads text/srt_url/txt_url off
+    // this object — but uiCompleted is shaped for the generation card and
+    // dropped every one, so a finished transcription rendered "(empty
+    // transcript)" with no SRT/TXT buttons while the text sat in the status
+    // response. structuredContent SHADOWS the text block on widget hosts, so
+    // omitting a field here is the same as deleting it.
+    ...(typeof p.text === 'string' ? { text: p.text } : {}),
+    ...(p.srt_url ? { srt_url: p.srt_url } : {}),
+    ...(p.word_by_word_srt_url ? { word_by_word_srt_url: p.word_by_word_srt_url } : {}),
+    ...(p.txt_url ? { txt_url: p.txt_url } : {}),
+    ...(p.audio_url ? { audio_url: p.audio_url } : {}),
     // The voice, by name and portrait. uiGenerating has carried this since the
     // chips were introduced; uiCompleted never did, so it silently dropped a
     // resolved voice its caller had already looked up — every FINISHED speech

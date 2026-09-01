@@ -1118,6 +1118,14 @@ function registerGenerateTools(server, client, options = {}) {
           state: single.state,
           urls: done ? urls : undefined,
           thumbnail_url: res.thumbnail_url,
+          // Transcription results ride the same status tool as media
+          // generations; without these the transcript widget merges a payload
+          // with no transcript in it and renders "(empty transcript)".
+          text: typeof res.text === 'string' ? res.text : undefined,
+          srt_url: res.srt_url || undefined,
+          word_by_word_srt_url: res.word_by_word_srt_url || undefined,
+          txt_url: res.txt_url || undefined,
+          audio_url: res.audio_url || undefined,
           // The refs the server actually conditioned on (reference_details) —
           // the live card merges this payload over its submit-time state, so
           // the finished card shows every reference, including server-side

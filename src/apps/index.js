@@ -88,6 +88,17 @@ const WIDGET_CSP = {
     'https://assets.sketchfab.com',
     'https://sketchfab-prod-media.s3.amazonaws.com',
 
+    // Voice PREVIEW audio hosts. list_voices ships every voice with a
+    // preview_url and the card renders a real <audio> for it, but 150 of the
+    // 864 production voices store that preview on a provider host rather than a
+    // Kolbo bucket: 138 google voices on storage.googleapis.com and 12 on
+    // api.us.elevenlabs.io. media-src blocked both, so every google voice — the
+    // entire Hebrew set — rendered a player stuck at 0:00 / 0:00 with no error
+    // anywhere. The Spaces-hosted previews come free via HOST_MAP above; these
+    // two do not, because they are not ours.
+    'https://storage.googleapis.com',
+    'https://api.us.elevenlabs.io',
+
     // Default SYNCI catalog project. Any production override must be reviewed
     // and added here as an exact hostname before deployment.
     'https://gfbpxdkripkbbrcvoyeh.supabase.co',

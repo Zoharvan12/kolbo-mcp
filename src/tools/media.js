@@ -303,7 +303,17 @@ function registerMediaTools(server, client, options = {}) {
         title: 'Media Library',
         items,
         total: totalItems != null ? totalItems : media.length,
-        shown: Math.min(media.length, GRID_CAP)
+        shown: Math.min(media.length, GRID_CAP),
+        // Everything "Load more" needs to fetch page N+1 ITSELF. The button used
+        // to send a chat message asking the model to run the next page, on the
+        // belief that a widget cannot invoke a tool — it can
+        // (window.kolbo.callTool, the same call every generation card polls
+        // with). Worse, the payload carried no page and no filters, so the model
+        // could not reconstruct the query either and typically re-ran page 1.
+        page_tool: 'list_media',
+        page: page || 1,
+        page_size: page_size || 50,
+        query: { project_id, folder_id, type, category, source_type, sort, search }
       });
     }
   );

@@ -48,17 +48,17 @@ function boot(sc) {
   var audioItems = sc.items.filter(function (i) { return i.media_type === 'audio'; });
   var visualItems = sc.items.filter(function (i) { return i.media_type !== 'audio'; });
   var h = '';
+  // Render everything currently in state — each PAGE is already capped
+  // server-side (GRID_CAP), so this grows one page per Load more instead of
+  // being pinned forever. The old hard slices (24 visual / 12 audio) meant an
+  // appended page could never actually appear, and the count below tallied all
+  // items while only 36 were drawn, so the button also lied about the total.
   if (visualItems.length) {
-    h += '<div class="k-grid">' + visualItems.slice(0, 24).map(cellHTML).join('') + '</div>';
+    h += '<div class="k-grid">' + visualItems.map(cellHTML).join('') + '</div>';
   }
   if (audioItems.length) {
-    h += audioItems.slice(0, 12).map(audioRowHTML).join('');
+    h += audioItems.map(audioRowHTML).join('');
   }
-  // Only a fixed page ever renders here (24 visual + 12 audio) — with a library
-  // in the thousands there was no way to reach the rest short of asking in
-  // chat. A visible "Load more" turns that into one click; it sends a message
-  // rather than calling the tool directly, since the widget has no host API
-  // to invoke a tool itself — same mechanism every other "Use" action here uses.
   var shown = visualItems.length + audioItems.length;
   if (sc.total != null && sc.total > shown) {
     h += '<button class="k-btn" id="load-more" style="width:100%;margin-top:10px">Load more (' +
@@ -145,11 +145,48 @@ function wire() {
   });
   var loadMore = el('load-more');
   if (loadMore) {
-    loadMore.onclick = function () {
-      window.kolbo.sendMessage('Show me the next page of this same media search (already saw ' +
-        (state.items.length) + ' of ' + state.total + ' results).');
-    };
+    loadMore.onclick = function () { fetchNextPage(loadMore); };
   }
+}
+
+// Fetch the next page IN the widget and append it.
+//
+// This used to sendMessage() a request for "the next page of this same media
+// search", on the stated belief that a widget has no way to invoke a tool. It
+// does — window.kolbo.callTool, the same bridge call every generation card
+// polls status with. And the message could not have worked anyway: the payload
+// carried no page number and none of the filters, so the model had nothing to
+// reconstruct the query from and would re-run page 1 or something else. The
+// button appeared to do nothing.
+function fetchNextPage(btn) {
+  if (!state || !state.page_tool || btn.disabled) return;
+  var next = (state.page || 1) + 1;
+  btn.disabled = true;
+  var label = btn.textContent;
+  btn.innerHTML = '<span class="k-spin"></span> Loading';
+  var args = {};
+  var q = state.query || {};
+  for (var k in q) { if (q[k] !== undefined && q[k] !== null && q[k] !== '') args[k] = q[k]; }
+  args.page = next;
+  if (state.page_size) args.page_size = state.page_size;
+
+  window.kolbo.callTool(state.page_tool, args).then(function (res) {
+    var sc = structured(res);
+    var more = (sc && sc.items) || [];
+    if (!more.length) {
+      // Nothing came back: say so rather than restoring a button that still
+      // looks like it has pages behind it.
+      btn.textContent = 'No more results';
+      return;
+    }
+    state.items = (state.items || []).concat(more);
+    state.page = (sc && sc.page) || next;
+    if (sc && sc.total != null) state.total = sc.total;
+    boot(state);            // re-renders the grid + a fresh Load more button
+  }).catch(function () {
+    btn.disabled = false;
+    btn.textContent = label;
+  });
 }
 
 function useItem(i) {
