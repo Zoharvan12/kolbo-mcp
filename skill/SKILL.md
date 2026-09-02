@@ -121,6 +121,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `generate_speech` | TTS for narration, voiceover and standalone audio. **NOT for scene dialogue** — Seedance 2/2.5 performs quoted lines itself. |
 | `generate_sound` | Sound effects. |
 | `generate_3d` | 3D models from text / single image / multi-view. Returns GLB/FBX/OBJ/USDZ. |
+| `analyze_video` | Kolbo's official video understanding (agentic Gemini — navigates the timeline itself, so long videos are cheap and timestamp / counting / "when does X happen" questions are answered directly). Public video URL or YouTube URL + optional `prompt`; sync, token-billed. See `workflows/transcription.md`. |
 | `separate_audio_stems` | Split a soundtrack into Dialogue / Music / Effects / without-dialogue (M&E). The route for removing or isolating speech, instrumental beds, and stems for dubbing. 5cr, inline. See `workflows/audio-stems.md`. |
 | `clean_dialogue_leftovers` | Strip voices still faintly audible in an M&E layer. 17cr — only when the user reports the leak, it trades fidelity. |
 | `separate_ambience` | Pull room tone out of the Effects bed as its own lane. 17cr. |
