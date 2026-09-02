@@ -77,6 +77,7 @@ const { registerVoiceTools } = require('./tools/voices');
 const { registerMusicLibraryTools } = require('./tools/music_library');
 const { registerStockLibraryTools } = require('./tools/stock_library');
 const { registerAudioStemTools } = require('./tools/audio_stems');
+const { registerAnalyzeTools } = require('./tools/analyze');
 const { registerBlenderTools } = require('./tools/blender');
 const { registerApps, attachToolWidgetMeta } = require('./apps');
 const { attachToolAnnotations } = require('./toolAnnotations');
@@ -170,6 +171,7 @@ function createServer(opts = {}) {
   registerVisualDnaTools(server, client, toolOptions);
   registerMoodboardTools(server, client, toolOptions);
   registerColorPaletteTools(server, client, toolOptions);
+  registerAnalyzeTools(server, client, toolOptions);
   registerMediaTools(server, client, toolOptions);
   registerPresetTools(server, client, toolOptions);
   registerArtifactTools(server, client, toolOptions);
