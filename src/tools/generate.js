@@ -10,6 +10,7 @@ const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, sessionId
 const { ownedUrl } = require('./owned-url');
 const { UI, uiResult, canonicalModelId, assertModelSupportsType, modelInfo, voiceInfo, resolveCatalogAspectRatio } = require('../apps');
 const { modelTypeForEditOperation, assertExecutableEditModel } = require('./editModelCatalog');
+const { withLocalRehost } = require('./local-rehost');
 
 // ─── Cinematic Dimensions schema (shared by generate_image + generate_image_edit) ───
 // Kolbo's "Cinema mode": eight independent photographic dimensions, each an OPTIONAL
@@ -201,6 +202,9 @@ const promptsField = (what) => z.array(z.string()).max(MAX_BATCH_PROMPTS).option
 );
 
 function registerGenerateTools(server, client, options = {}) {
+  // Every JSON POST from these tools rehosts local file paths into the media
+  // library first (see local-rehost.js) — the API only understands URLs.
+  client = withLocalRehost(client, { allowLocalFiles: !options.remote });
   // Only enabled by hosts that explicitly opt in (the remote HTTP connector).
   // stdio hosts (Kolbo Code, Claude Desktop, Cursor) leave this false, so their
   // tool output is unchanged: a text block with the image URL.
@@ -313,7 +317,7 @@ function registerGenerateTools(server, client, options = {}) {
       prompt: z.string().optional().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset"). Required unless `prompts` is provided.'),
       prompts: promptsField('edits of the SAME source images'),
       model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Many text-to-image ids double as editors: the server auto-routes a base id to its editing variant when source_images is present (e.g. "gpt-image-2" → gpt-image-2/edit, "nano-banana-2" → nano-banana-2-image-editing) — passing the bare id is fine, no need to hunt for the "/edit" suffix yourself. BUT this only works for models that actually have a registered edit variant. For prompt-driven photoreal photo edits (object removal, keep-this-person/remove-the-rest, crowd cleanup, inpainting) the ONLY auto-pick defaults are "nano-banana-2" or "gpt-image-2" (use GPT Image 2 when the image needs readable text). Do NOT auto-pick Flux 2 / flux-2/edit / Flux Klein — those are generate-from-scratch / style models; use them only if the user names Flux. If unsure, confirm the model appears in `list_models type="image_editing"` and choose by the strengths summary — Flux edit variants are named-only.'),
-      source_images: z.array(z.string()).describe('PIXEL-ACCURATE compositing. Array of source image URLs whose pixel content is composited into the output. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.** Three modes the model auto-detects from input shape: (1) Single image → edit/transform that image. (2) Multiple images, one base + others → composite the others into the base. (3) Multiple images with no clear base → generate a new scene that pixel-accurately embeds the supplied images at positions described in the prompt. Mode 3 is the canonical pattern for thumbnails / branded compositions where exact-pixel logo + face fidelity matter. Refer to source images in the prompt by ordinal position ("FIRST source image", "SECOND source image") or use @image1/@image2 tags. Add "composite AS-IS, do not redraw or restyle" to lock pixels.'),
+      source_images: z.array(z.string()).describe('PIXEL-ACCURATE compositing. Array of source images (URLs or absolute local paths) whose pixel content is composited into the output. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.** Three modes the model auto-detects from input shape: (1) Single image → edit/transform that image. (2) Multiple images, one base + others → composite the others into the base. (3) Multiple images with no clear base → generate a new scene that pixel-accurately embeds the supplied images at positions described in the prompt. Mode 3 is the canonical pattern for thumbnails / branded compositions where exact-pixel logo + face fidelity matter. Refer to source images in the prompt by ordinal position ("FIRST source image", "SECOND source image") or use @image1/@image2 tags. Add "composite AS-IS, do not redraw or restyle" to lock pixels.'),
       reference_images: z.array(z.string()).optional().describe('STYLE/COMPOSITION inspiration, alongside `source_images` on the same call — does NOT embed reference pixels. Use when the edit should follow a look sampled from other images ("re-light this shot like these references"). The pixels that must survive the edit go in `source_images`; these only steer the look. **Cap: `source_images` + `reference_images` together must not exceed `max_reference_images` from list_models for the chosen model.**'),
       aspect_ratio: z.string().optional().describe(aspectRatioDescribe('1:1')),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
@@ -409,7 +413,7 @@ function registerGenerateTools(server, client, options = {}) {
       workflow_type: z.string().optional().describe('"image" (default) or "video"'),
       duration: z.number().optional().describe('Duration in seconds per scene (video mode only). Must be a value in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. E.g., 5 or 10.'),
       enhance_prompt: z.boolean().optional().describe('Enhance prompts per scene. Default: false — only pass true if the user explicitly asks to enhance/improve the prompts.'),
-      reference_images: z.array(z.string()).optional().describe('Array of reference image URLs to guide style/composition of every scene. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model.**'),
+      reference_images: z.array(z.string()).optional().describe('Array of reference images (URLs or absolute local paths) to guide style/composition of every scene. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model.**'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply consistently across every scene. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.** This is the ideal way to keep a character or product looking the same in all scenes of a campaign.'),
       moodboard_id: z.string().optional().describe('A single moodboard ID whose master_prompt and style_guide should shape every scene.'),
       moodboard_ids: z.array(z.string()).optional().describe('Multiple moodboard IDs when blending styles. Prefer `moodboard_id` for single moodboards.'),
@@ -578,7 +582,7 @@ function registerGenerateTools(server, client, options = {}) {
       aspect_ratio: z.string().optional().describe(aspectRatioDescribe('16:9')),
       duration: z.number().optional().describe('Duration in seconds. Must be a value in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration` (whichever the model exposes). Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
-      reference_images: z.array(z.string()).optional().describe('Array of image URLs used as visual references (style / composition / subject). **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
+      reference_images: z.array(z.string()).optional().describe('Array of images (URLs or absolute local paths) used as visual references (style / composition / subject). **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
       resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolution_multipliers to predict cost.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" to apply a saved motion/style preset to this generation.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency. Every DNA passed here MUST also be tagged in the prompt as @ExactDNAName. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
@@ -655,10 +659,10 @@ function registerGenerateTools(server, client, options = {}) {
     'generate_video_from_image',
     'Animate an existing still image into a video using Kolbo AI. The image comes from `image_url`; `prompt` describes the motion (not the subject — the subject is already in the image). For generating a video from scratch, use generate_video. FOR A MULTI-SHOT FILM with recurring characters or locations, prefer ONE generate_elements call carrying the whole DNA-anchored sequence over a series of separate image-to-video clips. ANIMATING SEVERAL SHOTS OF THE SAME SEQUENCE? Pass them ALL in `items` in ONE call (one combined widget) — never a series of separate calls, which buries the chat under one widget per clip. Across calls (a sequence longer than the batch cap), make the first call without `session_id`, take the `session_id` from its result, and pass that same `session_id` on every following call — otherwise each clip becomes its own session and the user gets a stack of near-identical single-clip sessions in the Kolbo sidebar. Returns the final video URL(s) when complete.',
     {
-      image_url: z.string().optional().describe('URL of the source image to animate. Required unless `items` is provided.'),
+      image_url: z.string().optional().describe('URL or absolute local path of the source image to animate. Required unless `items` is provided.'),
       prompt: z.string().optional().describe('Text description of the desired MOTION (e.g., "camera slowly pans right while the character walks forward"). Required unless `items` is provided.'),
       items: z.array(z.object({
-        image_url: z.string().describe('URL of the source image to animate for THIS clip.'),
+        image_url: z.string().describe('URL or absolute local path of the source image to animate for THIS clip.'),
         prompt: z.string().describe('Text description of the desired MOTION for THIS clip.'),
       })).max(MAX_BATCH_PROMPTS).optional().describe(
         `BATCH MODE — several DIFFERENT stills (2–${MAX_BATCH_PROMPTS}) animated concurrently in ONE call and rendered together in ONE combined widget. Unlike the \`prompts\` array on generate_image / generate_video, each entry pairs its OWN \`image_url\` with its OWN motion \`prompt\` — the image is what varies, and that is the point. **Hard cap: ${MAX_BATCH_PROMPTS} items per call — more than that is REJECTED with an error (never silently truncated), so split a longer sequence across several calls of at most ${MAX_BATCH_PROMPTS}.** Whenever the user wants several stills animated (a shot sequence, a storyboard, an animatic), ALWAYS pass them all here instead of making several separate calls — separate calls clutter the chat with stacked widgets. All items share the same model / duration / resolution / aspect_ratio / sound_enabled / project_id / session_id. When set, \`image_url\` and \`prompt\` are ignored.`
@@ -1892,7 +1896,7 @@ function registerGenerateTools(server, client, options = {}) {
     'Generate a 3D model from a text prompt, a single reference image, or multiple reference images (for multi-view reconstruction). Returns model URLs in multiple formats (GLB, FBX, OBJ, USDZ). Modes: "text" (prompt-only), "single" (one image), "multi" (multiple images for better quality). The mode is auto-detected from the inputs if not specified.',
     {
       prompt: z.string().optional().describe('Text description of the 3D object to generate (used in text mode and also as a hint in image modes)'),
-      reference_images: z.array(z.string()).optional().describe('Array of public image URLs. 1 image → single mode, 2+ → multi mode.'),
+      reference_images: z.array(z.string()).optional().describe('Array of image URLs or absolute local paths. 1 image → single mode, 2+ → multi mode.'),
       mode: z.string().optional().describe('Explicitly set mode: "text" | "single" | "multi". Auto-detected from reference_images if omitted.'),
       texture_prompt: z.string().optional().describe('Optional prompt to guide texture generation'),
       model: z.string().optional().describe('Model identifier. Use list_models type="three_d" to see all 3D options, or filter by sub-type: "3d_text_to_model", "3d_image_to_model", "3d_multi_image_to_model", "3d_world".'),
@@ -1955,7 +1959,7 @@ function registerGenerateTools(server, client, options = {}) {
     'edit_image',
     'Apply a targeted AI edit to an existing image. Covers mechanical enhancements (upscale, remove background, skin retouching) AND creative operations (expand/outpaint, reframe, inpaint, erase, face swap, background replace, camera angle, multi-shot grid, split/upscale). ⚠️ To EXPAND an image / add space / widen it to a new aspect ratio while keeping the existing artwork intact, use operation="zoom_out" — NOT "reframe" (reframe re-generates the whole picture). ⚠️ For open-ended PROMPT-DRIVEN content edits — "make it night", restyling, adding/removing objects — use `generate_image_edit` instead; it runs on stronger dedicated editing models and produces better results.',
     {
-      image_url: z.string().describe('URL of the primary source image to edit.'),
+      image_url: z.string().describe('URL or absolute local path of the primary source image to edit.'),
 
       operation: z.enum([
         'upscale', 'clarity_upscale',
@@ -2032,10 +2036,10 @@ function registerGenerateTools(server, client, options = {}) {
         .describe('Text instruction guiding the edit. Required for "background_replace". Used with "inpaint", "zoom_out", "camera_angle", and the deprecated "magic_edit". For "zoom_out" it describes what fills the NEW space only — the original image is left as-is.'),
 
       mask_image_url: z.string().optional()
-        .describe('URL of a mask image (black & white; white = affected area). Required for "inpaint" and "erase". For "face_swap", this is the face reference image.'),
+        .describe('URL or absolute local path of a mask image (black & white; white = affected area). Required for "inpaint" and "erase". For "face_swap", this is the face reference image.'),
 
       additional_images: z.array(z.string()).optional()
-        .describe('Extra reference image URLs (up to 8). For "inpaint": reference images that guide style/content. For "multi_shot": the set of scene reference shots. For "magic_edit": additional source images for composite edits.'),
+        .describe('Extra reference images — URLs or absolute local paths (up to 8). For "inpaint": reference images that guide style/content. For "multi_shot": the set of scene reference shots. For "magic_edit": additional source images for composite edits.'),
 
       // ── camera_angle ───────────────────────────────────────
       generate_all_angles: z.boolean().optional()

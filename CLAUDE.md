@@ -237,6 +237,8 @@ src/index.js             — MCP server setup (registers all tool groups)
 src/client.js            — HTTP client (get, post, delete, postMultipart, X-API-Key auth)
 src/polling.js           — Poll until terminal state (PollingTimeoutError carries generation_id)
 src/tools/_shared.js     — Shared URL/path resolver + SSRF guards (import from any tool file)
+src/tools/local-rehost.js — Wraps the generate-tools client: any absolute local path in a JSON POST body is
+                            uploaded to the media library and replaced by its CDN URL (stdio hosts only)
 src/tools/generate.js    — All generation tools (image, image-edit, video, video-from-image,
                             video-from-video, elements, first-last-frame, lipsync,
                             creative-director, music, speech, sound, 3d, transcribe,
