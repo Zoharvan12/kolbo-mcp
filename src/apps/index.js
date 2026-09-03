@@ -120,9 +120,6 @@ const WIDGET_CSP = {
     // non-Cloudflare-proxied `upload-*` twin (500MB cap). Without these hosts
     // the in-chat XHR is CSP-blocked and every claude.ai upload fails silently.
     'https://upload-api.kolbo.ai',
-    'https://upload-stagingapi.kolbo.ai',
-    'https://upload-sapirapi.kolbo.ai',
-    'https://upload-nakedjimapi.kolbo.ai',
   ],
   // Nested iframes. Empty/omitted → frame-src 'none' and the live pricing
   // embed inside the upgrade card is a blank box.

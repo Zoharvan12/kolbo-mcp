@@ -30,7 +30,7 @@ async function main() {
   const cspDomains = [...WIDGET_CSP.resourceDomains, ...WIDGET_CSP.connectDomains, ...(WIDGET_CSP.frameDomains || [])];
   assert.ok(cspDomains.every((domain) => !domain.includes('*')), 'widget CSP must not use wildcard domains');
   assert.ok(cspDomains.every((domain) => !/(dev|staging)/i.test(new URL(domain).hostname)), 'widget CSP must be production-only');
-  assert.deepStrictEqual(WIDGET_CSP.connectDomains, ['https://api.kolbo.ai'], 'only the production MCP upload host may receive widget connections');
+  assert.deepStrictEqual(WIDGET_CSP.connectDomains, ['https://api.kolbo.ai', 'https://upload-api.kolbo.ai'], 'only the production MCP hosts (API + non-proxied upload twin) may receive widget connections');
   assert.deepStrictEqual(WIDGET_CSP.frameDomains, ['https://app.kolbo.ai'], 'plans widget may iframe only the production app');
 
   // Exercise the real protocol serialization path. Internal registrations can
