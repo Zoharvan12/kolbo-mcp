@@ -17,7 +17,7 @@ Creative generations bill against the user's Kolbo credit balance. **Billing uni
 | **Music** | per generation (flat) | 15–60 cr | Suno v5 = 15 cr; ElevenLabs Music = 60 cr |
 | **Speech (TTS)** | per 100 characters | 2–5 cr/100 chars | ElevenLabs (5) × 500 chars = 25 cr |
 | **Sound effects** | per generation (flat) | 4–7 cr | |
-| **3D model** | per model (flat) | 5–300 cr | Trellis = 5 cr; Meshy v6 = 150 cr; Marble 1.1 = 300 cr |
+| **3D model** | per model (flat, × toggle multipliers on Meshy V7) | 5–300 cr | Trellis = 5 cr; Trellis 2 = 60 cr; Meshy v5/v6 = 150 cr; Meshy V7 = 186 cr base (no-texture ~124; +rigging ~217; +rigging+animation ~236); Marble 1.1 = 300 cr |
 | **Transcription (stt)** | per minute of audio | `model.credit × duration_minutes` | |
 
 ## Calculation Formulas

@@ -76,13 +76,13 @@ var TOOL_TITLES = {
   get_generation_status: 'Generations'
 };
 var OPEN_ROUTES = {
-  generate_image: { path: '/image-tools', tool: 'text-to-image' },
-  generate_image_edit: { path: '/image-tools', tool: 'image-editing' },
-  edit_image: { path: '/image-tools', tool: 'image-editing' },
-  generate_video: { path: '/video-tools', tool: 'text-to-video' },
-  generate_video_from_image: { path: '/video-tools', tool: 'image-to-video' },
-  generate_elements: { path: '/video-tools', tool: 'image-to-video', mode: 'elements' },
-  generate_first_last_frame: { path: '/video-tools', tool: 'image-to-video', mode: 'first-last' },
+  generate_image: { path: '/image-tools', tool: 'create-image' },
+  generate_image_edit: { path: '/image-tools', tool: 'create-image' },
+  edit_image: { path: '/image-tools', tool: 'canvas' },
+  generate_video: { path: '/video-tools', tool: 'create-video' },
+  generate_video_from_image: { path: '/video-tools', tool: 'create-video' },
+  generate_elements: { path: '/video-tools', tool: 'create-video', mode: 'elements' },
+  generate_first_last_frame: { path: '/video-tools', tool: 'create-video', mode: 'first-last' },
   generate_video_from_video: { path: '/video-tools', tool: 'video-to-video' },
   generate_lipsync: { path: '/video-tools', tool: 'lipsync' },
   generate_music: { path: '/audio-tools', tool: 'music-generator' },
@@ -1037,13 +1037,18 @@ function renderBatchGrid(sc) {
 function renderStatusGrid(sc) {
   var items = sc.items;
   if (!items.length) return renderError('No results');
-  el('stage').innerHTML = '<div class="k-gen-grid n' + Math.min(items.length, 4) + '">' +
+  // Classify by extension, same as every other reference/thumb in this file —
+  // the tool only knows a url came back, not what kind it is. Done up front
+  // because the COLUMN COUNT depends on it: this grid used to hardcode
+  // Math.min(items.length, 4) and so put videos 3-4 up, where gridCols caps
+  // them at 2 everywhere else.
+  items.forEach(function (it) {
+    if (it.state === 'completed' && it.url) it.kind = refKind(it.url, 'image');
+  });
+  el('stage').innerHTML = '<div class="k-gen-grid n' + gridCols(items.length, items[0].kind) + '">' +
     items.map(function (it, i) {
       var cap = it.title ? '<span class="k-skel-cap" title="' + esc(it.title) + '">' + esc(it.title) + '</span>' : '';
       if (it.state === 'completed' && it.url) {
-        // Classify by extension, same as every other reference/thumb in this
-        // file — the tool only knows a url came back, not what kind it is.
-        it.kind = refKind(it.url, 'image');
         var shape = it.kind === 'video' ? 'video' : 'square';
         return '<div class="k-skel done ' + shape + '" data-focus="' + i + '"' +
           (it.title ? ' title="' + esc(it.title) + '"' : '') + '>' +

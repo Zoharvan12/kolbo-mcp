@@ -102,8 +102,21 @@ function cellHTML(item, i) {
 function audioRowHTML(item) {
   var idx = state.items.indexOf(item);
   var src = item.preview_audio || item.url;
+  // Same onerror contract as cellHTML, and for the same reason: a thumbnail the
+  // host cannot fetch (CSP, 404, expired) otherwise renders the browser's
+  // broken-image glyph. Voices are the ONLY items that come down this path, so
+  // this row is where a blocked thumbnail is actually visible — cells have
+  // degraded gracefully since forever and hid the problem everywhere else.
+  // this.outerHTML, NOT this.parentNode.innerHTML: here the <img> IS the art and
+  // its parent is the whole row, so the cell version would erase the title,
+  // subtitle, Use button and player along with it.
+  var artFallback = '<div class="k-audio-art k-audio-art-fallback">' + kindIcon('audio') + '</div>';
   return '<div class="k-audio-row k-generated-audio" data-i="' + idx + '">' +
-    (item.thumbnail ? '<img class="k-audio-art k-peek-hit" src="' + esc(item.thumbnail) + '"' + peekAttrs(item.thumbnail, 'image', item.title) + '>' : '<div class="k-audio-art"></div>') +
+    (item.thumbnail
+      ? '<img class="k-audio-art k-peek-hit" src="' + esc(item.thumbnail) + '" alt=""'
+        + peekAttrs(item.thumbnail, 'image', item.title)
+        + ' onerror="this.outerHTML=this.getAttribute(\\'data-fb\\')" data-fb="' + esc(artFallback) + '">'
+      : artFallback) +
     '<div class="k-audio-meta"><div class="k-audio-title">' + esc(item.title || '') + '</div>' +
     '<div class="k-audio-sub">' + esc(item.subtitle || '') + '</div></div>' +
     '<button class="k-btn" data-use="' + idx + '">Use</button>' +

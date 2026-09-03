@@ -15,8 +15,11 @@ const CHARACTER_SHEET_TIMEOUT_MS = Number(process.env.KOLBO_CHARACTER_SHEET_TIME
 // Visual DNA caps reference media at 25MB per file (stricter than the
 // default _shared.resolveToBuffer cap — DNA profiles only need enough
 // source signal to extract features, not full-quality media).
-function resolveToBuffer(source, kind) {
-  return sharedResolveToBuffer(source, kind, { maxBytes: VISUAL_DNA_MAX_BYTES });
+function resolveToBuffer(source, kind, options = {}) {
+  return sharedResolveToBuffer(source, kind, {
+    maxBytes: VISUAL_DNA_MAX_BYTES,
+    allowLocalFiles: !options.remote,
+  });
 }
 
 function registerVisualDnaTools(server, client, options = {}) {
@@ -52,9 +55,9 @@ function registerVisualDnaTools(server, client, options = {}) {
 
       // Resolve all sources to buffers in parallel.
       const [imageFiles, videoFile, audioFile] = await Promise.all([
-        Promise.all(imageList.map(src => resolveToBuffer(src, 'image'))),
-        video ? resolveToBuffer(video, 'video') : Promise.resolve(null),
-        audio ? resolveToBuffer(audio, 'audio') : Promise.resolve(null)
+        Promise.all(imageList.map(src => resolveToBuffer(src, 'image', options))),
+        video ? resolveToBuffer(video, 'video', options) : Promise.resolve(null),
+        audio ? resolveToBuffer(audio, 'audio', options) : Promise.resolve(null)
       ]);
 
       const form = new FormData();
@@ -260,9 +263,9 @@ function registerVisualDnaTools(server, client, options = {}) {
       }
 
       const [imageFiles, videoFile, audioFile] = await Promise.all([
-        Promise.all(imageList.map(src => resolveToBuffer(src, 'image'))),
-        video ? resolveToBuffer(video, 'video') : Promise.resolve(null),
-        audio ? resolveToBuffer(audio, 'audio') : Promise.resolve(null)
+        Promise.all(imageList.map(src => resolveToBuffer(src, 'image', options))),
+        video ? resolveToBuffer(video, 'video', options) : Promise.resolve(null),
+        audio ? resolveToBuffer(audio, 'audio', options) : Promise.resolve(null)
       ]);
 
       const form = new FormData();

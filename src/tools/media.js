@@ -74,7 +74,7 @@ function registerMediaTools(server, client, options = {}) {
   // server still cannot know is whether the CALLER has a shell (one connector
   // serves both claude.ai and Claude Code), hence the fallback hint in the
   // ticket payload.
-  const isRemoteConnector = options.apps === true;
+  const isRemoteConnector = options.remote === true || options.apps === true;
 
   const ticketRouting = isRemoteConnector
     ? 'You are reached over a REMOTE connector: this server cannot read the caller\'s disk, so `upload_media` with a local path will always fail here — do not try it. If you can run shell commands or issue HTTP requests yourself, this tool is the right path. If you cannot (claude.ai web/mobile), ignore this tool and call `media_upload_widget` so the user picks the file.'
@@ -217,7 +217,7 @@ function registerMediaTools(server, client, options = {}) {
       const kind = /\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? 'video'
                  : /\.(mp3|wav|ogg|m4a|flac|aac)(\?|$)/i.test(source) ? 'audio'
                  : 'image';
-      const resolved = await resolveToBuffer(source, kind);
+      const resolved = await resolveToBuffer(source, kind, { allowLocalFiles: !options.remote });
 
       const form = new FormData();
       form.append('file', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });

@@ -56,8 +56,6 @@
 
 MCP server exposing Kolbo AI generation, chat, Visual DNA, and moodboard capabilities as native tools in Claude Code/Desktop. Published as `@kolbo/mcp` on npm.
 
-## Codebase Graph
-A graphify knowledge graph exists at `graphify-out/graph.json` (auto-rebuilds via git hook). Use `/graphify` or `graphify query|affected|explain|god-nodes` for "what calls X" / blast-radius questions before grepping cold.
 
 ## Distribution channels
 

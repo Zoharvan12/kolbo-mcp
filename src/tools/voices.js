@@ -119,7 +119,7 @@ function registerVoiceTools(server, client, options = {}) {
       project_id: z.string().optional().describe('Project to associate the voice with (from list_projects). Omit for the default project.')
     },
     async ({ audio, voice_name, provider, language, project_id }) => {
-      const resolved = await resolveToBuffer(audio, 'audio');
+      const resolved = await resolveToBuffer(audio, 'audio', { allowLocalFiles: !options.remote });
       const form = new FormData();
       form.append('audioFile', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });
       form.append('voiceName', voice_name);

@@ -201,6 +201,14 @@ html.k-peek-fs .k-peek img, html.k-peek-fs .k-peek video { max-height: calc(100v
   position: relative; border-radius: 10px; overflow: hidden;
   background: var(--surface-2); border: 1px solid var(--border);
   min-height: 120px; max-height: 300px;
+  /* width:100% is load-bearing, not cosmetic. Without a definite width the
+     aspect-ratio transfers the OTHER way: a 16/9 cell in a 196px auto-fill
+     column wants 110px of height, min-height:120px clamps it up, and the ratio
+     then back-computes the WIDTH as 120*16/9 = 213px. The item overflows its
+     196px track and lands on top of the next tile — which is exactly what a
+     3-up video grid looked like. Pinning the width makes the ratio size the
+     height only, and min-height just letterboxes a slightly tall cell. */
+  width: 100%;
 }
 .k-skel.video { aspect-ratio: 16 / 9; }
 .k-skel.square { aspect-ratio: 1; }
@@ -368,6 +376,11 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
 .k-audio-row:hover { background: var(--surface-2); }
 .k-audio-art { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none;
   background: var(--brand-soft); }
+/* Stand-in when a voice/track has no artwork, or has one the host refuses to
+   load — a blank tile and the browser's broken-image glyph both read as "this
+   row is broken" rather than "this one has no picture". */
+.k-audio-art-fallback { display: flex; align-items: center; justify-content: center;
+  color: var(--brand); font-size: 18px; }
 .k-audio-meta { flex: 1; min-width: 0; }
 .k-audio-title { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .k-audio-sub { font-size: 11px; color: var(--text-faint);

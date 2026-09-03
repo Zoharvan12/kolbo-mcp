@@ -54,6 +54,7 @@
     "@modelcontextprotocol/ext-apps": "^1.7.4",
     "@modelcontextprotocol/sdk": "1.29.0",
     "form-data": "^4.0.6",
+    "undici": "^6.28.0",
     "zod": "^3.25.0"
   },
   "overrides": {

@@ -22,6 +22,7 @@ const { catalogWidgetHtml } = require('./widgets/catalog');
 const { transcriptWidgetHtml } = require('./widgets/transcript');
 const { uploadWidgetHtml } = require('./widgets/upload');
 const { listWidgetHtml } = require('./widgets/list');
+const { HOST_MAP } = require('../cdn');
 const { plansWidgetHtml } = require('./widgets/plans');
 
 const UI = {
@@ -55,15 +56,23 @@ function widgetHtml(uri) {
 // declaration EVERY external asset (generated images/videos on the CDN, model
 // icons, Google Fonts) is silently blocked. resourceDomains maps to
 // img/script/style/font/media-src; connectDomains to connect-src.
+// Every media host cdn.js can hand a widget: each environment's Spaces origin
+// AND the custom domain it gets rewritten to. DERIVED from HOST_MAP, never
+// retyped — the two lists drifted, this one carrying production only, and the
+// result was silent: 565 of 864 production voice documents still store
+// development-bucket thumbnails, cdn.js rewrote them to media-dev.kolbo.ai,
+// and the host's img-src blocked every one. A dev- or staging-pointed MCP had
+// it worse — nothing with a picture in it rendered at all. Add an environment
+// to HOST_MAP and its CSP entry now comes with it.
+const KOLBO_MEDIA_DOMAINS = [...new Set(HOST_MAP.flat())].map((host) => `https://${host}`);
+
 const WIDGET_CSP = {
   resourceDomains: [
-    // Public production hosts owned by Kolbo.
+    // Public hosts owned by Kolbo.
     'https://api.kolbo.ai',
     'https://app.kolbo.ai',
-    'https://media.kolbo.ai',
     'https://cdn.kolbo.ai',
-    'https://kolboai-production.ams3.digitaloceanspaces.com',
-    'https://kolboai-production.ams3.cdn.digitaloceanspaces.com',
+    ...KOLBO_MEDIA_DOMAINS,
     'https://kolbo-general-media.fra1.digitaloceanspaces.com',
     'https://kolbo-general-media.fra1.cdn.digitaloceanspaces.com',
 
@@ -107,6 +116,13 @@ const WIDGET_CSP = {
   // POST files to /mcp/upload with its short-lived ticket.
   connectDomains: [
     'https://api.kolbo.ai',
+    // Since kolbo-api fbed4e7b5 (2026-08-18) the upload ticket points at the
+    // non-Cloudflare-proxied `upload-*` twin (500MB cap). Without these hosts
+    // the in-chat XHR is CSP-blocked and every claude.ai upload fails silently.
+    'https://upload-api.kolbo.ai',
+    'https://upload-stagingapi.kolbo.ai',
+    'https://upload-sapirapi.kolbo.ai',
+    'https://upload-nakedjimapi.kolbo.ai',
   ],
   // Nested iframes. Empty/omitted → frame-src 'none' and the live pricing
   // embed inside the upgrade card is a blank box.

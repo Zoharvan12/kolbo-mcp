@@ -51,7 +51,7 @@ const PRIVATE_WRITE = [
   'move_session', 'bulk_move_sessions', 'move_generations_to_session',
   'split_session', 'undo_session_organization',
   'rename_session', 'restore_session',
-  'create_project', 'update_project',
+  'create_project', 'duplicate_project', 'update_project',
   'archive_project', 'unarchive_project', 'add_project_context',
   'link_project_asset', 'unlink_project_asset',
   'create_agent',

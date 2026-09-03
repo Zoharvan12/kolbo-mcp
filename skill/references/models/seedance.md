@@ -23,20 +23,48 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
   Then Locked Intro, then `SHOT N — 0:00–0:02 — Size / camera` beats whose ranges **sum exactly to Xs**. Last line repeats `Total: Xs / N shots / AR`.
   - Example (15s / 6 shots): `6 connected cinematic shots, 15 seconds total, 16:9, Multishot ON` + `Total: 15s / 6 shots / 16:9`
   - UGC / phone vertical: `N connected phone shots, Xs total, 9:16, Multishot ON` (never the word "cinematic").
-  - A prompt with only shot body and no Total / Multishot header is a **failed turn** — rewrite before calling `generate_*`.
+  - A MULTI-shot prompt with only shot body and no Total / Multishot header is a **failed turn** — rewrite before calling `generate_*`. A single-shot prompt uses the single-shot header instead and carries no `Multishot ON`; see "Shot count comes from the USER".
 - **MCP `duration` must match the Total line.** Pass `duration: X` (whole seconds) on `generate_video` / `generate_elements` / `generate_video_from_image` equal to the `Xs` in `Total: Xs / …`. Mismatch = wrong-length clip.
 - **Then the Locked Intro** — `[GLOBAL LOOK]` / `[CAST]` / `[LOCATION]` (+ LOCATION MAP / CONTINUITY / PHYSICS for multi-shot) — before any shot. A one-liner `same character throughout` is not a character lock.
 - **Order inside each shot**: Subject → Action → Camera → Constraints → (Audio/SFX if relevant). Do NOT restack GLOBAL LOOK style inside the shot.
 - **Prompt length**: simple single-idea pieces ~120–280 words. Locked-intro cinematic typically 400–900 words. Shorter than ~120 words = random output. The 10,000-char cap below always wins.
-- **Shot count is user-directed.** If the user asks for N shots, deliver exactly N in one prompt unless they ask to split.
+- **Shot count is user-directed.** If the user asks for N shots, deliver exactly N in one prompt unless they ask to split — and if they ask for ONE shot, deliver one shot with no `Multishot ON`.
 - **Always describe at least one camera movement per shot.**
 - **Tell Seedance what the camera is NOT doing** (e.g. `no cuts, no zoom, natural head movement`) — this is what locks POV.
 - **Final prompt is always English**, wrapped in a copy-ready code block. Detect intent in any language and reply in the user's language, but the prompt itself is English.
 - **HARD CAP: 10,000 characters TOTAL for the ENTIRE prompt** — measured as one single string including all shots, boilerplate, SFX lines, and the Total lines. It is per PROMPT, not per shot. **Never** split into multiple prompts, code blocks, or "part 1 / part 2" to evade the cap. Count the final prompt before output; if over, trim (cut adjectives, collapse boilerplate, shorten SFX lists, merge or drop shots) and re-count until it fits.
 
-## Locked Intro (DEFAULT for any multi-shot cinematic — including Elements)
 
-After the Total lines, every multi-shot prompt — and any piece with recurring people or a recurring place — opens with the locked blocks. Skip only for: true single-shot POV/orb, 3×3 grid-panel mode, or video-edit tasks.
+## Shot count comes from the USER — decide this FIRST
+
+A SHOT is one uninterrupted camera take. A CUT is what separates two shots. Count
+what the user asked for before choosing the output shape.
+
+**ONE shot requested → write ONE shot.**
+- No `SHOT N` labels, no per-shot beats, and **no `Multishot ON`**. That flag declares
+  "this clip contains hard cuts" — on a single take it is false, and it additionally
+  forces prompt enhancement on the wire, rewriting the prompt the user just approved.
+- Header: `Single continuous shot, Xs total, AR`. Closing line: `Total: Xs / 1 shot / AR`.
+- Describe the take as ONE unbroken movement; internal beats are timestamps inside it
+  (`0:00–0:05 — the camera pushes in past the doorway…`), never numbered shots.
+- **Keep the Locked Intro blocks.** GLOBAL LOOK / CAST / LOCATION / PHYSICS are the
+  consistency stack, not the multi-shot part — a long continuous move needs them most.
+
+These all mean ONE shot, however long it runs and however far the camera travels:
+"one shot", "single shot", "one continuous take", "a oner", "no cuts", "unbroken",
+"one continuous camera movement". **Writing "N connected shots … no visible cut" is a
+contradiction** — no cut means one shot. That exact output is what this rule exists to
+stop; never emit it.
+
+**N shots requested → deliver exactly N.** Never round up to a nicer-sounding number,
+never add shots the user did not ask for, and never invent a maximum.
+
+**No count given → pick the SIMPLEST structure the idea needs.** One continuous take is
+very often right. A montage is a deliberate choice, never a default.
+
+## Locked Intro (DEFAULT for any cinematic piece — single-shot and Elements included)
+
+After the Total lines, every prompt with recurring people, a recurring place, or more than one shot opens with the locked blocks. A single continuous take keeps ALL of them — only the `SHOT N` beats and `Multishot ON` are multi-shot-only. Skip entirely for: a bare POV/orb with no cast, 3×3 grid-panel mode, or video-edit tasks.
 
 ```
 N connected cinematic shots, Xs total, AR, Multishot ON

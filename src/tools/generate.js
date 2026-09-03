@@ -6,7 +6,7 @@
 const { z } = require('zod');
 const FormData = require('form-data');
 const { pollUntilDone, waitWindowMs } = require('../polling');
-const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, sessionIdField, inlineImageBlocks, linkFields, uiGenerating, uiCompleted, appsEnabled } = require('./_shared');
+const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, sessionIdField, inlineImageBlocks, linkFields, uiGenerating, asyncGenerating, uiCompleted, appsEnabled } = require('./_shared');
 const { ownedUrl } = require('./owned-url');
 const { UI, uiResult, canonicalModelId, assertModelSupportsType, modelInfo, voiceInfo, resolveCatalogAspectRatio } = require('../apps');
 const { modelTypeForEditOperation, assertExecutableEditModel } = require('./editModelCatalog');
@@ -57,6 +57,7 @@ const CINEMATIC_SCHEMA = z.object({
 // image is what varies, and that is the whole point). Either way the widget
 // captions each tile with the item's prompt, so that is the label we carry.
 const MAX_BATCH_PROMPTS = 8;
+const MAX_STATUS_IDS = 20;
 async function submitBatch(rawItems, submitOne) {
   if (rawItems.length > MAX_BATCH_PROMPTS) {
     throw new Error(
@@ -209,10 +210,30 @@ function registerGenerateTools(server, client, options = {}) {
   // stdio hosts (Kolbo Code, Claude Desktop, Cursor) leave this false, so their
   // tool output is unchanged: a text block with the image URL.
   const inlineImages = !!options.inlineImages;
+  const resolveInput = (source, kind, opts = {}) => resolveToBuffer(source, kind, {
+    ...opts,
+    allowLocalFiles: !options.remote,
+  });
+  // JSON-body tools (edit_image) cannot carry a file, so a local path is
+  // uploaded to the media library first and its CDN URL is sent instead.
+  // URLs pass through untouched.
+  const rehostLocal = async (source, kind, project_id) => {
+    if (!source || isUrlSource(source)) return source;
+    const file = await resolveInput(source, kind);
+    const form = new FormData();
+    form.append('file', file.buffer, { filename: file.filename, contentType: file.contentType });
+    if (project_id) form.append('project_id', project_id);
+    const uploaded = await client.postMultipart('/v1/media/upload', form);
+    const url = uploaded?.media?.url || uploaded?.url;
+    if (!url) throw new Error(`Upload of ${source} returned no URL`);
+    return url;
+  };
   // MCP Apps hosts (claude.ai remote connector, Claude Desktop) get an instant
   // "submitted" response + a live ui://kolbo/generation.html widget that keeps
   // one wait=true status call in flight. Text-only hosts never take this branch.
   const ui = () => appsEnabled(server, options);
+  const returnsImmediately = () => ui() || !!options.asyncGenerations;
+  const submittedResult = (params) => ui() ? uiGenerating(params) : asyncGenerating(params);
 
   // How long the STATUS tools may block inside one tool call before handing
   // back a non-terminal result the caller re-issues. Bounded by the transport,
@@ -260,7 +281,7 @@ function registerGenerateTools(server, client, options = {}) {
       // Batch mode: N different prompts, one widget owning all generation ids.
       if (prompts && prompts.length) {
         const batch = await submitBatch(prompts, (p) => client.post('/v1/generate/image', { ...shared, prompt: p }));
-        if (ui()) return uiGenerating({
+        if (returnsImmediately()) return submittedResult({
           tool: 'generate_image', kind: 'image', gen: batch.ok[0].gen, client, model,
           count: batch.ids.length, settings: imageSettings(shared),
           generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
@@ -273,7 +294,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const gen = await client.post('/v1/generate/image', { ...shared, prompt, num_images });
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_image', kind: 'image', gen, client, model, prompt,
         count: num_images, settings: imageSettings(shared),
         reference_images
@@ -349,7 +370,7 @@ function registerGenerateTools(server, client, options = {}) {
       // back as four stacked cards.
       if (prompts && prompts.length) {
         const batch = await submitBatch(prompts, (p) => client.post('/v1/generate/image-edit', { ...shared, prompt: p }));
-        if (ui()) return uiGenerating({
+        if (returnsImmediately()) return submittedResult({
           tool: 'generate_image_edit', kind: 'image', gen: batch.ok[0].gen, client, model,
           count: batch.ids.length, settings,
           generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
@@ -362,7 +383,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const gen = await client.post('/v1/generate/image-edit', { ...shared, prompt, num_images });
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_image_edit', kind: 'image', gen, client, model, prompt,
         count: num_images,
         settings,
@@ -429,7 +450,7 @@ function registerGenerateTools(server, client, options = {}) {
       });
 
       const cdStatusUrl = `/v1/generate/creative-director/${gen.generation_id}/status`;
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_creative_director', kind: 'scenes', gen, client, model, prompt,
         count: scene_count || 4,
         settings: videoSettings({ duration, resolution, aspect_ratio, mode: workflow_type || 'image', enhance_prompt, visual_dna_ids, moodboard_id, moodboard_ids }),
@@ -602,7 +623,7 @@ function registerGenerateTools(server, client, options = {}) {
       // Batch mode: N different prompts, one widget owning all generation ids.
       if (prompts && prompts.length) {
         const batch = await submitBatch(prompts, (p) => client.post('/v1/generate/video', { ...shared, prompt: p }));
-        if (ui()) return uiGenerating({
+        if (returnsImmediately()) return submittedResult({
           tool: 'generate_video', kind: 'video', gen: batch.ok[0].gen, client, model,
           count: batch.ids.length, settings: videoSettings(shared),
           generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
@@ -615,7 +636,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const gen = await client.post('/v1/generate/video', { ...shared, prompt });
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_video', kind: 'video', gen, client, model, prompt,
         settings: videoSettings(shared),
         reference_images
@@ -692,7 +713,7 @@ function registerGenerateTools(server, client, options = {}) {
       // per-tile caption either way.
       if (items && items.length) {
         const batch = await submitBatch(items, (it) => client.post('/v1/generate/video/from-image', { ...shared, image_url: it.image_url, prompt: it.prompt }));
-        if (ui()) return uiGenerating({
+        if (returnsImmediately()) return submittedResult({
           tool: 'generate_video_from_image', kind: 'video', gen: batch.ok[0].gen, client, model,
           count: batch.ids.length, settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids }),
           generation_ids: batch.ids, prompts: batch.ok.map((o) => o.prompt),
@@ -705,7 +726,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       const gen = await client.post('/v1/generate/video/from-image', { ...shared, image_url, prompt });
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_video_from_image', kind: 'video', gen, client, model, prompt,
         settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids }),
         reference_images: [image_url]
@@ -778,7 +799,7 @@ function registerGenerateTools(server, client, options = {}) {
         singing_dna_id, singing_voice_id, project_id, session_id
       });
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_music', kind: 'audio', gen, client, model: model || 'Suno', prompt,
         settings: { mode: instrumental ? 'instrumental' : (style || undefined), preset_id },
       });
@@ -877,7 +898,7 @@ function registerGenerateTools(server, client, options = {}) {
         project_id, session_id
       });
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_speech', kind: 'audio', gen, client, model, prompt: text,
         voice: voiceRecord,
         settings: {
@@ -963,7 +984,7 @@ function registerGenerateTools(server, client, options = {}) {
         seed_reference_audio_urls, seed_reference_image_url, project_id, session_id
       });
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_sound', kind: 'audio', gen, client, model, prompt,
         settings: { duration },
         reference_images: seed_reference_image_url ? [seed_reference_image_url] : []
@@ -1026,14 +1047,15 @@ function registerGenerateTools(server, client, options = {}) {
     `Check the status of one or more generations. Use after a generation tool returned "submitted" (widget hosts) or timed out. Tracking SEVERAL concurrent generations? Pass them ALL in generation_ids — one call returns an all_done summary. Need the final result? Set wait=true and the server blocks until every generation finishes, for at most ~${WAIT_WINDOW_S}s per call. A job that outlives one window (music is ~3 min, video longer) comes back state="processing" — that is a normal result, not an error: call again with wait=true and keep going until every id is terminal. Never poll with wait=false in a loop.`,
     {
       generation_id: z.string().optional().describe('A single generation ID to check'),
-      generation_ids: z.array(z.string()).optional().describe('Multiple generation IDs to check in ONE call. Returns { all_done, pending, generations[] } — always prefer this over checking IDs one by one.'),
+      generation_ids: z.array(z.string()).max(MAX_STATUS_IDS).optional().describe(`Multiple generation IDs to check in ONE call (max ${MAX_STATUS_IDS}). Returns { all_done, pending, generations[] } — always prefer this over checking IDs one by one.`),
       wait: z.boolean().optional().describe(`If true, block until every generation reaches a terminal state (completed/failed), for at most ~${WAIT_WINDOW_S}s per call, then return whatever state they are in. Anything still processing is reported, not errored — re-issue with wait=true and only the still-pending ids. This is always better than polling with wait=false.`)
     },
     async ({ generation_id, generation_ids, wait }) => {
       const ids = (generation_ids && generation_ids.length > 0)
-        ? generation_ids
+        ? [...new Set(generation_ids)]
         : (generation_id ? [generation_id] : []);
       if (ids.length === 0) throw new Error('Provide generation_id or generation_ids');
+      if (ids.length > MAX_STATUS_IDS) throw new Error(`At most ${MAX_STATUS_IDS} generation IDs can be checked at once.`);
 
       // One status check (or blocking poll) per id. Never let one bad id
       // reject the whole batch — surface it as a failed entry instead.
@@ -1064,6 +1086,7 @@ function registerGenerateTools(server, client, options = {}) {
       await Promise.all(results.map(addDisplayNames));
 
       const pending = results.filter(r => r.state !== 'completed' && r.state !== 'failed' && r.state !== 'cancelled');
+      const unresolved = results.filter(r => r.state === 'unknown');
       const doneHint = 'ALL generations are in a final state — do NOT poll again. Report the results to the user.';
       // The old wait=false hint said "call it ONCE with wait=true ... to block
       // until they finish". That is the advice that broke: one wait=true call
@@ -1073,7 +1096,9 @@ function registerGenerateTools(server, client, options = {}) {
       const idsPhrase = pendingIds.length > 1
         ? ` and ONLY the still-pending ids: ${JSON.stringify(pendingIds)}`
         : '';
-      const pendingHint = stillRunningHint(idsPhrase);
+      const pendingHint = unresolved.length
+        ? `Status could not be verified for ${unresolved.map(r => r.generation_id).join(', ')}. Check the ID and connection, then retry once later; do not poll in a loop or submit a replacement generation.`
+        : stillRunningHint(idsPhrase);
 
       // Single-id calls keep the original flat TEXT shape — a live uiGenerating
       // widget (ui()==true, still open from the original generate_* call) polls
@@ -1107,6 +1132,9 @@ function registerGenerateTools(server, client, options = {}) {
         // forever, so the flat fields have to live in structuredContent too.
         const urls = preferOwned(Array.isArray(res.urls) ? res.urls : []);
         const done = single.state === 'completed' && urls.length > 0;
+        const extraContent = options.asyncGenerations && done && mediaKind(urls[0]) === 'image'
+          ? await inlineImageBlocks(urls, { enabled: inlineImages, maxCount: 1, maxBytes: 512 * 1024, fetchTimeoutMs: 3000 })
+          : undefined;
         return uiCompleted({
           tool: 'get_generation_status', kind: done ? mediaKind(urls[0]) : 'status', client,
           // The model that ACTUALLY ran. A single-id check resolves one
@@ -1135,6 +1163,14 @@ function registerGenerateTools(server, client, options = {}) {
           // the finished card shows every reference, including server-side
           // additions (DNA stills, merged sources) the tool call never named.
           reference_images: res.reference_images,
+          // Transcription results ride the same status tool as media
+          // generations; without these the transcript widget merges a payload
+          // with no transcript in it.
+          text: typeof res.text === 'string' ? res.text : undefined,
+          srt_url: res.srt_url || undefined,
+          word_by_word_srt_url: res.word_by_word_srt_url || undefined,
+          txt_url: res.txt_url || undefined,
+          audio_url: res.audio_url || undefined,
           prompt: res.prompt_used || res.prompt || undefined,
           credits_used: creditFields(single).credits_used,
           items: [{
@@ -1143,7 +1179,7 @@ function registerGenerateTools(server, client, options = {}) {
             title: res.prompt_used || res.prompt || undefined,
             url: Array.isArray(res.urls) ? res.urls[0] : undefined,
           }],
-        }, singleText);
+        }, singleText, extraContent);
       }
 
       const text = JSON.stringify({
@@ -1185,6 +1221,13 @@ function registerGenerateTools(server, client, options = {}) {
       const actualRefs = results
         .map(r => r.result && r.result.reference_images)
         .find(refs => Array.isArray(refs) && refs.length);
+      const completedImageUrls = results.flatMap((r) => {
+        const urls = r?.result?.urls;
+        return Array.isArray(urls) && urls.length && mediaKind(urls[0]) === 'image' ? urls : [];
+      });
+      const extraContent = options.asyncGenerations
+        ? await inlineImageBlocks(completedImageUrls, { enabled: inlineImages, maxCount: 1, maxBytes: 512 * 1024, fetchTimeoutMs: 3000 })
+        : undefined;
       return uiCompleted({
         tool: 'get_generation_status', kind: 'status', client,
         model: modelsRan.length === 1 ? modelsRan[0] : 'Generations',
@@ -1205,7 +1248,7 @@ function registerGenerateTools(server, client, options = {}) {
             url: Array.isArray(res.urls) ? res.urls[0] : undefined,
           };
         }),
-      }, text);
+      }, text, extraContent);
     }
   );
 
@@ -1345,7 +1388,7 @@ function registerGenerateTools(server, client, options = {}) {
           return client.post('/v1/generate/elements', body);
         }
         const resolved = await Promise.all(locals.map(({ src, kind }) =>
-          resolveToBuffer(src, kind, { maxBytes: ELEMENTS_MAX_UPLOAD_BYTES })));
+          resolveInput(src, kind, { maxBytes: ELEMENTS_MAX_UPLOAD_BYTES })));
         const form = new FormData();
         for (const [key, value] of Object.entries(body)) {
           if (value === undefined || value === null) continue;
@@ -1385,7 +1428,7 @@ function registerGenerateTools(server, client, options = {}) {
         for (const kind of ['image', 'video', 'audio']) {
           media[kind] = await Promise.all(media[kind].map(async (src) => {
             if (!isUrlSource(src)) return src;
-            const file = await resolveToBuffer(src, kind, { maxBytes: ELEMENTS_MAX_UPLOAD_BYTES });
+            const file = await resolveInput(src, kind, { maxBytes: ELEMENTS_MAX_UPLOAD_BYTES });
             const form = new FormData();
             form.append('file', file.buffer, { filename: file.filename, contentType: file.contentType });
             if (project_id) form.append('project_id', project_id);
@@ -1399,7 +1442,7 @@ function registerGenerateTools(server, client, options = {}) {
         startResponse = await startElements();
       }
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_elements', kind: 'video', gen: startResponse, client, model, prompt,
         settings: videoSettings({
           duration,
@@ -1500,8 +1543,8 @@ function registerGenerateTools(server, client, options = {}) {
       let startResponse;
       if (!isUrlSource(firstSource) || !isUrlSource(lastSource)) {
         const [firstResolved, lastResolved] = await Promise.all([
-          resolveToBuffer(firstSource, 'image'),
-          resolveToBuffer(lastSource, 'image')
+          resolveInput(firstSource, 'image'),
+          resolveInput(lastSource, 'image')
         ]);
         const form = new FormData();
         form.append('files', firstResolved.buffer, { filename: firstResolved.filename, contentType: firstResolved.contentType });
@@ -1524,7 +1567,7 @@ function registerGenerateTools(server, client, options = {}) {
         });
       }
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_first_last_frame', kind: 'video', gen: startResponse, client, model, prompt,
         settings: videoSettings({ duration, resolution, aspect_ratio, enhance_prompt, visual_dna_ids }),
         reference_images: [firstSource, lastSource].filter(isUrlSource)
@@ -1614,7 +1657,7 @@ function registerGenerateTools(server, client, options = {}) {
         // File mode (or mixed — resolve any local paths, pass URLs through as body fields)
         const form = new FormData();
         if (!sourceIsUrl) {
-          const resolved = await resolveToBuffer(source, /\.(mp4|mov|webm|mkv)$/i.test(source) ? 'video' : 'image');
+          const resolved = await resolveInput(source, /\.(mp4|mov|webm|mkv)$/i.test(source) ? 'video' : 'image');
           // Decide field name by kind — lipsync controller uses .fields() with image/video/audio.
           const isVideo = /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(resolved.filename);
           form.append(isVideo ? 'video' : 'image', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });
@@ -1622,7 +1665,7 @@ function registerGenerateTools(server, client, options = {}) {
           form.append('source_url', source);
         }
         if (!audioIsUrl) {
-          const resolved = await resolveToBuffer(audio, 'audio');
+          const resolved = await resolveInput(audio, 'audio');
           form.append('audio', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });
         } else {
           form.append('audio_url', audio);
@@ -1642,7 +1685,7 @@ function registerGenerateTools(server, client, options = {}) {
         startResponse = await client.postMultipart('/v1/generate/lipsync', form);
       }
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_lipsync', kind: 'video', gen: startResponse, client, model,
         prompt: text_prompt, settings: { mode: 'lipsync' },
         reference_images: sourceIsUrl && !/\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? [source] : [],
@@ -1737,7 +1780,7 @@ function registerGenerateTools(server, client, options = {}) {
           project_id, session_id
         });
       } else {
-        const resolved = await resolveToBuffer(source_video, 'video');
+        const resolved = await resolveInput(source_video, 'video');
         const form = new FormData();
         form.append('files', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });
         if (prompt) form.append('prompt', prompt);
@@ -1767,7 +1810,7 @@ function registerGenerateTools(server, client, options = {}) {
         startResponse = await client.postMultipart('/v1/generate/video-from-video', form);
       }
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_video_from_video', kind: 'video', gen: startResponse, client, model,
         prompt: prompt || (preset ? `Subtitles preset: ${preset}` : undefined),
         settings: videoSettings({ duration, resolution, aspect_ratio, mode: preset ? 'subtitles' : 'restyle', enhance_prompt, visual_dna_ids }),
@@ -1842,7 +1885,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (isUrl) {
         startResponse = await client.post('/v1/transcribe', { audio_url: source, ...opts });
       } else {
-        const resolved = await resolveToBuffer(source, 'audio');
+        const resolved = await resolveInput(source, 'audio');
         const form = new FormData();
         form.append('file', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });
         for (const [k, v] of Object.entries(opts)) {
@@ -1863,6 +1906,14 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_id: startResponse.generation_id, wait: true },
           audio_url: isUrl ? source : undefined,
           ...linkFields('transcribe_audio', startResponse),
+        });
+      }
+
+      if (options.asyncGenerations) {
+        return asyncGenerating({
+          tool: 'transcribe_audio',
+          kind: 'audio',
+          gen: startResponse,
         });
       }
 
@@ -1893,7 +1944,7 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_3d ───────────────────────────────────────────
   server.tool(
     'generate_3d',
-    'Generate a 3D model from a text prompt, a single reference image, or multiple reference images (for multi-view reconstruction). Returns model URLs in multiple formats (GLB, FBX, OBJ, USDZ). Modes: "text" (prompt-only), "single" (one image), "multi" (multiple images for better quality). The mode is auto-detected from the inputs if not specified.',
+    'Generate a 3D model from a text prompt, a single reference image, or multiple reference images (for multi-view reconstruction). Returns model URLs in multiple formats (GLB, FBX, OBJ, USDZ). Modes: "text" (prompt-only), "single" (one image), "multi" (multiple images for better quality). The mode is auto-detected from the inputs if not specified. Three model families with family-scoped settings: Meshy V7 (mesh/texture controls should_remesh/should_texture/texture_image_url/symmetry_mode/enable_safety_checker, plus auto-rigging + animation: enable_rigging rigs a humanoid character with basic walk/run animation, enable_animation applies one of ~697 presets on top — requires enable_rigging; both cost extra credits), Trellis v1 (texture_size, guidance/sampling steps, mesh_simplify, multiimage_algo), Trellis 2 (resolution, t2_texture_size, decimation_target, remesh, tex_sampling_steps). Params for a different family than the selected model are ignored.',
     {
       prompt: z.string().optional().describe('Text description of the 3D object to generate (used in text mode and also as a hint in image modes)'),
       reference_images: z.array(z.string()).optional().describe('Array of image URLs or absolute local paths. 1 image → single mode, 2+ → multi mode.'),
@@ -1903,10 +1954,34 @@ function registerGenerateTools(server, client, options = {}) {
       topology: z.string().optional().describe('Topology preset (optional, model-specific)'),
       target_polycount: z.number().optional().describe('Target polygon count (optional, model-specific)'),
       enable_tpose: z.boolean().optional().describe('Force T-pose for character models (optional)'),
-      enable_pbr: z.boolean().optional().describe('Enable PBR textures (optional)'),
+      enable_pbr: z.boolean().optional().describe('Enable PBR textures (optional). Requires should_texture.'),
+      symmetry_mode: z.string().optional().describe('Symmetry control: "off" | "auto" | "on" (Meshy V7 only, default "auto")'),
+      should_remesh: z.boolean().optional().describe('Rebuild the mesh with clean game-ready topology (Meshy V7 only, default true). False keeps the raw reconstructed mesh.'),
+      should_texture: z.boolean().optional().describe('Generate textures (Meshy V7 only, default true). False produces an untextured mesh at a lower credit cost; disables enable_pbr/texture_prompt/texture_image_url.'),
+      texture_image_url: z.string().optional().describe('URL of a 2D image to guide texturing (Meshy V7 only). Requires should_texture.'),
+      enable_safety_checker: z.boolean().optional().describe('Screen input images before generation (Meshy V7 only, default true)'),
+      enable_rigging: z.boolean().optional().describe('Auto-rig the model as a humanoid character with basic walk/run animations (Meshy V7 only, default false). Best results with clearly defined limbs. Costs extra credits.'),
+      rigging_height_meters: z.number().optional().describe('Approximate character height in meters (Meshy V7 only, default 1.7). Only used when enable_rigging is true.'),
+      enable_animation: z.boolean().optional().describe('Apply an animation preset to the rigged model (Meshy V7 only, default false). Requires enable_rigging. Costs extra credits on top of rigging.'),
+      animation_action_id: z.number().optional().describe('Animation preset ID, 0-696, default 92 ("Idle") (Meshy V7 only). Only used when enable_animation is true. See docs.meshy.ai/en/api/animation-library for the preset catalog.'),
+      art_style: z.string().optional().describe('"realistic" | "sculpture" (Meshy text mode only). Sculpture disables PBR.'),
+      enable_prompt_expansion: z.boolean().optional().describe('AI-expand the prompt before generation (Meshy text mode only)'),
+      seed: z.number().optional().describe('Seed for reproducibility (Trellis models only)'),
+      texture_size: z.string().optional().describe('Texture resolution "512" | "1024" | "2048" (Trellis v1 only)'),
+      resolution: z.string().optional().describe('Generation resolution "512" | "1024" | "1536" (Trellis 2 only)'),
+      ss_guidance_strength: z.number().optional().describe('Sparse-structure guidance strength (Trellis only)'),
+      ss_sampling_steps: z.number().optional().describe('Sparse-structure sampling steps (Trellis only) — more steps = higher quality, slower'),
+      slat_guidance_strength: z.number().optional().describe('Structured-latent guidance strength (Trellis v1 only)'),
+      slat_sampling_steps: z.number().optional().describe('Structured-latent sampling steps (Trellis only)'),
+      mesh_simplify: z.number().optional().describe('Mesh simplification ratio (Trellis v1 only)'),
+      multiimage_algo: z.string().optional().describe('"stochastic" | "multidiffusion" — multi-image fusion algorithm (Trellis v1 multi mode only)'),
+      decimation_target: z.number().optional().describe('Target polygon count after decimation (Trellis 2 only)'),
+      remesh: z.boolean().optional().describe('Remesh with projection (Trellis 2 only, default true)'),
+      tex_sampling_steps: z.number().optional().describe('Texture sampling steps (Trellis 2 only)'),
+      t2_texture_size: z.string().optional().describe('Texture resolution "1024" | "2048" | "4096" (Trellis 2 only)'),
       project_id: projectIdField
     },
-    async ({ prompt, reference_images, mode, texture_prompt, model, topology, target_polycount, enable_tpose, enable_pbr, project_id }) => {
+    async ({ prompt, reference_images, mode, texture_prompt, model, topology, target_polycount, enable_tpose, enable_pbr, symmetry_mode, should_remesh, should_texture, texture_image_url, enable_safety_checker, enable_rigging, rigging_height_meters, enable_animation, animation_action_id, art_style, enable_prompt_expansion, seed, texture_size, resolution, ss_guidance_strength, ss_sampling_steps, slat_guidance_strength, slat_sampling_steps, mesh_simplify, multiimage_algo, decimation_target, remesh, tex_sampling_steps, t2_texture_size, project_id }) => {
       model = await canonicalModelId(client, model, ['3d_text_to_model', '3d_image_to_model', '3d_multi_image_to_model', '3d_world']); // lenient id resolution ("z-image" → "z-image/turbo")
       if (!prompt && !(reference_images && reference_images.length > 0)) {
         throw new Error('Provide prompt (text mode) or reference_images (single/multi mode)');
@@ -1922,10 +1997,34 @@ function registerGenerateTools(server, client, options = {}) {
         target_polycount,
         enable_tpose,
         enable_pbr,
+        symmetry_mode,
+        should_remesh,
+        should_texture,
+        texture_image_url,
+        enable_safety_checker,
+        enable_rigging,
+        rigging_height_meters,
+        enable_animation,
+        animation_action_id,
+        art_style,
+        enable_prompt_expansion,
+        seed,
+        texture_size,
+        resolution,
+        ss_guidance_strength,
+        ss_sampling_steps,
+        slat_guidance_strength,
+        slat_sampling_steps,
+        mesh_simplify,
+        multiimage_algo,
+        decimation_target,
+        remesh,
+        tex_sampling_steps,
+        t2_texture_size,
         project_id
       });
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'generate_3d', kind: '3d', gen: startResponse, client, model, prompt,
         settings: { mode: mode || (reference_images?.length > 1 ? 'multi' : reference_images?.length === 1 ? 'single' : 'text') },
         reference_images
@@ -2082,6 +2181,12 @@ function registerGenerateTools(server, client, options = {}) {
         throw new Error('mask_image_url (face reference) is required for face_swap');
       }
 
+      // Local paths → CDN URLs (image_url / mask_image_url / additional_images).
+      [image_url, mask_image_url, additional_images] = await Promise.all([
+        rehostLocal(image_url, 'image', project_id),
+        rehostLocal(mask_image_url, 'image', project_id),
+        additional_images ? Promise.all(additional_images.map((s) => rehostLocal(s, 'image', project_id))) : additional_images,
+      ]);
       const gen = await client.post('/v1/edit/image', {
         image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
         mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize,
@@ -2090,7 +2195,7 @@ function registerGenerateTools(server, client, options = {}) {
         project_id, session_id
       });
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'edit_image', kind: 'image', gen, client, model,
         prompt: prompt || operation,
         settings: { mode: operation, aspect_ratio, scale, resolution },
@@ -2274,7 +2379,7 @@ function registerGenerateTools(server, client, options = {}) {
         project_id, session_id
       });
 
-      if (ui()) return uiGenerating({
+      if (returnsImmediately()) return submittedResult({
         tool: 'edit_video', kind: 'video', gen, client, model,
         prompt: prompt || operation,
         settings: { mode: operation, duration, aspect_ratio, resolution },

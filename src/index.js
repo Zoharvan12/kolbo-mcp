@@ -163,7 +163,12 @@ function createServer(opts = {}) {
   // remote HTTP host enables it, so stdio clients (Kolbo Code / Desktop / Cursor)
   // keep identical text-URL output. `apps` gates interactive widget results
   // (MCP Apps) the same way — see src/apps/index.js.
-  const toolOptions = { inlineImages: !!opts.inlineImages, apps: !!opts.apps };
+  const toolOptions = {
+    inlineImages: !!opts.inlineImages,
+    remote: !!opts.remote || !!opts.apps,
+    apps: !!opts.apps,
+    asyncGenerations: !!opts.asyncGenerations,
+  };
   registerGenerateTools(server, client, toolOptions);
   registerModelTools(server, client, toolOptions);
   registerVoiceTools(server, client, toolOptions);

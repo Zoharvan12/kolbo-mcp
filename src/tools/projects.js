@@ -247,6 +247,21 @@ function registerProjectTools(server, client) {
     }
   );
 
+  // ─── duplicate_project ─────────────────────────────────────
+  server.tool(
+    'duplicate_project',
+    'Duplicate one of YOUR OWN projects into a new project you own. Use for a variant of an existing body of work ("make a Hebrew version of this", "branch this campaign") and BEFORE publishing a project publicly — duplicate it, strip what should stay private, and share the copy. Copies the cast (Visual DNAs, moodboards, palette), uploaded media, every tool session with its generations, Flow canvases, and — unlike a public fork — your AI Docs. Third-party stock and failed runs are kept too, since the copy never leaves your account. NOT copied: project context files, the derived AI profile, and chat sessions. In-flight generations are skipped (their provider job belongs to the original). Plan project limits apply.',
+    {
+      project_id: z.string().describe('ObjectId of a project you own, from list_projects.')
+    },
+    async ({ project_id }) => {
+      const result = await client.post(`/v1/projects/${encodeURIComponent(project_id)}/duplicate`, {});
+      const data = result.data || result;
+      const open_url = buildProjectUrl(data.projectId);
+      return { content: [{ type: 'text', text: JSON.stringify({ ...data, open_url, _hint: 'Use this NEW projectId as project_id for work on the copy. `stats.notCopied` lists what did not travel — say so rather than letting the user discover it.' }, null, 2) }] };
+    }
+  );
+
   // ─── get_project ───────────────────────────────────────────
   server.tool(
     'get_project',

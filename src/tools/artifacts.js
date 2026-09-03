@@ -9,7 +9,7 @@ const { resolveToBuffer } = require('./_shared');
 // An HTML/SVG/Mermaid document is text — cap well below the media limit.
 const MAX_ARTIFACT_BYTES = 5 * 1024 * 1024;
 
-function registerArtifactTools(server, client) {
+function registerArtifactTools(server, client, options = {}) {
   // ─── publish_html_artifact ─────────────────────────────────────
   server.tool(
     'publish_html_artifact',
@@ -34,7 +34,10 @@ function registerArtifactTools(server, client) {
       if (hasPath) {
         // resolveToBuffer gives us the absolute-path check, the SSRF guard for
         // https:// sources, and the remote-connector error message for free.
-        const { buffer } = await resolveToBuffer(file_path.trim(), 'html', { maxBytes: MAX_ARTIFACT_BYTES });
+        const { buffer } = await resolveToBuffer(file_path.trim(), 'html', {
+          maxBytes: MAX_ARTIFACT_BYTES,
+          allowLocalFiles: !options.remote,
+        });
         body_content = buffer.toString('utf8');
         if (!body_content.trim()) throw new Error(`File is empty: ${file_path}`);
       }

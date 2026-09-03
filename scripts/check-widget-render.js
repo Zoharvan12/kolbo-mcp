@@ -452,7 +452,7 @@ async function openInKolboOpensTheSession() {
   rebuilt.click('btn-open');
   assert.strictEqual(
     rebuilt.links[0],
-    'https://app.kolbo.ai/video-tools?session=' + SID + '&tool=image-to-video&mode=elements',
+    'https://app.kolbo.ai/video-tools?session=' + SID + '&tool=create-video&mode=elements',
     'Open in Kolbo did not rebuild the session URL from session_id'
   );
 

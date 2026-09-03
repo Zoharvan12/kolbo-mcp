@@ -23,11 +23,14 @@
 const fs = require('fs');
 const path = require('path');
 const net = require('net');
+const dns = require('dns').promises;
+const { Agent, fetch: undiciFetch } = require('undici');
 
 const MAX_FILE_BYTES = 500 * 1024 * 1024; // 500 MB — larger than visual_dna because
                                            // lipsync/v2v/transcription accept full
                                            // videos and long audio tracks.
 const VISUAL_DNA_MAX_BYTES = 25 * 1024 * 1024; // kept for visual_dna backward-compat
+const REMOTE_FETCH_MAX_BYTES = 100 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 
 // THE single statement of how a local file gets into Kolbo. It is repeated to
@@ -67,16 +70,21 @@ const REMOTE_FILE_HINT =
 const LOCAL_FILE_HINT =
   ' LOCAL FILE? Absolute local paths work here (server and client share a filesystem). ' +
   'Never reply that you cannot upload files — for a file you will reference more than once, call `upload_media` first and reuse the returned https:// URL.';
+const REMOTE_TEXT_FILE_HINT =
+  ' REMOTE FILE INPUT: This client cannot send local filesystem paths or render Kolbo\'s upload widget. ' +
+  'Use an existing public https:// URL. If the attachment has no public URL, ask the user to upload it in the Kolbo Media Library and paste the resulting URL; never invent a URL or claim a local path is usable here.';
 
 /**
  * Append the transport-correct local-file route to every media-input tool's
  * description, post-registration (same pattern as attachToolWidgetMeta).
- * `options.apps === true` is set ONLY by kolbo-api's remote per-request server,
- * so it is a transport signal — not `appsEnabled()`, which is also true for
- * stdio hosts that render widgets but CAN still read local paths.
+ * `options.remote === true` is set only by kolbo-api's remote per-request
+ * server. Do not use `appsEnabled()` as the transport signal: stdio hosts can
+ * render widgets while still sharing a filesystem with this process.
  */
 function attachFileInputHints(server, options = {}) {
-  const hint = options.apps === true ? REMOTE_FILE_HINT : LOCAL_FILE_HINT;
+  const hint = options.asyncGenerations
+    ? REMOTE_TEXT_FILE_HINT
+    : (options.remote === true || options.apps === true ? REMOTE_FILE_HINT : LOCAL_FILE_HINT);
   const registered = server._registeredTools || {};
   for (const name of FILE_INPUT_TOOLS) {
     const t = registered[name];
@@ -99,6 +107,7 @@ function isPrivateIPv4(ip) {
   if (parts.length !== 4 || parts.some(p => Number.isNaN(p) || p < 0 || p > 255)) return true;
   const [a, b] = parts;
   if (a === 10) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
   if (a === 127) return true;
   if (a === 0) return true;
   if (a === 169 && b === 254) return true; // includes 169.254.169.254 cloud metadata
@@ -166,19 +175,98 @@ function assertSafeUrl(rawUrl) {
   return u;
 }
 
+async function resolvePublicAddresses(hostname) {
+  let host = hostname.toLowerCase();
+  if (host.startsWith('[') && host.endsWith(']')) host = host.slice(1, -1);
+  const literalFamily = net.isIP(host);
+  if (literalFamily) return [{ address: host, family: literalFamily }];
+
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`DNS lookup timed out for ${host}`)), 3000);
+  });
+  let rows;
+  try {
+    rows = await Promise.race([dns.lookup(host, { all: true, verbatim: true }), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!rows.length) throw new Error(`DNS lookup returned no addresses for ${host}`);
+  for (const row of rows) {
+    const blocked = row.family === 4 ? isPrivateIPv4(row.address) : isPrivateIPv6(row.address);
+    if (blocked) throw new Error(`Refusing private / loopback / metadata DNS target for ${host}`);
+  }
+  return rows;
+}
+
+function pinnedDispatcher(addresses) {
+  let cursor = 0;
+  return new Agent({
+    connect: {
+      lookup(_hostname, options, callback) {
+        if (options?.all) return callback(null, addresses);
+        const row = addresses[cursor++ % addresses.length];
+        return callback(null, row.address, row.family);
+      },
+    },
+  });
+}
+
 async function safeFetch(rawUrl, opts = {}) {
   let current = rawUrl;
   for (let i = 0; i <= MAX_REDIRECTS; i++) {
-    assertSafeUrl(current);
-    const res = await fetch(current, { redirect: 'manual', signal: opts.signal });
+    const url = assertSafeUrl(current);
+    const addresses = await resolvePublicAddresses(url.hostname);
+    const dispatcher = pinnedDispatcher(addresses);
+    let res;
+    try {
+      res = await undiciFetch(current, { redirect: 'manual', signal: opts.signal, dispatcher });
+    } catch (err) {
+      await dispatcher.close().catch(() => {});
+      throw err;
+    }
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
       const next = new URL(res.headers.get('location'), current).toString();
+      await res.body?.cancel().catch(() => {});
+      await dispatcher.close().catch(() => {});
       current = next;
       continue;
     }
+    // close() waits for this response body to be consumed, so schedule it but
+    // do not await it before returning the Response to the caller.
+    dispatcher.close().catch(() => {});
     return res;
   }
   throw new Error(`Too many redirects fetching ${rawUrl}`);
+}
+
+async function discardResponse(res) {
+  try { await res?.body?.cancel(); } catch (_) {}
+}
+
+async function readResponseBuffer(res, maxBytes) {
+  if (!res?.body || typeof res.body.getReader !== 'function') {
+    throw new Error('Remote response has no readable body');
+  }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = Buffer.from(value);
+      total += chunk.length;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => {});
+        throw new Error(`Remote response exceeds ${maxBytes}-byte limit`);
+      }
+      chunks.push(chunk);
+    }
+  } finally {
+    try { reader.releaseLock(); } catch (_) {}
+  }
+  return Buffer.concat(chunks, total);
 }
 
 function guessFilename(source, fallbackExt) {
@@ -219,21 +307,24 @@ function guessContentType(filename) {
  * @returns {Promise<{buffer: Buffer, filename: string, contentType: string, size: number}>}
  */
 async function resolveToBuffer(source, kind, opts = {}) {
-  const maxBytes = opts.maxBytes || MAX_FILE_BYTES;
+  const requestedMaxBytes = opts.maxBytes || MAX_FILE_BYTES;
+  const maxBytes = opts.allowLocalFiles === false
+    ? Math.min(requestedMaxBytes, REMOTE_FETCH_MAX_BYTES)
+    : requestedMaxBytes;
   const defaultExt = kind === 'image' ? '.png' : kind === 'video' ? '.mp4' : '.mp3';
 
   if (isHttpUrl(source)) {
     const res = await safeFetch(source);
-    if (!res.ok) throw new Error(`Failed to fetch ${source}: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      await discardResponse(res);
+      throw new Error(`Failed to fetch ${source}: ${res.status} ${res.statusText}`);
+    }
     const contentLen = parseInt(res.headers.get('content-length') || '0', 10);
     if (contentLen && contentLen > maxBytes) {
+      await discardResponse(res);
       throw new Error(`File at ${source} (${contentLen} bytes) exceeds ${maxBytes}-byte limit`);
     }
-    const arrayBuf = await res.arrayBuffer();
-    const buffer = Buffer.from(arrayBuf);
-    if (buffer.length > maxBytes) {
-      throw new Error(`File at ${source} (${buffer.length} bytes) exceeds ${maxBytes}-byte limit`);
-    }
+    const buffer = await readResponseBuffer(res, maxBytes);
     const filename = guessFilename(source, defaultExt);
     return {
       buffer,
@@ -241,6 +332,12 @@ async function resolveToBuffer(source, kind, opts = {}) {
       contentType: res.headers.get('content-type') || guessContentType(filename),
       size: buffer.length
     };
+  }
+
+  if (opts.allowLocalFiles === false) {
+    throw new Error(
+      'This remote connector accepts public https:// URLs only. Upload the file to the Kolbo Media Library and pass its public URL.'
+    );
   }
 
   if (!path.isAbsolute(source)) {
@@ -410,21 +507,32 @@ async function inlineImageBlocks(urls, opts = {}) {
   // bounds concurrency, and this sits on the connector response path right
   // after generation. Order is preserved by map-then-filter; any failure (size,
   // type, timeout, network) returns null and falls back to URL-only.
+  const maxCount = Math.min(INLINE_IMG_MAX_COUNT, Math.max(1, Number(opts.maxCount) || INLINE_IMG_MAX_COUNT));
+  const maxBytes = Math.min(INLINE_IMG_MAX_BYTES, Math.max(1, Number(opts.maxBytes) || INLINE_IMG_MAX_BYTES));
+  const fetchTimeoutMs = Math.min(INLINE_IMG_FETCH_TIMEOUT_MS, Math.max(1, Number(opts.fetchTimeoutMs) || INLINE_IMG_FETCH_TIMEOUT_MS));
   const blocks = await Promise.all(
-    urls.slice(0, INLINE_IMG_MAX_COUNT).map(async (url) => {
+    urls.slice(0, maxCount).map(async (url) => {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), INLINE_IMG_FETCH_TIMEOUT_MS);
+      const timer = setTimeout(() => controller.abort(), fetchTimeoutMs);
       try {
         if (typeof url !== 'string' || !isHttpUrl(url)) return null;
         const res = await safeFetch(url, { signal: controller.signal });
-        if (!res.ok) return null;
+        if (!res.ok) {
+          await discardResponse(res);
+          return null;
+        }
         const contentType = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-        if (!contentType.startsWith('image/')) return null; // never embed non-images
+        if (!contentType.startsWith('image/')) {
+          await discardResponse(res);
+          return null; // never embed non-images
+        }
         const declaredLen = Number(res.headers.get('content-length') || 0);
-        if (declaredLen && declaredLen > INLINE_IMG_MAX_BYTES) return null;
-        const ab = await res.arrayBuffer();
-        if (ab.byteLength > INLINE_IMG_MAX_BYTES) return null;
-        return { type: 'image', data: Buffer.from(ab).toString('base64'), mimeType: contentType };
+        if (declaredLen && declaredLen > maxBytes) {
+          await discardResponse(res);
+          return null;
+        }
+        const buffer = await readResponseBuffer(res, maxBytes);
+        return { type: 'image', data: buffer.toString('base64'), mimeType: contentType };
       } catch (_) {
         return null;
       } finally {
@@ -440,27 +548,32 @@ async function inlineImageBlocks(urls, opts = {}) {
 // tool to the frontend page + tool slug whose session view can RESUME that
 // session (mirrors kolbo-map src/constants/sessionTypes.js resumeUrl map — the
 // route must match the SESSION MODEL the SDK created, per sdkSessionManager):
-//   ImageSession → /image-tools?tool=text-to-image
-//   imgEditSession (image_edit AND edit_image/global_image_edit) → /image-tools?tool=image-editing
-//   textToVideoSession → /video-tools?tool=text-to-video
-//   imgToVideoSession (video_from_image, elements, first_last_frame) → /video-tools?tool=image-to-video
+//   ImageSession (image AND image_edit) → /image-tools?tool=create-image
+//   imgEditSession (edit_image / global_image_edit — the Canvas) → /image-tools?tool=canvas
+//   imgToVideoSession (video, video_from_image, elements, first_last_frame)
+//     → /video-tools?tool=create-video
 //   videoToVideoSession → /video-tools?tool=video-to-video
 //   lipsyncSession → /video-tools?tool=lipsync
 //   MusicGeneratorSession / TextToSpeechSession / textToSoundSession /
 //   speechToTextSession → /audio-tools with the matching slug
 //   CreativeDirectorSession → /creative-director?session=... (no tool param)
+// RETIRED — do NOT reintroduce as separate destinations. "Image Editing" folded
+// into Create Image and "Text to Video" folded into Create Video (a mode inside
+// it); sdkSessionManager already routes image_edit → ImageSession and video →
+// imgToVideoSession. The old ?tool=image-editing / ?tool=text-to-video slugs
+// still redirect, but nothing new should emit them.
 // Intentionally ABSENT (no deep-linkable session page — widget falls back to
 // plain https://app.kolbo.ai): edit_video (GlobalVideoEditSession has no
 // session deep-link), generate_3d (project-scoped, no session), shorts render.
 const APP_BASE_URL = 'https://app.kolbo.ai';
 const OPEN_URL_ROUTES = {
-  generate_image:             { path: '/image-tools', tool: 'text-to-image' },
-  generate_image_edit:        { path: '/image-tools', tool: 'image-editing' },
-  edit_image:                 { path: '/image-tools', tool: 'image-editing' },
-  generate_video:             { path: '/video-tools', tool: 'text-to-video' },
-  generate_video_from_image:  { path: '/video-tools', tool: 'image-to-video' },
-  generate_elements:          { path: '/video-tools', tool: 'image-to-video', mode: 'elements' },
-  generate_first_last_frame:  { path: '/video-tools', tool: 'image-to-video', mode: 'first-last' },
+  generate_image:             { path: '/image-tools', tool: 'create-image' },
+  generate_image_edit:        { path: '/image-tools', tool: 'create-image' },
+  edit_image:                 { path: '/image-tools', tool: 'canvas' },
+  generate_video:             { path: '/video-tools', tool: 'create-video' },
+  generate_video_from_image:  { path: '/video-tools', tool: 'create-video' },
+  generate_elements:          { path: '/video-tools', tool: 'create-video', mode: 'elements' },
+  generate_first_last_frame:  { path: '/video-tools', tool: 'create-video', mode: 'first-last' },
   generate_video_from_video:  { path: '/video-tools', tool: 'video-to-video' },
   generate_lipsync:           { path: '/video-tools', tool: 'lipsync' },
   generate_music:             { path: '/audio-tools', tool: 'music-generator' },
@@ -797,6 +910,42 @@ async function uiGenerating(p) {
 }
 
 /**
+ * Return a paid generation immediately for hosts that cannot render MCP Apps
+ * and enforce short tool-call timeouts (for example Manus custom MCP). This is
+ * deliberately plain MCP content: no ui:// resource and no promise of a card.
+ * The existing get_generation_status tool is the durable status endpoint.
+ */
+function asyncGenerating(p) {
+  const ids = Array.isArray(p.generation_ids) && p.generation_ids.length
+    ? p.generation_ids
+    : [p.gen.generation_id].filter(Boolean);
+  const defaultStatusArgs = ids.length > 1
+    ? { generation_ids: ids, wait: false }
+    : { generation_id: ids[0], wait: false };
+  const pollTool = p.poll_tool || 'get_generation_status';
+  const statusArgs = { ...(p.status_args || defaultStatusArgs), wait: false };
+  const structured = {
+    status: 'submitted',
+    generation_id: p.gen.generation_id,
+    session_id: p.gen.session_id,
+    ...(ids.length > 1 ? { batch: true, generation_ids: ids } : {}),
+    ...(p.failed_submissions && p.failed_submissions.length
+      ? { failed_submissions: p.failed_submissions } : {}),
+    ...(p.warning ? { warning: p.warning } : {}),
+    poll_tool: pollTool,
+    status_args: statusArgs,
+    next_action: `The job is running. Do not submit it again. When the result is needed, call ${pollTool} with the supplied status_args. If it is still processing, tell the user and check again later; do not poll in a tight loop.`,
+    paid_job_notice: ids.length > 1
+      ? `This is a paid batch. Only if the user asks to stop or approves a replacement, cancel every running generation first: ${ids.join(', ')}.`
+      : 'This is a paid generation. Only if the user asks to stop or approves a replacement, cancel this generation before starting the replacement.',
+  };
+  return {
+    content: [{ type: 'text', text: JSON.stringify(structured, null, 2) }],
+    structuredContent: structured,
+  };
+}
+
+/**
  * Wrap an already-completed generation result with the widget.
  *
  * Used by tools that stay blocking even on UI hosts (creative director), AND —
@@ -1019,6 +1168,7 @@ module.exports = {
   isHttpUrl,
   assertSafeUrl,
   safeFetch,
+  readResponseBuffer,
   guessFilename,
   guessContentType,
   resolveToBuffer,
@@ -1032,6 +1182,7 @@ module.exports = {
   linkFields,
   buildProjectUrl,
   uiGenerating,
+  asyncGenerating,
   uiCompleted,
   insufficientCreditsResult,
   appsEnabled,
