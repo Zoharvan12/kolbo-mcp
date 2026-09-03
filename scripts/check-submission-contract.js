@@ -1,5 +1,7 @@
 'use strict';
 
+const { HOST_MAP } = require('../src/cdn');
+
 const assert = require('assert');
 const { Client } = require('@modelcontextprotocol/sdk/client/index.js');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
@@ -29,7 +31,11 @@ async function main() {
 
   const cspDomains = [...WIDGET_CSP.resourceDomains, ...WIDGET_CSP.connectDomains, ...(WIDGET_CSP.frameDomains || [])];
   assert.ok(cspDomains.every((domain) => !domain.includes('*')), 'widget CSP must not use wildcard domains');
-  assert.ok(cspDomains.every((domain) => !/(dev|staging)/i.test(new URL(domain).hostname)), 'widget CSP must be production-only');
+  // Kolbo's OWN media hosts are allowed for every environment: cdn.js rewrites
+  // four buckets and most production voice thumbnails still live in the dev
+  // bucket (test/widget-media-hosts.test.js). Third-party hosts stay prod-only.
+  const kolboMediaHosts = new Set(HOST_MAP.flat());
+  assert.ok(cspDomains.every((domain) => kolboMediaHosts.has(new URL(domain).hostname) || !/(dev|staging)/i.test(new URL(domain).hostname)), 'widget CSP must be production-only');
   assert.deepStrictEqual(WIDGET_CSP.connectDomains, ['https://api.kolbo.ai', 'https://upload-api.kolbo.ai'], 'only the production MCP hosts (API + non-proxied upload twin) may receive widget connections');
   assert.deepStrictEqual(WIDGET_CSP.frameDomains, ['https://app.kolbo.ai'], 'plans widget may iframe only the production app');
 
