@@ -87,7 +87,7 @@ function registerMediaTools(server, client, options = {}) {
     {
       purpose: z.string().optional().describe('Short title shown on the card, e.g. "Upload the photo to animate". Helps the user know what to drop.'),
       media_types: z.array(z.enum(['image', 'video', 'audio', 'document'])).optional().describe('Restrict which file kinds the widget accepts. Omit to accept all types.'),
-      max_files: z.number().optional().describe('Maximum number of files the user may upload (default 10, max 20). LEAVE UNSET in almost all cases so the user can drop multiple files — only set this (e.g. to 1) if the task genuinely requires exactly one file. Do not restrict to 1 just because the current step uses one image; the user may want to upload several.'),
+      max_files: z.number().optional().describe('Maximum number of files the user may upload (default 20, max 50). LEAVE UNSET in almost all cases so the user can drop multiple files — only set this (e.g. to 1) if the task genuinely requires exactly one file. Do not restrict to 1 just because the current step uses one image; the user may want to upload several.'),
       project_id: z.string().optional().describe('Project ObjectId to file the uploads into (resolve names via `list_projects`).')
     },
     async ({ purpose, media_types, max_files, project_id }) => {
@@ -117,7 +117,7 @@ function registerMediaTools(server, client, options = {}) {
         token: ticket.token,
         expires_at: Date.now() + (ticket.expires_in || 900) * 1000,
         kinds: media_types && media_types.length ? media_types : undefined,
-        max_files: Math.min(Math.max(Number(max_files) || 10, 1), 20),
+        max_files: Math.min(Math.max(Number(max_files) || 20, 1), 50),
         max_mb: ticket.max_file_mb || DEFAULT_MAX_FILE_MB,
         ...(project_id ? { project_id } : {}),
       });

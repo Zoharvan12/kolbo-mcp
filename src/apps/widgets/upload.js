@@ -49,7 +49,6 @@ const BODY = `
   </div>
   <div class="k-footer">
     <span><a href="#" id="kolbo-link">Kolbo.AI</a> Media Library</span>
-    <span class="k-credits">free</span>
   </div>
 </div>
 `;
@@ -152,7 +151,7 @@ function boot(sc) {
   var exts = [];
   kinds.forEach(function (k) { if (KINDS[k]) exts = exts.concat(KINDS[k].exts); });
   el('picker').setAttribute('accept', exts.map(function (e) { return '.' + e; }).concat(kinds.map(function (k) { return k + '/*'; })).join(','));
-  var maxN = sc.max_files || 10;
+  var maxN = sc.max_files || 20;
   var mobile = isMobileHost();
   if (mobile) {
     el('drop-title').textContent = 'Tap to open uploader';
@@ -254,7 +253,7 @@ function makeThumb(it) {
 function addFiles(list) {
   if (!list || !state) return;
   if (expired()) return showExpired();
-  var maxFiles = state.max_files || 10;
+  var maxFiles = state.max_files || 20;
   for (var i = 0; i < list.length; i++) {
     if (items.length >= maxFiles) break;
     var f = list[i];
