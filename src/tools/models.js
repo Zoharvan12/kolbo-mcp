@@ -192,6 +192,9 @@ function registerModelTools(server, client, options = {}) {
       // model says no, and absence means the API doesn't expose the field.
       const formatSpecs = m => {
         const parts = [];
+        if (m.haveThinking && Array.isArray(m.thinkingLevels) && m.thinkingLevels.length) {
+          parts.push(`thinking_level: ${m.thinkingLevels.map(level => level.id).join('/')} (default ${m.thinkingDefault})`);
+        }
         const types = Array.isArray(m.types) ? m.types : [];
         const isVideoType = types.some(t =>
           ['text_to_video', 'img_to_video', 'video_to_video', 'elements',

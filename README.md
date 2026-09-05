@@ -296,3 +296,7 @@ Both are optional — the local install logs in via the browser on first use.
 - [API Documentation](https://docs.kolbo.ai/developer-api)
 - [Kolbo AI Platform](https://kolbo.ai)
 - [Get API Key](https://app.kolbo.ai)
+
+### Chat thinking level
+
+`chat_send_message` accepts optional `thinking_level`, using an ID from `list_models` with `type: "text"`. The server validates it against the resolved model; omitted or invalid values use `thinkingDefault`. Existing safeguards and legacy `deep_think` take precedence. Discover allowed levels through `thinkingLevels`; no package update is required when the server changes a model capability.
