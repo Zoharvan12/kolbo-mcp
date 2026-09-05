@@ -130,18 +130,18 @@ visual_dna_ids: ["vdna_abc",  // dana
 
 The match is **literal and case-insensitive**, so:
 - The `@name` must equal the stored `name` field (e.g. if `name: "esther_model"` → write `@esther_model`, not `@Esther`, not `@אסתר`, not `@the model`).
-- Any-language characters are supported — if the DNA was created with `name: "אסתר"` you write `@אסתר`. Use the EXACT stored string.
+- Any-language characters are supported — if the DNA was created with `name: "אסתר"` you write `@אסתר`. Use the EXACT stored string. Asset tags are identifiers and are exempt from English-only prompt/dialogue rules: never translate, transliterate, lowercase, strip diacritics, replace spaces, or slugify an existing name. Resolve the selected id with `get_visual_dna` if the current name is unknown; never guess from the user's language or a production-log alias.
 - Mentions terminate at punctuation (`.,!?`), double-spaces, another `@`, or end of string. So `@maya, wearing...` matches `maya`.
 
 This composes with `@image1` / `@image2` positional tags for plain reference/source images — see "Reference Tagging" below.
 
 ### ⚠️ Naming rule for `create_visual_dna` — NO SPACES (MANDATORY)
 
-The `name` you set MUST be a **single token, lowercase, no spaces, ASCII-safe** — `esther_model`, `dana`, `tokyo_neon`, `brand_red`. Never `Sarah Johnson`, never `the red dress`.
+For a NEW DNA, prefer a short single token in the user's chosen language, such as `אסתר`, `ليلى`, `小雨`, or `esther_model`. ASCII and lowercase are not required. This naming recommendation never permits rewriting an EXISTING stored name or its prompt tag.
 
 Reason: the prompt parser stops the `@<token>` match at the first space (and at `.,!?` punctuation). So `@Sarah Johnson` matches *only* `Sarah` — if no DNA named `Sarah` exists, the mention is silently dropped and the DNA never binds. A single-token name is the only way to guarantee inline `@name` works in any sentence, in any language, without forcing the user to write awkward punctuation around it.
 
-Use underscores for multi-word concepts (`old_town`, not `Old Town`). When the user proposes a name with spaces, accept the intent but collapse it into a single token before storing (`"Sarah Johnson"` → `sarah_johnson`) and tell them once how you'll refer to it. Source of truth: [kolbo-docs / Visual DNA & @ References](https://docs.kolbo.ai/kolbo-code/visual-dna).
+For new multi-word names, suggest underscores in the same language. Do not silently translate or rename a user-specified name. For existing names, preserve the full stored string and selected id, including spaces; if binding fails, report the limitation instead of inventing an alias or renaming the user's DNA.
 
 ## Reference Tagging — `@image1` / `@video1` / `@Audio1`
 

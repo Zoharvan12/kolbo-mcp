@@ -81,7 +81,6 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Build a **landing page / marketing site** | `references/models/landing-page.md` |
 | Build a **dashboard / data viz / interactive widget / mini-game / UI mockup** | `references/models/visual-code.md` |
 | Generate with **any other model** (Flux, Kling, Sora, Hailuo, ElevenLabs, DeepDub, …) — also covers universal prompt-engineering basics | `references/models/prompt-copilot.md` |
-| Generate a **3D model** (Meshy, Trellis — mesh, texture, rigging, animation) | `references/models/3d.md` |
 | Build a **UGC ad / TV spot / branded video / unboxing / product review / virtual try-on** | `references/workflows/marketing-studio.md` |
 | Write a **complex multi-element still**, an **edit that must not drift** (identity / product / scene lock), or a **reusable prompt template** | `references/workflows/prompt-structure.md` |
 | Make anything look **shot on a phone** — UGC, selfie, candid, "authentic", a product photo that must not look like an ad (image OR video) | `references/workflows/ugc-smartphone.md` |
@@ -121,7 +120,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 | `generate_music` | Music generation (Suno + variants). |
 | `generate_speech` | TTS for narration, voiceover and standalone audio. **NOT for scene dialogue** — Seedance 2/2.5 performs quoted lines itself. |
 | `generate_sound` | Sound effects. |
-| `generate_3d` | 3D models from text / single image / multi-view. Returns GLB/FBX/OBJ/USDZ. Meshy V7 adds auto-rigging + ~697 animation presets (extra credits) and mesh/texture toggles — see `references/models/3d.md`. |
+| `generate_3d` | 3D models from text / single image / multi-view. Returns GLB/FBX/OBJ/USDZ. |
 | `analyze_video` | Kolbo's official video understanding (agentic Gemini — navigates the timeline itself, so long videos are cheap and timestamp / counting / "when does X happen" questions are answered directly). Public video URL or YouTube URL + optional `prompt`; sync, token-billed. See `workflows/transcription.md`. |
 | `separate_audio_stems` | Split a soundtrack into Dialogue / Music / Effects / without-dialogue (M&E). The route for removing or isolating speech, instrumental beds, and stems for dubbing. 5cr, inline. See `workflows/audio-stems.md`. |
 | `clean_dialogue_leftovers` | Strip voices still faintly audible in an M&E layer. 17cr — only when the user reports the leak, it trades fidelity. |
@@ -176,11 +175,12 @@ Passing `visual_dna_ids` is **not enough**. For every DNA in that array you MUST
 - Right: `visual_dna_ids: ["vdna_…"]` + prompt `@Zohar walks into frame`
 - Wrong: `Zohar's`, `Zohar`, `the left man`, `the man on the LEFT`, `Visual DNA anchors: the man on the LEFT…` — none of these bind
 - Never invent a role label or possessive as a substitute for `@Name`
+- **Asset tags are exempt from every English-only prompt rule.** Copy the actual stored `name` verbatim in its original language, case, spaces, punctuation, and diacritics. Stored `אסתר` → `@אסתר`, `ليلى` → `@ليلى`, `小雨` → `@小雨`; never `@Esther`, `@Layla`, or another translated/transliterated alias. Never slugify or rename an existing DNA to make a prompt English. Preserve these tags through every rewrite and final tool call.
 - Same rule for moodboards: `#ExactBoardName`
 
 **Rewrite / compile never drops a tag.** If the user, a prior prompt, or `list_visual_dnas` already has `@gal_suit` / `@yonatan` / `#Board`, the Locked Intro you write MUST still contain those exact tokens in CAST **and** in every shot they appear in. Do not "clean" them into first names, `@Image 1 (Lee)`, "the singer", or a SCENE CONTEXT / ACTIVE REFERENCES block with no `@`. A compile that loses a tag is a failed turn — put the tags back before calling `generate_*`.
 
-Before `generate_elements` / any DNA video: for each id in `visual_dna_ids`, confirm the prompt string includes `@` + that DNA's stored `name`. Missing even one → fix the prompt, do not fire.
+Before ANY generation call using `visual_dna_ids` (images, edits, Elements, or Creative Director): resolve each id to its stored `name` from the selected asset binding or `list_visual_dnas` / `get_visual_dna`, then confirm the final prompt includes the exact `@` + name. Missing or rewritten even one → fix the prompt, do not fire.
 
 Resolve names with `list_visual_dnas` first. Full binding rules: `references/workflows/visual-dna.md`.
 
