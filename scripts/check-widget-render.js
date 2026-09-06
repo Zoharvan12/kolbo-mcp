@@ -203,6 +203,11 @@ async function batchStaysOneGrid({ kind, tool, ext }) {
   PROMPTS.forEach((p) => assert.ok(stage.includes(p), `[${tool}] batch grid lost the caption "${p}"`));
   if (kind === 'video') assert.ok(/<video/.test(stage), `[${tool}] video batch rendered its tiles as images`);
   else assert.ok(/loading="lazy"/.test(stage), `[${tool}] batch tiles are not lazy-loaded`);
+  // The finished batch is kind:'scenes' whatever it holds — the kind chip must
+  // name the media actually generated (an image batch wore a "video" chip).
+  const chips = w.html('chips');
+  assert.ok(new RegExp('\\b' + kind + '\\b').test(chips), `[${tool}] completed batch chip does not say ${kind}`);
+  if (kind === 'image') assert.ok(!/\bvideo\b/.test(chips), `[${tool}] completed image batch chip says video`);
 }
 
 // A finished prompts[] batch on a text host (Kolbo Code) arrives as ONE completed

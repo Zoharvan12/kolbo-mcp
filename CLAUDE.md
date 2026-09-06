@@ -266,6 +266,10 @@ src/tools/stock_library.js — Multi-source stock media (search, sources, catego
 src/tools/music_library.js — SYNCI preview discovery plus idempotent paid clean MP3/WAV acquisition/import
 scripts/smoke.js         — Load-time smoke test (no network)
 scripts/check-parity.js  — SDK→MCP route parity audit
+scripts/widget-gallery.js — `npm run gallery`: fake MCP host page that mounts EVERY widget in every state
+                            (pre-render, generating→polling→done, batch, timed-out recovery, failed, cancelled,
+                            grids, lists, catalog, transcript, upload, plans) from fixtures, with the real widget
+                            CSP; logs each ui/* request a button makes. Review UI here before a release — no credits.
 scripts/check-widget-fields.js, check-skill-tools.js, check-install.js — additional publish gates
                             (prepublishOnly chains all five: smoke → parity → widget-fields → skill-tools → install)
 ```

@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gallery",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/widget-gallery.js",
+        "--serve"
+      ],
+      "port": 4877
+    }
+  ]
+}

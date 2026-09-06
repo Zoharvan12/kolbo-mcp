@@ -266,7 +266,13 @@ function displayKind(sc) {
   if (/\\.(mp3|wav|m4a|aac|ogg|flac)$/.test(first)) return 'audio';
   var kind = sc.kind;
   if (kind === 'video' || kind === 'scenes' || kind === 'audio' || kind === '3d' || kind === 'model3d') {
-    return kind === 'scenes' ? 'video' : kind;
+    if (kind !== 'scenes') return kind;
+    // A finished prompts[] batch is kind:'scenes' whatever it generated, so an
+    // image batch wore a "video" chip. Read the media the scenes actually hold.
+    var s0 = sc.scenes && sc.scenes[0];
+    if (s0 && s0.video_urls && s0.video_urls.length) return 'video';
+    if (s0 && s0.image_urls && s0.image_urls.length) return 'image';
+    return 'video';
   }
   var tool = sc.tool || '';
   if (/video|elements|lipsync|first_last_frame/.test(tool)) return 'video';
