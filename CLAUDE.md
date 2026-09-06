@@ -279,6 +279,10 @@ scripts/widget-gallery.js — `npm run gallery`: fake MCP host page that mounts 
                             (pre-render, generating→polling→done, batch, timed-out recovery, failed, cancelled,
                             grids, lists, catalog, transcript, upload, plans) from fixtures, with the real widget
                             CSP; logs each ui/* request a button makes. Review UI here before a release — no credits.
+                            "Host: ChatGPT" (or #chatgpt) mounts the way ChatGPT's sandbox does — document.open →
+                            window.openai globals → document.write, NO tool-input/tool-result over JSON-RPC (its
+                            adapter drops notifications that land before it attaches) — so the bridge's
+                            window.openai path is exercised on every card.
 scripts/check-widget-fields.js, check-skill-tools.js, check-install.js — additional publish gates
                             (prepublishOnly chains all five: smoke → parity → widget-fields → skill-tools → install)
 ```

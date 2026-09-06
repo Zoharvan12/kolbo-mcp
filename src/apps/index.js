@@ -48,8 +48,27 @@ const WIDGET_BUILDERS = {
 // Widgets are pure functions of source — build once per process.
 const htmlCache = new Map();
 function widgetHtml(uri) {
+  uri = String(uri).split('?')[0]; // versioned and bare URIs serve the same page
   if (!htmlCache.has(uri)) htmlCache.set(uri, WIDGET_BUILDERS[uri]());
   return htmlCache.get(uri);
+}
+
+// ChatGPT treats the widget URI as a permanent cache key: it fetched
+// generation.html once per app link and kept serving that snapshot across every
+// later release (1.87.9's ChatGPT fix never reached a card until the URI
+// changed — verified 2026-09-06 via its widget endpoint, where only
+// force_local=true returned the new HTML). OpenAI's own guidance is "treat the
+// resource URI as a cache key; publish a new URI on every change", so the URI
+// every tool declares and returns carries a content hash of the HTML it points
+// at. The bare URI stays registered for hosts holding an older tools/list.
+const crypto = require('crypto');
+const versionCache = new Map();
+function versionedUri(uri) {
+  if (!versionCache.has(uri)) {
+    const v = crypto.createHash('sha1').update(widgetHtml(uri)).digest('hex').slice(0, 10);
+    versionCache.set(uri, uri + '?v=' + v);
+  }
+  return versionCache.get(uri);
 }
 
 // Hosts apply a deny-by-default CSP to widget iframes — without this
@@ -145,22 +164,25 @@ function registerApps(server) {
     [UI.list, 'Kolbo List Widget'],
     [UI.plans, 'Kolbo Plans Widget'],
   ]) {
-    registerAppResource(
-      server, name, uri,
-      { mimeType: RESOURCE_MIME_TYPE, _meta: { csp: WIDGET_CSP, ui: { csp: WIDGET_CSP } } },
-      async () => ({
-        contents: [{
-          uri, mimeType: RESOURCE_MIME_TYPE, text: widgetHtml(uri),
-          _meta: { csp: WIDGET_CSP, ui: { csp: WIDGET_CSP } },
-        }],
-      })
-    );
+    for (const u of [versionedUri(uri), uri]) {
+      registerAppResource(
+        server, name + (u === uri ? ' (unversioned)' : ''), u,
+        { mimeType: RESOURCE_MIME_TYPE, _meta: { csp: WIDGET_CSP, ui: { csp: WIDGET_CSP } } },
+        async () => ({
+          contents: [{
+            uri: u, mimeType: RESOURCE_MIME_TYPE, text: widgetHtml(uri),
+            _meta: { csp: WIDGET_CSP, ui: { csp: WIDGET_CSP } },
+          }],
+        })
+      );
+    }
   }
 }
 
 /** `_meta` for a tool RESULT (and optionally for tool registration). */
 function uiMeta(uri) {
-  return { [RESOURCE_URI_META_KEY]: uri, ui: { resourceUri: uri } };
+  const u = versionedUri(uri);
+  return { [RESOURCE_URI_META_KEY]: u, ui: { resourceUri: u } };
 }
 
 /**
@@ -740,6 +762,7 @@ module.exports = {
   TOOL_WIDGETS,
   registerApps,
   attachToolWidgetMeta,
+  versionedUri,
   uiMeta,
   uiResult,
   listResult,

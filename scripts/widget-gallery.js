@@ -311,6 +311,7 @@ function render(scenarios) {
     <strong>Kolbo MCP widget gallery</strong>
     <button id="theme">Toggle dark</button>
     <button id="reload">Re-mount all</button>
+    <button id="host">Host: MCP Apps</button>
     <span style="opacity:.6">Cards mount when scrolled into view. Every host request a card makes is logged under it.</span>
   </div>
   ${cards.map((c) => `<section class="card" id="card-${c.i}" data-i="${c.i}">
@@ -322,19 +323,50 @@ function render(scenarios) {
 const WIDGETS = ${embed(widgets)};
 const CARDS = ${embed(cards)};
 let theme = 'light';
+let hostMode = location.hash === '#chatgpt' ? 'chatgpt' : 'mcp';
 const live = new Map(); // contentWindow -> { card, iframe, calls, n, log }
 
 function log(entry, cls, text) {
   const d = document.createElement('div'); d.className = cls; d.textContent = text; entry.log.appendChild(d); entry.log.scrollTop = 1e6;
+}
+// Scripted responder for the card's own tools/call polls (both host modes).
+function respond(entry, name, args) {
+  const n = (entry.n[name] = (entry.n[name] || 0) + 1);
+  log(entry, 'call', 'tools/call #' + n + ' ' + name + ' ' + JSON.stringify(args || {}));
+  const seq = entry.calls && entry.calls[name];
+  const res = seq ? seq[Math.min(n - 1, seq.length - 1)] : null;
+  return new Promise((r) => setTimeout(() => r(res || { isError: true, content: [{ type: 'text', text: 'gallery: no responder for ' + name }] }), 1200));
 }
 function mount(section) {
   const c = CARDS[+section.dataset.i];
   const frame = section.querySelector('.frame'); frame.innerHTML = '';
   const logEl = section.querySelector('.log'); logEl.innerHTML = '';
   const iframe = document.createElement('iframe');
+  const entry = { card: c, iframe, n: {}, log: logEl, calls: c.calls, host: hostMode };
+  if (hostMode === 'chatgpt') {
+    // ChatGPT's sandbox (web-sandbox.oaiusercontent.com main-*.js) mounts in
+    // this exact order: document.open() → contentWindow.openai = globals →
+    // document.write(html). Its MCP Apps adapter DROPS tool-input/tool-result
+    // notifications that land before it attaches, so on a fresh mount the
+    // card only ever sees window.openai — that is the path this mode proves.
+    iframe.sandbox = 'allow-scripts allow-same-origin allow-forms';
+    frame.appendChild(iframe);
+    const win = iframe.contentWindow, doc = iframe.contentDocument;
+    live.set(win, entry);
+    doc.open();
+    win.openai = {
+      theme, displayMode: 'inline', toolInput: c.args, toolOutput: c.result,
+      toolResponseMetadata: { 'ui/resourceUri': c.widget },
+      callTool: (name, args) => respond(entry, name, args),
+      sendFollowUpMessage: ({ prompt }) => { log(entry, 'ev', 'sendFollowUpMessage: ' + String(prompt).slice(0, 300)); return Promise.resolve(); },
+      requestDisplayMode: ({ mode }) => { log(entry, 'ev', 'requestDisplayMode ' + mode); return Promise.resolve({ mode: 'inline' }); },
+      openExternal: ({ href }) => { log(entry, 'ev', 'openExternal: ' + href); },
+    };
+    doc.write(WIDGETS[c.widget]); doc.close();
+    return;
+  }
   iframe.sandbox = 'allow-scripts allow-popups allow-forms';
   iframe.srcdoc = WIDGETS[c.widget];
-  const entry = { card: c, iframe, n: {}, log: logEl, calls: c.calls };
   frame.appendChild(iframe);
   live.set(iframe.contentWindow, entry);
 }
@@ -348,6 +380,7 @@ window.addEventListener('message', (ev) => {
     return;
   }
   if (m.method === 'ui/notifications/initialized') {
+    if (entry.host === 'chatgpt') return; // nothing arrives over JSON-RPC on a fresh ChatGPT mount
     post(win, { jsonrpc: '2.0', method: 'ui/notifications/tool-input', params: { name: c.tool, arguments: c.args } });
     if (c.result) setTimeout(() => post(win, { jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: { structuredContent: c.result.widget || c.result.phase ? c.result : undefined, content: [{ type: 'text', text: JSON.stringify(c.result) }] } }), 400);
     return;
@@ -357,12 +390,7 @@ window.addEventListener('message', (ev) => {
     return;
   }
   if (m.method === 'tools/call') {
-    const name = m.params && m.params.name, args = (m.params && m.params.arguments) || {};
-    const n = (entry.n[name] = (entry.n[name] || 0) + 1);
-    log(entry, 'call', 'tools/call #' + n + ' ' + name + ' ' + JSON.stringify(args));
-    const seq = entry.calls && entry.calls[name];
-    const res = seq ? seq[Math.min(n - 1, seq.length - 1)] : null;
-    setTimeout(() => post(win, { jsonrpc: '2.0', id: m.id, result: res || { isError: true, content: [{ type: 'text', text: 'gallery: no responder for ' + name }] } }), 1200);
+    respond(entry, m.params && m.params.name, m.params && m.params.arguments).then((res) => post(win, { jsonrpc: '2.0', id: m.id, result: res }));
     return;
   }
   if (m.method === 'ui/request-display-mode') { post(win, { jsonrpc: '2.0', id: m.id, result: { mode: 'inline' } }); log(entry, 'ev', 'request-display-mode ' + JSON.stringify(m.params)); return; }
@@ -383,6 +411,15 @@ document.getElementById('theme').onclick = () => {
   for (const [win] of live) post(win, { jsonrpc: '2.0', method: 'ui/notifications/host-context-changed', params: { hostContext: { theme } } });
 };
 document.getElementById('reload').onclick = () => document.querySelectorAll('section.card[data-mounted]').forEach((s) => mount(s));
+const hostBtn = document.getElementById('host');
+const paintHost = () => { hostBtn.textContent = 'Host: ' + (hostMode === 'chatgpt' ? 'ChatGPT (window.openai)' : 'MCP Apps'); };
+paintHost();
+hostBtn.onclick = () => {
+  hostMode = hostMode === 'chatgpt' ? 'mcp' : 'chatgpt';
+  location.hash = hostMode === 'chatgpt' ? '#chatgpt' : '';
+  paintHost();
+  document.querySelectorAll('section.card[data-mounted]').forEach((s) => mount(s));
+};
 </script>
 </body></html>`;
 }
