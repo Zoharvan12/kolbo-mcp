@@ -808,10 +808,15 @@ function renderResult(sc) {
   // voice that actually ran, so the finished card must not keep the guess.
   renderChips(sc);
   setPhaseChip('', false);
-  if (sc.kind === 'status' && Array.isArray(sc.items)) return renderStatusGrid(sc);
   if (sc.batch && sc.scenes && sc.scenes.length) return renderBatchGrid(sc);
   if (sc.kind === 'scenes' && sc.scenes && sc.scenes.length) return renderScenes(sc);
   var urls = preferKolbo(sc.urls || []);
+  // Key the per-item grid on items[], not on kind === 'status': a host bridge
+  // (Kolbo Code's shaped()) rewrites kind from the TOOL name before the payload
+  // reaches this iframe, so a finished prompts[] batch arrived as kind:'image'
+  // with eight completed items and no top-level urls — and painted
+  // "No output received / Failed" over generations that had completed and billed.
+  if (Array.isArray(sc.items) && sc.items.length && (sc.kind === 'status' || !urls.length)) return renderStatusGrid(sc);
   var kind = displayKind(Object.assign({}, sc, { urls: urls }));
   if (!urls.length) return renderError('No output received');
   if (kind === 'image') renderImages(sc, urls);

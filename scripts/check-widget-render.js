@@ -205,6 +205,24 @@ async function batchStaysOneGrid({ kind, tool, ext }) {
   else assert.ok(/loading="lazy"/.test(stage), `[${tool}] batch tiles are not lazy-loaded`);
 }
 
+// A finished prompts[] batch on a text host (Kolbo Code) arrives as ONE completed
+// payload with items[] and no top-level urls — and that host's bridge rewrites
+// kind from the tool name ('status' → 'image') before the iframe sees it. The
+// card must still render the per-item grid, never "No output received".
+function completedItemsRenderAsGrid() {
+  const w = mountWidget();
+  const URLS = ['https://media.kolbo.ai/a.png', 'https://media.kolbo.ai/b.png'];
+  w.deliver({
+    phase: 'completed', widget: 'generation', kind: 'image', tool: 'generate_image',
+    generation_id: 'gen-a', urls: [], model: 'Generations',
+    items: URLS.map((url, i) => ({ id: 'gen-' + i, state: 'completed', title: 'prompt ' + i, url })),
+  });
+  const stage = w.html('stage');
+  assert.ok(!/k-error/.test(stage), 'completed batch with items[] painted an error card');
+  assert.ok(/k-gen-grid/.test(stage), 'completed batch with items[] did not render the grid');
+  URLS.forEach((u) => assert.ok(stage.includes(u), 'grid dropped ' + u));
+}
+
 // A speech card submitted with NO model shows "Smart Select" while generating —
 // the only honest answer at submit time. The completed status names the model
 // that actually ran (raw `google_tts`) and the voice (raw `he-IL-Chirp3-HD-…`),
@@ -476,6 +494,7 @@ async function openInKolboOpensTheSession() {
 }
 
 (async () => {
+  completedItemsRenderAsGrid();
   await batchStaysOneGrid({ kind: 'image', tool: 'generate_image', ext: 'png' });
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();

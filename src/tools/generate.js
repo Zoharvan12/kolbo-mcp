@@ -99,9 +99,12 @@ async function pollBatch(client, batch, { interval, timeout }, toolName) {
     generations,
     failed_submissions: batch.failed.length ? batch.failed : undefined
   }, null, 2);
+  // Name the model that actually ran — every id in one batch ran the same one.
+  const modelsRan = [...new Set(polls.filter((p) => !p.timedOut).map((p) => p.result.result && p.result.result.model).filter(Boolean))];
   return uiCompleted({
     tool: toolName, kind: 'status', client,
-    model: 'Generations', gen: { generation_id: batch.ids[0], session_id: batch.ok[0].gen.session_id },
+    model: modelsRan.length === 1 ? modelsRan[0] : 'Generations',
+    gen: { generation_id: batch.ids[0], session_id: batch.ok[0].gen.session_id },
     settings: {},
     items: generations.map(g => ({
       id: g.generation_id,
