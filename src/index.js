@@ -151,7 +151,7 @@ function createServer(opts = {}) {
         // can refuse for credits (generation, chat, stems) routes through this
         // single seam, which is also the only way a tool added later inherits
         // the behavior for free.
-        const card = await insufficientCreditsResult(client, err).catch(() => null);
+        const card = await insufficientCreditsResult(client, err, toolOptions).catch(() => null);
         if (card) return card;
         throw err;
       }
@@ -163,11 +163,18 @@ function createServer(opts = {}) {
   // remote HTTP host enables it, so stdio clients (Kolbo Code / Desktop / Cursor)
   // keep identical text-URL output. `apps` gates interactive widget results
   // (MCP Apps) the same way — see src/apps/index.js.
+  // `commerce: false` strips every surface that sells or points at buying
+  // subscriptions / credit packs: `show_plans` is not registered and a credit
+  // refusal renders a plain "out of credits" card with no prices or pricing
+  // link. OpenAI rejected the Kolbo.AI ChatGPT app twice on 2026-09-06 for
+  // "commerce for disallowed offerings (digital goods/services)" — the plans
+  // card IS that offering. kolbo-api enables this for `?client=chatgpt`.
   const toolOptions = {
     inlineImages: !!opts.inlineImages,
     remote: !!opts.remote || !!opts.apps,
     apps: !!opts.apps,
     asyncGenerations: !!opts.asyncGenerations,
+    commerce: opts.commerce !== false,
   };
   registerGenerateTools(server, client, toolOptions);
   registerModelTools(server, client, toolOptions);

@@ -56,18 +56,6 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "show_plans": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "show_plans retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
     "get_session_usage": {
       "annotations": {
         "readOnlyHint": true,

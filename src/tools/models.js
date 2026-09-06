@@ -494,6 +494,10 @@ function registerModelTools(server, client, options = {}) {
   // ─── show_plans ──────────────────────────────────
   // The upgrade card. Also rendered automatically when a generation is refused
   // for credits — see insufficientCreditsResult() in _shared.js.
+  // Not registered at all under `commerce: false` (ChatGPT app profile): the
+  // OpenAI directory forbids selling digital goods, and this tool exists only
+  // to sell subscriptions and credit packs.
+  if (options.commerce === false) return;
   server.tool(
     'show_plans',
     'Show the user their Kolbo credit balance, current plan, and the available upgrade plans / credit packs as an interactive card. Use when the user asks about pricing, plans, upgrading, or how to get more credits. Prices shown are live and promo-adjusted. The card links to app.kolbo.ai/pricing to complete a purchase — never quote prices from memory, and never claim to have made a purchase for them.',

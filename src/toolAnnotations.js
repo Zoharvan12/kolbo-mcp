@@ -128,7 +128,11 @@ function attachToolAnnotations(server) {
   const registeredNames = Object.keys(registered).sort();
   const contractNames = Object.keys(TOOL_ANNOTATIONS).sort();
   const missing = registeredNames.filter((name) => !TOOL_ANNOTATIONS[name]);
-  const stale = contractNames.filter((name) => !registered[name]);
+  // Tools a server PROFILE may legitimately leave unregistered. show_plans is
+  // dropped under `commerce: false` (the ChatGPT app profile — OpenAI forbids
+  // selling digital goods there); its contract row stays for every other host.
+  const PROFILE_OPTIONAL = new Set(['show_plans']);
+  const stale = contractNames.filter((name) => !registered[name] && !PROFILE_OPTIONAL.has(name));
   if (missing.length || stale.length) {
     throw new Error(
       `Tool annotation contract mismatch. Missing: ${missing.join(', ') || 'none'}. `

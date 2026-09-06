@@ -1115,8 +1115,30 @@ function compactList(items, { fields, cap = 50, total, extra, note } = {}) {
  * balance/shortfall and the pricing link, because the ONE thing this path must
  * never do is swallow the reason the generation did not run.
  */
-async function insufficientCreditsResult(client, err) {
+async function insufficientCreditsResult(client, err, options = {}) {
   if (!err || err.code !== 'INSUFFICIENT_CREDITS') return null;
+  if (options.commerce === false) {
+    // ChatGPT profile: no plans, no prices, no pricing link — OpenAI's
+    // directory treats those as disallowed digital-goods commerce. The card
+    // states the refusal; where to add credits is the user's own business.
+    const balance = err.data?.balance;
+    const structured = {
+      widget: 'generation',
+      phase: 'failed',
+      error: 'This needs more Kolbo credits than the account has left. Nothing was generated or charged.',
+      balance,
+      required: err.data?.required,
+      _hint: 'The generation did NOT run and nothing was charged. Tell the user their Kolbo account is out of credits for this request. Do not quote prices, do not link to pricing or checkout, and do not offer to purchase anything.',
+    };
+    const text = JSON.stringify({
+      error: structured.error,
+      code: 'INSUFFICIENT_CREDITS',
+      balance,
+      required: structured.required,
+      _hint: structured._hint,
+    }, null, 2);
+    return uiResult(UI.generation, text, structured);
+  }
 
   let data = null;
   try {

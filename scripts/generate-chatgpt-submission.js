@@ -29,7 +29,10 @@ function sentenceFor(name, hints) {
   };
 }
 
-const tools = Object.fromEntries(Object.entries(TOOL_ANNOTATIONS).map(([name, annotations]) => [
+// The ChatGPT app runs the `commerce: false` profile (api.kolbo.ai/mcp?client=chatgpt):
+// show_plans is not registered there, so it must not appear in the submission.
+const COMMERCE_TOOLS = new Set(['show_plans']);
+const tools = Object.fromEntries(Object.entries(TOOL_ANNOTATIONS).filter(([name]) => !COMMERCE_TOOLS.has(name)).map(([name, annotations]) => [
   name,
   { annotations, justifications: sentenceFor(name, annotations) },
 ]));
