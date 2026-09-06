@@ -11,14 +11,16 @@ function registerMoodboardTools(server, client, options = {}) {
   // ─── list_moodboards ───────────────────────────────────────
   server.tool(
     'list_moodboards',
-    'List moodboards. By default returns ALL (personal + system presets + organization). Use "scope" to filter: "personal" (user\'s own), "preset" or "global" (system presets), or "organization" (org-shared). Returns id, name, master_prompt, thumbnail, and image URLs for each.',
+    'List moodboards. Default scope is "personal" — the user\'s OWN custom moodboards, which is what the card shows. Pass scope "preset"/"global" for the system presets, "organization" for org-shared, or "all" for everything. Returns id, name, master_prompt, thumbnail, and image URLs for each.',
     {
-      scope: z.enum(['all', 'personal', 'preset', 'global', 'organization']).optional().describe('Filter by scope. Default: "all" (everything accessible). "personal" = only your own. "preset"/"global" = system presets. "organization" = org-shared.'),
+      scope: z.enum(['all', 'personal', 'preset', 'global', 'organization']).optional().describe('Filter by scope. Default: "personal" (only the user\'s own custom moodboards). "preset"/"global" = system presets. "organization" = org-shared. "all" = everything accessible.'),
       project_id: projectScopeReadField
     },
     async ({ scope, project_id } = {}) => {
       const params = new URLSearchParams();
-      if (scope && scope !== 'all') params.set('scope', scope);
+      // Users asked to see only THEIR moodboards on the card, not the system presets.
+      const effectiveScope = scope || 'personal';
+      if (effectiveScope !== 'all') params.set('scope', effectiveScope);
       if (project_id) params.set('project_id', project_id);
       const qs = params.toString();
       const result = await client.get(`/v1/moodboards${qs ? '?' + qs : ''}`);
@@ -36,7 +38,7 @@ function registerMoodboardTools(server, client, options = {}) {
       return uiResult(UI.mediaGrid, text, {
         widget: 'media-grid',
         title: 'Moodboards',
-        items: moodboards.slice(0, 24).map(mb => ({
+        items: moodboards.slice(0, 300).map(mb => ({
           id: mb.id,
           title: mb.name,
           // API returns thumbnail_url + images[] (sdk listMoodboards) — both
@@ -46,8 +48,8 @@ function registerMoodboardTools(server, client, options = {}) {
           media_type: 'image',
           use_hint: 'Apply moodboard "{TITLE}" (moodboard_id: {ID}) to my next generation.'
         })),
-        total: result.count || moodboards.length,
-        has_more: moodboards.length > 24
+        total: moodboards.length,
+        has_more: moodboards.length > 300
       });
     }
   );

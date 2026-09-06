@@ -171,6 +171,15 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
   Only `edit_image` / `edit_video` pass no type (operation-routed, no single type).
   Guarded by `check-model-catalog.js` §5, which asserts the resolution AND that each
   tool actually passes its type.
+- **Load more is a server contract: `page_tool` + `next_args`.** A media-grid or
+  list payload gets a Load more button ONLY when it carries `page_tool` (the tool to
+  call) and `next_args` (the exact args for the NEXT page — the server knows its own
+  arg names: page/limit, offset, cursor). Each page's response carries the following
+  page's `next_args`; none means last page. A tool with no server pagination ships
+  everything (cap 300) so no button appears. Before 1.87.8 only `list_media` said how
+  to page, so every other grid rendered a Load more that did nothing. Guarded by
+  `loadMoreFollowsNextArgs` in `check-widget-render.js`. In Kolbo Code the bridge
+  forwards any widget `tools/call` to `POST /mcp/kolbo/call` (2.4.30+).
 - **Never show a raw id on a card.** Generation cards identify the model and the
   voice by their CLEAN catalog name + icon/portrait. `modelInfo()` / `voiceInfo()`
   (`src/apps/index.js`, both cached 10 min off `/v1/models` and `/v1/voices`) do the

@@ -99,7 +99,10 @@ function registerVoiceTools(server, client, options = {}) {
             use_hint: 'Use voice "{TITLE}" (voice_id: {ID}) for text-to-speech — ask me what text to speak.'
           })),
           total: voices.length,
-          has_more: more > 0
+          has_more: more > 0,
+          page: pageNum,
+          page_tool: 'list_voices',
+          next_args: more > 0 ? { language, gender, provider, page: pageNum + 1, limit: perPage } : undefined
         });
       }
 

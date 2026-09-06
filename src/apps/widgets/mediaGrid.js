@@ -60,9 +60,14 @@ function boot(sc) {
     h += audioItems.map(audioRowHTML).join('');
   }
   var shown = visualItems.length + audioItems.length;
-  if (sc.total != null && sc.total > shown) {
+  // Only a tool that told us HOW to page (page_tool + next_args / query) gets a
+  // button. Every other grid used to render a Load more that did nothing —
+  // fetchNextPage returned early with no page_tool — which read as "broken".
+  if (sc.total != null && sc.total > shown && sc.page_tool && (sc.next_args || sc.query || sc.page)) {
     h += '<button class="k-btn" id="load-more" style="width:100%;margin-top:10px">Load more (' +
       shown + ' of ' + sc.total + ' shown)</button>';
+  } else if (sc.total != null && sc.total > shown) {
+    h += '<div style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:10px">' + shown + ' of ' + sc.total + ' shown</div>';
   }
   el('stage').innerHTML = h;
   el('stage').classList.remove('k-empty');
@@ -177,14 +182,26 @@ function fetchNextPage(btn) {
   btn.disabled = true;
   var label = btn.textContent;
   btn.innerHTML = '<span class="k-spin"></span> Loading';
+  // The server knows its own paging arg names (page/limit, offset, cursor…):
+  // when it shipped next_args, send exactly that. The query+page shape is the
+  // legacy fallback list_media has always used.
   var args = {};
-  var q = state.query || {};
-  for (var k in q) { if (q[k] !== undefined && q[k] !== null && q[k] !== '') args[k] = q[k]; }
-  args.page = next;
-  if (state.page_size) args.page_size = state.page_size;
+  if (state.next_args) {
+    for (var nk in state.next_args) { if (state.next_args[nk] !== undefined && state.next_args[nk] !== null) args[nk] = state.next_args[nk]; }
+  } else {
+    var q = state.query || {};
+    for (var k in q) { if (q[k] !== undefined && q[k] !== null && q[k] !== '') args[k] = q[k]; }
+    args.page = next;
+    if (state.page_size) args.page_size = state.page_size;
+  }
 
   window.kolbo.callTool(state.page_tool, args).then(function (res) {
     var sc = structured(res);
+    if (res && res.isError) {
+      btn.disabled = false;
+      btn.textContent = 'Could not load more — try again';
+      return;
+    }
     var more = (sc && sc.items) || [];
     if (!more.length) {
       // Nothing came back: say so rather than restoring a button that still
@@ -194,6 +211,9 @@ function fetchNextPage(btn) {
     }
     state.items = (state.items || []).concat(more);
     state.page = (sc && sc.page) || next;
+    // The next page's args come from THIS response; none means this was the last page.
+    state.next_args = sc && sc.next_args;
+    if (sc && sc.next_args == null && sc.page_tool == null && state.next_args === undefined) state.next_args = undefined;
     if (sc && sc.total != null) state.total = sc.total;
     boot(state);            // re-renders the grid + a fresh Load more button
   }).catch(function () {

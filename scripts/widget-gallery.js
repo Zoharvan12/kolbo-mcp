@@ -198,8 +198,9 @@ function build() {
   }));
   const grid = (tool, title, items, extra) => ({
     tool, title, args: {},
-    result: Object.assign({ widget: 'media-grid', title, items, total: items.length }, extra || {}),
-    calls: { [tool]: [2, 3].map((page) => ({ structuredContent: { widget: 'media-grid', items: gridItems(4, 'image').map((x, i) => Object.assign(x, { id: 'more-' + page + '-' + i })), page }, content: [{ type: 'text', text: '{}' }] })) },
+    // Paging contract: page_tool + next_args; each page answers with the NEXT page's args (none on the last).
+    result: Object.assign({ widget: 'media-grid', title, items, total: items.length, page_tool: tool, next_args: { page: 2 } }, extra || {}),
+    calls: { [tool]: [2, 3].map((page) => ({ structuredContent: { widget: 'media-grid', items: gridItems(4, 'image').map((x, i) => Object.assign(x, { id: 'more-' + page + '-' + i })), page, next_args: page < 3 ? { page: page + 1 } : undefined }, content: [{ type: 'text', text: '{}' }] })) },
   });
   scenarios.push(grid('list_media', 'Media Library — images + video, Load more', gridItems(6, 'image').concat(gridItems(2, 'video')), { total: 24, shown: 8, page: 1, page_tool: 'list_media', query: { type: 'all' }, page_size: 8 }));
   scenarios.push(grid('list_media', 'Media Library — empty', [], { total: 0 }));
@@ -212,12 +213,16 @@ function build() {
   scenarios.push(grid('search_music_library', 'SYNCI music — previews', gridItems(4, 'audio').map((x, i) => Object.assign(x, { title: 'Track ' + (i + 1), subtitle: 'cinematic · 120bpm · 2:31' })), { total: 40 }));
 
   // lists
-  const list = (tool, title, items, extra) => ({ tool, title, args: {}, result: Object.assign({ widget: 'list', title, items, total: items.length }, extra || {}) });
-  scenarios.push(list('list_projects', 'Projects', [
+  const list = (tool, title, items, extra) => ({
+    tool, title, args: {},
+    result: Object.assign({ widget: 'list', title, items, total: items.length }, extra || {}),
+    calls: { [tool]: [{ structuredContent: { widget: 'list', items: [{ id: 'p-more-1', title: 'Loaded page 2 item', subtitle: 'via next_args' }], next_args: undefined }, content: [{ type: 'text', text: '{}' }] }] },
+  });
+  scenarios.push(list('list_projects', 'Projects — paged (Load more)', [
     { id: 'proj-1', title: 'Falafel Campaign', subtitle: 'Owner · 12 sessions', badge: 'owner', meta: 'today', open_url: 'https://app.kolbo.ai/' },
     { id: 'proj-2', title: 'API Generations', subtitle: 'auto-created', badge: 'default', meta: '2d ago' },
     { id: 'proj-3', title: 'Shared with me', subtitle: 'edit access', badge: 'shared' },
-  ]));
+  ], { total: 7, page_tool: 'list_projects', next_args: { page: 2, limit: 3 } }));
   scenarios.push(list('list_sessions', 'Sessions', [{ id: 's1', title: 'Hero Sequence', subtitle: '8 generations', thumbnail: IMG, meta: '1h ago' }, { id: 's2', title: 'Retakes', subtitle: '3 generations', thumbnail: IMG2 }]));
   scenarios.push(list('list_docs', 'AI Docs', [{ id: 'd1', title: 'Production bible', subtitle: 'Long description that should clamp after two lines because a DNA description or doc summary can be very long indeed and must not blow the row open.', badge: 'shared' }]));
   scenarios.push(list('list_agents', 'Agents', [{ id: 'a1', title: 'Copywriter', subtitle: 'Hebrew founder voice' }, { id: 'a2', title: 'QC', subtitle: 'Checks continuity' }]));

@@ -84,7 +84,7 @@ function registerStockLibraryTools(server, client, options = {}) {
       // the media grid on them, so the card rendered one broken-file glyph per cell.
       // media.js and listResult() have always done it this way; these five lagged.
       {
-        const items = assets.slice(0, 24).map((a) => {
+        const items = assets.map((a) => {
           const mt = widgetMediaType(a.mediaType);
           return {
             id: a.source + ':' + a.sourceId,
@@ -107,7 +107,12 @@ function registerStockLibraryTools(server, client, options = {}) {
           title: 'Stock — "' + (args.query || 'browse') + '"',
           items,
           total: result.total != null ? result.total : assets.length,
-          has_more: !!result.hasMore
+          has_more: !!result.hasMore,
+          page: args.page || 1,
+          page_tool: 'search_stock_media',
+          next_args: result.hasMore
+            ? { ...args, page: (args.page || 1) + 1, ...(result.nextCursor ? { cursor: result.nextCursor } : {}) }
+            : undefined
         });
       }
 
@@ -172,7 +177,7 @@ function registerStockLibraryTools(server, client, options = {}) {
       // media.js and listResult() have always done it this way; these five lagged.
       {
         const collections = result.collections || [];
-        const items = collections.slice(0, 24).map((c) => ({
+        const items = collections.slice(0, 300).map((c) => ({
           id: c.id,
           title: c.title,
           subtitle: [c.kind, c.mediaType].filter(Boolean).join(' · '),

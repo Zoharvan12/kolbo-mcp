@@ -63,7 +63,9 @@ function registerDocTools(server, client) {
           subtitle: (d.updated_at ? String(d.updated_at).slice(0, 10) : '') + (d.is_shared ? ' · shared' : ''),
           open_url: d.share_url || null
         })),
-        total: docs.length
+        total: docs.length,
+        page_tool: 'list_docs',
+        next_args: docs.length >= (limit || 20) ? { project_id, page: (page || 1) + 1, limit } : undefined
       });
     }
   );

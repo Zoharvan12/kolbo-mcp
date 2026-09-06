@@ -60,7 +60,9 @@ function registerProjectTools(server, client) {
           open_url: p.open_url,
           use_hint: 'Use my "{TITLE}" project (project_id: {ID}) for what I do next.'
         })),
-        total: projects.length
+        total: projects.length,
+        page_tool: 'list_projects',
+        next_args: projects.length >= (limit || 50) ? { search, include_archived, page: (page || 1) + 1, limit } : undefined
       });
     }
   );
@@ -359,7 +361,9 @@ function registerProjectTools(server, client) {
           ].filter(Boolean).join(' · '),
           badge: (s.types && s.types[0]) || undefined
         })),
-        total: sessions.length
+        total: sessions.length,
+        page_tool: 'list_sessions',
+        next_args: sessions.length >= (limit || 20) ? { project_id, type, types, page: (page || 1) + 1, limit } : undefined
       });
     }
   );

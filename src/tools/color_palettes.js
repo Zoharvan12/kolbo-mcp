@@ -40,7 +40,7 @@ function registerColorPaletteTools(server, client, options = {}) {
         return uiResult(UI.mediaGrid, text, {
           widget: 'media-grid',
           title: 'Color DNA Palettes',
-          items: palettes.slice(0, 24).map(p => ({
+          items: palettes.slice(0, 300).map(p => ({
             id: p.id,
             title: p.is_active ? `${p.name} (active)` : p.name,
             // First source image when available, else an SVG strip of the palette itself.
@@ -48,8 +48,8 @@ function registerColorPaletteTools(server, client, options = {}) {
             media_type: 'image',
             use_hint: 'Activate Color DNA palette "{TITLE}" (color_palette_id: {ID}) so it grades my generations.'
           })),
-          total: result.pagination?.total || palettes.length,
-          has_more: palettes.length > 24
+          total: palettes.length,
+          has_more: palettes.length > 300
         });
       }
 

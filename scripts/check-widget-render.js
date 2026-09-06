@@ -95,7 +95,7 @@ function stubEl() {
 // recorded tool calls) so independent scenarios cannot leak state into each
 // other — the widget script keeps module-level state per card.
 const genSrc = blocks(widgetHtml(UI.generation)).slice(1).join('\n'); // skip the host bridge
-function mountWidget() {
+function mountWidget(src = genSrc) {
   const ids = new Map();
   const calls = [];
   const links = [];
@@ -106,6 +106,7 @@ function mountWidget() {
     documentElement: { classList: { toggle() {} } },
     getElementById: (id) => (ids.has(id) || ids.set(id, stubEl()), ids.get(id)),
     querySelector: () => stubEl(),
+    querySelectorAll: () => [],
     createElement: () => stubEl(),
     addEventListener() {},
     body: stubEl(),
@@ -128,7 +129,7 @@ function mountWidget() {
     },
   };
 
-  new Function('window', 'document', 'setTimeout', 'clearTimeout', 'IntersectionObserver', genSrc)(
+  new Function('window', 'document', 'setTimeout', 'clearTimeout', 'IntersectionObserver', src)(
     window, document,
     (fn, ms) => timers.push({ fn, ms: ms || 0 }),
     () => {},
@@ -253,6 +254,46 @@ async function timedOutStatusGridGoesLive() {
   const stage = w.html('stage');
   URLS.forEach((u) => assert.ok(stage.includes(u), 'live status grid did not fill ' + u));
   assert.ok(!/k-error/.test(stage), 'live status grid painted an error');
+}
+
+// Load more: the server ships page_tool + next_args (its own paging arg names);
+// the widget must call exactly that, append the page, and take the NEXT
+// next_args from the response. Every grid used to render a button that did
+// nothing because only list_media said how to page.
+const gridSrc = blocks(widgetHtml(UI.mediaGrid)).slice(1).join('\n');
+const listSrc = blocks(widgetHtml(UI.list)).slice(1).join('\n');
+async function loadMoreFollowsNextArgs() {
+  const w = mountWidget(gridSrc);
+  w.status({ widget: 'media-grid', items: [{ id: 'v3', title: 'Third voice', media_type: 'audio' }], next_args: undefined });
+  w.deliver({
+    widget: 'media-grid', title: 'Voices', total: 3, page_tool: 'list_voices', next_args: { language: 'he', page: 2, limit: 2 },
+    items: [{ id: 'v1', title: 'First voice', media_type: 'audio' }, { id: 'v2', title: 'Second voice', media_type: 'audio' }],
+  });
+  assert.ok(/Load more/.test(w.html('stage')), 'grid with next_args did not render Load more');
+  w.click('load-more');
+  await flush();
+  assert.strictEqual(w.calls.length, 1, 'Load more did not call the page tool');
+  assert.strictEqual(w.calls[0].name, 'list_voices', 'Load more called the wrong tool');
+  assert.deepStrictEqual(w.calls[0].args, { language: 'he', page: 2, limit: 2 }, 'Load more did not send the server-supplied next_args');
+  await flush();
+  assert.ok(w.html('stage').includes('Third voice'), 'Load more did not append the next page');
+  assert.ok(!/Load more/.test(w.html('stage')), 'last page still shows Load more');
+
+  // No page_tool → no dead button, just the count.
+  const w2 = mountWidget(gridSrc);
+  w2.deliver({ widget: 'media-grid', title: 'Moodboards', total: 9, items: [{ id: 'm1', title: 'One', media_type: 'image' }] });
+  assert.ok(!/<button[^>]*id="load-more"/.test(w2.html('stage')), 'grid without page_tool rendered a dead Load more button');
+
+  const l = mountWidget(listSrc);
+  l.status({ widget: 'list', items: [{ id: 'p3', title: 'Third project' }], next_args: undefined });
+  l.deliver({ widget: 'list', title: 'Projects', total: 3, page_tool: 'list_projects', next_args: { page: 2, limit: 2 },
+    items: [{ id: 'p1', title: 'First project' }, { id: 'p2', title: 'Second project' }] });
+  assert.ok(/Load more/.test(l.html('stage')), 'list with next_args did not render Load more');
+  l.click('load-more');
+  await flush();
+  assert.deepStrictEqual(l.calls[0] && l.calls[0].args, { page: 2, limit: 2 }, 'list Load more did not send next_args');
+  await flush();
+  assert.ok(l.html('stage').includes('Third project'), 'list Load more did not append the next page');
 }
 
 // A speech card submitted with NO model shows "Smart Select" while generating —
@@ -528,6 +569,7 @@ async function openInKolboOpensTheSession() {
 (async () => {
   completedItemsRenderAsGrid();
   await timedOutStatusGridGoesLive();
+  await loadMoreFollowsNextArgs();
   await batchStaysOneGrid({ kind: 'image', tool: 'generate_image', ext: 'png' });
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();

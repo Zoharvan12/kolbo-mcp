@@ -47,6 +47,8 @@ var state = null;
 function boot(sc) {
   var list = listPayload(sc);
   if (!list) return false;
+  // listPayload() normalises plain shapes; carry the paging contract through.
+  if (sc && sc.page_tool && !list.page_tool) { list.page_tool = sc.page_tool; list.next_args = sc.next_args; list.page = sc.page; }
   state = list;
   el('title').textContent = list.title || 'List';
   var total = list.total != null ? list.total : list.items.length;
@@ -58,11 +60,39 @@ function boot(sc) {
     window.kolbo.notifySize();
     return true;
   }
-  el('stage').innerHTML = list.items.slice(0, 40).map(itemHTML).join('');
+  // Render every item the server sent (the old slice(0, 40) silently dropped
+  // rows, and nothing told the user). Load more only when the server said how.
+  var h = list.items.map(itemHTML).join('');
+  var shown = list.items.length;
+  if (list.page_tool && list.next_args) {
+    h += '<button class="k-btn" id="load-more" style="width:100%;margin-top:10px">Load more' +
+      (total > shown ? ' (' + shown + ' of ' + total + ' shown)' : '') + '</button>';
+  }
+  el('stage').innerHTML = h;
   el('stage').classList.remove('k-empty');
   wire();
+  var lm = el('load-more');
+  if (lm) lm.onclick = function () { fetchNextPage(lm); };
   window.kolbo.notifySize();
   return true;
+}
+
+function fetchNextPage(btn) {
+  if (!state || !state.page_tool || !state.next_args || btn.disabled) return;
+  btn.disabled = true;
+  var label = btn.textContent;
+  btn.innerHTML = '<span class="k-spin"></span> Loading';
+  window.kolbo.callTool(state.page_tool, state.next_args).then(function (res) {
+    var sc = structured(res);
+    var next = sc ? listPayload(sc) || sc : null;
+    var more = (next && next.items) || [];
+    if ((res && res.isError) || !next) { btn.disabled = false; btn.textContent = 'Could not load more — try again'; return; }
+    if (!more.length) { btn.textContent = 'No more results'; return; }
+    state.items = state.items.concat(more);
+    state.next_args = sc.next_args;
+    if (sc.total != null) state.total = sc.total;
+    boot(Object.assign({}, state, { widget: 'list', page_tool: state.page_tool, next_args: state.next_args }));
+  }).catch(function () { btn.disabled = false; btn.textContent = label; });
 }
 
 function apply(result) {

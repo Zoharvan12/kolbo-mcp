@@ -26,7 +26,7 @@ function trackItem(track) {
   };
 }
 
-function tracksResult(ui, title, tracks, total) {
+function tracksResult(ui, title, tracks, total, paging) {
   if (!tracks.length) return { content: [{ type: 'text', text: 'No SYNCI tracks found.' }] };
   const text = [
     `Found ${tracks.length} track${tracks.length === 1 ? '' : 's'}${total ? ` (of ${total})` : ''}.`,
@@ -38,8 +38,11 @@ function tracksResult(ui, title, tracks, total) {
   return uiResult(UI.mediaGrid, text, {
     widget: 'media-grid',
     title,
-    items: tracks.slice(0, 20).map(trackItem),
+    items: tracks.map(trackItem),
     total: total != null ? total : tracks.length,
+    ...(paging && total != null && (paging.offset + tracks.length) < total
+      ? { page_tool: paging.tool, next_args: { ...paging.args, offset: paging.offset + tracks.length, limit: paging.limit } }
+      : {}),
   });
 }
 
@@ -90,7 +93,8 @@ function registerMusicLibraryTools(server, client, options = {}) {
     },
     async (args) => {
       const result = await client.post('/v1/music-library/search', args);
-      return tracksResult(ui, `SYNCI — ${args.query || 'Search'}`, result.tracks || [], result.total);
+      return tracksResult(ui, `SYNCI — ${args.query || 'Search'}`, result.tracks || [], result.total,
+        { tool: 'search_music_library', args, offset: args.offset || 0, limit: args.limit || (result.tracks || []).length || 20 });
     },
   );
 
@@ -118,7 +122,8 @@ function registerMusicLibraryTools(server, client, options = {}) {
       if (limit != null) params.set('limit', String(limit));
       if (offset != null) params.set('offset', String(offset));
       const result = await client.get(`/v1/music-library/catalog?${params.toString()}`);
-      return tracksResult(ui, 'SYNCI Music Library', result.tracks || [], result.total);
+      return tracksResult(ui, 'SYNCI Music Library', result.tracks || [], result.total,
+        { tool: 'browse_music_library', args: { sort }, offset: offset || 0, limit: limit || (result.tracks || []).length || 20 });
     },
   );
 

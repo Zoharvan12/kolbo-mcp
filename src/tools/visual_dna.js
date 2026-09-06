@@ -154,7 +154,7 @@ function registerVisualDnaTools(server, client, options = {}) {
       return uiResult(UI.mediaGrid, text, {
         widget: 'media-grid',
         title: 'Visual DNA Profiles',
-        items: dnas.slice(0, 24).map(d => ({
+        items: dnas.map(d => ({
           id: d.id,
           title: d.name,
           subtitle: (d.dna_type || '') + (Array.isArray(d.tags) && d.tags.length ? ' · ' + d.tags.slice(0, 3).join(', ') : ''),
@@ -164,7 +164,12 @@ function registerVisualDnaTools(server, client, options = {}) {
           use_hint: 'Use Visual DNA "{TITLE}" (id: {ID}) in my next generation for character/style consistency.'
         })),
         total,
-        has_more: result.has_more || dnas.length > 24
+        has_more: !!result.has_more,
+        page: page && page > 0 ? Math.floor(page) : 1,
+        page_tool: 'list_visual_dnas',
+        next_args: result.has_more
+          ? { scope, search, collection, tags, project_id, page: (page && page > 0 ? Math.floor(page) : 1) + 1, limit }
+          : undefined
       });
     }
   );
