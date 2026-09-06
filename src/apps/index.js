@@ -72,6 +72,12 @@ const WIDGET_CSP = {
     'https://api.kolbo.ai',
     'https://app.kolbo.ai',
     'https://cdn.kolbo.ai',
+    // Preset thumbnails and library media live on the media-* hosts (prod
+    // presets still reference media-dev); without these every preset tile
+    // rendered as a black box. All three are on kolbo-api's download allowlist.
+    'https://media.kolbo.ai',
+    'https://media-staging.kolbo.ai',
+    'https://media-dev.kolbo.ai',
     ...KOLBO_MEDIA_DOMAINS,
     'https://kolbo-general-media.fra1.digitaloceanspaces.com',
     'https://kolbo-general-media.fra1.cdn.digitaloceanspaces.com',

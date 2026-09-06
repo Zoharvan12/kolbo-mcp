@@ -195,6 +195,7 @@ function isListPayload(sc, toolName) {
 function boot(sc) {
   if (!sc) return;
   if (isListPayload(sc, sc.tool)) return renderList(sc);
+  sc = liveFromStatus(sc);
   state = sc;
   el('tool-title').textContent = TOOL_TITLES[sc.tool] || 'Generation';
   setPrompt(sc.prompt ? promptHTML(sc.prompt) : '', sc.prompt);
@@ -486,6 +487,51 @@ function capAt(sc, i) {
   return sc._caps[i] || sc.prompts[i];
 }
 
+// A completed TOOL CALL is not a completed GENERATION. When a generate_* call
+// outlives its poll window on a text host (Claude desktop over stdio), the
+// server answers with a kind:'status' grid whose items are still processing,
+// and that used to render as a dead card of "processing" badges that never
+// polled again: the user watched skeletons that would never fill while the
+// images landed in the library. Turn any such payload back into a LIVE card,
+// the same generating/polling path a fresh submit takes, cells filled per id.
+function isTerminal(s) { return s === 'completed' || s === 'failed' || s === 'cancelled'; }
+function liveFromStatus(sc) {
+  if (!sc || sc.phase !== 'completed' || !Array.isArray(sc.items) || !sc.items.length) return sc;
+  var ids = sc.items.map(function (it) { return it && it.id; });
+  if (ids.some(function (id) { return !id; })) return sc;
+  if (!sc.items.some(function (it) { return !isTerminal(it.state); })) return sc;
+  var kind = sc.kind === 'status' || !sc.kind ? kindFromTool(sc.tool, {}) : sc.kind;
+  var live = Object.assign({}, sc, {
+    phase: 'generating', kind: kind, items: undefined,
+    count: ids.length, poll_tool: 'get_generation_status', generation_id: ids[0]
+  });
+  if (ids.length > 1) {
+    live.generation_ids = ids;
+    live.prompts = sc.items.map(function (it) { return it.title || ''; });
+    live.status_args = { generation_ids: ids, wait: true };
+  } else {
+    live.status_args = { generation_id: ids[0], wait: true };
+  }
+  return live;
+}
+// Multi-id status responses carry their per-generation results as items[] in
+// structuredContent (the shape the status grid renders) and as generations[]
+// only in the text, and structured() reads structuredContent first, so a live
+// batch card never saw generations[] on a host that ships structuredContent.
+function itemsToGens(items) {
+  if (!Array.isArray(items)) return null;
+  return items.map(function (it) {
+    return {
+      generation_id: it.id, state: it.state, credits_used: it.credits_used,
+      result: {
+        urls: Array.isArray(it.urls) ? it.urls : (it.url ? [it.url] : []),
+        model: it.model, model_name: it.model_name, model_icon: it.model_icon,
+        reference_images: it.reference_images
+      }
+    };
+  });
+}
+
 function renderGenerating(sc) {
   setPhaseChip('Generating', true);
   var n = Math.min(sc.count || 1, isBatch(sc) ? 8 : 4);
@@ -670,9 +716,14 @@ function poll(sc) {
       if (++pollErrors >= MAX_POLL_ERRORS) return renderTrackingIssue(st.error || 'Tracking paused. The generation may still be running.');
       return schedulePoll(sc);
     }
-    // Batch (prompts[] fan-out): multi-id status shape { all_done, generations[] }.
-    if (isBatch(sc) && Array.isArray(st.generations)) {
-      return handleBatchStatus(sc, st);
+    // Batch (prompts[] fan-out): multi-id status shape { all_done, generations[] },
+    // or the same data as items[] when it came via structuredContent.
+    var gens = Array.isArray(st.generations) ? st.generations : itemsToGens(st.items);
+    if (isBatch(sc) && gens) {
+      return handleBatchStatus(sc, {
+        all_done: st.all_done != null ? st.all_done : gens.every(function (g) { return isTerminal(g.state); }),
+        generations: gens
+      });
     }
     if (stateName === 'completed') {
       pollErrors = 0;
@@ -724,8 +775,13 @@ function poll(sc) {
 function handleBatchStatus(sc, st) {
   pollErrors = 0;
   var gens = st.generations || [];
+  // Cells are laid out in submit order; match results by id, not position.
+  var cellIndex = function (g, i) {
+    var idx = sc.generation_ids ? sc.generation_ids.indexOf(g.generation_id) : -1;
+    return idx < 0 ? i : idx;
+  };
   gens.forEach(function (g, i) {
-    if (g.state === 'completed') fillBatchCell(sc, i, g);
+    if (g.state === 'completed') fillBatchCell(sc, cellIndex(g, i), g);
   });
   if (!st.all_done) return schedulePoll(sc);
 
@@ -753,8 +809,8 @@ function handleBatchStatus(sc, st) {
       resolved.reference_images = r.reference_images;
     }
     scenes.push({
-      scene_number: i + 1,
-      title: capAt(sc, i),
+      scene_number: cellIndex(g, i) + 1,
+      title: capAt(sc, cellIndex(g, i)),
       image_urls: sc.kind === 'video' ? [] : urls,
       video_urls: sc.kind === 'video' ? urls : []
     });
@@ -1305,6 +1361,41 @@ function kindFromTool(tool, sc) {
 
 // Recover a successful legacy/text result when a host mounted the iframe from
 // declaration metadata but the server did not recognize its Apps capability.
+// Every generate_* tool on a text host answers a poll-window timeout with the
+// same plain shape from pollOrTimedOut(): { state:'processing', generation_id,
+// _timed_out }. No phase, no widget, no urls, so nothing above recognised it
+// and the card stayed on its pre-render skeleton forever while the generation
+// finished in the library. Rebuild the live card from the tool INPUT (same
+// source completedFromPlain uses) and let it poll to completion.
+function liveFromTimedOut(sc) {
+  if (!sc || !sc.generation_id || isTerminal(sc.state) || Array.isArray(sc.urls)) return null;
+  var ids = Array.isArray(sc.generation_ids) && sc.generation_ids.length > 1 ? sc.generation_ids : null;
+  var live = {
+    widget: 'generation',
+    phase: 'generating',
+    tool: originTool,
+    kind: kindFromTool(originTool, sc),
+    prompt: originArgs.prompt || originArgs.text || '',
+    model: sc.model || originArgs.model,
+    settings: {
+      duration: originArgs.duration,
+      resolution: originArgs.resolution,
+      aspect_ratio: originArgs.aspect_ratio,
+      quality: originArgs.quality,
+      visual_dna_ids: originArgs.visual_dna_ids,
+      moodboard_id: originArgs.moodboard_id
+    },
+    count: ids ? ids.length : (originArgs.num_images || 1),
+    generation_id: sc.generation_id,
+    poll_tool: 'get_generation_status',
+    status_args: ids ? { generation_ids: ids, wait: true } : { generation_id: sc.generation_id, wait: true },
+    session_id: sc.session_id || originArgs.session_id,
+    project_id: sc.project_id || originArgs.project_id
+  };
+  if (ids) { live.generation_ids = ids; live.prompts = originArgs.prompts || []; }
+  return live;
+}
+
 function completedFromPlain(sc) {
   if (!sc || (!Array.isArray(sc.urls) && !Array.isArray(sc.scenes))) return null;
   return Object.assign({}, sc, {
@@ -1333,7 +1424,7 @@ window.kolbo.onToolResult(function (result) {
   var list = listPayload(sc);
   if (list) return renderList(list);
   if (sc && (sc.phase || sc.widget)) return boot(sc);
-  var recovered = completedFromPlain(sc);
+  var recovered = completedFromPlain(sc) || liveFromTimedOut(sc);
   if (recovered) return boot(recovered);
   // Tool errored (or returned plain text): show it instead of a dead blank card.
   var txt = '';

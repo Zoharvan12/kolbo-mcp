@@ -223,6 +223,33 @@ function completedItemsRenderAsGrid() {
   URLS.forEach((u) => assert.ok(stage.includes(u), 'grid dropped ' + u));
 }
 
+// A batch whose tool call outlived its poll window comes back as a COMPLETED
+// tool result whose items are still processing (Claude desktop over stdio).
+// The card must go live: poll every id, and fill cells from the items[] the
+// status response carries in structuredContent (there is no generations[] there).
+async function timedOutStatusGridGoesLive() {
+  const IDS = ['gen-x', 'gen-y', 'gen-z'];
+  const URLS = IDS.map((id) => `https://media.kolbo.ai/${id}.png`);
+  const w = mountWidget();
+  w.status({
+    phase: 'completed', widget: 'generation', kind: 'status', tool: 'get_generation_status',
+    items: IDS.map((id, i) => ({ id, state: 'completed', url: URLS[i], urls: [URLS[i]], credits_used: 1 })),
+  });
+  w.deliver({
+    phase: 'completed', widget: 'generation', kind: 'status', tool: 'generate_image_edit',
+    generation_id: IDS[0], model: 'nano-banana-2', model_name: 'Nano Banana 2',
+    items: IDS.map((id, i) => ({ id, state: 'processing', title: 'edit ' + i })),
+  });
+  w.scrollIntoView();
+  w.drain();
+  assert.strictEqual(w.calls.length, 1, 'timed-out status grid did not poll');
+  assert.deepStrictEqual(w.calls[0].args.generation_ids, IDS, 'timed-out status grid did not poll every id');
+  await flush();
+  const stage = w.html('stage');
+  URLS.forEach((u) => assert.ok(stage.includes(u), 'live status grid did not fill ' + u));
+  assert.ok(!/k-error/.test(stage), 'live status grid painted an error');
+}
+
 // A speech card submitted with NO model shows "Smart Select" while generating —
 // the only honest answer at submit time. The completed status names the model
 // that actually ran (raw `google_tts`) and the voice (raw `he-IL-Chirp3-HD-…`),
@@ -495,6 +522,7 @@ async function openInKolboOpensTheSession() {
 
 (async () => {
   completedItemsRenderAsGrid();
+  await timedOutStatusGridGoesLive();
   await batchStaysOneGrid({ kind: 'image', tool: 'generate_image', ext: 'png' });
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();

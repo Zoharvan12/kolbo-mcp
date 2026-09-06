@@ -88,7 +88,7 @@ async function submitBatch(rawItems, submitOne) {
 // multi-id branch, same fix: always ship structuredContent via the shared
 // kind:'status' grid, which already renders any mix of completed/processing
 // items correctly.
-async function pollBatch(client, batch, { interval, timeout }, toolName) {
+async function pollBatch(client, batch, { interval, timeout }, toolName, submittedModel) {
   const polls = await Promise.all(batch.ids.map((id) => pollOrTimedOut(client, id, { interval, timeout })));
   const generations = polls.map((p, i) => p.timedOut
     ? { prompt: batch.ok[i].prompt, generation_id: batch.ids[i], status: 'processing', note: 'Still running — call get_generation_status with wait=true to collect it.' }
@@ -103,7 +103,7 @@ async function pollBatch(client, batch, { interval, timeout }, toolName) {
   const modelsRan = [...new Set(polls.filter((p) => !p.timedOut).map((p) => p.result.result && p.result.result.model).filter(Boolean))];
   return uiCompleted({
     tool: toolName, kind: 'status', client,
-    model: modelsRan.length === 1 ? modelsRan[0] : 'Generations',
+    model: modelsRan.length === 1 ? modelsRan[0] : (submittedModel || 'Generations'),
     gen: { generation_id: batch.ids[0], session_id: batch.ok[0].gen.session_id },
     settings: {},
     items: generations.map(g => ({
@@ -111,6 +111,8 @@ async function pollBatch(client, batch, { interval, timeout }, toolName) {
       state: g.status,
       title: g.prompt,
       url: Array.isArray(g.urls) ? g.urls[0] : undefined,
+      urls: Array.isArray(g.urls) ? g.urls : undefined,
+      credits_used: g.credits_used,
     })),
   }, text);
 }
@@ -292,7 +294,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 150000 }, 'generate_image');
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 150000 }, 'generate_image', model);
       }
 
       const gen = await client.post('/v1/generate/image', { ...shared, prompt, num_images });
@@ -381,7 +383,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images: [...(source_images || []), ...(reference_images || [])]
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 150000 }, 'generate_image_edit');
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 150000 }, 'generate_image_edit', model);
       }
 
       const gen = await client.post('/v1/generate/image-edit', { ...shared, prompt, num_images });
@@ -634,7 +636,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 150000 }, 'generate_video');
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 150000 }, 'generate_video', model);
       }
 
       const gen = await client.post('/v1/generate/video', { ...shared, prompt });
@@ -724,7 +726,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images: items.map((item) => item.image_url)
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 900000 }, 'generate_video_from_image');
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 8) * 1000, timeout: 900000 }, 'generate_video_from_image', model);
       }
 
       const gen = await client.post('/v1/generate/video/from-image', { ...shared, image_url, prompt });
@@ -1249,6 +1251,12 @@ function registerGenerateTools(server, client, options = {}) {
             state: r.state,
             title: res.prompt_used || res.prompt || undefined,
             url: Array.isArray(res.urls) ? res.urls[0] : undefined,
+            // A live batch card reads these from structuredContent (its only
+            // view of this response) to fill each cell and repaint its chips.
+            urls: Array.isArray(res.urls) ? res.urls : undefined,
+            credits_used: creditFields(r).credits_used,
+            model: res.model, model_name: res.model_name, model_icon: res.model_icon,
+            reference_images: res.reference_images,
           };
         }),
       }, text, extraContent);

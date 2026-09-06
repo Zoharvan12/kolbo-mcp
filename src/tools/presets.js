@@ -46,10 +46,14 @@ function registerPresetTools(server, client, options = {}) {
 
       if (lookup) return { content: [{ type: 'text', text }] };
 
-      return uiResult(UI.list, text, {
-        widget: 'list',
+      // TOOL_WIDGETS declares mediaGrid for this tool, so hosts that mount from
+      // the declaration (Claude desktop) rendered a media grid fed a list-shaped
+      // 8-item page with no page_tool: a "Load more" that could never load. Ship
+      // the whole catalog (a few hundred small rows) to the grid it actually mounts.
+      return uiResult(UI.mediaGrid, text, {
+        widget: 'mediaGrid',
         title: 'Presets' + (type ? ' — ' + type : ''),
-        items: presets.slice(0, 8).map(p => ({
+        items: presets.slice(0, 300).map(p => ({
           id: p.id,
           title: p.name,
           subtitle: p.category,
@@ -60,7 +64,7 @@ function registerPresetTools(server, client, options = {}) {
           use_hint: 'Use preset "{TITLE}" (preset_id: {ID}) for my next generation — ask me for the prompt.'
         })),
         total: result.count || presets.length,
-        has_more: presets.length > 8
+        has_more: presets.length > 300
       });
     }
   );
