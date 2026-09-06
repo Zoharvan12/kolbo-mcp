@@ -420,9 +420,38 @@ function render() {
       if (sent) return;
       sent = true;
       var lines = done.map(function (i, idx) { return (idx + 1) + '. ' + filenameFor(i) + ' (' + i.kind + '): ' + i.url; });
-      window.kolbo.sendMessage('I uploaded ' + done.length + ' file(s) to my Kolbo media library:\\n' + lines.join('\\n') + '\\nContinue with these files.');
-      el('actions').innerHTML = '<span style="font-size:12px;color:var(--text-muted)">' + ICONS.check + ' Sent to Claude — continuing…</span>';
-      window.kolbo.notifySize();
+      var text = 'Use these uploaded file(s):\\n' + lines.join('\\n');
+      var status = function (h) { el('actions').innerHTML = '<span style="font-size:12px;color:var(--text-muted)">' + h + '</span>'; window.kolbo.notifySize(); };
+      // A host that does not implement a ui/* method never answers it: the
+      // promise hangs, and the old code had already printed "Sent to Claude"
+      // while nothing reached the composer (Claude desktop over stdio). Bound
+      // every attempt and fall through: insert into the prompt box first (the
+      // user adds the instruction and sends), then send as a message, then a
+      // copyable list so the URLs are never lost.
+      var bounded = function (p, ms) {
+        return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('no host reply')); }, ms); })]);
+      };
+      status('Adding to your message...');
+      bounded(window.kolbo.insertText(text), 1500)
+        .then(function () { status(ICONS.check + ' Added to your message. Add your instruction and send.'); })
+        .catch(function () {
+          return bounded(window.kolbo.sendMessage('I uploaded ' + done.length + ' file(s) to my Kolbo media library:\\n' + lines.join('\\n') + '\\nContinue with these files.'), 1500)
+            .then(function () { status(ICONS.check + ' Sent to Claude, continuing...'); });
+        })
+        .catch(function () {
+          sent = false;
+          el('actions').innerHTML =
+            '<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">' + ICONS.warn + ' This host cannot fill the prompt box. Copy the URLs and paste them into your message:</div>' +
+            '<textarea readonly style="width:100%;min-height:64px;font:11px/1.4 monospace;background:transparent;color:inherit;border:1px solid var(--border,#444);border-radius:8px;padding:6px">' + esc(lines.join('\\n')) + '</textarea>' +
+            '<button class="k-btn primary" id="btn-copy" style="margin-top:6px">Copy URLs</button>';
+          el('btn-copy').onclick = function () {
+            var u = done.map(function (i) { return i.url; }).join('\\n');
+            var ok = function () { el('btn-copy').textContent = 'Copied'; };
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(u).then(ok, function () { window.kolbo.copyText(u).then(ok, function () {}); });
+            else window.kolbo.copyText(u).then(ok, function () {});
+          };
+          window.kolbo.notifySize();
+        });
     };
     el('btn-more').onclick = function () {
       if (isMobileHost()) openExternalUploader();

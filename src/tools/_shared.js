@@ -69,7 +69,9 @@ const REMOTE_FILE_HINT =
 
 const LOCAL_FILE_HINT =
   ' LOCAL FILE? Absolute local paths work here (server and client share a filesystem). ' +
-  'Never reply that you cannot upload files — for a file you will reference more than once, call `upload_media` first and reuse the returned https:// URL.';
+  'Never reply that you cannot upload files — for a file you will reference more than once, call `upload_media` first and reuse the returned https:// URL. ' +
+  'IMAGE/VIDEO PASTED OR ATTACHED IN THIS CHAT with no path? You can see it but Kolbo cannot — NEVER substitute a text description of it for the file. ' +
+  'Call `media_upload_widget` so the user hands Kolbo the file (or ask for its path), then pass the returned URL — for "make this image X" use generate_image_edit with it in `source_images`.';
 const REMOTE_TEXT_FILE_HINT =
   ' REMOTE FILE INPUT: This client cannot send local filesystem paths or render Kolbo\'s upload widget. ' +
   'Use an existing public https:// URL. If the attachment has no public URL, ask the user to upload it in the Kolbo Media Library and paste the resulting URL; never invent a URL or claim a local path is usable here.';
