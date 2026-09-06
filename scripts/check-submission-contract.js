@@ -37,7 +37,7 @@ async function main() {
   const kolboMediaHosts = new Set(HOST_MAP.flat());
   assert.ok(cspDomains.every((domain) => kolboMediaHosts.has(new URL(domain).hostname) || !/(dev|staging)/i.test(new URL(domain).hostname)), 'widget CSP must be production-only');
   assert.deepStrictEqual(WIDGET_CSP.connectDomains, ['https://api.kolbo.ai', 'https://upload-api.kolbo.ai'], 'only the production MCP hosts (API + non-proxied upload twin) may receive widget connections');
-  assert.deepStrictEqual(WIDGET_CSP.frameDomains, ['https://app.kolbo.ai'], 'plans widget may iframe only the production app');
+  assert.deepStrictEqual(WIDGET_CSP.frameDomains || [], [], 'no widget may iframe anything: OpenAI rejects frameDomains (2.0.0 rejection, 2026-09-06)');
 
   // Exercise the real protocol serialization path. Internal registrations can
   // look correct while tools/list drops a property during SDK conversion.

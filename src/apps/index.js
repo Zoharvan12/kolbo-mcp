@@ -146,11 +146,12 @@ const WIDGET_CSP = {
     // the in-chat XHR is CSP-blocked and every claude.ai upload fails silently.
     'https://upload-api.kolbo.ai',
   ],
-  // Nested iframes. Empty/omitted → frame-src 'none' and the live pricing
-  // embed inside the upgrade card is a blank box.
-  frameDomains: [
-    'https://app.kolbo.ai',
-  ],
+  // Nested iframes: NONE. The plans card used to iframe app.kolbo.ai/pricing;
+  // OpenAI rejected the ChatGPT app for it (2026-09-06: "frameDomains is
+  // reserved for limited cases where embedding a third-party experience is
+  // essential"). Every card renders from structuredContent and opens Kolbo in a
+  // new tab instead. Adding a host here re-triggers that rejection.
+  frameDomains: [],
 };
 
 /** Register all Kolbo widget resources on an McpServer. */

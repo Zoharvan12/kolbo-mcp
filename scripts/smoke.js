@@ -615,16 +615,20 @@ async function main() {
         throw new Error('an image tool is back to the truncated settings block — quality would be dropped from the card');
       }
     }
+    // OpenAI rejected the ChatGPT app (2.0.0, 2026-09-06) for the pricing iframe:
+    // "frameDomains is reserved for limited cases where embedding a third-party
+    // experience is essential". The plans card renders natively and no widget
+    // may iframe anything.
     const plansHtml = widgetHtml(UI.plans);
-    if (!plansHtml.includes('https://app.kolbo.ai/pricing/embed')) {
-      throw new Error('plans widget must iframe the live pricing embed, not a cloned card grid');
+    if (/<iframe|pricing\/embed/.test(plansHtml)) {
+      throw new Error('plans widget must not iframe the pricing page — OpenAI rejects frameDomains');
     }
-    if (!plansHtml.includes('k-pricing-frame')) {
-      throw new Error('plans widget is missing the pricing embed iframe');
+    if (!plansHtml.includes('k-plan-grid')) {
+      throw new Error('plans widget no longer renders the native plan grid');
     }
-    const plansSrc = fs.readFileSync(path.join(PKG_ROOT, 'src', 'apps', 'widgets', 'plans.js'), 'utf8');
-    if (plansSrc.includes('k-plan-grid')) {
-      throw new Error('plans widget still clones plan cards instead of embedding /pricing/embed');
+    const { WIDGET_CSP } = require('../src/apps');
+    if ((WIDGET_CSP.frameDomains || []).length) {
+      throw new Error('WIDGET_CSP.frameDomains must stay empty — OpenAI rejects frameDomains');
     }
     console.log('[smoke] widget scripts parse OK');
   }
