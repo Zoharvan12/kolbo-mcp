@@ -11,7 +11,7 @@ Load this file when the user wants a **Seedance 2.5** video (they said "2.5" / "
 
 **Audio:** Seedance 2.5 emits real synced audio. `list_models` shows `sound_generation_type: none` only because there is no in-app toggle (`sound_baked_in: true`) — it does NOT mean the model is silent, and it is never a reason to reach for TTS. Quoted dialogue is PERFORMED (synced voices, lip movement, room tone) alongside the SFX named in AUDIO, so scene dialogue never goes through `generate_speech` or `generate_lipsync`; write the lines in quotes inside their shot beats.
 
-**Dialogue language: English.** Other languages are not reliably performed, and Hebrew does not work — it returns accented gibberish or English-shaped mouth movement. Never offer a user "Hebrew dialogue directly". See `models/seedance.md` for the three honest alternatives.
+**Dialogue language: English.** Other languages are not reliably performed, and Hebrew does not work — it returns accented gibberish or English-shaped mouth movement. Never offer a user "Hebrew dialogue directly". This restriction applies to rendered dialogue/prose only, never to binding identifiers: preserve an exact stored Hebrew Visual DNA or moodboard tag such as `@אביב` / `#ישראל` literally. See `models/seedance.md` for the three honest alternatives.
 
 **Draft at 480p.** Resolution is a credit MULTIPLIER, not a flat rate. Relative to 720p: 480p ×0.44, 1080p ×2.25. A 30s pass costs ~540cr at 480p against ~1230cr at 720p and ~2770cr at 1080p. Block the film at 480p, get the user's sign-off on staging, performance and timing, then re-run only the approved cut at delivery resolution.
 
