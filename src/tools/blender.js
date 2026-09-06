@@ -56,20 +56,25 @@ const idempotencyKey = z.string()
   .regex(/^[A-Za-z0-9._:-]+$/)
   .optional()
   .describe('Optional replay-safe key. Reuse it only when retrying the same command.');
-const name = noControls(128);
-const boundedNumber = z.number().finite().min(-MAX_ABSOLUTE_NUMBER).max(MAX_ABSOLUTE_NUMBER);
-const vector = z.tuple([boundedNumber, boundedNumber, boundedNumber]);
-const colorComponent = z.number().finite().min(0).max(1);
-const color = z.union([
-  z.tuple([colorComponent, colorComponent, colorComponent]),
-  z.tuple([colorComponent, colorComponent, colorComponent, colorComponent]),
-]);
-const propertyScalar = z.union([
+// Every shared piece below is a FACTORY, not a shared instance. zod-to-json-schema
+// de-duplicates repeated zod instances into JSON-pointer `$ref`s, and this tool
+// reuses name/vector/color dozens of times inside one discriminated union, so the
+// emitted inputSchema carried 54 `$ref`s, draft-07 tuple `items: [...]` arrays and
+// `const` discriminators. ChatGPT's app "Scan Tools" rejects all three
+// ("Invalid MCP tool schema for tool 'blender_apply_operations'", 2026-09-06),
+// which blocks re-scanning the whole Kolbo app. Fresh instances + fixed-length
+// arrays + single-value enums keep the schema inside the plain subset every host
+// accepts. Validation semantics are unchanged.
+const name = () => noControls(128);
+const num = () => z.number().finite().min(-MAX_ABSOLUTE_NUMBER).max(MAX_ABSOLUTE_NUMBER);
+const vector = () => z.array(num()).length(3);
+const color = () => z.array(z.number().finite().min(0).max(1)).min(3).max(4);
+const propertyScalar = () => z.union([
   noControls(256),
-  boundedNumber,
+  num(),
   z.boolean(),
 ]);
-const properties = z.record(z.union([propertyScalar, z.array(propertyScalar).max(16)]))
+const properties = () => z.record(z.union([propertyScalar(), z.array(propertyScalar()).max(16)]))
   .refine((value) => Object.keys(value).length <= 30, 'A modifier may contain at most 30 properties.')
   .refine(
     (value) => Object.keys(value).every((key) => SAFE_PROPERTY_KEY.test(key) && !BLOCKED_PROPERTY_KEYS.has(key)),
@@ -79,81 +84,81 @@ const properties = z.record(z.union([propertyScalar, z.array(propertyScalar).max
     (value) => Buffer.byteLength(JSON.stringify(value), 'utf8') <= 16 * 1024,
     'Modifier properties must be at most 16 KiB as JSON.',
   );
-const transform = {
-  location: vector.optional(),
-  rotation_euler: vector.optional(),
-  scale: vector.optional(),
-};
+const transform = () => ({
+  location: vector().optional(),
+  rotation_euler: vector().optional(),
+  scale: vector().optional(),
+});
+const op = (value) => z.enum([value]);
 const operation = z.discriminatedUnion('op', [
   z.object({
-    op: z.literal('object.create'),
-    name: name.optional(),
+    op: op('object.create'),
+    name: name().optional(),
     type: z.enum(['CUBE', 'SPHERE', 'CYLINDER', 'CONE', 'PLANE', 'EMPTY', 'CAMERA', 'LIGHT']),
     light_type: z.enum(['POINT', 'SUN', 'SPOT', 'AREA']).optional(),
     energy: z.number().finite().min(0).max(MAX_ABSOLUTE_NUMBER).optional(),
-    color: color.optional(),
+    color: color().optional(),
     shadow_soft_size: z.number().finite().min(0).max(MAX_ABSOLUTE_NUMBER).optional(),
     lens: z.number().finite().min(1).max(10_000).optional(),
-    collection: name.optional(),
-    ...transform,
+    collection: name().optional(),
+    ...transform(),
   }).strict(),
-  z.object({ op: z.literal('object.transform'), object: name, ...transform }).strict(),
-  z.object({ op: z.literal('object.rename'), object: name, new_name: name }).strict(),
-  z.object({ op: z.literal('object.delete'), object: name }).strict(),
+  z.object({ op: op('object.transform'), object: name(), ...transform() }).strict(),
+  z.object({ op: op('object.rename'), object: name(), new_name: name() }).strict(),
+  z.object({ op: op('object.delete'), object: name() }).strict(),
   z.object({
-    op: z.literal('object.duplicate'),
-    object: name,
-    new_name: name.optional(),
-    collection: name.optional(),
-    ...transform,
+    op: op('object.duplicate'),
+    object: name(),
+    new_name: name().optional(),
+    collection: name().optional(),
+    ...transform(),
   }).strict(),
-  z.object({ op: z.literal('object.set_parent'), object: name, parent: name.nullable().optional() }).strict(),
-  z.object({ op: z.literal('collection.create'), name, parent: name.nullable().optional() }).strict(),
-  z.object({ op: z.literal('collection.delete'), collection: name }).strict(),
-  z.object({ op: z.literal('collection.link_object'), collection: name, object: name }).strict(),
+  z.object({ op: op('object.set_parent'), object: name(), parent: name().nullable().optional() }).strict(),
+  z.object({ op: op('collection.create'), name: name(), parent: name().nullable().optional() }).strict(),
+  z.object({ op: op('collection.delete'), collection: name() }).strict(),
+  z.object({ op: op('collection.link_object'), collection: name(), object: name() }).strict(),
   z.object({
-    op: z.literal('material.create'),
-    name,
-    base_color: color.optional(),
+    op: op('material.create'), name: name(),
+    base_color: color().optional(),
     roughness: z.number().min(0).max(1).optional(),
     metallic: z.number().min(0).max(1).optional(),
     alpha: z.number().min(0).max(1).optional(),
-    emission_color: color.optional(),
+    emission_color: color().optional(),
     emission_strength: z.number().finite().min(0).max(MAX_ABSOLUTE_NUMBER).optional(),
   }).strict(),
-  z.object({ op: z.literal('material.assign'), object: name, material: name, replace: z.boolean().optional() }).strict(),
+  z.object({ op: op('material.assign'), object: name(), material: name(), replace: z.boolean().optional() }).strict(),
   z.object({
-    op: z.literal('material.set_principled'),
-    material: name,
-    base_color: color.optional(),
+    op: op('material.set_principled'),
+    material: name(),
+    base_color: color().optional(),
     roughness: z.number().min(0).max(1).optional(),
     metallic: z.number().min(0).max(1).optional(),
     alpha: z.number().min(0).max(1).optional(),
-    emission_color: color.optional(),
+    emission_color: color().optional(),
     emission_strength: z.number().finite().min(0).max(MAX_ABSOLUTE_NUMBER).optional(),
   }).strict(),
-  z.object({ op: z.literal('world.set_color'), color }).strict(),
+  z.object({ op: op('world.set_color'), color: color() }).strict(),
   z.object({
-    op: z.literal('modifier.add'),
-    object: name,
+    op: op('modifier.add'),
+    object: name(),
     type: z.string().regex(SAFE_MODIFIER_TYPE),
-    name: name.optional(),
-    properties: properties.optional(),
+    name: name().optional(),
+    properties: properties().optional(),
   }).strict(),
-  z.object({ op: z.literal('modifier.configure'), object: name, modifier: name, properties }).strict(),
-  z.object({ op: z.literal('modifier.remove'), object: name, modifier: name }).strict(),
-  z.object({ op: z.literal('camera.set_active'), object: name }).strict(),
+  z.object({ op: op('modifier.configure'), object: name(), modifier: name(), properties: properties() }).strict(),
+  z.object({ op: op('modifier.remove'), object: name(), modifier: name() }).strict(),
+  z.object({ op: op('camera.set_active'), object: name() }).strict(),
   z.object({
-    op: z.literal('animation.keyframe_insert'),
-    object: name,
-    data_path: name,
+    op: op('animation.keyframe_insert'),
+    object: name(),
+    data_path: name(),
     frame: z.number().int().min(-1_048_574).max(1_048_574),
     index: z.number().int().min(-1).max(1024).optional(),
   }).strict(),
   z.object({
-    op: z.literal('animation.delete_keyframe'),
-    object: name,
-    data_path: name,
+    op: op('animation.delete_keyframe'),
+    object: name(),
+    data_path: name(),
     frame: z.number().int().min(-1_048_574).max(1_048_574),
     index: z.number().int().min(-1).max(1024).optional(),
   }).strict(),
@@ -316,7 +321,7 @@ function registerBlenderTools(server, client) {
         .optional(),
       kind: z.enum(['model', '3d', 'glb', 'image', 'video']).optional(),
       import_mode: z.enum(['plane', 'active_material', 'world', 'sequencer', 'collection']).optional(),
-      name: name.optional(),
+      name: name().optional(),
       idempotency_key: idempotencyKey,
     },
     async (args) => {
