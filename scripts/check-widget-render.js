@@ -296,6 +296,55 @@ async function loadMoreFollowsNextArgs() {
   assert.ok(l.html('stage').includes('Third project'), 'list Load more did not append the next page');
 }
 
+// ChatGPT (OpenAI Apps SDK) host: no JSON-RPC. Input/output/theme arrive as
+// window.openai globals + an 'openai:set_globals' event. The bridge must seed
+// the pre-render card from toolInput at once (prompt + settings) and render
+// the result when toolOutput lands — the card used to sit on "Preparing".
+const fullGenSrc = blocks(widgetHtml(UI.generation)).join('\n'); // WITH the host bridge
+async function chatgptHostSeedsAndRenders() {
+  const ids = new Map();
+  const listeners = {};
+  const oa = {
+    theme: 'dark', displayMode: 'inline',
+    toolInput: { prompt: 'a red apple on a white table', model: 'flux-schnell', aspect_ratio: '1:1' },
+    toolOutput: undefined, toolResponseMetadata: undefined,
+    callTool: async () => ({ structuredContent: { state: 'processing' }, content: [] }),
+  };
+  const document = {
+    documentElement: { classList: { toggle() {}, add() {}, remove() {} }, scrollHeight: 300, scrollWidth: 600, setAttribute() {}, removeAttribute() {} },
+    getElementById: (id) => (ids.has(id) || ids.set(id, stubEl()), ids.get(id)),
+    querySelector: () => stubEl(), querySelectorAll: () => [],
+    createElement: () => stubEl(), addEventListener() {}, body: stubEl(),
+  };
+  const window = {
+    openai: oa,
+    parent: { postMessage() {} },
+    screen: { availHeight: 900 },
+    addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
+    dispatchEvent(ev) { (listeners[ev.type] || []).forEach((f) => f(ev)); return true; },
+    MutationObserver: class { observe() {} disconnect() {} },
+    IntersectionObserver: class { constructor(cb) { setImmediate(() => cb([{ isIntersecting: true }])); } observe() {} disconnect() {} },
+    navigator: {},
+  };
+  new Function('window', 'document', 'navigator', 'setTimeout', 'clearTimeout', 'IntersectionObserver', 'MutationObserver', fullGenSrc)(
+    window, document, {}, (fn) => setImmediate(fn), () => {}, window.IntersectionObserver, window.MutationObserver
+  );
+  await flush();
+  assert.ok(document.getElementById('prompt').innerHTML.includes('a red apple on a white table'),
+    'ChatGPT host: pre-render card did not show the prompt from window.openai.toolInput');
+  oa.toolOutput = {
+    phase: 'completed', widget: 'generation', kind: 'image', tool: 'generate_image',
+    generation_id: 'oa-1', urls: ['https://media.kolbo.ai/oa-1.png'], model: 'flux-schnell', model_name: 'Flux Schnell', prompt: 'a red apple on a white table',
+  };
+  oa.toolResponseMetadata = { 'kolbo/tool': 'generate_image' };
+  window.dispatchEvent({ type: 'openai:set_globals', detail: { globals: { toolOutput: oa.toolOutput } } });
+  await flush();
+  assert.ok(document.getElementById('stage').innerHTML.includes('https://media.kolbo.ai/oa-1.png'),
+    'ChatGPT host: result published via openai:set_globals did not render');
+  assert.strictEqual(document.getElementById('tool-title').textContent, 'Image Generation',
+    'ChatGPT host: tool name from kolbo/tool meta did not set the card title');
+}
+
 // A speech card submitted with NO model shows "Smart Select" while generating —
 // the only honest answer at submit time. The completed status names the model
 // that actually ran (raw `google_tts`) and the voice (raw `he-IL-Chirp3-HD-…`),
@@ -570,6 +619,7 @@ async function openInKolboOpensTheSession() {
   completedItemsRenderAsGrid();
   await timedOutStatusGridGoesLive();
   await loadMoreFollowsNextArgs();
+  await chatgptHostSeedsAndRenders();
   await batchStaysOneGrid({ kind: 'image', tool: 'generate_image', ext: 'png' });
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();

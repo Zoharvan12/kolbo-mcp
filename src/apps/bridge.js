@@ -210,6 +210,75 @@ const BRIDGE_JS = `
     },
     hostContext: function () { return hostContext; }
   };
+
+  // ChatGPT (OpenAI Apps SDK) host. It mounts the same iframe but speaks no
+  // JSON-RPC: tool input / output / theme arrive as window.openai globals plus
+  // an 'openai:set_globals' DOM event, and actions are methods on that object.
+  // Without this adapter the card rendered, waited for a tool-input that never
+  // came, and sat on "Preparing" with no prompt, no settings and no result —
+  // even after the tool had returned. Everything here maps onto the same
+  // callbacks the JSON-RPC path drives, so widgets need no host-specific code.
+  var oa = window.openai && typeof window.openai === 'object' ? window.openai : null;
+  if (oa) {
+    var oaInputSeen = false, oaOutputSeen = false;
+    var oaName = function () {
+      var meta = oa.toolResponseMetadata || {};
+      return oa.toolName || meta['kolbo/tool'] || (oa.toolOutput && oa.toolOutput.tool) || undefined;
+    };
+    var oaSync = function () {
+      var name = oaName();
+      // Same shape claude.ai hands ready(): toolInfo.tool.name is what widgets read.
+      hostContext = { theme: oa.theme, displayMode: oa.displayMode, toolInfo: { name: name, tool: { name: name }, arguments: oa.toolInput || {} } };
+      if (!initialized) {
+        initialized = true;
+        queue = [];
+        readyFns.forEach(function (f) { try { f(hostContext); } catch (e) {} });
+      } else {
+        themeFns.forEach(function (f) { try { f(hostContext); } catch (e) {} });
+      }
+      if (oa.toolInput && !oaInputSeen) {
+        oaInputSeen = true;
+        toolInputFns.forEach(function (f) { try { f(oa.toolInput, { name: oaName(), arguments: oa.toolInput }); } catch (e) {} });
+      }
+      if (oa.toolOutput && !oaOutputSeen) {
+        oaOutputSeen = true;
+        var res = { structuredContent: oa.toolOutput, _meta: oa.toolResponseMetadata || {} };
+        toolResultFns.forEach(function (f) { try { f(res); } catch (e) {} });
+      }
+    };
+    var oaCall = function (method) { return typeof oa[method] === 'function'; };
+    window.kolbo.callTool = function (name, args) {
+      if (!oaCall('callTool')) return Promise.reject(new Error('host cannot call tools'));
+      return Promise.resolve(oa.callTool(name, args || {})).then(function (r) {
+        // The SDK resolves with the CallToolResult (content + structuredContent);
+        // some builds unwrap to the structured payload — normalise either.
+        if (r && (r.structuredContent || r.content)) return r;
+        return { structuredContent: r, content: [] };
+      });
+    };
+    window.kolbo.sendMessage = function (text) {
+      return oaCall('sendFollowUpMessage') ? Promise.resolve(oa.sendFollowUpMessage({ prompt: text })) : Promise.reject(new Error('unsupported'));
+    };
+    window.kolbo.insertText = function () { return Promise.reject(new Error('unsupported')); };
+    window.kolbo.openLink = function (url) {
+      return oaCall('openExternal') ? Promise.resolve(oa.openExternal({ href: url })) : Promise.resolve(window.open(url, '_blank'));
+    };
+    window.kolbo.copyText = function (t) {
+      return navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject(new Error('unsupported'));
+    };
+    window.kolbo.attachMedia = function () { return Promise.reject(new Error('unsupported')); };
+    window.kolbo.updateModelContext = function () { return Promise.resolve(); };
+    window.kolbo.requestDisplayMode = function (mode) {
+      if (!oaCall('requestDisplayMode')) return Promise.resolve({ mode: 'inline' });
+      return Promise.resolve(oa.requestDisplayMode({ mode: mode })).then(function (r) { return { mode: (r && r.mode) || mode }; });
+    };
+    window.addEventListener('openai:set_globals', oaSync);
+    // Deferred: the widget's own script (which registers ready/onToolInput/
+    // onToolResult) runs AFTER this bridge block in the same document, and a
+    // synchronous sync here fired into empty listener lists and marked the
+    // input/output as seen.
+    setTimeout(oaSync, 0);
+  }
 })();
 `;
 

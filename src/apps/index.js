@@ -201,7 +201,9 @@ function uiResult(uri, text, structured) {
   return {
     content: [{ type: 'text', text }],
     structuredContent: structured,
-    _meta: uiMeta(uri),
+    // 'kolbo/tool' reaches ChatGPT widgets as toolResponseMetadata — that host
+    // never tells the iframe which tool ran, and the card title depends on it.
+    _meta: { ...uiMeta(uri), ...(structured && structured.tool ? { 'kolbo/tool': structured.tool } : {}) },
   };
 }
 
