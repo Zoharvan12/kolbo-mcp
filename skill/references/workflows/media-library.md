@@ -4,6 +4,10 @@ Load this file when the user wants to browse, list, organize, delete, restore, m
 
 The library covers both **uploaded files** and **AI-generated outputs the user has saved**. Tools fall into five groups: ingest, browse, lifecycle (delete/restore/move), folders, and favorites.
 
+`list_media` returns the complete requested page in both text and widget results. Follow `pagination.has_next` using the returned page size; use smaller pages (for example 20) when reviewing detailed assets to keep context manageable. `project_id` restricts SDK results to that project's recorded membership, not the project-looking segment in a CDN URL (files can be moved). A folder filter takes precedence over the project filter.
+
+For production research, `get_visual_dna` provides the full stored description and references; list descriptions are compact previews. Internal extraction system prompts are intentionally private. `get_project_profile` reads the stored synthesized brief; it is not a substitute for the original project documents or session history.
+
 ## ⚠️ Already-hosted URLs — never re-upload
 
 `generate_*` / `list_media` / `get_media` / a prior `upload_media` already return a Kolbo CDN URL (`media.kolbo.ai`, `*.kolbo.ai`, Spaces). Pass that exact URL into the next generation tool. Calling `upload_media` on it duplicates the file.

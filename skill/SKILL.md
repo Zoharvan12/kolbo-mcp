@@ -1,5 +1,5 @@
 ---
-version: 0.9.15
+version: 0.9.16
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images,
@@ -72,7 +72,8 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Build, inspect, animate, light, render, or edit a **Blender scene through Kolbo Blender MCP** | `references/workflows/blender-mcp.md` |
 | Generate a **Seedance 2.5** video | `skill` `elements-prompting` + `references/models/seedance25.md` + Locked Intro in `references/models/seedance.md`. For narrative/continuity also load `references/workflows/filmmaking.md` — but compile the prompt as Locked Intro, NOT the SCENE CONTEXT / OPTICS / ACTION pack |
 | Generate a **Seedance 2 / WAN / MiniMax H3 / Gemini / Elements** video (`generate_elements` or Visual DNA) | `skill` `elements-prompting` + `references/models/seedance.md` — same Locked Intro. Elements is NOT a different prompt language |
-| Generate a **GPT Image 2** image | `references/models/gpt-image.md` |
+| Generate a **GPT Image 2 / 2.5** image | `references/models/gpt-image.md` |
+| **No background / transparent PNG / cutout** on any image | `references/models/gpt-image.md` |
 | Generate a **Nano Banana / Gemini** image | `references/models/nano-banana.md` |
 | Generate a **Veo 3 / 3.1** video | `references/models/veo.md` |
 | Build a **multi-scene set** (Creative Director, storyboard, campaign batch, 4+ angles) | `references/models/creative-director.md` |
@@ -113,8 +114,8 @@ Font tools (when exposed by the installed MCP): `list_fonts`, `get_font`, `uploa
 ### Generation
 | Tool | Description |
 |------|-------------|
-| `generate_image` | Single image from a text prompt. Supports Visual DNA, moodboards, image presets (custom instructions live here), reference images, web-search grounding. Named sheets/styles: `list_presets({ type: "image", search: "headless" })` then `preset_id`. |
-| `generate_image_edit` | Edit/transform an existing image. Pass `source_images` + edit prompt. Image-editing presets are supported through `preset_id` from `list_presets({ type: "image_edit" })`. |
+| `generate_image` | Single image from a text prompt. Supports Visual DNA, moodboards, image presets (custom instructions live here), reference images, web-search grounding. Named sheets/styles: `list_presets({ type: "image", search: "headless" })` then `preset_id`.  NO BACKGROUND: require `supports_transparent_background: true` from `list_models`, then pass `background: "transparent"` with PNG/WebP — Kolbo appends the phrase `no background` once; prompt wording alone does not replace the setting. |
+| `generate_image_edit` | Edit/transform an existing image. Pass `source_images` + edit prompt. Image-editing presets are supported through `preset_id` from `list_presets({ type: "image_edit" })`.  Native no-background output uses the same capability gate and `background: "transparent"` contract as `generate_image`. |
 | `generate_creative_director` | **2–8 related images or videos as one coherent set.** Use INSTEAD of multiple `generate_image` calls for any related multi-output. |
 | `generate_video` | Text-to-video. Accepts `visual_dna_ids` and `sound_enabled`; `generate_elements` is still the primary reference-driven route for a DNA-anchored film. |
 | `generate_video_from_image` | Animate a still. Prompt describes motion, not subject. |
@@ -274,6 +275,7 @@ A user-named tool — in any language — overrides every other rule. Recognized
 | "Modify THIS one image" — change bg, remove object, recolor | `generate_image_edit` | ❌ Not for multi-output |
 | "4 angles / poses / views of this character" / "variations of this character" | `generate_creative_director` with `visual_dna_ids` | ❌ Don't loop `generate_image_edit` |
 | "4 variations of THIS exact image" (same prompt, different seeds) | `generate_image` with `num_images=4` | ❌ Not `generate_image_edit` |
+| "No background" / transparent PNG / cutout, **בלי רקע** / **רקע שקוף** — new image or existing one | `generate_image` / `generate_image_edit` with `background: "transparent"` on a GPT Image 2 / 2.5 model (gate on `supports_transparent_background: true`) | ❌ Prompt wording alone — it returns an opaque image. ❌ `edit_image` `removebg` unless they want a purely mechanical cutout of an existing photo |
 
 ## Core Workflow
 

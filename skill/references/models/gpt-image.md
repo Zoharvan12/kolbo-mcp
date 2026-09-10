@@ -2,16 +2,17 @@
      kolbo-api/src/config/systemPrompt.js (lines ~858–965).
      When that function changes, update this file in the same session. -->
 
-# GPT Image 2 — Prompt Rules
+# GPT Image 2 / 2.5 — Prompt Rules
 
-Load this file when the user wants a **GPT Image 2 / gpt-image-2** image (OpenAI). For other image models see `models/nano-banana.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
+Load this file when the user wants a **GPT Image 2 or GPT Image 2.5** image (OpenAI). The live family is `gpt-image-2`, `gpt-image-2.5-sunburst` and `gpt-image-2.5-flare` — all three are the ONLY Kolbo image models that can output a native transparent background. (`gpt-image/1.5-text-to-image` is the older row and cannot.) For other image models see `models/nano-banana.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
 
-**Kolbo MCP routing:** call `generate_image` (text-to-image) or `generate_image_edit` (edits with `source_images`). Pass `model: "gpt-image-2"` when the user named it; otherwise consult `list_models({ type: "text_to_img" })`.
+**Kolbo MCP routing:** call `generate_image` (text-to-image) or `generate_image_edit` (edits with `source_images`). Pass the exact identifier the user named (`gpt-image-2`, `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`); otherwise consult `list_models({ type: "text_to_img" })`. On `generate_image_edit` the same families appear as their `/edit` rows under `list_models({ type: "image_editing" })`.
 
 ## CRITICAL Kolbo Platform Rules
 
 - **Resolution and aspect ratio are MCP-tool params** (`aspect_ratio`, `resolution`) — NEVER include `size=`, `1024x1536`, aspect-ratio tags, or any resolution syntax inside the `prompt` field.
 - Pass aspect / resolution as separate tool parameters. Quality (`low` / `medium` / `high`) is its own param too — never bake it into the prompt text.
+- **No background uses both a tool parameter and a prompt cue.** If the user asks for no background / a transparent cutout, call `list_models` for the chosen image type and require `supports_transparent_background: true`. Then pass `background: "transparent"` and `output_format: "png"` (or `"webp"`). Kolbo appends the exact phrase `no background` once to the effective prompt automatically. The phrase alone is not sufficient; if the model does not advertise the capability, choose a supported model with the user.
 - Do not write Python, `client.images.generate`, OpenAI SDK code, or `size=` keyword arguments. The user is generating through Kolbo's MCP tools.
 
 ## Universal Prompting Rules (apply to EVERY prompt)

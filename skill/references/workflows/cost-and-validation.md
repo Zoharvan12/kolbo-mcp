@@ -119,3 +119,7 @@ Normal cost formula: `final_cost = credit × output_seconds × resolution_multip
 ## Log Approved Resolution / Duration / Sound Choices
 
 After the user approves the actual result, log its `credits_used`, resolution, duration, and sound state. Pending and rejected outputs stay out; use the format in `production-log.md`.
+
+## Reference evidence in generation status
+
+For a reference audit, inspect the persisted status result's `visual_dna` and reference image fields. The widget's `visual_dnas` is display metadata, not the original submitted request. Missing widget metadata means unknown, not that no reference was used. Server-side @mention resolution can attach references beyond the caller’s explicit fields. Keep submitted inputs, persisted references, and observed visual fidelity distinct; attaching a DNA does not prove identity fidelity.
