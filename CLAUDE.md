@@ -54,6 +54,17 @@
 
 ## Overview
 
+### Personal fonts
+
+| Tools | Contract |
+| --- | --- |
+| list_fonts, get_font, get_font_upload_status | Account library and preparation status |
+| upload_font | Dedicated multipart font upload; local file access explicitly enabled only in stdio main |
+| create_font_upload_ticket, font_upload_widget | Remote shell and browser uploads via one-use scoped tickets |
+| rename_font, delete_font | Account library management |
+
+Image creation/editing and image-mode Creative Director accept optional `font_ids`. Keep specimens out of reference-image contracts and media upload. Exported `createServer()` must deny local font reads by default, including embedded Act hosts. Update the canonical personal-fonts skill reference with tool changes.
+
 MCP server exposing Kolbo AI generation, chat, Visual DNA, and moodboard capabilities as native tools in Claude Code/Desktop. Published as `@kolbo/mcp` on npm.
 
 

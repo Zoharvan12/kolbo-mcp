@@ -9,6 +9,7 @@
  */
 
 const READ_ONLY = [
+  'list_fonts', 'get_font', 'get_font_upload_status',
   'get_creative_director_status', 'get_generation_status', 'list_models',
   'check_credits', 'show_plans', 'get_session_usage', 'list_voices',
   'chat_list_conversations', 'chat_get_messages',
@@ -36,6 +37,7 @@ const OPEN_WORLD_READ_ONLY = [
 ];
 
 const PRIVATE_WRITE = [
+  'upload_font', 'rename_font', 'create_font_upload_ticket', 'font_upload_widget',
   'media_upload_widget', 'create_upload_ticket', 'upload_media',
   'favorite_media', 'unfavorite_media',
   'create_media_folder', 'update_media_folder',
@@ -64,6 +66,7 @@ const PRIVATE_WRITE = [
 ];
 
 const DESTRUCTIVE_WRITE = [
+  'delete_font',
   // These actions spend credits, enqueue irreversible work, or cancel it.
   'generate_image', 'generate_image_edit', 'generate_creative_director',
   'generate_video', 'generate_video_from_image', 'generate_music',

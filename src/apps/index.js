@@ -21,6 +21,7 @@ const { mediaGridWidgetHtml } = require('./widgets/mediaGrid');
 const { catalogWidgetHtml } = require('./widgets/catalog');
 const { transcriptWidgetHtml } = require('./widgets/transcript');
 const { uploadWidgetHtml } = require('./widgets/upload');
+const { fontUploadWidgetHtml } = require('./widgets/fontUpload');
 const { listWidgetHtml } = require('./widgets/list');
 const { HOST_MAP } = require('../cdn');
 const { plansWidgetHtml } = require('./widgets/plans');
@@ -31,6 +32,7 @@ const UI = {
   catalog: 'ui://kolbo/catalog.html',
   transcript: 'ui://kolbo/transcript.html',
   upload: 'ui://kolbo/upload.html',
+  fontUpload: 'ui://kolbo/font-upload.html',
   list: 'ui://kolbo/list.html',
   plans: 'ui://kolbo/plans.html',
 };
@@ -41,6 +43,7 @@ const WIDGET_BUILDERS = {
   [UI.catalog]: catalogWidgetHtml,
   [UI.transcript]: transcriptWidgetHtml,
   [UI.upload]: uploadWidgetHtml,
+  [UI.fontUpload]: fontUploadWidgetHtml,
   [UI.list]: listWidgetHtml,
   [UI.plans]: plansWidgetHtml,
 };
@@ -732,6 +735,7 @@ const TOOL_WIDGETS = {
   list_color_palettes: UI.mediaGrid,
   // upload widget
   media_upload_widget: UI.upload,
+  font_upload_widget: UI.fontUpload,
   // generic list widget — flat record lists with no natural thumbnail
   list_projects: UI.list,
   // Must stay list.html — mapping this to generation.html mounts "Kolbo Generation /

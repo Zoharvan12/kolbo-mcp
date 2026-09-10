@@ -1,5 +1,13 @@
 # @kolbo/mcp
 
+## Personal fonts
+
+Browse **My fonts** with `list_fonts({source:"custom"})` (the default), or the read-only **Font collection** with `source:"global"`. Use `source:"all"` to search both. Mix up to three family IDs across both sources in the same generation; inspect actual styles/scripts with `get_font`. Collection fonts do not need uploading and cannot be renamed or deleted by users.
+
+Use `list_fonts` / `get_font` to discover My Fonts. Local stdio clients upload one OTF/TTF/WOFF2 (up to 5 MiB) with `upload_font`; remote shell clients use `create_font_upload_ticket`, and browser clients use `font_upload_widget`. Poll `get_font_upload_status` until ready, then pass the returned family ID in `font_ids` to image creation/editing or image-mode Creative Director. `rename_font` and `delete_font` manage the library.
+
+Only models reporting `supports_custom_fonts: true` accept these selections. Fonts and backend-generated specimens never go through media upload. See [Personal Fonts](https://docs.kolbo.ai/developer-api/personal-fonts). Availability requires a published client and deployed backend containing these tools; source changes alone do not update installed clients.
+
 Use [Kolbo AI](https://kolbo.ai) as native tools in Claude Code and Claude Desktop via MCP (Model Context Protocol).
 
 Generate images, videos, music, speech, sound effects, multi-scene campaigns, and conversational chat — all from natural language in your coding environment. 100+ AI models behind Smart Select routing, with reusable Visual DNA profiles for character/style consistency.

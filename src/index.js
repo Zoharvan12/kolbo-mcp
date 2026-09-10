@@ -66,6 +66,7 @@ const { registerChatTools } = require('./tools/chat');
 const { registerVisualDnaTools } = require('./tools/visual_dna');
 const { registerMoodboardTools } = require('./tools/moodboards');
 const { registerColorPaletteTools } = require('./tools/color_palettes');
+const { registerFontTools } = require('./tools/fonts');
 const { registerMediaTools } = require('./tools/media');
 const { registerPresetTools } = require('./tools/presets');
 const { registerArtifactTools } = require('./tools/artifacts');
@@ -115,6 +116,7 @@ function createServer(opts = {}) {
     // The single most common failure mode is project confusion — spell out
     // the project contract here so every client gets it without a skill file.
     instructions: [
+      'PERSONAL FONTS: use list_fonts/get_font, upload_font for local stdio, create_font_upload_ticket for remote shell, or font_upload_widget for browser uploads. Never use media upload for fonts. Poll get_font_upload_status until ready, then pass up to three family IDs as font_ids to image creation/editing or image-mode Creative Director. Verify supports_custom_fonts in model discovery. The backend prepares private specimens; never render or attach specimens yourself.',
       'LOCAL FILES: never upload a user file with your own cloud credentials, an S3/Spaces script, or a third-party host — Kolbo owns this. ' + LOCAL_FILE_ROUTING,
       'PROMPT CONVENTIONS (Kolbo-specific — these change the OUTPUT, not just the metadata):',
       'A. Visual DNA: passing `visual_dna_ids` is not enough — every DNA in play must ALSO be tagged inside the prompt text as `@Name`, using the DNA name (e.g. "@Kobi walks into frame"). Moodboards are referenced the same way with `#Name`. Resolve names via `list_visual_dnas` / `list_moodboards`.',
@@ -183,6 +185,7 @@ function createServer(opts = {}) {
   registerVisualDnaTools(server, client, toolOptions);
   registerMoodboardTools(server, client, toolOptions);
   registerColorPaletteTools(server, client, toolOptions);
+  registerFontTools(server, client, { allowLocalFiles: opts.allowLocalFiles === true && !toolOptions.remote });
   registerAnalyzeTools(server, client, toolOptions);
   registerMediaTools(server, client, toolOptions);
   registerPresetTools(server, client, toolOptions);
@@ -219,7 +222,7 @@ function createServer(opts = {}) {
 }
 
 async function main() {
-  const server = createServer();
+  const server = createServer({ allowLocalFiles: true });
 
   // Node kills the process on an unhandled rejection / uncaught exception. In a
   // long-lived stdio server that is not a stack trace the user ever sees — the

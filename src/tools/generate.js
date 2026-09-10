@@ -162,6 +162,7 @@ const ELEMENTS_MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 // the card, and not the agent reading the tool result, so a follow-up call
 // could not reuse the same DNA or preset without re-listing. Carry the ids.
 const refSettings = (a = {}) => ({
+  font_ids: a.font_ids?.length ? a.font_ids : undefined,
   enhance_prompt: a.enhance_prompt || undefined,
   web_search: a.enable_web_search || undefined,
   visual_dna_ids: (a.visual_dna_ids && a.visual_dna_ids.length) ? a.visual_dna_ids : undefined,
@@ -258,6 +259,7 @@ function registerGenerateTools(server, client, options = {}) {
     {
       prompt: z.string().optional().describe('Text description of the image to generate. Required unless `prompts` is provided.'),
       prompts: promptsField('images'),
+      font_ids: z.array(z.string().regex(/^[a-f0-9]{24}$/i)).max(3).optional().describe('Ready family IDs from My Fonts (list_fonts/upload_font). Requires supports_custom_fonts=true. State exact text/language/weight in prompt; server prepares private references. Applies to every prompt in a batch.'),
       model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults: "nano-banana-2" (versatile, text rendering, multilingual) or "gpt-image-2" (photoreal, infographics). Call list_models type="text_to_img" to see all options and pick per the user\'s intent.'),
       aspect_ratio: z.string().optional().describe(aspectRatioDescribe('1:1')),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
@@ -274,12 +276,12 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id }) => {
+    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'text_to_img'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'text_to_img');
       const shared = {
-        model, aspect_ratio, enhance_prompt,
+        model, aspect_ratio, enhance_prompt, font_ids,
         reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id
       };
 
@@ -342,6 +344,7 @@ function registerGenerateTools(server, client, options = {}) {
     {
       prompt: z.string().optional().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset"). Required unless `prompts` is provided.'),
       prompts: promptsField('edits of the SAME source images'),
+      font_ids: z.array(z.string().regex(/^[a-f0-9]{24}$/i)).max(3).optional().describe('Ready My Fonts family IDs. Requires supports_custom_fonts=true. Describe requested typography changes; unrelated text is preserved. Applies to every batch edit.'),
       model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Many text-to-image ids double as editors: the server auto-routes a base id to its editing variant when source_images is present (e.g. "gpt-image-2" → gpt-image-2/edit, "nano-banana-2" → nano-banana-2-image-editing) — passing the bare id is fine, no need to hunt for the "/edit" suffix yourself. BUT this only works for models that actually have a registered edit variant. For prompt-driven photoreal photo edits (object removal, keep-this-person/remove-the-rest, crowd cleanup, inpainting) the ONLY auto-pick defaults are "nano-banana-2" or "gpt-image-2" (use GPT Image 2 when the image needs readable text). Do NOT auto-pick Flux 2 / flux-2/edit / Flux Klein — those are generate-from-scratch / style models; use them only if the user names Flux. If unsure, confirm the model appears in `list_models type="image_editing"` and choose by the strengths summary — Flux edit variants are named-only.'),
       source_images: z.array(z.string()).describe('PIXEL-ACCURATE compositing. Array of source images (URLs or absolute local paths) whose pixel content is composited into the output. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.** Three modes the model auto-detects from input shape: (1) Single image → edit/transform that image. (2) Multiple images, one base + others → composite the others into the base. (3) Multiple images with no clear base → generate a new scene that pixel-accurately embeds the supplied images at positions described in the prompt. Mode 3 is the canonical pattern for thumbnails / branded compositions where exact-pixel logo + face fidelity matter. Refer to source images in the prompt by ordinal position ("FIRST source image", "SECOND source image") or use @image1/@image2 tags. Add "composite AS-IS, do not redraw or restyle" to lock pixels.'),
       reference_images: z.array(z.string()).optional().describe('STYLE/COMPOSITION inspiration, alongside `source_images` on the same call — does NOT embed reference pixels. Use when the edit should follow a look sampled from other images ("re-light this shot like these references"). The pixels that must survive the edit go in `source_images`; these only steer the look. **Cap: `source_images` + `reference_images` together must not exceed `max_reference_images` from list_models for the chosen model.**'),
@@ -359,12 +362,12 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, source_images, reference_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id }) => {
+    async ({ prompt, prompts, model, source_images, reference_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'image_editing'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'image_editing');
       const shared = {
-        model, source_images, reference_images, aspect_ratio, enhance_prompt,
+        model, source_images, reference_images, aspect_ratio, enhance_prompt, font_ids,
         visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id
       };
       const settings = imageSettings(shared);
@@ -444,13 +447,14 @@ function registerGenerateTools(server, client, options = {}) {
       moodboard_id: z.string().optional().describe('A single moodboard ID whose master_prompt and style_guide should shape every scene.'),
       moodboard_ids: z.array(z.string()).optional().describe('Multiple moodboard IDs when blending styles. Prefer `moodboard_id` for single moodboards.'),
       resolution: z.string().optional().describe('Resolution tier applied to every scene. Images: "1K" / "2K" / "3K" / "4K". Videos: "720p" / "1080p" / "1440p" / "2160p". Values are model-dependent — call list_models and read supported_resolutions on the target model. Multiplied across every scene.'),
+      font_ids: z.array(z.string().regex(/^[a-f0-9]{24}$/i)).max(3).optional().describe('Image workflows only: ready My Fonts family IDs applied to each scene. Requires supports_custom_fonts=true; do not create specimen references yourself.'),
       project_id: projectIdField
     },
-    async ({ prompt, scene_count, model, aspect_ratio, workflow_type, duration, enhance_prompt = false, reference_images, visual_dna_ids, moodboard_id, moodboard_ids, resolution, project_id }) => {
+    async ({ prompt, scene_count, model, aspect_ratio, workflow_type, duration, enhance_prompt = false, reference_images, visual_dna_ids, moodboard_id, moodboard_ids, resolution, project_id, font_ids }) => {
       model = await canonicalModelId(client, model, workflow_type === 'video' ? 'text_to_video' : 'text_to_img'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, workflow_type === 'video' ? 'text_to_video' : 'text_to_img');
       const gen = await client.post('/v1/generate/creative-director', {
-        prompt, scene_count, model, aspect_ratio, workflow_type, duration,
+        prompt, scene_count, model, aspect_ratio, workflow_type, duration, font_ids,
         enhance_prompt, reference_images, visual_dna_ids, moodboard_id, moodboard_ids, resolution, project_id
       });
 
