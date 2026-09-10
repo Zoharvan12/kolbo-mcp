@@ -102,7 +102,23 @@ function build() {
 
   const scenarios = [];
   for (const [tool, kind] of Object.entries(GEN_TOOLS)) {
-    const args = { prompt: PROMPT, model: 'nano-banana-2', ...settingsFor(kind) };
+    // Real reference args, so the pre-render card exercises the input-derived
+    // chip row (references + DNA count) the way a live call does.
+    const PRE_REF_ARGS = {
+      generate_image_edit: { source_images: [IMG, IMG2] },
+      edit_image: { image_url: IMG, mask_image_url: IMG2 },
+      generate_video_from_image: { image_url: IMG },
+      generate_video_from_video: { source_video: VID },
+      generate_elements: { files: [IMG, VID, AUD] },
+      generate_first_last_frame: { first_frame: IMG, last_frame: IMG2 },
+      generate_lipsync: { source: VID, audio: AUD },
+      generate_3d: { reference_images: [IMG] },
+    };
+    const args = {
+      prompt: PROMPT, model: 'nano-banana-2', ...settingsFor(kind),
+      visual_dna_ids: ['68e1f0c0c0de1a0001a1b2c3', '68e1f0c0c0de1a0001a1b2c4'],
+      ...(PRE_REF_ARGS[tool] || {}),
+    };
     scenarios.push({ tool, title: 'pre-render (tool-input only)', args, result: null });
     scenarios.push({
       tool, title: 'generating → completes on 2nd poll', args,

@@ -1330,6 +1330,64 @@ function openPromptRow(placeholder, onSend) {
    The host mounts this iframe as soon as the tool is CALLED; the result can
    take many seconds (model resolution, file upload, submit). Show a live
    shell immediately instead of a blank card. */
+// Which tool args carry a reference the browser can actually load. The kind
+// here is only a FALLBACK: refKind() still lets the file extension win, exactly
+// like the result path, so a .mp4 handed to the files arg renders as video.
+var PRE_IMAGE_KEYS = ['source_images', 'reference_images', 'image_url', 'mask_image_url',
+  'additional_images', 'first_frame', 'last_frame', 'seed_reference_image_url',
+  'elements', 'files', 'keyframes', 'source'];
+var PRE_VIDEO_KEYS = ['source_video', 'reference_videos'];
+var PRE_AUDIO_KEYS = ['audio', 'audio_url', 'reference_audio_urls', 'seed_reference_audio_urls'];
+
+// The card mounts the moment the tool is CALLED, so the only thing it knows is
+// the raw tool input - and for an edit/elements call the submit that follows is
+// the LONGEST wait on the card (local files are re-hosted first). Map the input
+// onto the same shape renderChips already reads for a server payload so the
+// references, DNA count and settings are on screen immediately instead of after
+// a minute of blank skeleton.
+// Deliberately NOT shown here: model, voice, DNA and moodboard NAMES. Those are
+// resolved server-side and arrive with the result (which overwrites all of
+// this) - rendering the raw identifier the caller passed would put an id on the
+// card, which is never allowed.
+function preRefSc(toolName, a) {
+  var img = [], vid = [], aud = [];
+  var take = function (v, bucket) {
+    if (typeof v === 'string') {
+      // http(s) only - an absolute local path is not loadable from the iframe.
+      if (/^https?:/i.test(v) && bucket.indexOf(v) < 0) bucket.push(v);
+      return;
+    }
+    if (Array.isArray(v)) {
+      v.forEach(function (item) {
+        take(typeof item === 'string' ? item : (item && (item.image_url || item.url)), bucket);
+      });
+    }
+  };
+  PRE_IMAGE_KEYS.forEach(function (k) { take(a[k], img); });
+  PRE_VIDEO_KEYS.forEach(function (k) { take(a[k], vid); });
+  PRE_AUDIO_KEYS.forEach(function (k) { take(a[k], aud); });
+  return {
+    tool: toolName,
+    kind: kindFromTool(toolName, null),
+    count: a.num_images || (Array.isArray(a.prompts) ? a.prompts.length : 1),
+    reference_images: img,
+    reference_videos: vid,
+    reference_audio: aud,
+    settings: {
+      duration: a.duration,
+      resolution: a.resolution,
+      aspect_ratio: a.aspect_ratio,
+      quality: a.quality,
+      mode: a.mode,
+      cinematic: a.cinematic,
+      visual_dna_ids: a.visual_dna_ids,
+      moodboard_ids: a.moodboard_ids,
+      moodboard_id: a.moodboard_id,
+      preset_id: a.preset_id
+    }
+  };
+}
+
 function bootPre(toolName, args) {
   if (toolName) originTool = toolName;
   if (args) originArgs = args;
@@ -1347,6 +1405,7 @@ function bootPre(toolName, args) {
     setPrompt(promptHTML(raw), raw);
   }
   setPhaseChip('Preparing', true);
+  renderChips(preRefSc(toolName, args || {}));
   if (!el('stage').innerHTML) {
     el('stage').innerHTML = '<div class="k-gen-grid n1"><div class="k-skel video" style="min-height:100px;max-height:140px"></div></div>';
   }

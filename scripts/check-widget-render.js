@@ -116,7 +116,7 @@ function mountWidget(src = genSrc) {
     kolbo: {
       ready: (f) => f(null),
       onToolResult(f) { window.__onResult = f; },
-      onToolInput() {}, onThemeChange() {},
+      onToolInput(f) { window.__onInput = f; }, onThemeChange() {},
       callTool(name, args) {
         calls.push({ name, args });
         return Promise.resolve({ content: [{ type: 'text', text: JSON.stringify(window.__status) }] });
@@ -143,6 +143,7 @@ function mountWidget(src = genSrc) {
     node: (id) => document.getElementById(id),
     click: (id) => { const n = document.getElementById(id); if (n && n.onclick) n.onclick(); },
     deliver: (structuredContent) => window.__onResult({ structuredContent }),
+    input: (name, args) => window.__onInput(args, { name }),
     status: (s) => { window.__status = s; },
     scrollIntoView: () => ioCallback([{ isIntersecting: true }]),
     // Only fire timers due within `maxMs` — the widget's own 8s never-observed
@@ -426,6 +427,48 @@ function cardShowsEveryReferenceImage() {
   assert.ok(legacy.html('chips').includes(refs[0]), 'legacy reference_image fallback stopped rendering');
 }
 
+// The host mounts the iframe when the tool is CALLED and the result can be a
+// minute away (an edit re-hosts every local file before it submits). That whole
+// window used to render prompt + grey skeleton and nothing else, so the user
+// could not see WHICH source images / DNAs the call actually went out with.
+function preRenderShowsTheInputRefs() {
+  const w = mountWidget();
+  w.input('generate_image_edit', {
+    prompt: 'composite the icon into the scene',
+    model: 'nano-banana-2',
+    source_images: ['https://media.kolbo.ai/scene.png', 'https://media.kolbo.ai/icon.png'],
+    reference_videos: ['https://media.kolbo.ai/move.mp4'],
+    visual_dna_ids: ['68e1f0c0c0de1a0001a1b2c3', '68e1f0c0c0de1a0001a1b2c4'],
+    resolution: '2K',
+  });
+  const chips = w.html('chips');
+  assert.ok(chips.includes('https://media.kolbo.ai/scene.png'), 'Preparing card dropped the first source image');
+  assert.ok(chips.includes('https://media.kolbo.ai/icon.png'), 'Preparing card dropped the second source image');
+  assert.ok(chips.includes('https://media.kolbo.ai/move.mp4'), 'Preparing card dropped the reference video');
+  assert.ok(chips.includes('2 Visual DNA'), 'Preparing card dropped the Visual DNA count');
+  assert.ok(chips.includes('2K'), 'Preparing card dropped the resolution');
+  // Names are resolved server-side; the raw identifier the caller passed must
+  // never reach the card.
+  assert.ok(!chips.includes('nano-banana-2'), 'Preparing card printed the raw model identifier');
+
+  // Local paths are not loadable from the iframe sandbox - never emit them.
+  const local = mountWidget();
+  local.input('generate_lipsync', { source: 'C:\Users\Zohar\clip.mp4', audio: 'https://media.kolbo.ai/vo.mp3' });
+  assert.ok(!local.html('chips').includes('clip.mp4'), 'Preparing card tried to load an absolute local path');
+  assert.ok(local.html('chips').includes('audio ref'), 'Preparing card dropped the audio reference');
+
+  // The result still wins: its resolved payload overwrites the input guess.
+  w.deliver({
+    phase: 'generating', widget: 'generation', kind: 'image', tool: 'generate_image_edit',
+    generation_id: 'gen-pre', poll_tool: 'get_generation_status',
+    model: 'nano-banana-2', model_name: 'Nano Banana 2',
+    reference_images: ['https://media.kolbo.ai/scene.png'],
+    visual_dnas: [{ id: '68e1f0c0c0de1a0001a1b2c3', name: 'Kobi' }],
+  });
+  assert.ok(w.html('chips').includes('Nano Banana 2'), 'result payload did not replace the pre-render chips');
+  assert.ok(w.html('chips').includes('Kobi'), 'resolved DNA name did not replace the pre-render count chip');
+}
+
 function stopNeedsASecondClick() {
   const w = mountWidget();
   w.deliver({
@@ -624,6 +667,7 @@ async function openInKolboOpensTheSession() {
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();
   cardShowsEveryReferenceImage();
+  preRenderShowsTheInputRefs();
   generatingCardShowsNamedChipsAndPeek();
   promptToolsStayOffTheText();
   stopNeedsASecondClick();
@@ -631,6 +675,7 @@ async function openInKolboOpensTheSession() {
   await openInKolboOpensTheSession();
   console.log('✓ widget scripts parse; image + image-to-video batches stay one grouped grid; offscreen cards stay idle; '
     + 'completed cards name the model + voice that actually ran; all reference images render; '
+    + 'Preparing cards show the references + DNAs from the tool input; '
     + 'list widgets leave Loading from sessions[] / generations[] / hostContext; '
     + 'long prompts expand from a button, not a click on the text; '
     + 'Open in Kolbo deep-links the generation session');
