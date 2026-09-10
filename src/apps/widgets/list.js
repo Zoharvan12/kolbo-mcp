@@ -7,7 +7,8 @@ const { widgetPage } = require('../html');
  * with no natural thumbnail (projects, sessions, agents, docs, folders,
  * knowledge-base sources). Reuses the exact row shell mediaGrid's audio rows
  * and catalog's model rows already use (`.k-audio-row` / `.k-audio-meta` /
- * `.k-chip` / `.k-btn` — no new CSS needed).
+ * `.k-chip` / `.k-btn` — no new CSS needed), and the same pager the media grid
+ * uses, so a long list is a fixed-height page instead of a card that grows.
  *
  * structuredContent contract:
  * {
@@ -43,6 +44,11 @@ const SCRIPT = `
 el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
 el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai'); };
 var state = null;
+var page = 0;
+var PAGE = 8;
+
+function pageCount() { return Math.max(1, Math.ceil(((state && state.items) || []).length / PAGE)); }
+function hasMore() { return !!(state && state.page_tool && state.next_args); }
 
 function boot(sc) {
   var list = listPayload(sc);
@@ -50,49 +56,73 @@ function boot(sc) {
   // listPayload() normalises plain shapes; carry the paging contract through.
   if (sc && sc.page_tool && !list.page_tool) { list.page_tool = sc.page_tool; list.next_args = sc.next_args; list.page = sc.page; }
   state = list;
+  page = 0;
   el('title').textContent = list.title || 'List';
-  var total = list.total != null ? list.total : list.items.length;
+  render();
+  return true;
+}
+
+function render() {
+  var total = state.total != null ? state.total : state.items.length;
   el('count-chip').style.display = '';
   el('count-chip').textContent = total + (total === 1 ? ' item' : ' items');
-  if (!list.items.length) {
+  if (!state.items.length) {
     el('stage').classList.add('k-empty');
     el('stage').innerHTML = 'Nothing here yet';
     window.kolbo.notifySize();
-    return true;
+    return;
   }
-  // Render every item the server sent (the old slice(0, 40) silently dropped
-  // rows, and nothing told the user). Load more only when the server said how.
-  var h = list.items.map(itemHTML).join('');
-  var shown = list.items.length;
-  if (list.page_tool && list.next_args) {
-    h += '<button class="k-btn" id="load-more" style="width:100%;margin-top:10px">Load more' +
-      (total > shown ? ' (' + shown + ' of ' + total + ' shown)' : '') + '</button>';
-  }
+  if (page > pageCount() - 1) page = pageCount() - 1;
+  var h = state.items.slice(page * PAGE, page * PAGE + PAGE).map(itemHTML).join('') + pagerHTML();
   el('stage').innerHTML = h;
   el('stage').classList.remove('k-empty');
   wire();
-  var lm = el('load-more');
-  if (lm) lm.onclick = function () { fetchNextPage(lm); };
   window.kolbo.notifySize();
-  return true;
+}
+
+function pagerHTML() {
+  var n = pageCount();
+  var more = hasMore();
+  if (n <= 1 && !more) return '';
+  var mid;
+  if (n <= 8) {
+    var dots = '';
+    for (var i = 0; i < n; i++) {
+      dots += '<button class="k-dot' + (i === page ? ' on' : '') + '" data-page="' + i + '" aria-label="Page ' + (i + 1) + '"></button>';
+    }
+    if (more) dots += '<span class="k-dot ghost"></span>';
+    mid = '<div class="k-dots">' + dots + '</div>';
+  } else {
+    mid = '<span class="k-pager-label">' + (page + 1) + ' / ' + n + (more ? '+' : '') + '</span>';
+  }
+  return '<div class="k-pager">' +
+    '<button class="k-pager-btn" id="page-prev" aria-label="Previous"' + (page === 0 ? ' disabled' : '') + '>' + ICONS.chevronLeft + '</button>' +
+    mid +
+    '<button class="k-pager-btn" id="page-next" aria-label="Next"' + (page >= n - 1 && !more ? ' disabled' : '') + '>' + ICONS.chevronRight + '</button>' +
+    '</div>';
 }
 
 function fetchNextPage(btn) {
   if (!state || !state.page_tool || !state.next_args || btn.disabled) return;
   btn.disabled = true;
-  var label = btn.textContent;
-  btn.innerHTML = '<span class="k-spin"></span> Loading';
+  btn.innerHTML = '<span class="k-spin"></span>';
   window.kolbo.callTool(state.page_tool, state.next_args).then(function (res) {
     var sc = structured(res);
     var next = sc ? listPayload(sc) || sc : null;
     var more = (next && next.items) || [];
-    if ((res && res.isError) || !next) { btn.disabled = false; btn.textContent = 'Could not load more — try again'; return; }
-    if (!more.length) { btn.textContent = 'No more results'; return; }
+    if ((res && res.isError) || !next) {
+      btn.disabled = false;
+      btn.innerHTML = ICONS.chevronRight;
+      btn.title = 'Could not load more — try again';
+      return;
+    }
+    if (!more.length) { state.next_args = undefined; render(); return; }
     state.items = state.items.concat(more);
     state.next_args = sc.next_args;
     if (sc.total != null) state.total = sc.total;
-    boot(Object.assign({}, state, { widget: 'list', page_tool: state.page_tool, next_args: state.next_args }));
-  }).catch(function () { btn.disabled = false; btn.textContent = label; });
+    page = page + 1;
+    render();
+  }).catch(function () { btn.disabled = false; btn.innerHTML = ICONS.chevronRight; });
 }
 
 function apply(result) {
@@ -101,7 +131,8 @@ function apply(result) {
   return boot(inner.structuredContent || structured(inner) || inner);
 }
 
-function itemHTML(item, i) {
+function itemHTML(item) {
+  var i = state.items.indexOf(item);
   var clickable = !!item.id;
   var avatar = item.thumbnail
     ? '<img class="k-audio-art k-peek-hit" src="' + esc(item.thumbnail) + '" alt="" loading="lazy"'
@@ -119,14 +150,15 @@ function itemHTML(item, i) {
 }
 
 function wire() {
-  bindPeekHits(el('stage'));
-  Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (b) {
+  var stage = el('stage');
+  bindPeekHits(stage);
+  Array.prototype.forEach.call(stage.querySelectorAll('[data-open]'), function (b) {
     b.onclick = function (e) {
       e.stopPropagation();
       window.kolbo.openLink(state.items[+b.getAttribute('data-open')].open_url);
     };
   });
-  Array.prototype.forEach.call(document.querySelectorAll('.k-audio-row'), function (row) {
+  Array.prototype.forEach.call(stage.querySelectorAll('.k-audio-row'), function (row) {
     var item = state.items[+row.getAttribute('data-i')];
     if (!item || !item.id) return;
     row.onclick = function (e) {
@@ -134,6 +166,16 @@ function wire() {
       window.kolbo.insertText(String(item.id));
     };
   });
+  Array.prototype.forEach.call(stage.querySelectorAll('[data-page]'), function (d) {
+    d.onclick = function () { var p = +d.getAttribute('data-page'); if (p !== page) { page = p; render(); } };
+  });
+  var prev = el('page-prev');
+  if (prev) prev.onclick = function () { if (page > 0) { page--; render(); } };
+  var next = el('page-next');
+  if (next) next.onclick = function () {
+    if (page < pageCount() - 1) { page++; render(); return; }
+    fetchNextPage(next);
+  };
 }
 
 window.kolbo.onToolResult(function (result) {

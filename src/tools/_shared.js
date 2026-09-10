@@ -990,7 +990,11 @@ async function uiCompleted(p, textPayload, extraContent) {
     // `settings` wiped the resolution / aspect / DNA chips off the finished
     // card. Every reader already does `sc.settings || {}`.
     ...(settings ? { settings } : {}),
-    visual_dnas: await resolveVisualDnas(p.client, (settings || {}).visual_dna_ids),
+    ...(Array.isArray(p.visual_dnas)
+      ? { visual_dnas: p.visual_dnas }
+      : Array.isArray(settings?.visual_dna_ids)
+        ? { visual_dnas: await resolveVisualDnas(p.client, settings.visual_dna_ids) }
+        : {}),
     moodboards: await resolveMoodboards(p.client, moodboardIds(settings)),
     ...mediaRefs(p),
     urls: preferOwnedUrls(p.urls),
@@ -1059,10 +1063,11 @@ const MAX_TEXT_CHARS = 20000;
  * @param {string[]} opts.fields  keys to keep per row, in order (others dropped)
  * @param {number}   [opts.cap]   max rows to include (default 50)
  * @param {number}   [opts.total] true total, so the model knows more exist
+ * @param {number}   [opts.maxChars] text budget; Infinity for bounded server pages that must remain complete
  * @param {object}   [opts.extra] extra top-level keys to merge in
  * @param {string}   [opts.note]  guidance on how to fetch the rest
  */
-function compactList(items, { fields, cap = 50, total, extra, note } = {}) {
+function compactList(items, { fields, cap = 50, total, extra, note, maxChars = MAX_TEXT_CHARS } = {}) {
   const rows = Array.isArray(items) ? items : [];
   const kept = rows.slice(0, cap).map((row) => {
     if (!row || typeof row !== 'object') return row;
@@ -1085,11 +1090,11 @@ function compactList(items, { fields, cap = 50, total, extra, note } = {}) {
   }
 
   let text = JSON.stringify(payload);
-  if (text.length > MAX_TEXT_CHARS) {
+  if (text.length > maxChars) {
     // Still too big even trimmed (very long descriptions). Halve until it fits
     // rather than returning something the host will truncate at a random byte.
     let n = kept.length;
-    while (n > 1 && text.length > MAX_TEXT_CHARS) {
+    while (n > 1 && text.length > maxChars) {
       n = Math.floor(n / 2);
       payload.items = kept.slice(0, n);
       payload.count = n;

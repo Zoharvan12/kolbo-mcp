@@ -21,7 +21,7 @@ const READ_ONLY = [
   'list_projects', 'get_project', 'list_sessions', 'list_project_context', 'get_project_profile',
   'list_project_assets',
   'list_session_generations',
-  'list_agents', 'list_docs', 'get_doc',
+  'list_agents', 'list_skills', 'list_docs', 'get_doc',
   'get_review_storage_usage', 'list_review_assets', 'get_review_asset',
   'list_review_collections', 'list_review_comments', 'list_review_share_links',
   'search_music_library', 'analyze_script_for_music', 'browse_music_library',
@@ -38,6 +38,7 @@ const OPEN_WORLD_READ_ONLY = [
 
 const PRIVATE_WRITE = [
   'upload_font', 'rename_font', 'create_font_upload_ticket', 'font_upload_widget',
+  'create_video_editor_session',
   'media_upload_widget', 'create_upload_ticket', 'upload_media',
   'favorite_media', 'unfavorite_media',
   'create_media_folder', 'update_media_folder',
@@ -56,7 +57,7 @@ const PRIVATE_WRITE = [
   'create_project', 'duplicate_project', 'update_project',
   'archive_project', 'unarchive_project', 'add_project_context',
   'link_project_asset', 'unlink_project_asset',
-  'create_agent',
+  'create_agent', 'create_skill',
   'create_doc',
   'create_review_asset', 'update_review_asset', 'add_review_version',
   'set_review_status', 'create_review_collection', 'update_review_collection',
@@ -67,6 +68,7 @@ const PRIVATE_WRITE = [
 
 const DESTRUCTIVE_WRITE = [
   'delete_font',
+  'export_video_editor_session',
   // These actions spend credits, enqueue irreversible work, or cancel it.
   'generate_image', 'generate_image_edit', 'generate_creative_director',
   'generate_video', 'generate_video_from_image', 'generate_music',
@@ -89,7 +91,7 @@ const DESTRUCTIVE_WRITE = [
   'delete_session',
   'delete_project_context', 'regenerate_project_profile',
   'update_project_asset',
-  'update_agent', 'delete_agent', 'update_doc', 'delete_doc',
+  'update_agent', 'delete_agent', 'update_skill', 'delete_skill', 'update_doc', 'delete_doc',
   'delete_review_asset', 'delete_review_collection',
   'edit_review_comment', 'delete_review_comment',
 ];

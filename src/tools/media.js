@@ -9,10 +9,8 @@ const { resolveToBuffer, DEFAULT_MAX_FILE_MB, compactList } = require('./_shared
 const { ownedUrl } = require('./owned-url');
 const { UI, uiResult, listResult } = require('../apps');
 
-// How many tiles the media grid renders. A rendering limit only — the text
-// payload always carries the full page, and `total` reports the real library
-// count, so a capped grid can never be mistaken for "that's everything".
-const GRID_CAP = 24;
+// Server pagination bounds the page. Never slice it again: both text readers
+// and the widget advance by the server's page size and would skip hidden rows.
 
 async function mintUploadTicket(client) {
   const ticket = await client.post('/v1/media/upload-ticket', {});
@@ -272,7 +270,8 @@ function registerMediaTools(server, client, options = {}) {
       // locates an item; get_media returns one in full.
       const text = compactList(media, {
         fields: ['id', 'filename', 'media_type', 'url', 'thumbnail_url', 'size', 'project_id', 'created_at'],
-        cap: 50,
+        cap: media.length,
+        maxChars: Infinity,
         total: pagination ? (pagination.total_items != null ? pagination.total_items : pagination.total) : media.length,
         extra: pagination ? { pagination } : undefined,
         note: 'Narrow with `type`, `category`, `project_id`, `folder_id`, or `search`; get_media returns one item in full.',
@@ -289,7 +288,7 @@ function registerMediaTools(server, client, options = {}) {
       const totalItems = pagination
         ? (pagination.total_items != null ? pagination.total_items : pagination.total)
         : null;
-      const items = media.slice(0, GRID_CAP).map((m) => ({
+      const items = media.map((m) => ({
         id: m.id,
         title: m.filename,
         subtitle: m.media_type + (m.size ? ' · ' + Math.round(m.size / 1024) + 'KB' : ''),
@@ -302,8 +301,9 @@ function registerMediaTools(server, client, options = {}) {
         widget: 'media-grid',
         title: 'Media Library',
         items,
-        total: totalItems != null ? totalItems : media.length,
-        shown: Math.min(media.length, GRID_CAP),
+        total: totalItems != null && totalItems >= 0 ? totalItems : null,
+        ...(typeof pagination?.has_next === 'boolean' ? { has_next: pagination.has_next } : {}),
+        shown: media.length,
         // Everything "Load more" needs to fetch page N+1 ITSELF. The button used
         // to send a chat message asking the model to run the next page, on the
         // belief that a widget cannot invoke a tool — it can
@@ -311,8 +311,8 @@ function registerMediaTools(server, client, options = {}) {
         // with). Worse, the payload carried no page and no filters, so the model
         // could not reconstruct the query either and typically re-ran page 1.
         page_tool: 'list_media',
-        page: page || 1,
-        page_size: page_size || 50,
+        page: pagination?.page || page || 1,
+        page_size: pagination?.page_size || page_size || 50,
         query: { project_id, folder_id, type, category, source_type, sort, search }
       });
     }

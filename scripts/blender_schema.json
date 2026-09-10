@@ -1,0 +1,862 @@
+{
+ "type": "object",
+ "properties": {
+  "session_id": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 128,
+   "pattern": "^[A-Za-z0-9._:-]+$",
+   "description": "Target Blender session id from blender_list_sessions. Omit only when exactly one active session exists."
+  },
+  "operations": {
+   "type": "array",
+   "items": {
+    "anyOf": [
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "object.create"
+        ]
+       },
+       "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "type": {
+        "type": "string",
+        "enum": [
+         "CUBE",
+         "SPHERE",
+         "CYLINDER",
+         "CONE",
+         "PLANE",
+         "EMPTY",
+         "CAMERA",
+         "LIGHT"
+        ]
+       },
+       "light_type": {
+        "type": "string",
+        "enum": [
+         "POINT",
+         "SUN",
+         "SPOT",
+         "AREA"
+        ]
+       },
+       "energy": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1000000000
+       },
+       "color": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "minItems": 3,
+        "maxItems": 4
+       },
+       "shadow_soft_size": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1000000000
+       },
+       "lens": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 10000
+       },
+       "collection": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "location": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": -1000000000,
+         "maximum": 1000000000
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       "rotation_euler": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": -1000000000,
+         "maximum": 1000000000
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       "scale": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": -1000000000,
+         "maximum": 1000000000
+        },
+        "minItems": 3,
+        "maxItems": 3
+       }
+      },
+      "required": [
+       "op",
+       "type"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "object.transform"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "location": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": -1000000000,
+         "maximum": 1000000000
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       "rotation_euler": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": -1000000000,
+         "maximum": 1000000000
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       "scale": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": -1000000000,
+         "maximum": 1000000000
+        },
+        "minItems": 3,
+        "maxItems": 3
+       }
+      },
+      "required": [
+       "op",
+       "object"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "object.rename"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "new_name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       }
+      },
+      "required": [
+       "op",
+       "object",
+       "new_name"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "object.delete"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       }
+      },
+      "required": [
+       "op",
+       "object"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "object.duplicate"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "new_name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "collection": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "location": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": -1000000000,
+         "maximum": 1000000000
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       "rotation_euler": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": -1000000000,
+         "maximum": 1000000000
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       "scale": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": -1000000000,
+         "maximum": 1000000000
+        },
+        "minItems": 3,
+        "maxItems": 3
+       }
+      },
+      "required": [
+       "op",
+       "object"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "object.set_parent"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "parent": {
+        "anyOf": [
+         {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+         },
+         {
+          "type": "null"
+         }
+        ]
+       }
+      },
+      "required": [
+       "op",
+       "object"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "collection.create"
+        ]
+       },
+       "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "parent": {
+        "anyOf": [
+         {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+         },
+         {
+          "type": "null"
+         }
+        ]
+       }
+      },
+      "required": [
+       "op",
+       "name"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "collection.delete"
+        ]
+       },
+       "collection": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       }
+      },
+      "required": [
+       "op",
+       "collection"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "collection.link_object"
+        ]
+       },
+       "collection": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       }
+      },
+      "required": [
+       "op",
+       "collection",
+       "object"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "material.create"
+        ]
+       },
+       "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "base_color": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "minItems": 3,
+        "maxItems": 4
+       },
+       "roughness": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "metallic": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "alpha": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "emission_color": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "minItems": 3,
+        "maxItems": 4
+       },
+       "emission_strength": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1000000000
+       }
+      },
+      "required": [
+       "op",
+       "name"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "material.assign"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "material": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "replace": {
+        "type": "boolean"
+       }
+      },
+      "required": [
+       "op",
+       "object",
+       "material"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "material.set_principled"
+        ]
+       },
+       "material": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "base_color": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "minItems": 3,
+        "maxItems": 4
+       },
+       "roughness": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "metallic": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "alpha": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "emission_color": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "minItems": 3,
+        "maxItems": 4
+       },
+       "emission_strength": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1000000000
+       }
+      },
+      "required": [
+       "op",
+       "material"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "world.set_color"
+        ]
+       },
+       "color": {
+        "type": "array",
+        "items": {
+         "type": "number",
+         "minimum": 0,
+         "maximum": 1
+        },
+        "minItems": 3,
+        "maxItems": 4
+       }
+      },
+      "required": [
+       "op",
+       "color"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "modifier.add"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "type": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]{0,63}$"
+       },
+       "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "properties": {
+        "type": "object",
+        "additionalProperties": {
+         "anyOf": [
+          {
+           "anyOf": [
+            {
+             "type": "string",
+             "minLength": 1,
+             "maxLength": 256
+            },
+            {
+             "type": "number",
+             "minimum": -1000000000,
+             "maximum": 1000000000
+            },
+            {
+             "type": "boolean"
+            }
+           ]
+          },
+          {
+           "type": "array",
+           "items": {
+            "anyOf": [
+             {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+             },
+             {
+              "type": "number",
+              "minimum": -1000000000,
+              "maximum": 1000000000
+             },
+             {
+              "type": "boolean"
+             }
+            ]
+           },
+           "maxItems": 16
+          }
+         ]
+        }
+       }
+      },
+      "required": [
+       "op",
+       "object",
+       "type"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "modifier.configure"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "modifier": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "properties": {
+        "type": "object",
+        "additionalProperties": {
+         "anyOf": [
+          {
+           "anyOf": [
+            {
+             "type": "string",
+             "minLength": 1,
+             "maxLength": 256
+            },
+            {
+             "type": "number",
+             "minimum": -1000000000,
+             "maximum": 1000000000
+            },
+            {
+             "type": "boolean"
+            }
+           ]
+          },
+          {
+           "type": "array",
+           "items": {
+            "anyOf": [
+             {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+             },
+             {
+              "type": "number",
+              "minimum": -1000000000,
+              "maximum": 1000000000
+             },
+             {
+              "type": "boolean"
+             }
+            ]
+           },
+           "maxItems": 16
+          }
+         ]
+        }
+       }
+      },
+      "required": [
+       "op",
+       "object",
+       "modifier",
+       "properties"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "modifier.remove"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "modifier": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       }
+      },
+      "required": [
+       "op",
+       "object",
+       "modifier"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "camera.set_active"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       }
+      },
+      "required": [
+       "op",
+       "object"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "animation.keyframe_insert"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "data_path": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "frame": {
+        "type": "integer",
+        "minimum": -1048574,
+        "maximum": 1048574
+       },
+       "index": {
+        "type": "integer",
+        "minimum": -1,
+        "maximum": 1024
+       }
+      },
+      "required": [
+       "op",
+       "object",
+       "data_path",
+       "frame"
+      ],
+      "additionalProperties": false
+     },
+     {
+      "type": "object",
+      "properties": {
+       "op": {
+        "type": "string",
+        "enum": [
+         "animation.delete_keyframe"
+        ]
+       },
+       "object": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "data_path": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+       },
+       "frame": {
+        "type": "integer",
+        "minimum": -1048574,
+        "maximum": 1048574
+       },
+       "index": {
+        "type": "integer",
+        "minimum": -1,
+        "maximum": 1024
+       }
+      },
+      "required": [
+       "op",
+       "object",
+       "data_path",
+       "frame"
+      ],
+      "additionalProperties": false
+     }
+    ]
+   },
+   "minItems": 1,
+   "maxItems": 100,
+   "description": "Strict top-level operation objects. Use the exact dotted op and only fields accepted by that operation."
+  },
+  "idempotency_key": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 128,
+   "pattern": "^[A-Za-z0-9._:-]+$",
+   "description": "Optional replay-safe key. Reuse it only when retrying the same command."
+  }
+ },
+ "required": [
+  "operations"
+ ],
+ "additionalProperties": false,
+ "$schema": "http://json-schema.org/draft-07/schema#"
+}

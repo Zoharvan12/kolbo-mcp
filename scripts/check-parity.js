@@ -35,6 +35,7 @@ const SDK_INDEX = path.join(KOLBO_API, 'src', 'modules', 'sdk', 'index.js');
 // scanning them here, the parity check would false-positive every release.
 // Add new entries when MCP tools call out to non-SDK route modules.
 const EXTRA_ROUTE_SOURCES = [
+  { file: path.join(KOLBO_API, 'src', 'modules', 'fonts', 'index.js'), mountPath: '/v1/fonts' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'creditUsage', 'index.js'), mountPath: '/credit-usage' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'artifact', 'routes.js'), mountPath: '/v1/artifact' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'blender', 'index.js'), mountPath: '/v1/blender' },
@@ -44,6 +45,10 @@ const MCP_TOOLS_DIR = path.join(MCP_REPO, 'src', 'tools');
 // SDK routes intentionally NOT exposed via MCP (deprecated or internal).
 // Add a route here to silence the GAP warning without needing an MCP tool.
 const KNOWN_GAPS = new Set([
+  // App-owner provisioning is an explicit server-side SDK operation, not a creative agent tool.
+  'PUT /v1/apps/:param/fonts',
+  // Authenticated binary previews are consumed by the font library UI, not an MCP tool.
+  'GET /v1/fonts/:param/styles/:param/preview',
   // Only consumer was app_builder_list_projects, unregistered in v1.45.0 when
   // App Builder was pulled from the tool surface. The SDK route still exists for
   // non-MCP clients; list_projects covers the MCP case.
@@ -61,6 +66,7 @@ const KNOWN_GAPS = new Set([
 // The real SDK route is the version WITHOUT the suffix — list the normalised form here.
 const KNOWN_STALE = new Set([
   'GET /v1/agents:param', // agents.js: client.get(`/v1/agents${qs}`) — qs is a query string, not a path segment
+  'GET /v1/skills:param', // same call under the current '/skills' vocabulary
 ]);
 
 function readFileOrBail(p) {
@@ -123,11 +129,79 @@ function normalizeTemplatePath(raw) {
   return normalizePath(out);
 }
 
+// A loop that registers the SAME handlers under several bases is publishing ALIASES,
+// not distinct endpoints: kolbo-api serves the skills CRUD at both '/skills' (current
+// vocabulary) and '/agents' (the original, which published npm versions still call and
+// which must never be withdrawn). The MCP only ever calls ONE of them, so demanding a
+// tool per alias would report a permanent, unfixable gap. Group them by the loop that
+// produced them and require a caller for the GROUP, not for each member.
+const ALIAS_GROUPS = [];
+
+function recordAliasGroups(variants) {
+  // variants[i] is the whole loop body rendered for base i. The n-th route inside each
+  // body is the same handler under a different base, so transpose: one group per route
+  // position, holding that route under every base.
+  const re = /router\.(post|get|delete|put|patch)\(\s*['"`]([^'"`]+)['"`]/g;
+  const perVariant = variants.map(v => [...v.matchAll(re)].map(m => `${m[1].toUpperCase()} ${normalizePath(m[2])}`));
+  if (perVariant.length < 2) return;
+  const width = Math.min(...perVariant.map(r => r.length));
+  for (let i = 0; i < width; i++) {
+    ALIAS_GROUPS.push(new Set(perVariant.map(r => r[i])));
+  }
+}
+
+function aliasGroupSatisfied(route, mcpCalls, mcpLoosePaths) {
+  const group = ALIAS_GROUPS.find(g => g.has(route));
+  if (!group) return false;
+  for (const sibling of group) {
+    const [, siblingPath] = sibling.split(' ', 2);
+    if (mcpCalls.has(sibling) || mcpLoosePaths.has(siblingPath)) return true;
+  }
+  return false;
+}
+
+// Express lets a route table be built in a loop, and kolbo-api uses one to serve the
+// skills tools under BOTH vocabularies:
+//   for (const skillsBase of ['/skills', '/agents']) { router.get(skillsBase, ...) }
+// A regex looking for a string literal after `router.get(` matches none of those, so
+// every looped route reads as "missing from the SDK" and the gate fails on routes that
+// are live in production. Unroll such blocks before scanning: for each literal in the
+// array, emit a copy of the body with the loop variable substituted, folding
+// `'/skills' + '/:id'` into `'/skills/:id'` so the normal parser can read it.
+function unrollRouteLoops(src) {
+  const re = /for\s*\(\s*const\s+(\w+)\s+of\s*\[([^\]]+)\]\s*\)\s*\{/g;
+  let out = src;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const header = m[0];
+    const varName = m[1];
+    const literals = [...m[2].matchAll(/['"`]([^'"`]+)['"`]/g)].map(x => x[1]);
+    if (!literals.length) continue;
+    // Walk from the header's opening brace to its match so nested blocks stay whole.
+    const start = m.index + header.length - 1;
+    let depth = 0;
+    let end = -1;
+    for (let i = start; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) { end = i; break; }
+    }
+    if (end === -1) continue;
+    const body = src.slice(start + 1, end);
+    const variants = literals.map(lit => body
+      .replace(new RegExp('\\b' + varName + '\\b', 'g'), "'" + lit + "'")
+      .replace(/'([^']*)'\s*\+\s*'([^']*)'/g, "'$1$2'")
+    );
+    recordAliasGroups(variants);
+    out += '\n' + variants.join('\n');
+  }
+  return out;
+}
 function parseSdkRoutes(src) {
   // Match router.METHOD('/path', ...) for POST/GET/DELETE/PUT/PATCH
   const re = /router\.(post|get|delete|put|patch)\(\s*['"`]([^'"`]+)['"`]/g;
   const routes = new Set();
   let m;
+  src = unrollRouteLoops(src);
   while ((m = re.exec(src)) !== null) {
     const method = m[1].toUpperCase();
     const p = normalizePath(m[2]);
@@ -277,7 +351,8 @@ const { calls: mcpCalls, loosePaths: mcpLoosePaths } = parseMcpToolCalls();
 const missingInMcp = [];
 for (const route of sdkRoutes) {
   const [, routePath] = route.split(' ', 2);
-  if (!mcpCalls.has(route) && !mcpLoosePaths.has(routePath) && !KNOWN_GAPS.has(route)) {
+  if (!mcpCalls.has(route) && !mcpLoosePaths.has(routePath) && !KNOWN_GAPS.has(route)
+      && !aliasGroupSatisfied(route, mcpCalls, mcpLoosePaths)) {
     missingInMcp.push(route);
   }
 }

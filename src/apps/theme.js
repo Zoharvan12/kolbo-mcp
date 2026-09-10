@@ -354,18 +354,64 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
 .k-input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
 .k-input::placeholder { color: var(--text-faint); }
 
-/* ---- Grid widget (media / stock / presets) ---- */
-.k-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
-.k-cell { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
-  background: var(--surface); cursor: pointer; transition: transform 250ms var(--spring); }
-.k-cell:hover { transform: translateY(-2px) scale(1.01); }
-.k-cell .k-cell-media { position: relative; aspect-ratio: 1; background: #000; }
-.k-cell .k-cell-media img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.k-cell-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
-.k-cell .k-cell-label { padding: 6px 8px; font-size: 11px; color: var(--text-muted);
+/* ---- Paged media grid (library / stock / presets / DNAs / moodboards) ----
+   Media-first tiles: the artwork IS the row. A title rides a gradient scrim
+   INSIDE the tile instead of a text block under it, so a page of results reads
+   as a contact sheet rather than a list of captions. No backdrop-filter on the
+   scrim for the same reason .k-gen-badge has none — a dozen blurred strips over
+   a dozen images forces a per-frame backdrop re-sample on phones. */
+.k-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+/* Narrow hosts (Kolbo Code sidebar, phone): step down instead of shrinking
+   tiles below a thumbnail worth looking at. The 520px block further down wins
+   under 520 and takes it to 2. */
+@media (max-width: 620px) { .k-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.k-tile { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+  transition: transform 250ms var(--spring), box-shadow 250ms var(--smooth), border-color 150ms var(--smooth); }
+.k-tile:hover { transform: translateY(-2px); border-color: var(--border-strong);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42); }
+.k-tile img, .k-tile video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.k-tile-fb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--text-faint); font-size: 24px; }
+.k-tile-cap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; pointer-events: none;
+  padding: 20px 8px 7px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.78)); }
+.k-tile-t { font-size: 11px; font-weight: 600; color: #fff;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.k-cell .k-cell-sub { padding: 0 8px 7px; font-size: 10px; color: var(--text-faint);
+.k-tile-s { font-size: 10px; color: rgba(255, 255, 255, 0.66);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Hover actions, revealed on pointer devices and always-on where there is no
+   hover — a touch host must never hide the only Use affordance. */
+.k-tile-acts { position: absolute; top: 6px; right: 6px; z-index: 3; display: flex; gap: 4px;
+  opacity: 0; transition: opacity 150ms var(--smooth); }
+.k-tile:hover .k-tile-acts, .k-tile:focus-within .k-tile-acts { opacity: 1; }
+@media (hover: none) { .k-tile-acts { opacity: 1; } }
+.k-tile-act { width: 26px; height: 26px; padding: 0; border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(0, 0, 0, 0.62); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: background 150ms var(--smooth); }
+.k-tile-act:hover { background: var(--brand); border-color: var(--brand); }
+.k-tile-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2; }
+
+/* ---- Pager (media grid + list) ----
+   A page of results at a fixed card height, instead of a card that grows a row
+   every time you ask for more. Forward past the last loaded page still goes
+   through the server's page_tool + next_args contract. */
+.k-pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; }
+.k-pager-btn { width: 28px; height: 28px; padding: 0; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  box-shadow: var(--specular); display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: background 150ms var(--smooth); }
+.k-pager-btn:hover:not(:disabled) { background: var(--border-strong); }
+.k-pager-btn:disabled { opacity: 0.3; cursor: default; }
+.k-dots { display: flex; align-items: center; gap: 6px; }
+.k-dot { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--text); opacity: 0.28;
+  transition: width 220ms var(--spring), opacity 150ms var(--smooth); }
+.k-dot:hover { opacity: 0.6; }
+.k-dot.on { width: 22px; opacity: 0.95; cursor: default; }
+.k-dot.ghost { cursor: default; opacity: 0.14; }
+.k-pager-label { font-size: 11px; color: var(--text-faint);
+  font-family: 'JetBrains Mono', ui-monospace, monospace; min-width: 58px; text-align: center; }
 
 /* ---- Audio rows ---- */
 .k-audio-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px;
@@ -405,6 +451,8 @@ html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
   .k-body { padding: 10px 12px 12px; }
   .k-footer { padding: 8px 12px 12px; }
   .k-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .k-tile-act { width: 30px; height: 30px; }
+  .k-pager-btn { width: 34px; height: 34px; }
   .k-actions { flex-direction: column; align-items: stretch; }
   .k-actions .k-btn { width: 100%; min-height: 44px; justify-content: center; }
   .k-btn { min-height: 40px; padding: 10px 14px; }

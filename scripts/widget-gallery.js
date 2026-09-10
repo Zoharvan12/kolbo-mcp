@@ -218,7 +218,7 @@ function build() {
     result: Object.assign({ widget: 'media-grid', title, items, total: items.length, page_tool: tool, next_args: { page: 2 } }, extra || {}),
     calls: { [tool]: [2, 3].map((page) => ({ structuredContent: { widget: 'media-grid', items: gridItems(4, 'image').map((x, i) => Object.assign(x, { id: 'more-' + page + '-' + i })), page, next_args: page < 3 ? { page: page + 1 } : undefined }, content: [{ type: 'text', text: '{}' }] })) },
   });
-  scenarios.push(grid('list_media', 'Media Library — images + video, Load more', gridItems(6, 'image').concat(gridItems(2, 'video')), { total: 24, shown: 8, page: 1, page_tool: 'list_media', query: { type: 'all' }, page_size: 8 }));
+  scenarios.push(grid('list_media', 'Media Library — images + video, paged', gridItems(6, 'image').concat(gridItems(2, 'video')), { total: 24, shown: 8, page: 1, page_tool: 'list_media', query: { type: 'all' }, page_size: 8 }));
   scenarios.push(grid('list_media', 'Media Library — empty', [], { total: 0 }));
   scenarios.push(grid('list_presets', 'Presets — image', Array.from({ length: 12 }, (_, i) => ({ id: 'preset-' + i, title: 'Preset ' + (i + 1), subtitle: ['portrait', 'product', 'storyboard'][i % 3], thumbnail: i % 2 ? IMG2 : IMG, media_type: 'image', url: i % 2 ? IMG2 : IMG, use_hint: 'Use preset "{TITLE}" (preset_id: {ID})' })), { total: 146 }));
   scenarios.push(grid('list_voices', 'Voices — audio rows with preview', gridItems(5, 'audio').map((x, i) => Object.assign(x, { title: ['Rachel', 'Adam', 'Kore', 'Noa', 'Omer'][i], subtitle: 'ElevenLabs · en · female', thumbnail: IMG2 })), { total: 5 }));
@@ -234,7 +234,7 @@ function build() {
     result: Object.assign({ widget: 'list', title, items, total: items.length }, extra || {}),
     calls: { [tool]: [{ structuredContent: { widget: 'list', items: [{ id: 'p-more-1', title: 'Loaded page 2 item', subtitle: 'via next_args' }], next_args: undefined }, content: [{ type: 'text', text: '{}' }] }] },
   });
-  scenarios.push(list('list_projects', 'Projects — paged (Load more)', [
+  scenarios.push(list('list_projects', 'Projects — paged', [
     { id: 'proj-1', title: 'Falafel Campaign', subtitle: 'Owner · 12 sessions', badge: 'owner', meta: 'today', open_url: 'https://app.kolbo.ai/' },
     { id: 'proj-2', title: 'API Generations', subtitle: 'auto-created', badge: 'default', meta: '2d ago' },
     { id: 'proj-3', title: 'Shared with me', subtitle: 'edit access', badge: 'shared' },

@@ -182,15 +182,24 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
   Only `edit_image` / `edit_video` pass no type (operation-routed, no single type).
   Guarded by `check-model-catalog.js` §5, which asserts the resolution AND that each
   tool actually passes its type.
-- **Load more is a server contract: `page_tool` + `next_args`.** A media-grid or
-  list payload gets a Load more button ONLY when it carries `page_tool` (the tool to
-  call) and `next_args` (the exact args for the NEXT page — the server knows its own
-  arg names: page/limit, offset, cursor). Each page's response carries the following
-  page's `next_args`; none means last page. A tool with no server pagination ships
-  everything (cap 300) so no button appears. Before 1.87.8 only `list_media` said how
-  to page, so every other grid rendered a Load more that did nothing. Guarded by
-  `loadMoreFollowsNextArgs` in `check-widget-render.js`. In Kolbo Code the bridge
-  forwards any widget `tools/call` to `POST /mcp/kolbo/call` (2.4.30+).
+- **Grids are PAGED contact sheets, not growing lists.** `media-grid` renders one
+  page of square `.k-tile`s (12; 6 when the payload is mostly audio rows) with a
+  `.k-pager` — chevrons + dot pills — underneath, so the card keeps a constant
+  height whatever the result count. `list` uses the same pager at 8 rows. Titles ride
+  a gradient scrim INSIDE the tile (`.k-tile-cap`), never a text block under it, and
+  Use/Download are hover buttons (`@media (hover:none)` pins them on for touch hosts).
+  No backdrop-filter on the scrim — a dozen blurred strips over a dozen images forces
+  a per-frame backdrop re-sample on phones, same reason `.k-gen-badge` has none.
+- **Paging is a server contract: `page_tool` + `next_args`.** Back/Next walk the
+  pages already in `state.items` with no network call; Next PAST the last loaded page
+  calls the server, and only when the payload carries `page_tool` (the tool to call)
+  and `next_args` (the exact args for the NEXT page — the server knows its own arg
+  names: page/limit, offset, cursor). Each page's response carries the following
+  page's `next_args`; none means last page and the Next control retires itself. A
+  tool with no server pagination ships everything (cap 300). Before 1.87.8 only
+  `list_media` said how to page, so every other grid rendered a Load more that did
+  nothing. Guarded by `pagerFollowsNextArgs` in `check-widget-render.js`. In Kolbo
+  Code the bridge forwards any widget `tools/call` to `POST /mcp/kolbo/call` (2.4.30+).
 - **Never show a raw id on a card.** Generation cards identify the model and the
   voice by their CLEAN catalog name + icon/portrait. `modelInfo()` / `voiceInfo()`
   (`src/apps/index.js`, both cached 10 min off `/v1/models` and `/v1/voices`) do the
@@ -281,7 +290,13 @@ src/tools/presets.js     — Preset discovery (list_presets — unified across c
 src/tools/artifacts.js   — Artifact publishing (publish_html_artifact)
 src/tools/docs.js        — AI Docs / Magic Pad (create_doc, list_docs, get_doc, update_doc, share_doc, delete_doc)
 src/tools/projects.js   — Project scoping (list_projects — resolve a project name to the ObjectId you pass as project_id on any generation tool) + CAST roster (list/link/unlink/update_project_asset — tag DNAs/moodboards and write each DNA description) + session ORGANIZATION (move_session / bulk_move_sessions between projects; list_session_generations / move_generations_to_session / split_session between sessions; undo_session_organization). All of the organization tools are thin passthroughs to kolbo-api modules/sessionOrganization/service.js — never re-implement a move client-side.
-src/tools/agents.js      — Custom chat agents CRUD (list_agents, create_agent, update_agent, delete_agent — reusable named personas; `description` is the system instruction)
+src/tools/editor.js      — Video Editor bridge (create_video_editor_session, export_video_editor_session).
+                           Both routes answer INLINE — a session/export id comes back, there is nothing to poll.
+                           Export is snapshot-idempotent: re-send the returned job_id rather than rebuilding the timeline.
+src/tools/agents.js      — Skills CRUD, registered under BOTH vocabularies from one definition:
+                           list_skills/create_skill/update_skill/delete_skill (current) and
+                           list_agents/create_agent/update_agent/delete_agent (original, never remove).
+                           Reusable named personas; `description` is the system instruction.
 src/tools/stock_library.js — Multi-source stock media (search, sources, categories, asset, analyze-script, import) over Pexels/Pixabay/Sketchfab/Music
 src/tools/music_library.js — SYNCI preview discovery plus idempotent paid clean MP3/WAV acquisition/import
 scripts/smoke.js         — Load-time smoke test (no network)
@@ -298,7 +313,7 @@ scripts/check-widget-fields.js, check-skill-tools.js, check-install.js — addit
                             (prepublishOnly chains all five: smoke → parity → widget-fields → skill-tools → install)
 ```
 
-## Available Tools (118 registered)
+## Available Tools (185 registered)
 
 Every generation tool below also accepts an optional `project_id` arg that routes the generation into a specific project (owner + edit/full shares). Call `list_projects` to discover IDs. Omit to fall back to the user's auto-created "API Generations" project. `project_id` is per-call, NOT sticky — pass it on every call once the user names a working project. Misplaced work is recoverable via `move_media` / `move_session`.
 
@@ -310,8 +325,8 @@ Every generation tool below also accepts an optional `project_id` arg that route
 **Generation** (`src/tools/generate.js`)
 | Tool | Route | Timeout | Composition args |
 |------|-------|---------|-----------------|
-| `generate_image` | `POST /v1/generate/image` | 150s | `visual_dna_ids`, `moodboard_id`, `preset_id` (from `list_presets type="image"`), `reference_images`, `num_images`, `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette`, `prompts[]` (batch fan-out, v1.57+) |
-| `generate_image_edit` | `POST /v1/generate/image-edit` | 150s | `source_images`, `visual_dna_ids`, `moodboard_id`, `preset_id` (from `list_presets type="image_edit"`), `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette` |
+| `generate_image` | `POST /v1/generate/image` | 150s | `visual_dna_ids`, `moodboard_id`, `preset_id` (from `list_presets type="image"`), `reference_images`, `num_images`, `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette`, `background` (`transparent` only when `supports_transparent_background=true`; PNG/WebP), `prompts[]` (batch fan-out, v1.57+) |
+| `generate_image_edit` | `POST /v1/generate/image-edit` | 150s | `source_images`, `visual_dna_ids`, `moodboard_id`, `preset_id` (from `list_presets type="image_edit"`), `enable_web_search`, `resolution`, `cinematic`, `skip_color_palette`, `background` (`transparent` only when `supports_transparent_background=true`; PNG/WebP) |
 | `generate_video` | `POST /v1/generate/video` | 150s | `visual_dna_ids`, `reference_images`, `resolution`, `sound_enabled`, `skip_color_palette`, `prompts[]` (batch fan-out, v1.57+) |
 | `generate_video_from_image` | `POST /v1/generate/video/from-image` | 150s | `image_url`, `visual_dna_ids`, `aspect_ratio`, `resolution`, `sound_enabled`, `skip_color_palette` |
 | `generate_video_from_video` | `POST /v1/generate/video-from-video` | 150s | `source_video` (URL or local), optional `prompt`, `visual_dna_ids`, `resolution`; VEED Subtitles: `preset` / `source_language` / `translation_language` / `srt_content` / `srt_file_url` / `vocabulary` / `customization` |

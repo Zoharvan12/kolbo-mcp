@@ -8,6 +8,10 @@ Use `list_fonts` / `get_font` to discover My Fonts. Local stdio clients upload o
 
 Only models reporting `supports_custom_fonts: true` accept these selections. Fonts and backend-generated specimens never go through media upload. See [Personal Fonts](https://docs.kolbo.ai/developer-api/personal-fonts). Availability requires a published client and deployed backend containing these tools; source changes alone do not update installed clients.
 
+## No-background images
+
+`generate_image` and `generate_image_edit` accept `background: "transparent"` for models whose `list_models` record reports `supports_transparent_background: true`. Kolbo also appends the exact phrase `no background` once to the effective prompt, while the structured setting requests the native alpha channel through the configured provider route. Use `output_format: "png"` or `"webp"` (PNG is selected automatically when omitted). Prompt wording alone is not sufficient, and unsupported models reject the request instead of silently returning an opaque image.
+
 Use [Kolbo AI](https://kolbo.ai) as native tools in Claude Code and Claude Desktop via MCP (Model Context Protocol).
 
 Generate images, videos, music, speech, sound effects, multi-scene campaigns, and conversational chat — all from natural language in your coding environment. 100+ AI models behind Smart Select routing, with reusable Visual DNA profiles for character/style consistency.
@@ -278,7 +282,9 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `generate_character_sheet` | Generate a multi-angle character sheet from reference images (credits) → pass URL to create_visual_dna or update_visual_dna |
 | `list_visual_dna_folders` / `create_visual_dna_folder` / `update_visual_dna_folder` / `delete_visual_dna_folder` / `move_visual_dna_to_folder` | Organize Visual DNA characters into user folders (create/rename/recolor/delete + move DNAs in/out) |
 | `create_project` / `update_project` / `archive_project` / `unarchive_project` | Project lifecycle (create/rename/describe/archive; deletion stays in-app) |
-| `list_agents` / `create_agent` / `update_agent` / `delete_agent` | Custom chat agents (reusable named personas; `description` is the system instruction) |
+| `list_skills` / `create_skill` / `update_skill` / `delete_skill` | Skills — reusable named personas for the chat tool; `description` is the system instruction |
+| `list_agents` / `create_agent` / `update_agent` / `delete_agent` | Same four tools under their original names. Still supported and unchanged; new integrations should use the `*_skill` names |
+| `create_video_editor_session` / `export_video_editor_session` | Build an editable timeline from Kolbo-hosted clips, audio and text, then export it to MP4. No new media is generated; identical snapshots reuse the same export job |
 | `get_creative_director_status` | Re-check a Creative Director batch by generation_id until all parallel scenes finish (use after a `_timed_out` Director run) |
 | `list_sessions` | Enumerate sessions across all types, filterable by project, `type`, and `types[]` |
 | `rename_session` / `delete_session` / `restore_session` | Rename a session; soft-delete leftovers after a move; restore from trash |
@@ -307,4 +313,4 @@ Both are optional — the local install logs in via the browser on first use.
 
 ### Chat thinking level
 
-`chat_send_message` accepts optional `thinking_level`, using an ID from `list_models` with `type: "text"`. The server validates it against the resolved model; omitted or invalid values use `thinkingDefault`. Existing safeguards and legacy `deep_think` take precedence. Discover allowed levels through `thinkingLevels`; no package update is required when the server changes a model capability.
+`chat_send_message` accepts optional `thinking_level`, using an ID from `list_models` with `type: "text"`. The server validates it against the resolved model; omitted or invalid values use `thinkingDefault`. Existing safeguards and legacy `deep_think` take precedence. Discover allowed levels through `thinkingLevels`; no package update is required when the server changes a model capability. For the Auto model, optional `routing_mode` accepts `fast`, `balanced`, or `smart`; omitted uses the server default of `balanced`.

@@ -20,11 +20,12 @@ function registerChatTools(server, client) {
       web_search: z.boolean().optional().describe('Enable web search for this message. Default: false'),
       deep_think: z.boolean().optional().describe('Enable deep think (extended reasoning). Default: false'),
       thinking_level: z.string().optional().describe('Thinking effort ID from list_models type="text" thinkingLevels. The server uses the model catalog default when omitted or invalid. Separate from legacy deep_think; safeguards take precedence.'),
+      routing_mode: z.enum(['fast', 'balanced', 'smart']).optional().describe('Auto routing mode. Use fast, balanced, or smart when model is Auto; omitted uses the server default (balanced).'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       media_urls: z.array(z.string()).optional().describe('Public URLs of images, videos, or audio files to analyze. The model auto-routes to a vision-capable model when media is present. For a local file, get a URL first via the LOCAL FILE route in this tool\'s description.'),
       project_id: projectIdField
     },
-    async ({ message, model, session_id, system_prompt, web_search, deep_think, thinking_level, enhance_prompt = false, media_urls, project_id }) => {
+    async ({ message, model, session_id, system_prompt, web_search, deep_think, thinking_level, routing_mode, enhance_prompt = false, media_urls, project_id }) => {
       // Every generate_* tool resolves its model this way; chat was the one
       // `model` arg that went straight to the API, which has no fuzzy matching.
       // So the display names list_models hands back ("Claude Fable 5") came
@@ -40,6 +41,7 @@ function registerChatTools(server, client) {
         web_search,
         deep_think,
         ...(thinking_level !== undefined ? { thinking_level } : {}),
+        ...(routing_mode !== undefined ? { routing_mode } : {}),
         enhance_prompt,
         media_urls,
         project_id

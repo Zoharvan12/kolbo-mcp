@@ -659,6 +659,7 @@ function renderCancelled(creditsRefunded) {
 var MAX_POLL_MS = 35 * 60 * 1000;
 var MAX_POLL_ERRORS = 30;
 var pollStart = 0, pollErrors = 0;
+var pollInFlight = false;
 var cancelRequested = false;   // set by the Stop button; freezes the poll loop
 
 /* ---------- offscreen gate ----------
@@ -696,6 +697,7 @@ function releaseSeen() {
 
 function schedulePoll(sc) {
   if (cancelRequested) return;
+  if (!sc.generation_id && !(sc.generation_ids && sc.generation_ids.length) && !sc.status_args) return;
   if (!seen) { whenSeenFns.push(function () { schedulePoll(sc); }); return; }
   // The call itself long-waits server-side, for one transport-safe window
   // (~45s over the remote connector — see WAIT_WINDOW_MS in tools/generate.js).
@@ -707,12 +709,15 @@ function schedulePoll(sc) {
   pollTimer = setTimeout(function () { poll(sc); }, delay);
 }
 function poll(sc) {
-  if (cancelRequested) return;
+  if (cancelRequested || pollInFlight) return;
   if (pollStart && (Date.now() - pollStart) > MAX_POLL_MS) {
     return renderTrackingIssue('This is still running longer than the tracking window. Do not retry it — any completed result will appear in your Kolbo library.');
   }
   var args = sc.status_args || { generation_id: sc.generation_id, wait: true };
+  pollInFlight = true;
   window.kolbo.callTool(sc.poll_tool || 'get_generation_status', args).then(function (res) {
+    pollInFlight = false;
+    if (cancelRequested || (state && (state.phase === 'completed' || state.phase === 'failed'))) return;
     var st = structured(res) || {};
     var stateName = st.state || st.phase || st.status;
     // A failed status CALL (tool error / not-found / {success:false}) is not a
@@ -766,6 +771,8 @@ function poll(sc) {
       schedulePoll(sc);
     }
   }).catch(function () {
+    pollInFlight = false;
+    if (cancelRequested || (state && (state.phase === 'completed' || state.phase === 'failed'))) return;
     if (++pollErrors >= MAX_POLL_ERRORS) return renderTrackingIssue('Tracking paused after repeated connection errors. The generation may still be running.');
     schedulePoll(sc);
   });
@@ -1340,20 +1347,20 @@ var PRE_VIDEO_KEYS = ['source_video', 'reference_videos'];
 var PRE_AUDIO_KEYS = ['audio', 'audio_url', 'reference_audio_urls', 'seed_reference_audio_urls'];
 
 // The card mounts the moment the tool is CALLED, so the only thing it knows is
-// the raw tool input - and for an edit/elements call the submit that follows is
+// the raw tool input — and for an edit/elements call the submit that follows is
 // the LONGEST wait on the card (local files are re-hosted first). Map the input
 // onto the same shape renderChips already reads for a server payload so the
 // references, DNA count and settings are on screen immediately instead of after
 // a minute of blank skeleton.
 // Deliberately NOT shown here: model, voice, DNA and moodboard NAMES. Those are
 // resolved server-side and arrive with the result (which overwrites all of
-// this) - rendering the raw identifier the caller passed would put an id on the
+// this) — rendering the raw identifier the caller passed would put an id on the
 // card, which is never allowed.
 function preRefSc(toolName, a) {
   var img = [], vid = [], aud = [];
   var take = function (v, bucket) {
     if (typeof v === 'string') {
-      // http(s) only - an absolute local path is not loadable from the iframe.
+      // http(s) only — an absolute local path is not loadable from the iframe.
       if (/^https?:/i.test(v) && bucket.indexOf(v) < 0) bucket.push(v);
       return;
     }
@@ -1484,6 +1491,8 @@ function completedFromPlain(sc) {
 }
 
 /* ---------- wire host events ---------- */
+// Paint before the host handshake: tool input may arrive late or be withheld.
+bootPre(null, null);
 window.kolbo.onToolResult(function (result) {
   var sc = result.structuredContent || structured(result);
   var list = listPayload(sc);

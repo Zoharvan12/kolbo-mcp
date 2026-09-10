@@ -36,6 +36,22 @@ const BRIDGE_JS = `
   var queue = [];        // deferred host-bound sends until initialized
   var hostContext = null;
   var readyFns = [], toolResultFns = [], themeFns = [], toolInputFns = [];
+  var latestResult, latestInput;
+  function deliver(f, args) {
+    try { f.apply(null, args); }
+    catch (e) {
+      console.error('Kolbo widget render failed', e);
+      var card = document.querySelector('.k-card');
+      var notice = document.getElementById('kolbo-render-error');
+      if (card && !notice) {
+        notice = document.createElement('div');
+        notice.id = 'kolbo-render-error';
+        notice.setAttribute('role', 'alert');
+        notice.textContent = 'This preview could not update. Your generation may still be running. Reopen this card or check your Kolbo library.';
+        card.appendChild(notice);
+      }
+    }
+  }
 
   function post(msg) { window.parent.postMessage(msg, '*'); }
 
@@ -67,11 +83,13 @@ const BRIDGE_JS = `
       return;
     }
     if (m.method === 'ui/notifications/tool-result') {
-      toolResultFns.forEach(function (f) { try { f(m.params || {}); } catch (e) {} });
+      latestResult = m.params || {};
+      toolResultFns.forEach(function (f) { deliver(f, [latestResult]); });
     } else if (m.method === 'ui/notifications/tool-input' || m.method === 'ui/notifications/tool-input-partial') {
       // Fires while the tool is still RUNNING — lets widgets show a real
       // "preparing" state instead of a blank card until the result lands.
-      toolInputFns.forEach(function (f) { try { f((m.params && m.params.arguments) || {}, m.params || {}); } catch (e) {} });
+      latestInput = [(m.params && m.params.arguments) || {}, m.params || {}];
+      toolInputFns.forEach(function (f) { deliver(f, latestInput); });
     } else if (m.method === 'ui/notifications/host-context-changed') {
       hostContext = (m.params && m.params.hostContext) || m.params || hostContext;
       themeFns.forEach(function (f) { try { f(hostContext); } catch (e) {} });
@@ -88,12 +106,13 @@ const BRIDGE_JS = `
     appInfo: { name: 'kolbo-widget', version: '1.0.0' },
     appCapabilities: {}
   }).then(function (res) {
+    if (oa) return; // A late JSON-RPC ack must not replace OpenAI host context.
     hostContext = (res && res.hostContext) || null;
     notify('ui/notifications/initialized');
     initialized = true;
     queue.forEach(post);
     queue = [];
-    readyFns.forEach(function (f) { try { f(hostContext); } catch (e) {} });
+    readyFns.forEach(function (f) { deliver(f, [hostContext]); });
   }).catch(function () { /* host without apps support — widget stays static */ });
 
   var fsMode = false; // fullscreen: the HOST owns layout — size reports there
@@ -176,9 +195,9 @@ const BRIDGE_JS = `
   document.addEventListener('loadedmetadata', function () { queueSize(60); }, true);
 
   window.kolbo = {
-    ready: function (f) { if (initialized) f(hostContext); else readyFns.push(f); },
-    onToolResult: function (f) { toolResultFns.push(f); },
-    onToolInput: function (f) { toolInputFns.push(f); },
+    ready: function (f) { if (initialized) deliver(f, [hostContext]); else readyFns.push(f); },
+    onToolResult: function (f) { toolResultFns.push(f); if (latestResult) deliver(f, [latestResult]); },
+    onToolInput: function (f) { toolInputFns.push(f); if (latestInput) deliver(f, latestInput); },
     onThemeChange: function (f) { themeFns.push(f); },
     callTool: function (name, args) { return request('tools/call', { name: name, arguments: args || {} }); },
     sendMessage: function (text) {
@@ -218,9 +237,13 @@ const BRIDGE_JS = `
   // came, and sat on "Preparing" with no prompt, no settings and no result —
   // even after the tool had returned. Everything here maps onto the same
   // callbacks the JSON-RPC path drives, so widgets need no host-specific code.
-  var oa = window.openai && typeof window.openai === 'object' ? window.openai : null;
-  if (oa) {
-    var oaInputSeen = false, oaOutputSeen = false;
+  var oa = null;
+  var oaInputSeen, oaOutputSeen;
+  function attachOpenAI(event) {
+    var current = window.openai;
+    if (!current || typeof current !== 'object') return;
+    oa = current;
+    var globals = event && event.detail && event.detail.globals;
     var oaName = function () {
       var meta = oa.toolResponseMetadata || {};
       return oa.toolName || meta['kolbo/tool'] || (oa.toolOutput && oa.toolOutput.tool) || undefined;
@@ -232,18 +255,28 @@ const BRIDGE_JS = `
       if (!initialized) {
         initialized = true;
         queue = [];
-        readyFns.forEach(function (f) { try { f(hostContext); } catch (e) {} });
+        readyFns.forEach(function (f) { deliver(f, [hostContext]); });
       } else {
         themeFns.forEach(function (f) { try { f(hostContext); } catch (e) {} });
       }
-      if (oa.toolInput && !oaInputSeen) {
-        oaInputSeen = true;
-        toolInputFns.forEach(function (f) { try { f(oa.toolInput, { name: oaName(), arguments: oa.toolInput }); } catch (e) {} });
+      var input = globals && Object.prototype.hasOwnProperty.call(globals, 'toolInput') ? globals.toolInput : oa.toolInput;
+      var output = globals && Object.prototype.hasOwnProperty.call(globals, 'toolOutput') ? globals.toolOutput : oa.toolOutput;
+      var inputKey = JSON.stringify(input);
+      var metadata = globals && globals.toolResponseMetadata || oa.toolResponseMetadata || {};
+      var envelope = metadata.call_tool_result || metadata.mcp_tool_result;
+      var result = envelope && typeof envelope === 'object' ? Object.assign({}, envelope) : {};
+      if (output != null) result.structuredContent = output;
+      result._meta = Object.assign({}, result._meta || {}, metadata);
+      var outputKey = JSON.stringify(result);
+      if (input && inputKey !== oaInputSeen) {
+        oaInputSeen = inputKey;
+        latestInput = [input, { name: oaName(), arguments: input }];
+        toolInputFns.forEach(function (f) { deliver(f, latestInput); });
       }
-      if (oa.toolOutput && !oaOutputSeen) {
-        oaOutputSeen = true;
-        var res = { structuredContent: oa.toolOutput, _meta: oa.toolResponseMetadata || {} };
-        toolResultFns.forEach(function (f) { try { f(res); } catch (e) {} });
+      if ((output || envelope) && outputKey !== oaOutputSeen) {
+        oaOutputSeen = outputKey;
+        latestResult = result;
+        toolResultFns.forEach(function (f) { deliver(f, [latestResult]); });
       }
     };
     var oaCall = function (method) { return typeof oa[method] === 'function'; };
@@ -272,13 +305,14 @@ const BRIDGE_JS = `
       if (!oaCall('requestDisplayMode')) return Promise.resolve({ mode: 'inline' });
       return Promise.resolve(oa.requestDisplayMode({ mode: mode })).then(function (r) { return { mode: (r && r.mode) || mode }; });
     };
-    window.addEventListener('openai:set_globals', oaSync);
     // Deferred: the widget's own script (which registers ready/onToolInput/
     // onToolResult) runs AFTER this bridge block in the same document, and a
     // synchronous sync here fired into empty listener lists and marked the
     // input/output as seen.
-    setTimeout(oaSync, 0);
+    oaSync();
   }
+  window.addEventListener('openai:set_globals', attachOpenAI);
+  setTimeout(attachOpenAI, 0);
 })();
 `;
 

@@ -119,6 +119,7 @@ function mountWidget(src = genSrc) {
       onToolInput(f) { window.__onInput = f; }, onThemeChange() {},
       callTool(name, args) {
         calls.push({ name, args });
+        if (typeof window.__status === 'function') return window.__status();
         return Promise.resolve({ content: [{ type: 'text', text: JSON.stringify(window.__status) }] });
       },
       sendMessage() {}, insertText() { return Promise.resolve(); },
@@ -158,6 +159,25 @@ function mountWidget(src = genSrc) {
 }
 
 const flush = () => new Promise((r) => setImmediate(r));
+
+async function hostCompletionWinsOverPendingPoll() {
+  const w = mountWidget();
+  let finish;
+  w.status(() => new Promise((resolve) => { finish = resolve; }));
+  const submitted = { phase: 'generating', widget: 'generation', kind: 'video',
+    tool: 'generate_elements', generation_id: 'pending-1' };
+  w.deliver(submitted);
+  w.scrollIntoView();
+  w.drain();
+  w.deliver({ ...submitted, prompt: 'updated prompt' });
+  w.drain();
+  assert.equal(w.calls.length, 1, 'updated host data created concurrent status requests');
+  w.deliver({ ...submitted, phase: 'completed', urls: ['https://media.kolbo.ai/final.mp4'] });
+  finish({ structuredContent: { state: 'completed', result: { urls: ['https://media.kolbo.ai/stale.mp4'] } } });
+  await flush();
+  assert.ok(w.html('stage').includes('final.mp4'), 'stale poll overwrote host completion');
+  assert.ok(!w.html('stage').includes('stale.mp4'), 'stale result rendered');
+}
 
 // Runs for BOTH batch shapes: generate_image's prompts[] (image tiles) and
 // generate_video_from_image's items[] (video tiles, one image_url per item).
@@ -257,44 +277,58 @@ async function timedOutStatusGridGoesLive() {
   assert.ok(!/k-error/.test(stage), 'live status grid painted an error');
 }
 
-// Load more: the server ships page_tool + next_args (its own paging arg names);
-// the widget must call exactly that, append the page, and take the NEXT
-// next_args from the response. Every grid used to render a button that did
+// Paging: the server ships page_tool + next_args (its own paging arg names);
+// the pager's Next must call exactly that, append the page, and take the NEXT
+// next_args from the response. Every grid used to render a control that did
 // nothing because only list_media said how to page.
 const gridSrc = blocks(widgetHtml(UI.mediaGrid)).slice(1).join('\n');
 const listSrc = blocks(widgetHtml(UI.list)).slice(1).join('\n');
-async function loadMoreFollowsNextArgs() {
+async function pagerFollowsNextArgs() {
   const w = mountWidget(gridSrc);
   w.status({ widget: 'media-grid', items: [{ id: 'v3', title: 'Third voice', media_type: 'audio' }], next_args: undefined });
   w.deliver({
     widget: 'media-grid', title: 'Voices', total: 3, page_tool: 'list_voices', next_args: { language: 'he', page: 2, limit: 2 },
     items: [{ id: 'v1', title: 'First voice', media_type: 'audio' }, { id: 'v2', title: 'Second voice', media_type: 'audio' }],
   });
-  assert.ok(/Load more/.test(w.html('stage')), 'grid with next_args did not render Load more');
-  w.click('load-more');
+  assert.ok(/id="page-next"/.test(w.html('stage')), 'grid with next_args did not render a pager');
+  assert.ok(!/id="page-next"[^>]*disabled/.test(w.html('stage')), 'grid with next_args disabled its Next control');
+  w.click('page-next');
   await flush();
-  assert.strictEqual(w.calls.length, 1, 'Load more did not call the page tool');
-  assert.strictEqual(w.calls[0].name, 'list_voices', 'Load more called the wrong tool');
-  assert.deepStrictEqual(w.calls[0].args, { language: 'he', page: 2, limit: 2 }, 'Load more did not send the server-supplied next_args');
+  assert.strictEqual(w.calls.length, 1, 'Next did not call the page tool');
+  assert.strictEqual(w.calls[0].name, 'list_voices', 'Next called the wrong tool');
+  assert.deepStrictEqual(w.calls[0].args, { language: 'he', page: 2, limit: 2 }, 'Next did not send the server-supplied next_args');
   await flush();
-  assert.ok(w.html('stage').includes('Third voice'), 'Load more did not append the next page');
-  assert.ok(!/Load more/.test(w.html('stage')), 'last page still shows Load more');
+  assert.ok(w.html('stage').includes('Third voice'), 'Next did not append the page');
+  assert.ok(!/id="page-next"/.test(w.html('stage')), 'exhausted grid still offers a Next control');
 
-  // No page_tool → no dead button, just the count.
+  // No page_tool → no dead control, ever.
   const w2 = mountWidget(gridSrc);
   w2.deliver({ widget: 'media-grid', title: 'Moodboards', total: 9, items: [{ id: 'm1', title: 'One', media_type: 'image' }] });
-  assert.ok(!/<button[^>]*id="load-more"/.test(w2.html('stage')), 'grid without page_tool rendered a dead Load more button');
+  assert.ok(!/id="page-next"/.test(w2.html('stage')), 'grid without page_tool rendered a dead pager');
+
+  // A page bigger than the tile page renders a pager with NO server call —
+  // Back/Next walk what is already loaded.
+  const w3 = mountWidget(gridSrc);
+  w3.deliver({
+    widget: 'media-grid', title: 'Library', total: 20,
+    items: Array.from({ length: 20 }, (_, i) => ({ id: 'm' + i, title: 'Item ' + i, media_type: 'image', thumbnail: 'https://media.kolbo.ai/' + i + '.png' })),
+  });
+  assert.ok(/k-dot on/.test(w3.html('stage')), 'multi-page grid did not render page dots');
+  assert.strictEqual((w3.html('stage').match(/class="k-tile"/g) || []).length, 12, 'grid page is not one screenful of tiles');
+  w3.click('page-next');
+  assert.strictEqual(w3.calls.length, 0, 'walking loaded pages hit the network');
+  assert.ok(w3.html('stage').includes('Item 15'), 'Next did not advance to the second page');
 
   const l = mountWidget(listSrc);
   l.status({ widget: 'list', items: [{ id: 'p3', title: 'Third project' }], next_args: undefined });
   l.deliver({ widget: 'list', title: 'Projects', total: 3, page_tool: 'list_projects', next_args: { page: 2, limit: 2 },
     items: [{ id: 'p1', title: 'First project' }, { id: 'p2', title: 'Second project' }] });
-  assert.ok(/Load more/.test(l.html('stage')), 'list with next_args did not render Load more');
-  l.click('load-more');
+  assert.ok(/id="page-next"/.test(l.html('stage')), 'list with next_args did not render a pager');
+  l.click('page-next');
   await flush();
-  assert.deepStrictEqual(l.calls[0] && l.calls[0].args, { page: 2, limit: 2 }, 'list Load more did not send next_args');
+  assert.deepStrictEqual(l.calls[0] && l.calls[0].args, { page: 2, limit: 2 }, 'list Next did not send next_args');
   await flush();
-  assert.ok(l.html('stage').includes('Third project'), 'list Load more did not append the next page');
+  assert.ok(l.html('stage').includes('Third project'), 'list Next did not append the page');
 }
 
 // ChatGPT (OpenAI Apps SDK) host: no JSON-RPC. Input/output/theme arrive as
@@ -318,7 +352,7 @@ async function chatgptHostSeedsAndRenders() {
     createElement: () => stubEl(), addEventListener() {}, body: stubEl(),
   };
   const window = {
-    openai: oa,
+    openai: undefined,
     parent: { postMessage() {} },
     screen: { availHeight: 900 },
     addEventListener(type, fn) { (listeners[type] = listeners[type] || []).push(fn); },
@@ -331,6 +365,10 @@ async function chatgptHostSeedsAndRenders() {
     window, document, {}, (fn) => setImmediate(fn), () => {}, window.IntersectionObserver, window.MutationObserver
   );
   await flush();
+  assert.ok(document.getElementById('stage').innerHTML.includes('k-skel'),
+    'card must paint a loading shell before any host data arrives');
+  window.openai = oa;
+  window.dispatchEvent({ type: 'openai:set_globals', detail: { globals: { toolInput: oa.toolInput } } });
   assert.ok(document.getElementById('prompt').innerHTML.includes('a red apple on a white table'),
     'ChatGPT host: pre-render card did not show the prompt from window.openai.toolInput');
   oa.toolOutput = {
@@ -344,6 +382,30 @@ async function chatgptHostSeedsAndRenders() {
     'ChatGPT host: result published via openai:set_globals did not render');
   assert.strictEqual(document.getElementById('tool-title').textContent, 'Image Generation',
     'ChatGPT host: tool name from kolbo/tool meta did not set the card title');
+  // Hosts can mutate the existing payload, or replace the global object.
+  oa.toolOutput.urls = ['https://media.kolbo.ai/oa-2.png'];
+  window.openai = { ...oa };
+  window.dispatchEvent({ type: 'openai:set_globals', detail: { globals: { toolOutput: oa.toolOutput } } });
+  assert.ok(document.getElementById('stage').innerHTML.includes('oa-2.png'),
+    'later tool output was ignored');
+  let deliveries = 0;
+  window.kolbo.onToolResult(() => { deliveries++; });
+  assert.equal(deliveries, 1, 'late subscribers must receive the latest result');
+  window.dispatchEvent({ type: 'openai:set_globals', detail: { globals: { theme: 'light' } } });
+  assert.equal(deliveries, 1, 'theme changes must not replay an unchanged result');
+  // JSON-RPC results can also arrive before a widget subscribes.
+  const early = { structuredContent: { phase: 'completed', widget: 'generation', kind: 'image', urls: ['https://media.kolbo.ai/early.png'] } };
+  window.dispatchEvent({ type: 'message', data: { jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: early } });
+  let replay;
+  window.kolbo.onToolResult((result) => { replay = result; });
+  assert.strictEqual(replay, early, 'MCP Apps result was not retained for late subscribers');
+  window.openai.toolOutput = null;
+  window.openai.toolResponseMetadata = { call_tool_result: {
+    isError: true, content: [{ type: 'text', text: 'Request failed: unavailable' }],
+  } };
+  window.dispatchEvent({ type: 'openai:set_globals' });
+  assert.ok(document.getElementById('stage').innerHTML.includes('Request failed'),
+    'text-only error in OpenAI result metadata was dropped');
 }
 
 // A speech card submitted with NO model shows "Smart Select" while generating —
@@ -451,7 +513,7 @@ function preRenderShowsTheInputRefs() {
   // never reach the card.
   assert.ok(!chips.includes('nano-banana-2'), 'Preparing card printed the raw model identifier');
 
-  // Local paths are not loadable from the iframe sandbox - never emit them.
+  // Local paths are not loadable from the iframe sandbox — never emit them.
   const local = mountWidget();
   local.input('generate_lipsync', { source: 'C:\Users\Zohar\clip.mp4', audio: 'https://media.kolbo.ai/vo.mp3' });
   assert.ok(!local.html('chips').includes('clip.mp4'), 'Preparing card tried to load an absolute local path');
@@ -661,8 +723,9 @@ async function openInKolboOpensTheSession() {
 (async () => {
   completedItemsRenderAsGrid();
   await timedOutStatusGridGoesLive();
-  await loadMoreFollowsNextArgs();
+  await pagerFollowsNextArgs();
   await chatgptHostSeedsAndRenders();
+  await hostCompletionWinsOverPendingPoll();
   await batchStaysOneGrid({ kind: 'image', tool: 'generate_image', ext: 'png' });
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();

@@ -5,10 +5,12 @@ function chat(){const calls=[],tools={};const server={tool:(name,description,sch
  const client={post:async(path,body)=>{calls.push({path,body});return {message_id:'id'};}};
  const shared={pollOrTimedOut:async()=>({result:{result:{content:'ok'}}}),creditFields:()=>({}),projectIdField:require('zod').z.string().optional()};
  load('chat.js',{'./_shared':shared,'../apps':{canonicalModelId:async(client,id)=>id}}).registerChatTools(server,client);return {calls,tool:tools.chat_send_message};}
-test('optional thinking arg forwards unchanged and legacy calls omit it',async()=>{
+test('optional thinking and Auto routing args forward while legacy calls omit them',async()=>{
  const {calls,tool}=chat();assert.equal(tool.schema.thinking_level.safeParse(undefined).success,true);assert.equal(tool.schema.thinking_level.safeParse({effort:'high'}).success,false);
- await tool.handler({message:'test',model:'model',thinking_level:' HIGH '});assert.equal(calls[0].path,'/v1/chat');assert.equal(calls[0].body.thinking_level,' HIGH ');
+ assert.equal(tool.schema.routing_mode.safeParse('smart').success,true);assert.equal(tool.schema.routing_mode.safeParse('invalid').success,false);
+ await tool.handler({message:'test',model:'model',thinking_level:' HIGH ',routing_mode:'smart'});assert.equal(calls[0].path,'/v1/chat');assert.equal(calls[0].body.thinking_level,' HIGH ');assert.equal(calls[0].body.routing_mode,'smart');
  await tool.handler({message:'legacy',model:'model'});assert.equal('thinking_level' in calls[1].body,false);
+ assert.equal('routing_mode' in calls[1].body,false);
 });
 test('text discovery includes exact server levels and default',async()=>{
  const tools={};const server={tool:(name,description,schema,handler)=>tools[name]=handler};

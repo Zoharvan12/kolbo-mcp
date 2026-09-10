@@ -49,6 +49,8 @@ function modelChips(m) {
     const ds = [...m.supported_durations].sort((a, b) => a - b);
     chips.push(ds.length > 1 ? `${ds[0]}-${ds[ds.length - 1]}s` : `${ds[0]}s`);
   }
+  if (m.supports_custom_fonts) chips.unshift('Fonts');
+  if (m.supports_transparent_background) chips.unshift('No BG');
   if (m.supports_visual_dna) chips.push('DNA');
   if (m.new_model || m.newModel) chips.push('NEW');
   return chips.slice(0, 3);
@@ -102,6 +104,8 @@ function buildCatalogStructured(models, type, compact) {
 // One row per model — every identifier, nothing else. ~90 bytes/model, so the
 // whole 400+ model catalog fits in a payload an agent can actually read.
 const identifierRow = (m) => ({
+  supports_custom_fonts: m.supports_custom_fonts === true,
+  supports_transparent_background: m.supports_transparent_background === true,
   identifier: m.identifier,
   name: m.name,
   types: m.types,
@@ -192,6 +196,7 @@ function registerModelTools(server, client, options = {}) {
       // model says no, and absence means the API doesn't expose the field.
       const formatSpecs = m => {
         const parts = [];
+        parts.push('supports_custom_fonts: ' + (m.supports_custom_fonts === true));
         if (m.haveThinking && Array.isArray(m.thinkingLevels) && m.thinkingLevels.length) {
           parts.push(`thinking_level: ${m.thinkingLevels.map(level => level.id).join('/')} (default ${m.thinkingDefault})`);
         }
@@ -206,6 +211,7 @@ function registerModelTools(server, client, options = {}) {
         const isLipsyncImage = types.includes('lipsync-image');
         const isImageEdit = types.includes('image_editing');
         const isImage = types.includes('text_to_img') || isImageEdit;
+        if (isImage) parts.push('supports_transparent_background: ' + (m.supports_transparent_background === true));
 
         if (Array.isArray(m.supported_resolutions) && m.supported_resolutions.length) {
           const mult = m.resolution_multipliers || {};

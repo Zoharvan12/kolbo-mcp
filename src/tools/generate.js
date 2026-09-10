@@ -182,6 +182,8 @@ const imageSettings = (a = {}) => ({
   resolution: a.resolution,
   aspect_ratio: a.aspect_ratio,
   quality: a.quality,
+  background: a.background,
+  output_format: a.output_format,
   ...refSettings(a),
 });
 
@@ -269,20 +271,25 @@ function registerGenerateTools(server, client, options = {}) {
       moodboard_id: z.string().optional().describe('Moodboard ID (from list_moodboards / get_moodboard) whose master_prompt and style_guide should be applied to this generation.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding for the prompt (useful for current events, brand references, real-world accuracy). Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolution_multipliers on the same model to predict credit cost. Omit to use the model default.'),
-      quality: z.string().optional().describe('Quality tier for models that support it (e.g. "low", "medium", "high", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
+      quality: z.string().optional().describe('Quality tier for models that support it (e.g. "low", "medium", "high", "xhigh", "max", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
+      background: z.enum(['auto', 'opaque', 'transparent']).optional().describe('Output background. Before passing "transparent", call list_models for the chosen image model and require supports_transparent_background=true. Use PNG or WebP (PNG is selected by default when omitted). Kolbo forwards the setting and appends the exact phrase "no background" once to the effective prompt; prompt wording alone is not sufficient.'),
+      output_format: z.enum(['png', 'jpeg', 'webp']).optional().describe('Output file format on supported OpenAI image models. Default: png.'),
+      output_compression: z.number().int().min(0).max(100).optional().describe('JPEG/WebP output compression quality (0-100); not applicable to PNG.'),
+      moderation: z.enum(['auto', 'low']).optional().describe('Moderation setting on supported OpenAI image models. Default: auto.'),
+      mask_image_url: z.string().url().optional().describe('Optional public PNG mask URL for supported OpenAI edits with source/reference images. Transparent regions indicate areas to edit.'),
       preset_id: z.string().optional().describe('Exact preset ID from list_presets type="image". If the user requests any image preset, resolve it with list_presets and pass it here; do not omit it.'),
       cinematic: CINEMATIC_SCHEMA,
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one image ungraded.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
+    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'text_to_img'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'text_to_img');
       const shared = {
         model, aspect_ratio, enhance_prompt, font_ids,
-        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id
+        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id
       };
 
       // Batch mode: N different prompts, one widget owning all generation ids.
@@ -355,20 +362,25 @@ function registerGenerateTools(server, client, options = {}) {
       moodboard_id: z.string().optional().describe('Moodboard ID whose master_prompt and style_guide should be applied.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding. Default: false'),
       resolution: z.string().optional().describe('Image resolution tier: "1K" / "2K" / "3K" / "4K". Model-dependent — call list_models and read supported_resolutions. Default: "1K" for most edit models.'),
-      quality: z.string().optional().describe('Quality tier for edit models that support it (e.g. "low", "medium", "high", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
+      quality: z.string().optional().describe('Quality tier for edit models that support it (e.g. "low", "medium", "high", "xhigh", "max", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
+      background: z.enum(['auto', 'opaque', 'transparent']).optional().describe('Output background. Before passing "transparent", call list_models for the chosen image-edit model and require supports_transparent_background=true. Use PNG or WebP (PNG is selected by default when omitted). Kolbo forwards the setting and appends the exact phrase "no background" once to the effective prompt; prompt wording alone is not sufficient.'),
+      output_format: z.enum(['png', 'jpeg', 'webp']).optional().describe('Output file format on supported OpenAI image models. Default: png.'),
+      output_compression: z.number().int().min(0).max(100).optional().describe('JPEG/WebP output compression quality (0-100); not applicable to PNG.'),
+      moderation: z.enum(['auto', 'low']).optional().describe('Moderation setting on supported OpenAI image models. Default: auto.'),
+      mask_image_url: z.string().url().optional().describe('Optional public PNG mask URL for supported OpenAI edits with source/reference images. Transparent regions indicate areas to edit.'),
       preset_id: z.string().optional().describe('Exact preset ID from list_presets type="image_edit" to apply an image-editing preset. If the user requests a preset, resolve and pass it; do not silently omit it.'),
       cinematic: CINEMATIC_SCHEMA,
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one edit ungraded.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, source_images, reference_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
+    async ({ prompt, prompts, model, source_images, reference_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'image_editing'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'image_editing');
       const shared = {
         model, source_images, reference_images, aspect_ratio, enhance_prompt, font_ids,
-        visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, preset_id, cinematic, skip_color_palette, project_id, session_id
+        visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id
       };
       const settings = imageSettings(shared);
 

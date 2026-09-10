@@ -58,6 +58,17 @@ The model picker is explicit: agents choose a specific model instead of hiding t
 
 ## Iframe bridge
 
+Generation cards paint a compact Preparing shell before host input or initialization.
+The bridge listens for late `openai:set_globals`, applies changed input/results (including
+mutated payloads), and retains the latest MCP Apps input/result for late subscribers.
+OpenAI result metadata can carry the full MCP envelope, including text-only errors.
+Render callback failures log to the iframe console and show a recovery notice; they must
+not be silently swallowed. A host-delivered final result takes precedence over an older
+in-flight status request. Keep at most one status request active per generation card.
+`npm run check-widget-render` covers delayed OpenAI startup, repeated result delivery,
+late subscriptions, and existing grouped galleries. These checks are local simulations;
+they do not replace testing a freshly loaded card inside Codex after release.
+
 Hand-rolled ~120-line JSON-RPC postMessage bridge (`src/apps/bridge.js`, injected as a string):
 `ui/initialize` (appInfo/appCapabilities/protocolVersion) → `ui/notifications/initialized`; then
 `tools/call`, `ui/message`, `ui/open-link`, `ui/notifications/size-changed`; listens for

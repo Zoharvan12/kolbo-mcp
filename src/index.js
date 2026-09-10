@@ -67,6 +67,7 @@ const { registerVisualDnaTools } = require('./tools/visual_dna');
 const { registerMoodboardTools } = require('./tools/moodboards');
 const { registerColorPaletteTools } = require('./tools/color_palettes');
 const { registerFontTools } = require('./tools/fonts');
+const { registerEditorTools } = require('./tools/editor');
 const { registerMediaTools } = require('./tools/media');
 const { registerPresetTools } = require('./tools/presets');
 const { registerArtifactTools } = require('./tools/artifacts');
@@ -186,6 +187,7 @@ function createServer(opts = {}) {
   registerMoodboardTools(server, client, toolOptions);
   registerColorPaletteTools(server, client, toolOptions);
   registerFontTools(server, client, { allowLocalFiles: opts.allowLocalFiles === true && !toolOptions.remote });
+  registerEditorTools(server, client);
   registerAnalyzeTools(server, client, toolOptions);
   registerMediaTools(server, client, toolOptions);
   registerPresetTools(server, client, toolOptions);

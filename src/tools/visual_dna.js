@@ -177,7 +177,7 @@ function registerVisualDnaTools(server, client, options = {}) {
   // ─── get_visual_dna ────────────────────────────────────────
   server.tool(
     'get_visual_dna',
-    'Fetch a single Visual DNA profile by ID. Returns the full profile including system_prompt and all reference images. To fetch a teammate\'s Visual DNA that lives in a shared project, pass project_id (you need edit+ on it).',
+    'Fetch a single Visual DNA profile by ID. Returns the full stored description, character attributes, and all reference images. Internal extraction system prompts are not exposed. To fetch a teammate\'s Visual DNA that lives in a shared project, pass project_id (you need edit+ on it).',
     {
       visual_dna_id: z.string().describe('The Visual DNA profile ID'),
       project_id: projectScopeReadField
