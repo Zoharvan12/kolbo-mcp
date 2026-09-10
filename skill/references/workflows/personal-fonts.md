@@ -34,6 +34,31 @@ The backend renders internal specimens. Do NOT render specimens, attach them as 
 
 Font upload/preparation has no separate credit charge; normal image generation remains billable under the existing approval rules. No automatic paid regeneration to improve typography.
 
+## Making the typeface actually come through
+
+Measured 2026-09-10 by rerunning one customer ad (Hebrew, custom family, three reference
+images) across models and settings. The backend renders a specimen and the model IMITATES
+it — nothing installs the font — so these are the levers that decide how close it lands.
+
+- **Model choice is the biggest one.** GPT Image 2 reproduced the uploaded letterforms
+  clearly better than GPT Image 2.5 Sunburst / Flare, which drift toward a default bold
+  Hebrew. Recommend GPT Image 2 whenever the typeface matters.
+- **Quality does not compensate.** 2K + `high` on GPT Image 2 beat both 2.5 rows at
+  `max`. Do not sell a higher tier as a fix for typography.
+- **Weight words in the prompt beat the specimen.** "bold", "medium weight", "very large
+  bold headline" read as typeface instructions and usually win — an ad that said bold five
+  times came back in a generic sans. Coach the user to describe size, placement, colour and
+  glow, and to choose the weight by selecting the uploaded STYLE (Bold / Medium / Light)
+  instead of writing it. Keep their exact-copy line ("EXACTLY letter for letter").
+- **Busy layouts drift; calm ones do not.** The same font on a simple prompt reproduced
+  almost exactly, and on a split-screen ad with three competing references it was ignored.
+  Fewer competing reference images and fewer text blocks buy real fidelity.
+- **Emoji never block a generation** and are drawn from the platform emoji set; they are
+  excluded from the specimen by design. No font carries them.
+- **When it must be exact, say so.** For client-final work where the typeface cannot drift,
+  generate the layout with the text areas empty and set the type over it. Never promise
+  faithful reproduction — the model is imitating a picture of the letters.
+
 ## SDK / REST
 
 The account-authenticated server-side SDK exports `createFontClient`: `list`, `get`, `upload(Blob, filename)`, `status`, `rename`, `delete`, `createUploadTicket`, and `grantToApp`. Keep account API keys on the server. The dedicated REST root is `/api/v1/fonts`; multipart upload is POST to that root. App end-user credentials do not grant access to an owner's personal library; use explicit app font grants. Image SDK calls use the same optional `font_ids`.
