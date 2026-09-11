@@ -797,7 +797,7 @@ function registerGenerateTools(server, client, options = {}) {
       lyrics: z.string().optional().describe('Custom lyrics for the song. If omitted, lyrics are generated automatically from the prompt unless instrumental is true.'),
       vocal_gender: z.string().optional().describe('Preferred vocal gender: "male" or "female". Only applies when instrumental is false.'),
       negative_tags: z.string().optional().describe('Styles / sounds to EXCLUDE, comma-separated (e.g. "heavy metal, screaming, distortion"). Suno.'),
-      duration_seconds: z.number().optional().describe('Target song length in seconds (length-capable models like ElevenLabs Music). Clamped 5–300. Omit for the model default.'),
+      duration_seconds: z.number().optional().describe('Target song length in seconds. Length-capable models: ElevenLabs Music (up to 600s) and Suno v6 / v6 Wild (10-360s, Custom Mode only). Suno v6 Mini does NOT honour it - it returns ~200s whatever you ask, so the control is not offered there. Omit for the model default (Suno picks its own natural length).'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="music" to apply a saved music style preset.'),
       // ── Suno fine controls ──
