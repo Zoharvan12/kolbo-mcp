@@ -13,7 +13,13 @@ Load this file when the user wants AI-generated **music** — full songs, lyrics
 ## CRITICAL Kolbo Platform Rules
 
 - **Model version, duration, and instrumental toggle are MCP-tool params.** Don't write `v4.5`, `30 seconds`, or `instrumental: true` inside the prompt fields themselves.
-- **Exact track length = `duration_seconds`** (clamped 5–300s). Only length-controllable models honor it (e.g. ElevenLabs Music, `music-v1`) — without it those models default to a ~10s track, so ALWAYS pass it for jingles/beds on those models. Suno ignores it and picks its own length.
+- **Suno v6 is the current family**: `suno-v6` (the default music model), `suno-v6-mini`, `suno-v6-wild` — all **15 credits**, identical to the older Suno rows. `suno-v5.5` / `suno-v5` / `suno-v4.5plus` are still selectable, but the provider marks V4 / V4_5 / V4_5PLUS / V4_5ALL / V5 / V5_5 as discontinued upstream — a dead branch. Pick v6 unless the user asks for an older take.
+- **Exact track length = `duration_seconds`** (clamped 5–300s on the tool). **Suno is length-controllable as of v6** — 10 seconds to 6 minutes, slider or an exact typed `m:ss`. **Auto is the default**, and on Auto Suno picks its own natural length exactly as it always did, so only pass a length when the user actually asked for one.
+  - **Custom Mode only.** The provider returns a 422 if a duration arrives in Simple Mode, so length only lands alongside lyrics — the SDK/MCP path switches the request into Custom Mode automatically when `duration_seconds` is present.
+  - **`suno-v6-mini` does NOT honour length.** Measured, not assumed: 20s / 30s / 60s requests all came back ~200–220s. Never promise length control on Mini. `suno-v6` and `suno-v6-wild` honour it.
+  - Non-Suno length-controllable models (ElevenLabs Music, `music-v1`) still default to a ~10s track without it, so ALWAYS pass it there for jingles/beds.
+- **Short lengths are style-dependent — write a sparse prompt when you need a short clip.** Suno resolves a musical phrase before it stops: a sparse ambient prompt asked for 13s returns ~13s, a dense rock prompt asked for the same 13s returns ~42s. They converge by about 30s. For a genuinely short cue, thin the instrumentation in the `style` field instead of fighting the number.
+- **Suno usually returns TWO tracks, and does not always apply the requested length to both** — one can land on target while the other runs long. Check each track before delivering; the first track's length is not authoritative.
 - Suno generations have **two separate input fields**: a **Style / Description** field (`style` param) and a **Lyrics** field (`lyrics` param). Output your prompt as **TWO separate fenced code blocks** so the user (and the tool call) know exactly what goes where.
 - Tell the user to run the prompt multiple times — Suno output varies significantly between generations, that's a feature. Use `num_generations` if the tool supports it, or fire 2–4 parallel `generate_music` calls.
 
@@ -88,7 +94,7 @@ Use Suno's section tags to control structure. Each tag goes on its own line, con
 ### Jingle / ad music (15–30s)
 - `style`: short, punchy descriptor (`upbeat retail pop jingle, female vocal, claps, glossy production, summer energy`)
 - `lyrics`: 2–4 short lines max, often just chorus
-- Pass the shortest `duration` the tool supports — or, on a length-controllable model (ElevenLabs Music), pass the exact `duration_seconds` (e.g. `15` or `30`).
+- Pass the exact `duration_seconds` (e.g. `15` or `30`). Suno v6 / v6 Wild honour it in Custom Mode (supply `lyrics`), ElevenLabs Music honours it either way, `suno-v6-mini` does not. Keep the style sparse — a dense arrangement overruns a short target.
 
 ### Cinematic trailer / score
 - `style`: `cinematic orchestral trailer, swelling strings, taiko drums, hybrid choir, dramatic build, modern hybrid score`
@@ -116,7 +122,7 @@ LYRICS:
 
 When summarizing to the user, state separately:
 - **Instrumental:** yes / no (the `instrumental` param)
-- **Recommended duration:** short / medium / long (the `duration` param)
+- **Length:** Auto, or the exact `duration_seconds` you passed (10s–6min; Suno needs Custom Mode, and `suno-v6-mini` ignores it)
 - **Run takes:** N generations (usually 2–4) — fire them in parallel
 - **Why this works:** 1 line on the key genre / structure / instrumentation choice
 
