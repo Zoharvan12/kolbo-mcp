@@ -32,9 +32,10 @@ Load this file when the user wants a **GPT Image 2 or GPT Image 2.5** image (Ope
 
 ## Latency vs Fidelity (recommend `quality` param)
 
-- **low**: high-volume batches, drafts, ideation, latency-sensitive cases. Often "good enough" — default for variant exploration.
-- **medium**: balanced. Style probing, normal exploration.
+- **low**: only when the user prioritizes minimum cost or latency; medium remains the ordinary GPT Image 2.5 default.
+- **medium**: default best price/quality for ordinary generations, edits and exploration.
 - **high**: final assets, small/dense text, multi-font layouts, close-up portraits, identity-sensitive edits, infographics, diagrams, posters, UI with labels, scientific visuals, slides with charts/footnotes.
+- **xhigh/max** (GPT Image 2.5 only, when listed): exceptional dense text or difficult multilingual/Hebrew typography after medium/high are insufficient. Do not auto-run retries or raise spending without authorization.
 
 ## Use Cases (text → image)
 

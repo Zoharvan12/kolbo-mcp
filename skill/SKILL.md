@@ -102,10 +102,13 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Confirm **cost** or validate **resolution / aspect / duration** against model caps | `references/workflows/cost-and-validation.md` |
 | Hit an **auth / MCP / 429** issue | `references/workflows/troubleshooting.md` |
 | Inspect or change a connected **Blender** scene, render, import Kolbo media, or run approved Blender Python | `references/workflows/blender.md` |
+| Create or edit a saved **Video Editor** timeline, clips, trims, speed or captions | `references/workflows/video-editor.md` |
 
 Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/src/config/systemPrompt.js` — same battle-tuned rules that power Kolbo's web-app help widget. Keep parity (see `packages/opencode/CLAUDE.md` "MCP & Skill Sync Rule").
 
 ## Available MCP Tools
+
+For editable video timelines, read `references/workflows/video-editor.md`. Use `get_video_editor_schema`, `list_video_editor_sessions`, `get_video_editor_session`, `create_video_editor_session`, `update_video_editor_session`, and `export_video_editor_session`. Edit existing sessions in place using their saved revision; do not recreate them to rename or change clips.
 
 For personal font uploads, font selection, or reuse, read `references/workflows/personal-fonts.md`. Use the dedicated My Fonts tools; never the media-upload path or agent-rendered specimens.
 
@@ -294,7 +297,7 @@ A user-named tool — in any language — overrides every other rule. Recognized
 4. **Pick the model**:
    - User named one → that name is a **family lock**, not a single catalog row. Use it. Identifiers resolve leniently — `"z-image"` / `"nano banana 2"` / `"grok imagine"` auto-resolve, including to the sibling for the tool you are calling (`grok-imagine-text-to-video` on `generate_video_from_image` becomes `grok-imagine-image-to-video`). `list_models` is still authoritative for constraints, caps, and pricing — not for swapping brands.
    - **Never cheapest-swap a named family.** After compaction, "animate those images" is still Grok if the user said Grok. Seedance / Kling / Veo are not a "best balance" substitute. If the named family has no variant for this modality, ASK — do not silently switch.
-   - Auto-select → **only when no model was named on this task**. Then pick from "Auto-selectable" (models with a `summary`). Cheapest fit. Prefer `[RECOMMENDED]` when cost is similar.
+   - Auto-select → **only when no model was named on this task**. Then pick from "Auto-selectable" (models with a `summary`). Follow Media selection preferences below: ordinary production uses the eligible general workhorse; select specialists for matching tasks and budget models for explicit cheap tests/drafts. Cost breaks ties between suitable choices.
    - Never auto-select from "Named-only" section.
 5. **Validate inputs** against model caps — see `references/workflows/cost-and-validation.md`.
 6. **Fire the call(s)** — then follow "⚠️ Generation lifecycle" below for waiting, status, and failure handling.
@@ -440,3 +443,18 @@ HTML/SVG/Mermaid artifacts have a **Share** button in the preview toolbar that u
 ---
 
 If at this point you still don't know which `references/` file to load, default to `references/models/prompt-copilot.md` for generation prompts or `references/workflows/cost-and-validation.md` for cost/validation questions, or just keep going with this core file's rules.
+
+## Media selection preferences
+Honor explicit models, presets, budget and inputs. Choose only eligible catalog candidates with all required capabilities. Use requested presets; otherwise use fitting presets when useful. For drafts use the lowest supported resolution unless specified. Never treat a policy refusal as a technical failure or route around safeguards.
+Default images and edits: GPT Image 2.5 Flare/Sunburst; medium for value, high for ordinary maximum quality. Reserve xhigh/max for exceptional dense or difficult multilingual text after medium/high prove insufficient; do not automatically spend on retries. Nano Banana 2 is secondary. Seedream 5.0 Pro favors cinematic aesthetics over complex instruction fidelity; Wan 2.7 Pro is another creative alternative. Z Image/P Image for cheap tests. Midjourney for artistic concepts only, never editing. Soul V2 for realistic people/UGC concepts; derive character sheets before registering finished Visual DNA. Mirage Film 2 for environments and cinematic inspiration.
+Default video: Seedance 2.5. Kling specializes in controlled single-image and first/last-frame shots. Wan 3.0 specializes in motion graphics and Hebrew/dialogue work. MiniMax H3 offers higher resolution; H3 Max favors speed at lower resolution. Gemini Omni Flash is a secondary Hebrew option (up to 10 seconds); Grok Imagine 1.5 and Seedance 2.0 are alternatives. P Video/Draft for cheap fast tests. Use base, edit or extend variants only with their required inputs.
+Existing-video lip-sync: Sync 3 for active-speaker handling; PixVerse for cartoons/2D and economical faster work. Portrait lip-sync: Veed Fabric or HeyGen Avatar; P Avatar for budget work. LTX Audio to Video for camera/environment motion with audio-driven performance.
+Default music: Suno v6. ElevenLabs Music is an alternative, especially for duration-directed scoring. Both accept custom duration requests; validate the selected tool schema and inspect actual output duration.
+
+## Capability and result honesty
+- Your current tools and mode define what you can do. In Act, use available authorized tools to generate/edit media, manage project assets and Visual DNA, import originals, or build/export an editable video timeline. In Ask or a prompt-only/final-answer stage without those tools, explain, write prompts or navigate; never pretend to execute. Do not claim access to every Kolbo feature, the user's browser/computer, private accounts or unrelated projects.
+- Match the live model and tool schema to the task: inputs, reference slots, duration, resolution, quality, native audio and output format. A model preference is not a capability guarantee. Reuse recent catalog evidence; refresh only when missing or contradicted. If a requested operation is unavailable, explain the specific limitation and a supported alternative without silently changing the brief.
+- Website media discovery reads public page markup and embedded data; it is not interactive browsing and does not execute page scripts. Discovery is not import. Use verified original assets, retain attribution and report blocked/missing assets honestly. When an existing logo is requested, never invent or substitute a generated logo for the original. Original logo design is a separate supported creative task when requested.
+- Distinguish planned, submitted, running, generated, saved, exported and inspected. A playable render is not an editable timeline; only a successful editor-session result proves a saved edit exists. Tool success proves execution, not visual fidelity, exact logos, readable text, lip-sync or absence of black frames. Inspect with available tools before claiming quality; otherwise mark it unverified.
+- A timeout is not proof of failure. Reconcile existing job IDs before retrying. Submit independent work together; describe queued versus running work truthfully. Never promise unlimited concurrency, automatic refunds, exact credit costs or approval outcomes. Use current receipts/pricing and preserve authorized budgets.
+- Continue within granted autonomy and the current approved scope. Ask only for essential missing input or required approval. Content-policy refusals do not authorize switching providers to bypass safeguards. Support may review a restriction, but never promise an exception or entitlement.
