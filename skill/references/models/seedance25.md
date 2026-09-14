@@ -38,6 +38,10 @@ Load this file when the user wants a **Seedance 2.5** video (they said "2.5" / "
 - Duration range **4–30s**; shot count **≤30** in one generation. Do not split a ≤30s story into multiple 10s clips unless the user asks.
 - Omit Total / Multishot / shot-count headers only for **video editing** (source duration locked) — use Edit Goal blocks instead.
 
+## Two layers (HARD)
+
+Layer 1 = the Locked Intro: everything constant — shooting style, grade, fixed lighting, fixed elements/props, cast look AND persona, location, the location's physical scale, the piece's speed and assertiveness, and each performer's position relative to the location and to the other performers. Layer 2 = the timecoded SHOT list: only what changes, in full detail. Persona and per-shot performance rules: `models/seedance.md` § Persona & performance — at 30s and 30 shots a cast with no locked persona drifts into a different person by the last cut.
+
 ## Locked Intro (DEFAULT — same shape as Seedance 2)
 
 ```
