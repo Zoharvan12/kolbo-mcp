@@ -568,3 +568,14 @@ KOLBO_API_KEY="kolbo_live_..." node src/index.js
 
 - API key via env var only — never hardcoded; sent as `X-API-Key` header (not URL/query)
 - `.npmrc` with publish tokens must NEVER be committed
+
+## Agentic Video Editor
+
+| Tool | Purpose |
+| --- | --- |
+| `get_video_editor_schema` | Complete writable settings and operation contract |
+| `list_video_editor_sessions` | Paginated project timelines |
+| `get_video_editor_session` | Full saved timeline and revision |
+| `update_video_editor_session` | Atomic rename, settings, tracks, clips, trims, speed, captions and effects |
+
+`create_video_editor_session` also accepts optional advanced `session_data` instead of clips/audio/texts. Read the schema and saved revision before editing. Changes affect saved state; reload an already-open editor before manual editing. Existing create/export names and arguments remain supported.

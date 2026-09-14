@@ -314,3 +314,14 @@ Both are optional — the local install logs in via the browser on first use.
 ### Chat thinking level
 
 `chat_send_message` accepts optional `thinking_level`, using an ID from `list_models` with `type: "text"`. The server validates it against the resolved model; omitted or invalid values use `thinkingDefault`. Existing safeguards and legacy `deep_think` take precedence. Discover allowed levels through `thinkingLevels`; no package update is required when the server changes a model capability. For the Auto model, optional `routing_mode` accepts `fast`, `balanced`, or `smart`; omitted uses the server default of `balanced`.
+
+## Agentic Video Editor
+
+| Tool | Purpose |
+| --- | --- |
+| `get_video_editor_schema` | Complete writable settings and operation contract |
+| `list_video_editor_sessions` | Paginated project timelines |
+| `get_video_editor_session` | Full saved timeline and revision |
+| `update_video_editor_session` | Atomic rename, settings, tracks, clips, trims, speed, captions and effects |
+
+`create_video_editor_session` also accepts optional advanced `session_data` instead of clips/audio/texts. Read the schema and saved revision before editing. Changes affect saved state; reload an already-open editor before manual editing. Existing create/export names and arguments remain supported.

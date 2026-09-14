@@ -852,6 +852,96 @@ function registerGenerateTools(server, client, options = {}) {
     }
   );
 
+  // ─── music import / extend / cover ─────────────────────────
+  // Three tools over the SDK's /v1/generate/music/{import,extend,cover}. The web app has
+  // had upload-extend and upload-cover for a long time; agents could not reach either
+  // until those routes existed.
+  const musicSourceFields = {
+    audio_url: z.string().optional().describe('PUBLIC URL of the source audio. Either this (with rights_confirmed) or upload_id is required. Local file? Call upload_media first and pass the returned https:// URL.'),
+    upload_id: z.string().optional().describe('Upload id from import_music_audio. Use this to reuse one imported file across several calls instead of re-importing it.'),
+    rights_confirmed: z.boolean().optional().describe('REQUIRED with audio_url: confirms the caller holds the rights to the source audio. Not needed when passing upload_id (it was confirmed at import).'),
+    prompt: z.string().optional().describe('What the new material should sound like.'),
+    style: z.string().optional().describe('Music style / genre for the new material.'),
+    title: z.string().optional().describe('Title for the result. Generated if omitted.'),
+    instrumental: z.boolean().optional().describe('Produce instrumental only, no vocals. Default: false'),
+    lyrics: z.string().optional().describe('Custom lyrics. Omit to have them generated, or set instrumental.'),
+    model: z.string().optional().describe('Model identifier. Omit for the Suno default.'),
+    project_id: projectIdField,
+    session_id: sessionIdField
+  };
+
+  server.tool(
+    'import_music_audio',
+    'Import a PUBLIC audio URL into Kolbo as a reusable music source, returning an upload_id for extend_music / cover_music. Use it when the same track feeds several calls — both of those tools also accept audio_url directly for a one-shot. LOCAL FILE? Call upload_media first and pass the returned https:// URL; this tool cannot read the caller\'s disk. You must set rights_confirmed: true — Kolbo requires the caller to hold the rights to audio they upload.',
+    {
+      audio_url: z.string().describe('PUBLIC URL of the audio file to import.'),
+      upload_type: z.string().optional().describe('What the import is for: "extend" or "cover". Must match the tool you later call with it. Default: "extend".'),
+      rights_confirmed: z.boolean().describe('REQUIRED true: confirms the caller holds the rights to this audio.'),
+      confirmation_text: z.string().optional().describe('Optional free-text rights confirmation recorded with the upload.'),
+      project_id: projectIdField,
+      session_id: sessionIdField
+    },
+    async ({ audio_url, upload_type, rights_confirmed, confirmation_text, project_id, session_id }) => {
+      const r = await client.post('/v1/generate/music/import', {
+        audio_url, upload_type: upload_type || 'extend', rights_confirmed, confirmation_text, project_id, session_id
+      });
+      return result(r);
+    }
+  );
+
+  // Both generation tools share one runner — the only difference is the route and the label.
+  const runMusicSourceOp = async (route, toolName, args) => {
+    const { model: rawModel, continue_at, ...rest } = args;
+    const model = await canonicalModelId(client, rawModel, 'music_gen');
+    const gen = await client.post(route, { ...rest, model, ...(continue_at !== undefined ? { continue_at } : {}) });
+
+    if (returnsImmediately()) return submittedResult({
+      tool: toolName, kind: 'audio', gen, client, model: model || 'Suno', prompt: rest.prompt,
+      settings: { mode: rest.instrumental ? 'instrumental' : (rest.style || undefined) },
+    });
+
+    const poll = await pollOrTimedOut(client, gen.generation_id, {
+      interval: (gen.poll_interval_hint || 8) * 1000,
+      timeout: 150000
+    });
+    if (poll.timedOut) return poll.timedOut;
+    const res = poll.result;
+
+    return uiCompleted({
+      tool: toolName, kind: 'audio', gen, client, model: model || 'Suno', prompt: rest.prompt,
+      settings: { mode: rest.instrumental ? 'instrumental' : (rest.style || undefined) },
+      urls: res.result.urls,
+      playback_urls: res.result.playback_urls,
+      tracks: res.result.tracks,
+      title: res.result.title,
+      duration: res.result.duration,
+      credits_used: creditFields(res).credits_used,
+    }, JSON.stringify({
+      ...creditFields(res),
+      session_id: gen.session_id,
+      urls: res.result.urls,
+      tracks: res.result.tracks,
+      title: res.result.title,
+      duration: res.result.duration,
+      lyrics: res.result.lyrics
+    }, null, 2));
+  };
+
+  server.tool(
+    'extend_music',
+    'Continue an existing track — Kolbo generates new music that carries on from a point in the source audio. Pass audio_url (with rights_confirmed) or an upload_id from import_music_audio. There is NO target-length control here: the length follows the source and continue_at, which is why duration_seconds is not accepted. Returns the final audio URL when complete.',
+    { ...musicSourceFields, continue_at: z.number().optional().describe('Seconds into the source audio to continue FROM. Omit to continue from the end.') },
+    async (args) => runMusicSourceOp('/v1/generate/music/extend', 'extend_music', args)
+  );
+
+  server.tool(
+    'cover_music',
+    'Re-record an existing track in a new style, keeping its musical identity — a lo-fi cover of a rock song, an acoustic take on an electronic track. Pass audio_url (with rights_confirmed) or an upload_id from import_music_audio. There is NO target-length control here: a cover follows the length of its source, which is why duration_seconds is not accepted. Returns the final audio URL when complete.',
+    { ...musicSourceFields },
+    async (args) => runMusicSourceOp('/v1/generate/music/cover', 'cover_music', args)
+  );
+
+
   // ─── generate_speech ───────────────────────────────────────
   server.tool(
     'generate_speech',
