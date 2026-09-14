@@ -36,6 +36,8 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
 
 ## Locked Intro (DEFAULT for any multi-shot cinematic — including Elements)
 
+**Write every Seedance prompt in TWO LAYERS.** Layer 1 is the locked blocks below: everything the scene holds CONSTANT — shooting style, grade, fixed lighting, fixed props/elements, cast (look AND character), location, the location's physical scale, the piece's movement speed and assertiveness, and where each performer stands relative to the location and to each other. Layer 2 is the timecoded SHOT list: only what CHANGES, in full detail, shot by shot. A constant restated per shot wastes the character budget; a change buried in Layer 1 never happens.
+
 After the Total lines, every multi-shot prompt — and any piece with recurring people or a recurring place — opens with the locked blocks. Skip only for: true single-shot POV/orb, 3×3 grid-panel mode, or video-edit tasks.
 
 ```
@@ -46,11 +48,11 @@ Total: Xs / N shots / AR
 <body>, <lens family>, <film stock>, <aspect> spherical, <stop>. <DoF, grain, grade as law>. <movement grammar>. <performance + audio law>.
 
 [CAST – IDENTICAL IN EVERY SHOT]
-@Exact_DNA_name: age, build, hair, face, wardrobe, signature details.
+@Exact_DNA_name: age, build, hair, face, wardrobe, signature details. PERSONA: emotional baseline, energy, posture/gait, habitual gestures, how much they exaggerate.
 PROP: recurring object.
 
 [LOCATION]
-Place in materials + light + color field. Blocking. Background LIFE.
+Place in materials + light + color field. Physical SCALE (room/street size, ceiling height, distances to cover). Blocking — who stands where, and on which side of whom. Background LIFE.
 
 [LOCATION MAP]
 Named seats / sides in SCREEN language (screen-left armchair, center couch, door camera-left).
@@ -124,6 +126,14 @@ These elevate rich cinematic / reference-anchored sequences. For a short, tight,
 - **AUDIO** — Seedance renders sound, so specify it whenever sound matters to the scene (most cinematic/action shots). Default diegetic: `AUDIO: No musical score. Synchronized production sound only:` then a comma list of the exact sounds in narrative order (boots scraping concrete, sling shift, layered breathing, distant sirens, weapon impacts, cloth movement, rushing air). Call for a musical score if the user wants one. Skip the block entirely for a deliberately silent or trivially simple shot.
 - **AVOID** — add when there's real drift risk: referenced characters/DNAs, an established story state, or a specific content tone to enforce. `AVOID:` + the drifts to forbid: character morphing, costume/anatomy changes, missing signature details (a piercing, a scar), camera looking into the lens, glamorous posing, duplicated characters, extra weapons, text / subtitles / logos, plus content-specific negatives (e.g. "intact gemstone, red aura" once it's destroyed). Skip it when there's nothing meaningful to forbid.
 - **PHYSICAL GROUNDING** — only when the shot has a real contact/impact (a boot planted on a chest, a weapon lock, a body thrown): spell out weight transfer, full contact, stable balance, material reaction, and the victim's physical response. Not needed for talking, walking, or ambient shots.
+
+## Persona & performance (HARD — any living character: people, animals, creatures)
+
+Appearance locks WHO. Persona locks HOW THEY BEHAVE — without it Seedance renders a technically correct robot.
+
+- **Layer 1:** every living cast member gets a PERSONA clause in CAST — emotional baseline (warm / guarded / furious under control / anxious), energy level, posture and gait, habitual hand gestures, exaggeration level. Lock it once and reuse the SAME persona text verbatim on every later generation in the project, so the character does not change personality between clips.
+- **Layer 2:** every shot beat with a living character states the PERFORMANCE, not only the movement — facial expression, the emotion under it, and how that emotion shapes the physical action. A happy walk, a frightened run and an angry line reading are three different bodies. Mixed states are usually truer ("relief fighting embarrassment"). Add hand gestures sized to the locked persona.
+- Forbidden: a beat that moves a person through the frame with no expression, no emotion and no energy. That is the single most common cause of "the video looks dead".
 
 ## Dialogue & expression
 
