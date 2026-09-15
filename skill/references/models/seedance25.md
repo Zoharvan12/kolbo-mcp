@@ -13,7 +13,7 @@ Load this file when the user wants a **Seedance 2.5** video (they said "2.5" / "
 
 **Dialogue language: English.** Other languages are not reliably performed, and Hebrew does not work — it returns accented gibberish or English-shaped mouth movement. Never offer a user "Hebrew dialogue directly". This restriction applies to rendered dialogue/prose only, never to binding identifiers: preserve an exact stored Hebrew Visual DNA or moodboard tag such as `@אביב` / `#ישראל` literally. See `models/seedance.md` for the three honest alternatives.
 
-**Draft at 480p.** Resolution is a credit MULTIPLIER, not a flat rate. Relative to 720p: 480p ×0.44, 1080p ×2.25. A 30s pass costs ~540cr at 480p against ~1230cr at 720p and ~2770cr at 1080p. Block the film at 480p, get the user's sign-off on staging, performance and timing, then re-run only the approved cut at delivery resolution.
+**Use the cheapest supported tier unless the user selected an output resolution.** Resolution is a credit MULTIPLIER, not a flat rate. Relative to 720p: 480p ×0.44, 1080p ×2.25. A 30s pass costs ~540cr at 480p against ~1230cr at 720p and ~2770cr at 1080p. When no output resolution was selected and 480p is the cheapest supported tier, block the film at 480p, get the user's sign-off on staging, performance and timing, then re-run only the approved cut at a higher delivery resolution if the user explicitly authorizes that resolution increase. Approval of the creative cut alone does not authorize a more expensive resolution. If no output resolution was selected, use the cheapest supported tier from the live catalog even for final work; pass it explicitly.
 
 ## What's NEW in 2.5 (verified — never hedge)
 

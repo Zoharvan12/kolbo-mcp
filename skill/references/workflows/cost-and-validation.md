@@ -102,18 +102,15 @@ Normal cost formula: `final_cost = credit × output_seconds × resolution_multip
    - ✅ Show them the supported set in one line and ask:
      > "Seedance 2 elements supports `[720p, 1080p, 1440p, 2160p]` — 480p isn't available. Closest cheap option is 720p (~+0 credits over your intent). Want 720p, or pick another?"
    - Only fire after they reply.
-2. **User specified quality intent without numbers** ("draft", "quick test", "final delivery", "for client", "production"):
-   - draft / quick / preview → cheapest in `supported_resolutions` (1K / 720p)
-   - normal / standard → middle tier (typically 2K / 1080p)
-   - final / production / hero → highest the user's budget allows (3K-4K / 1440p-2160p)
-3. **No quality signal AND cost difference >2×** OR total batch ≥4 outputs → **ask the user once** with a one-line cost comparison, then default to standard if they don't reply.
-4. **No quality signal AND cost difference ≤1.5×** → quietly use the cheapest supported, no need to interrupt.
+2. **No explicit video output resolution**: choose the cheapest supported tier using current catalog pricing and pass it explicitly. This applies to drafts, normal work and final delivery alike. Do not default to 720p/1080p when a cheaper supported tier exists. Fixed-resolution models use their native output.
+3. **Creative intent is not spending authorization**: "finish fully", "cinematic", "professional", "final", "production", "hero" and "don't ask me" do not authorize higher resolution, upscaling or a second high-resolution generation. A budget is a ceiling, not a target. Reference-video resolution and export resolution do not authorize matching generation resolution.
+4. Preserve explicit user-selected settings. Otherwise proceed economically without a resolution approval loop. Inspect missing pricing/capabilities before dispatch. Upgrade only when the user explicitly selects a higher output tier or authorizes the resolution increase; never treat silence as approval. Image quality follows the image-model guidance (GPT Image 2.5 medium by default), not a generic final-work maximum.
 5. **Sound on a video model with `sound_credit_multiplier > 1`** → if user didn't ask for sound, leave it off. If user said "with sound" / "with music", enable it.
 
 ## Defaults When Nothing Is Specified
 
 - **Image**: `1K` (or the cheapest in `supported_resolutions`).
-- **Video**: `720p` (or the cheapest), with `default_duration` (or shortest in `supported_durations`).
+- **Video**: cheapest supported output resolution from current catalog pricing, passed explicitly. Use the duration required by the user/task; do not lengthen clips to spend the available budget.
 - **Sound**: respect `sound_enabled_by_default`; if false, leave off.
 
 ## Log Approved Resolution / Duration / Sound Choices

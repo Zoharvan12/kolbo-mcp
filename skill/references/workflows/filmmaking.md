@@ -145,4 +145,4 @@ Fix errors before delivery. Report warnings that represent genuine creative trad
 
 Read [workflows.md](references/filmmaking/workflows.md) for single shots, dialogue scenes, music performance, connected sequences, impossible shots, and feature workflows.
 
-This workflow is part of the canonical Kolbo skill. The Kolbo Code sync pipeline mirrors it to MCP and plugin consumers; product surfaces may compile the same filmmaking truth through their own model adapters.
+This workflow is part of the canonical Kolbo skill. The Kobi Code sync pipeline mirrors it to MCP and plugin consumers; product surfaces may compile the same filmmaking truth through their own model adapters.

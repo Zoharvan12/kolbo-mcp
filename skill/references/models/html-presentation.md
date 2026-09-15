@@ -6,7 +6,7 @@
 
 Load this file when the user wants to **build / create / generate an HTML presentation, slide deck, or pitch deck**. For landing pages see `models/landing-page.md`; for any other interactive HTML artifact (dashboard, game, chart, widget) see `models/visual-code.md`.
 
-**Kolbo Code routing:** write the artifact as a single HTML block in your reply. The Kolbo Code panel renders it as a previewable artifact card. Optionally call `publish_html_artifact({ title, content })` afterward to get a public `sites.kolbo.ai` URL.
+**Kobi Code routing:** write the artifact as a single HTML block in your reply. The Kobi Code panel renders it as a previewable artifact card. Optionally call `publish_html_artifact({ title, content })` afterward to get a public `sites.kolbo.ai` URL.
 
 ## 🚨 NON-NEGOTIABLE: Viewport Fitting
 

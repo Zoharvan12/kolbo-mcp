@@ -73,9 +73,9 @@ Branch on `failure.category` / `failure.retryable`:
 - `retryable === true` (transient: network, rate limit, provider 5xx) → retry once with the same payload after a short pause. If it fails again, surface to user.
 - `retryable === false` and unknown category → surface the raw `message` to the user, don't retry.
 
-## Kolbo Code Documentation
+## Kobi Code Documentation
 
-Full public documentation for Kolbo Code (the CLI you are running inside) lives at **[docs.kolbo.ai/docs/kolbo-code](https://docs.kolbo.ai/docs/kolbo-code)**. If the user asks about installation, authentication, voice input, supported languages, commands, or how to uninstall, point them to the matching page below rather than guessing:
+Full public documentation for Kobi Code (the CLI you are running inside) lives at **[docs.kolbo.ai/docs/kolbo-code](https://docs.kolbo.ai/docs/kolbo-code)**. If the user asks about installation, authentication, voice input, supported languages, commands, or how to uninstall, point them to the matching page below rather than guessing:
 
 | Topic | Path |
 |-------|------|
