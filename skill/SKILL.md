@@ -102,7 +102,9 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Confirm **cost** or validate **resolution / aspect / duration** against model caps | `references/workflows/cost-and-validation.md` |
 | Hit an **auth / MCP / 429** issue | `references/workflows/troubleshooting.md` |
 | Inspect or change a connected **Blender** scene, render, import Kolbo media, or run approved Blender Python | `references/workflows/blender.md` |
-| Inspect or edit an open **Premiere Pro / After Effects** project — timeline, import Kolbo media, place clips, sequences, captions | `references/workflows/adobe.md` |
+| Inspect or edit an open **Premiere Pro / After Effects** project — timeline, Kolbo media, sequences, captions, After Effects edits and titles | `references/workflows/adobe.md` |
+| Build **motion graphics** in After Effects — shape layers, animated text, effects, expressions, logo reveals | `references/workflows/after-effects-motion.md` |
+| Edit, grade or render Kolbo media in **DaVinci Resolve** (Studio 21.1+, Blackmagic's MCP) | `references/workflows/davinci-resolve.md` |
 | Create or edit a saved **Video Editor** timeline, clips, trims, speed or captions | `references/workflows/video-editor.md` |
 
 Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/src/config/systemPrompt.js` — same battle-tuned rules that power Kolbo's web-app help widget. Keep parity (see `packages/opencode/CLAUDE.md` "MCP & Skill Sync Rule").
@@ -160,7 +162,7 @@ Font tools (when exposed by the installed MCP): `list_fonts`, `get_font`, `uploa
 | `create_review_asset` / `add_review_version` / `set_review_status` / `create_review_comment` / `reply_review_comment` / `resolve_review_comment` / `unresolve_review_comment` / `create_review_collection` / `create_review_share_link` / `revoke_review_share_link` / `get_review_storage_usage` (+ list/get/update/delete siblings) | **Kolbo Review** — Frame.io-style client review: asset = media + appended versions (new cut = `add_review_version`, never delete+recreate), timecoded comments per version, approve/request-changes status, guest share links (no Kolbo account; comment-only unless `canSetStatus`). 5GB review storage cap. See `workflows/review-collections.md`. |
 | `publish_html_artifact` | Publish HTML / SVG / Mermaid to `sites.kolbo.ai`. Server dedupes by content hash. Strict CSP. |
 | `blender_list_sessions` / `blender_get_scene` / `blender_search_docs` / `blender_capture_viewport` / `blender_apply_operations` / `blender_import_media` / `blender_render` / `blender_undo` / `blender_file_operation` / `blender_execute_python` / `blender_get_command_status` | Connected Blender control through the Kolbo extension. Every tool crosses into an external desktop host; read `workflows/blender.md` before the first call. |
-| `adobe_list_sessions` / `adobe_get_project` / `adobe_get_timeline` / `adobe_import_media` / `adobe_place_on_timeline` / `adobe_create_sequence` / `adobe_import_captions` / `adobe_get_command_status` | Connected Premiere Pro / After Effects control through the Kolbo panel. Every edit needs the editor's approval in the panel; read `workflows/adobe.md` before the first call. |
+| `adobe_list_sessions` / `adobe_get_project` / `adobe_get_timeline` / `adobe_import_media` / `adobe_place_on_timeline` / `adobe_create_sequence` / `adobe_import_captions` / `adobe_edit_composition` / `adobe_run_script` / `adobe_capture_frame` / `adobe_get_command_status` | Connected Premiere Pro / After Effects control through the Kolbo panel. Every change needs the editor's approval in the panel; read `workflows/adobe.md` before the first call and `workflows/after-effects-motion.md` before any motion-graphics script. |
 
 ## ⚠️ Edit in place — never delete+recreate (HARD RULE — always on)
 
