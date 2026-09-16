@@ -88,7 +88,7 @@ function registerAdobeTools(server, client) {
 
   server.tool(
     'adobe_get_timeline',
-    'Queue a read-only inspection of the active Premiere Pro sequence or After Effects composition. No approval is needed. Long clip lists are truncated to max_clips.',
+    'Queue a read-only inspection of the active Premiere Pro sequence or After Effects composition. No approval is needed. Premiere returns size, duration, playhead_seconds, tracks and a clip list (track, name, start_seconds, end_seconds) sorted earliest first; After Effects returns the comp and its layers. The list is truncated to max_clips (default 200) with the full count in clips_total / layers_total.',
     {
       session_id: sessionId,
       max_clips: z.number().int().min(1).max(1000).optional(),
@@ -101,19 +101,19 @@ function registerAdobeTools(server, client) {
 
   server.tool(
     'adobe_import_media',
-    'Import one Kolbo media item into the open Premiere Pro or After Effects project bin. The editor must approve it in the Kolbo panel. Returns a command record; poll adobe_get_command_status.',
+    'Import one Kolbo media item into the open Premiere Pro or After Effects project. It lands in the Kolbo.AI / My Media bin for its type (Videos, Images, Audio). The editor must approve it in the Kolbo panel. Returns a command record; poll adobe_get_command_status.',
     {
       session_id: sessionId,
       media_id: mediaId,
       url: mediaUrl,
       kind: mediaKind,
       name: noControls(128).optional().describe('Display/file name. Sanitized by the panel.'),
-      bin: noControls(128).optional(),
+      // Kept for backward compatibility with cached clients (never remove an arg).
+      bin: noControls(128).optional().describe('Ignored. The panel always files imports under Kolbo.AI / My Media by media type.'),
       idempotency_key: idempotencyKey,
     },
     async (args) => command(client, 'media.import', args, {
       ...mediaSource(args, 'adobe_import_media'),
-      ...(args.bin ? { bin: args.bin } : {}),
     })
   );
 
@@ -133,7 +133,7 @@ function registerAdobeTools(server, client) {
 
   server.tool(
     'adobe_create_sequence',
-    'Create and open a new Premiere Pro sequence using the project default preset. Premiere Pro only; After Effects sessions fail with UNSUPPORTED_HOST. The editor must approve it in the Kolbo panel.',
+    'Create and open a new Premiere Pro sequence without any dialog. It copies the settings of the sequence open in the timeline (a 1080p 25 fps preset when none is open) and becomes the active sequence. Premiere Pro only; After Effects sessions fail with UNSUPPORTED_HOST. The editor must approve it in the Kolbo panel.',
     {
       session_id: sessionId,
       name: noControls(128),

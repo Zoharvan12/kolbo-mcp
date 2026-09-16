@@ -270,10 +270,10 @@ Requires the Kolbo Studio panel open in Premiere Pro or After Effects with **AI 
 |------|-------------|
 | `adobe_list_sessions` | List the caller's Premiere Pro / After Effects windows connected through the Kolbo panel |
 | `adobe_get_project` | Queue a read-only project inspection (no approval) |
-| `adobe_get_timeline` | Queue a read-only inspection of the active sequence or composition, bounded by `max_clips` |
-| `adobe_import_media` | Import one Kolbo media id or Kolbo-owned HTTPS URL into the project bin |
+| `adobe_get_timeline` | Queue a read-only inspection of the active sequence (tracks, clips with start/end, playhead) or composition (layers), bounded by `max_clips` |
+| `adobe_import_media` | Import one Kolbo media id or Kolbo-owned HTTPS URL into the Kolbo.AI / My Media bin for its type |
 | `adobe_place_on_timeline` | Import and place one Kolbo media item at the playhead of the work sequence / active comp (no time or track control in v1) |
-| `adobe_create_sequence` | Create and open a Premiere Pro sequence (Premiere only) |
+| `adobe_create_sequence` | Create and open a Premiere Pro sequence matching the open sequence's settings, no dialog (Premiere only) |
 | `adobe_import_captions` | Import a Kolbo-hosted SRT onto the active Premiere sequence (Premiere only) |
 | `adobe_get_command_status` | Read command status/result/error; `awaiting_approval` means stop and wait for the editor |
 
