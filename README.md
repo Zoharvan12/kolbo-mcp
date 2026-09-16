@@ -264,7 +264,7 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `blender_get_command_status` | Read bounded command status/result/error plus absolute `expires_at`; records and idempotency claims expire after 24 hours, and `awaiting_approval` means stop and wait for the user |
 
 **Premiere Pro & After Effects Bridge**
-Requires the Kolbo Studio panel open in Premiere Pro or After Effects with **AI agents** switched on in its header. Every edit is approved by the editor inside the panel; there is no raw ExtendScript tool.
+Requires the Kolbo Studio panel open in Premiere Pro or After Effects with **AI agents** switched on in its header. Every edit is approved by the editor inside the panel; scripts are shown in full before they run.
 
 | Tool | Description |
 |------|-------------|
@@ -275,6 +275,9 @@ Requires the Kolbo Studio panel open in Premiere Pro or After Effects with **AI 
 | `adobe_place_on_timeline` | Import and place one Kolbo media item at the playhead of the work sequence / active comp (no time or track control in v1) |
 | `adobe_create_sequence` | Create and open a Premiere Pro sequence matching the open sequence's settings, no dialog (Premiere only) |
 | `adobe_import_captions` | Import a Kolbo-hosted SRT onto the active Premiere sequence (Premiere only) |
+| `adobe_edit_composition` | After Effects: one undo step of structured edits - comps, timed and trimmed Kolbo media, titles with stroke, solids, transforms, keyframes, audio fades, layer deletion |
+| `adobe_run_script` | Approval-gated ExtendScript for real motion graphics (shape layers, trim paths, text animators, effects, expressions, cameras); the editor reviews the exact code |
+| `adobe_capture_frame` | Render a comp/sequence frame to the Kolbo library so the agent can check its work |
 | `adobe_get_command_status` | Read command status/result/error; `awaiting_approval` means stop and wait for the editor |
 
 **Discovery & Account**

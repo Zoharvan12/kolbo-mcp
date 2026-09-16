@@ -2300,6 +2300,18 @@
         "destructive_justification": "adobe_import_captions does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
+    "adobe_capture_frame": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "adobe_capture_frame creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "adobe_capture_frame can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "adobe_capture_frame does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
     "share_doc": {
       "annotations": {
         "readOnlyHint": false,
@@ -2394,6 +2406,30 @@
         "read_only_justification": "blender_execute_python changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "blender_execute_python can create, update, expose, or revoke content through a publicly accessible link.",
         "destructive_justification": "blender_execute_python can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "adobe_edit_composition": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "adobe_edit_composition changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "adobe_edit_composition can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "adobe_edit_composition can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "adobe_run_script": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "adobe_run_script changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "adobe_run_script can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "adobe_run_script can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     }
   },

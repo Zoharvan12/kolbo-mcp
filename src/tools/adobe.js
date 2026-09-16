@@ -31,6 +31,114 @@ const mediaUrl = z.string().url().max(4096).optional()
 const mediaKind = z.enum(['video', 'image', 'audio']).optional()
   .describe('Media kind. Inferred from the Kolbo record or file extension when omitted.');
 
+// ─── adobe_edit_composition operation schema (mirrors kolbo-api adobe/schemas.js) ───
+const seconds = (min = 0) => z.number().finite().min(min).max(3600);
+const color = () => z.array(z.number().finite().min(0).max(1)).length(3).describe('[r, g, b], each 0-1');
+const point = () => z.array(z.number().finite().min(-100000).max(100000)).length(2).describe('[x, y] in composition pixels; [0, 0] is top-left');
+const layerRef = z.union([z.number().int().min(1).max(10000), noControls(128)])
+  .describe('Layer name (exact) or 1-based index, 1 = top layer');
+// Titles may span lines; every other control character is refused.
+const TITLE_CONTROL = new RegExp('[\\x00-\\x09\\x0b\\x0c\\x0e-\\x1f]');
+const titleText = z.string().min(1).max(500).refine(
+  (value) => value.trim().length > 0 && !TITLE_CONTROL.test(value),
+  'Text must be 1-500 characters; newlines allowed, no other control characters.',
+);
+
+const compOperation = z.discriminatedUnion('op', [
+  z.object({
+    op: z.literal('comp.create'),
+    name: noControls(128),
+    width: z.number().int().min(16).max(8192).optional().describe('Default 1920'),
+    height: z.number().int().min(16).max(8192).optional().describe('Default 1080'),
+    frame_rate: z.number().finite().min(1).max(120).optional().describe('Default 30'),
+    duration_seconds: seconds(0.1),
+    background_color: color().optional(),
+  }).strict(),
+  z.object({
+    op: z.literal('comp.update'),
+    name: noControls(128).optional(),
+    duration_seconds: seconds(0.1).optional(),
+    background_color: color().optional(),
+  }).strict(),
+  z.object({
+    op: z.literal('layer.add_media'),
+    media_id: mediaId,
+    url: mediaUrl,
+    kind: mediaKind,
+    name: noControls(128).optional().describe('Layer name; defaults to the file name. Name layers you will animate later.'),
+    start_seconds: seconds().optional().describe('Where the layer starts on the comp timeline. Default 0.'),
+    trim_start_seconds: seconds().optional().describe('Seconds skipped at the head of the source clip. Default 0.'),
+    duration_seconds: seconds(0.04).optional().describe('Visible length. Default: rest of the source (stills: rest of the comp).'),
+    fit: z.enum(['cover', 'contain', 'none']).optional().describe('Scale to fill the frame (cover, default), fit inside it, or keep size.'),
+  }).strict(),
+  z.object({
+    op: z.literal('layer.add_text'),
+    text: titleText,
+    name: noControls(128).optional(),
+    start_seconds: seconds().optional(),
+    duration_seconds: seconds(0.04),
+    font: noControls(128).optional().describe('PostScript font name. Default "Arial-BoldMT".'),
+    font_size: z.number().finite().min(4).max(1000).optional().describe('Default 100'),
+    color: color().optional().describe('Default white'),
+    stroke_color: color().optional().describe('Outline colour. Default black when stroke_width is set.'),
+    stroke_width: z.number().finite().min(0).max(100).optional().describe('Outline in pixels. Use 2-6 whenever text sits over bright or busy footage.'),
+    position: point().optional().describe('Centre of the text block. Default: centre of the comp.'),
+  }).strict(),
+  z.object({
+    op: z.literal('layer.add_solid'),
+    color: color(),
+    name: noControls(128).optional(),
+    start_seconds: seconds().optional(),
+    duration_seconds: seconds(0.04).optional(),
+  }).strict(),
+  z.object({
+    op: z.literal('layer.update'),
+    layer: layerRef,
+    new_name: noControls(128).optional(),
+    start_seconds: seconds().optional(),
+    trim_start_seconds: seconds().optional(),
+    duration_seconds: seconds(0.04).optional(),
+    position: point().optional(),
+    scale: z.number().finite().min(0).max(10000).optional().describe('Percent, uniform'),
+    opacity: z.number().finite().min(0).max(100).optional(),
+    rotation: z.number().finite().min(-36000).max(36000).optional().describe('Degrees'),
+    audio_levels: z.number().finite().min(-96).max(24).optional().describe('dB'),
+    enabled: z.boolean().optional(),
+  }).strict(),
+  z.object({
+    op: z.literal('layer.animate'),
+    layer: layerRef,
+    property: z.enum(['opacity', 'scale', 'position', 'rotation', 'audio_levels'])
+      .describe('opacity 0-100, scale percent, rotation degrees, audio_levels dB, position [x, y]'),
+    keyframes: z.array(z.object({
+      time_seconds: seconds().describe('Comp time of this key'),
+      value: z.union([z.number().finite().min(-36000).max(36000), point()]),
+    }).strict()).min(1).max(50),
+    easing: z.enum(['ease', 'linear']).optional().describe('Default ease'),
+  }).strict(),
+  z.object({
+    op: z.literal('layer.delete'),
+    layer: layerRef,
+  }).strict(),
+]);
+const compOperations = z.array(compOperation).min(1).max(100)
+  .superRefine((ops, ctx) => {
+    ops.forEach((operation, opIndex) => {
+      if (operation.op !== 'layer.animate') return;
+      const wantsPoint = operation.property === 'position';
+      operation.keyframes.forEach((key, index) => {
+        if (Array.isArray(key.value) !== wantsPoint) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [opIndex, 'keyframes', index, 'value'],
+            message: wantsPoint ? 'position keyframes need [x, y]' : `${operation.property} keyframes need a number`,
+          });
+        }
+      });
+    });
+  })
+  .refine((ops) => Buffer.byteLength(JSON.stringify(ops), 'utf8') <= 256 * 1024, 'Operations must be at most 256 KiB as JSON.');
+
 function text(value) {
   return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] };
 }
@@ -160,6 +268,52 @@ function registerAdobeTools(server, client) {
         ...(args.name ? { name: args.name } : {}),
       });
     }
+  );
+
+  server.tool(
+    'adobe_edit_composition',
+    'After Effects only. Apply a batch of structured edits to a composition as ONE undo step: create or update a comp, add Kolbo media (trimmed and timed), text titles and solids, change layer timing/transform/opacity/audio, animate with keyframes, or delete layers. Times are in seconds on the composition timeline. Layers are addressed by the exact name you gave them or by 1-based index (1 = top). New layers stack on top; solids go to the bottom. Operations run in order and stop at the first failure (earlier ones stay applied). The editor approves the whole batch once in the Kolbo panel. Read workflows/adobe.md before the first call; verify with adobe_get_timeline afterwards.',
+    {
+      session_id: sessionId,
+      operations: compOperations,
+      idempotency_key: idempotencyKey,
+    },
+    async (args) => {
+      for (const operation of args.operations) {
+        if (operation.op === 'layer.add_media') mediaSource(operation, 'adobe_edit_composition layer.add_media');
+      }
+      return command(client, 'comp.edit', args, { operations: args.operations });
+    }
+  );
+
+  server.tool(
+    'adobe_run_script',
+    'Run ExtendScript inside the connected After Effects (or Premiere Pro) for real motion graphics: shape layers, trim paths, text animators, effects, masks, expressions, cameras, precomps. `code` is a FUNCTION BODY: use log(...) for progress and `return` a JSON-serialisable result. In After Effects the whole script is one undo step. The editor sees the exact code in the Kolbo panel and must approve it. Scripts have full access to the project and the computer, so never read or write files, call system.callSystem, or touch the network unless the user explicitly asked. Read workflows/after-effects-motion.md before writing motion graphics, then verify with adobe_capture_frame.',
+    {
+      session_id: sessionId,
+      code: z.string().min(1).max(64 * 1024).refine(
+        (value) => value.trim().length > 0 && Buffer.byteLength(value, 'utf8') <= 64 * 1024,
+        'Script must be non-empty and at most 64 KiB as UTF-8.',
+      ),
+      purpose: noControls(500).describe('Plain-language reason shown to the editor next to the code.'),
+      idempotency_key: idempotencyKey,
+    },
+    async (args) => command(client, 'script.run', args, { code: args.code, purpose: args.purpose })
+  );
+
+  server.tool(
+    'adobe_capture_frame',
+    'Render one frame of the active After Effects composition (PNG) or Premiere Pro sequence (JPEG) and save it to the Kolbo media library. The result carries the image `url` - look at it to check your motion graphics or edit before telling the user it is done. The editor approves it in the Kolbo panel.',
+    {
+      session_id: sessionId,
+      time_seconds: z.number().finite().min(0).max(3600).optional().describe('Frame time. Default: current playhead / comp time.'),
+      project_id: z.string().min(1).max(128).regex(SAFE_ID).optional().describe('Kolbo project to file the capture in.'),
+      idempotency_key: idempotencyKey,
+    },
+    async (args) => command(client, 'frame.capture', args, {
+      ...(args.time_seconds !== undefined ? { time_seconds: args.time_seconds } : {}),
+      ...(args.project_id ? { project_id: args.project_id } : {}),
+    })
   );
 
   server.tool(

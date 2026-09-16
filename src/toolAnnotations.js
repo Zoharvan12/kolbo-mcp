@@ -105,12 +105,15 @@ const OPEN_WORLD_WRITE = [
   'publish_html_artifact', 'create_review_share_link', 'blender_capture_viewport',
   // Adobe edits add bins, clips, sequences or caption tracks; none delete or overwrite.
   'adobe_import_media', 'adobe_place_on_timeline', 'adobe_create_sequence', 'adobe_import_captions',
+  'adobe_capture_frame',
 ];
 
 const OPEN_WORLD_DESTRUCTIVE = [
   'share_doc', 'revoke_review_share_link',
   'blender_apply_operations', 'blender_import_media', 'blender_render',
   'blender_undo', 'blender_file_operation', 'blender_execute_python',
+  // Can delete layers; approved once per batch in the Kolbo panel.
+  'adobe_edit_composition', 'adobe_run_script',
 ];
 
 const CONTRACT_GROUPS = [
