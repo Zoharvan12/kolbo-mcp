@@ -11,6 +11,7 @@ const { ownedUrl } = require('./owned-url');
 const { UI, uiResult, canonicalModelId, assertModelSupportsType, modelInfo, voiceInfo, resolveCatalogAspectRatio } = require('../apps');
 const { modelTypeForEditOperation, assertExecutableEditModel } = require('./editModelCatalog');
 const { withLocalRehost } = require('./local-rehost');
+const { validateVideoPrompt } = require('./video-prompt');
 
 // ─── Cinematic Dimensions schema (shared by generate_image + generate_image_edit) ───
 // Kolbo's "Cinema mode": eight independent photographic dimensions, each an OPTIONAL
@@ -1454,8 +1455,10 @@ function registerGenerateTools(server, client, options = {}) {
       session_id: sessionIdField
     },
     async ({ prompt, model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, sound_enabled, keyframes, multi_shots, multi_shot_count, session_name, project_id, session_id }) => {
+      validateVideoPrompt({ prompt, duration, aspect_ratio, multi_shots, multi_shot_count });
       model = await canonicalModelId(client, model, 'elements'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'elements');
+      validateVideoPrompt({ prompt, duration, aspect_ratio, multi_shots, multi_shot_count });
       if (!prompt) throw new Error('prompt is required');
 
       // Elements is the one tool that takes all three modalities, and either a

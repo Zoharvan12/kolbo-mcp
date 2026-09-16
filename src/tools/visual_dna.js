@@ -58,7 +58,9 @@ function registerVisualDnaTools(server, client, options = {}) {
         Promise.all(imageList.map(src => resolveToBuffer(src, 'image', options))),
         video ? resolveToBuffer(video, 'video', options) : Promise.resolve(null),
         audio ? resolveToBuffer(audio, 'audio', options) : Promise.resolve(null)
-      ]);
+      ]).catch((cause) => {
+        throw new Error(`Visual DNA reference preparation failed before submission; this attempt did not create a profile. ${cause.message}`, { cause });
+      });
 
       const form = new FormData();
       form.append('name', name);

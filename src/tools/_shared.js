@@ -24,7 +24,10 @@ const fs = require('fs');
 const path = require('path');
 const net = require('net');
 const dns = require('dns').promises;
-const { Agent, fetch: undiciFetch } = require('undici');
+// Never load Bun's incomplete built-in undici shim. Node uses the installed
+// dispatcher below; Bun uses native fetch pinned to vetted IPs (its node:tls
+// compatibility transport can return empty peer certificates intermittently).
+const { Agent, fetch: undiciFetch } = require('undici/index.js');
 
 const MAX_FILE_BYTES = 500 * 1024 * 1024; // 500 MB — larger than visual_dna because
                                            // lipsync/v2v/transcription accept full
@@ -214,29 +217,60 @@ function pinnedDispatcher(addresses) {
   });
 }
 
+async function release(dispatcher) {
+  try { await dispatcher.close(); } catch (_) { /* Cleanup must not mask fetch errors. */ }
+}
+
+async function bunFetch(url, addresses, signal) {
+  let error;
+  for (const row of addresses) {
+    const pinned = new URL(url);
+    pinned.hostname = row.family === 6 ? `[${row.address}]` : row.address;
+    try {
+      return await fetch(pinned, {
+        redirect: 'manual', signal,
+        // Disable environment proxy routing: the connection must use the
+        // checked address, while HTTP routing and TLS verification use the
+        // original hostname. Never disable certificate verification.
+        proxy: '',
+        headers: { Host: url.host },
+        tls: url.protocol === 'https:' ? {
+          serverName: url.hostname.replace(/^\[|\]$/g, ''), rejectUnauthorized: true,
+        } : undefined,
+      });
+    } catch (err) {
+      error = err;
+      if (signal?.aborted) throw err;
+    }
+  }
+  throw error;
+}
+
 async function safeFetch(rawUrl, opts = {}) {
   let current = rawUrl;
   for (let i = 0; i <= MAX_REDIRECTS; i++) {
     const url = assertSafeUrl(current);
     const addresses = await resolvePublicAddresses(url.hostname);
-    const dispatcher = pinnedDispatcher(addresses);
+    const dispatcher = process.versions.bun ? null : pinnedDispatcher(addresses);
     let res;
     try {
-      res = await undiciFetch(current, { redirect: 'manual', signal: opts.signal, dispatcher });
+      res = process.versions.bun
+        ? await bunFetch(url, addresses, opts.signal)
+        : await undiciFetch(current, { redirect: 'manual', signal: opts.signal, dispatcher });
     } catch (err) {
-      await dispatcher.close().catch(() => {});
+      if (dispatcher) await release(dispatcher);
       throw err;
     }
     if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
       const next = new URL(res.headers.get('location'), current).toString();
       await res.body?.cancel().catch(() => {});
-      await dispatcher.close().catch(() => {});
+      if (dispatcher) await release(dispatcher);
       current = next;
       continue;
     }
     // close() waits for this response body to be consumed, so schedule it but
     // do not await it before returning the Response to the caller.
-    dispatcher.close().catch(() => {});
+    if (dispatcher) void release(dispatcher);
     return res;
   }
   throw new Error(`Too many redirects fetching ${rawUrl}`);

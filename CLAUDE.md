@@ -105,6 +105,16 @@ CI in kolbo-code (`.github/workflows/validate-skill.yml`) enforces frontmatter, 
 
 ## Architecture
 
+Node reference downloads import `undici/index.js`, not bare `undici`:
+the desktop Bun runtime substitutes an incomplete built-in Agent for the latter.
+Bun downloads use native fetch against validated IPs with original Host/SNI,
+mandatory TLS verification and proxy routing disabled; its node:tls compatibility
+path showed intermittent empty peer certificates. Keep DNS pinning and redirect checks intact. Validate with Node network fixtures
+and a real download through the compiled Bun runtime before releasing changes.
+DNA preparation failures before submission must say that no profile was created
+by that attempt. Elements rejects contradictory explicit Total/SHOT declarations
+and tool duration/aspect/shot flags before submission, without rewriting prompts.
+
 ```
 Claude Code/Desktop → stdio → @kolbo/mcp → HTTP (X-API-Key) → api.kolbo.ai/api/v1/*
 claude.ai (web)     → HTTPS → api.kolbo.ai/mcp (OAuth) → createServer({ apps:true }) per request
