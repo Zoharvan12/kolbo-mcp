@@ -24,9 +24,13 @@ const SKILL_DIR = skillArg >= 0 && argv[skillArg + 1]
   ? path.resolve(argv[skillArg + 1])
   : path.join(PKG_ROOT, 'skill');
 
-// Tools the skill may legitimately name without the server registering them:
-// nothing today. Add here with a reason if that ever changes.
-const ALLOWED_PHANTOMS = new Set([]);
+// Tools the skill may legitimately name without the server registering them.
+// workflows/davinci-resolve.md pairs Kolbo with Blackmagic's own DaVinci Resolve
+// MCP server, so it names that server's tools on purpose.
+const ALLOWED_PHANTOMS = new Set([
+  'get_resolve_status', 'get_whats_new', 'search_scripting_api', 'get_scripting_api',
+  'get_scripting_docs', 'generate_lut', 'update_dctl', 'list_luts', 'list_dctls',
+]);
 
 // Registered tools that don't need a skill mention — internal/self-evident.
 const UNTAUGHT_OK = new Set([]);
@@ -40,6 +44,7 @@ const NOT_TOOLS = new Set([
   'session_id',   // returned by generation tools
   'generation_id',
   'deployment_url',
+  'trim_start_seconds', // nested operation field of adobe_edit_composition / resolve_edit_timeline
 ]);
 
 function inspectServer() {
