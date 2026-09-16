@@ -2,6 +2,20 @@
 
 ## Pre-generation audit
 
+Read the current creative brief, including rejected concepts and scene-specific
+exceptions. Compare it to the final prompt and actual tool arguments, not the
+assistant's explanation. Run `scripts/filmmaking/lint_prompt.py` against the shot
+card for saved prompts. It checks Total duration/aspect/count, SHOT numbering,
+continuous-take conflicts and exact multilingual tags. Optional card fields:
+`shot_count`, `continuous_take`, dialogue items' `prompt_text` (exact text sent
+to the model, including requested transliteration), and `post_voiceover` (a list
+of exact narration strings excluded from generation). These checks do not prove
+camera semantics, humor, visual quality or model adherence; review those separately.
+
+Elements also rejects explicit Total declarations contradicting tool duration,
+aspect or shot flags before submission. Resolve the mismatch against the brief;
+do not strip declarations just to bypass validation. Free-form prompts remain supported.
+
 ### Story and edit
 
 - Does the shot have a necessary dramatic/editorial job?

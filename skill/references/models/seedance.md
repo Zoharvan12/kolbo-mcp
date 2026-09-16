@@ -11,6 +11,10 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
 
 **Elements uses this same file.** `generate_elements` is not a second prompt language. Do not write `SCENE CONTEXT` / `OPTICS` / `ACTION` department packs for Elements or Seedance — those are filmmaking audit contracts, not the generation compile shape.
 
+## Creative direction takes precedence
+
+The current user brief overrides template defaults and illustrative examples. Keep the two-layer organization, but include only relevant locks. State concrete camera trajectory and visible action prominently; optics numbers, equipment names, repetition and word counts are not guarantees of fidelity. Preserve a continuous-shot exception even when other scenes are multishot. For one shot use `Single continuous shot`, `Total: Xs / 1 shot / AR`, one SHOT heading and `multi_shots: false`; for multiple shots use `Multishot ON` and matching counts. AR comes from the brief, never a copied example. Keep dialogue in the user's requested language or phonetic spelling; test pronunciation rather than claiming guaranteed support or impossibility. Narration reserved for post does not belong in the generation prompt.
+
 ## Universal Rules (apply to EVERY Seedance / Elements prompt)
 
 - **NO MUSIC BY DEFAULT (HARD):** Unless the user explicitly asks for music, every final Seedance prompt—including every Elements/reference-driven prompt—must explicitly say `No music. No musical score.` Keep requested dialogue, synchronized production sound, ambience, and SFX; "no music" does not mean "no audio." If the user explicitly requests music, describe that music instead and omit the no-music lock. Never invent background music from cinematic tone alone.
@@ -26,13 +30,13 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
   - A prompt with only shot body and no Total / Multishot header is a **failed turn** — rewrite before calling `generate_*`.
 - **MCP `duration` must match the Total line.** Pass `duration: X` (whole seconds) on `generate_video` / `generate_elements` / `generate_video_from_image` equal to the `Xs` in `Total: Xs / …`. Mismatch = wrong-length clip.
 - **Then the Locked Intro** — `[GLOBAL LOOK]` / `[CAST]` / `[LOCATION]` (+ LOCATION MAP / CONTINUITY / PHYSICS for multi-shot) — before any shot. A one-liner `same character throughout` is not a character lock.
-- **Order inside each shot**: Subject → Action → Camera → Constraints → (Audio/SFX if relevant). Do NOT restack GLOBAL LOOK style inside the shot.
-- **Prompt length**: simple single-idea pieces ~120–280 words. Locked-intro cinematic typically 400–900 words. Shorter than ~120 words = random output. The 10,000-char cap below always wins.
+- **Inside each shot:** make the camera trajectory, subject action and timing easy to find. Put a requested signature camera move in the heading. Do not restack GLOBAL LOOK style inside the shot.
+- **Prompt length**: simple single-idea pieces ~120–280 words. Locked-intro cinematic typically 400–900 words. These are examples, not minimum lengths. Do not pad. The selected model catalog cap wins; Seedance 2.5 uses its own adapter.
 - **Shot count is user-directed.** If the user asks for N shots, deliver exactly N in one prompt unless they ask to split.
-- **Always describe at least one camera movement per shot.**
+- **Describe the camera behavior requested for each shot.** Preserve intentional static shots; do not replace requested dynamic moves with static dialogue coverage.
 - **Tell Seedance what the camera is NOT doing** (e.g. `no cuts, no zoom, natural head movement`) — this is what locks POV.
-- **Final prompt is always English**, wrapped in a copy-ready code block. Detect intent in any language and reply in the user's language, but the prompt itself is English.
-- **HARD CAP: 10,000 characters TOTAL for the ENTIRE prompt** — measured as one single string including all shots, boilerplate, SFX lines, and the Total lines. It is per PROMPT, not per shot. **Never** split into multiple prompts, code blocks, or "part 1 / part 2" to evade the cap. Count the final prompt before output; if over, trim (cut adjectives, collapse boilerplate, shorten SFX lists, merge or drop shots) and re-count until it fits.
+- **Control prose defaults to English; exact dialogue and asset tags retain the user-requested language**, wrapped in a copy-ready code block. Reply in the user's language; preserve any explicit request for the prompt language too.
+- **HARD CAP: 10,000 characters TOTAL for the ENTIRE prompt** — measured as one single string including all shots, boilerplate, SFX lines, and the Total lines. It is per PROMPT, not per shot. **Never** split into multiple prompts, code blocks, or "part 1 / part 2" to evade the cap. Count the final prompt before output; if over, trim (cut adjectives, collapse boilerplate, shorten SFX lists, tighten redundant shot prose without dropping user-requested shots) and re-count until it fits.
 
 ## Locked Intro (DEFAULT for any multi-shot cinematic — including Elements)
 
@@ -138,7 +142,7 @@ Appearance locks WHO. Persona locks HOW THEY BEHAVE — without it Seedance rend
 ## Dialogue & expression
 
 - **Dialogue is PERFORMED by the model, never by a TTS tool.** Quoted lines in the prompt come back as synced speech with lip movement and room tone, together with the SFX you name in AUDIO. Scene dialogue therefore never routes through `generate_speech` or `generate_lipsync` — write the line in quotes inside its shot beat and let Seedance act it.
-- **Write dialogue in ENGLISH.** Seedance does not reliably perform other languages, and Hebrew in particular does not work — it comes back as accented gibberish or English-shaped mouth movement. Never offer a user "Hebrew dialogue directly". If the delivered film has to be Hebrew, the honest routes are: (a) keep the spoken lines English, or (b) stage the beat as expression + on-screen text, or (c) generate the scene clean and dub it afterwards as an explicit, separately-priced pass. Say which one you are doing.
+- **Preserve requested dialogue and its language.** If the user requests Hebrew in Latin letters, preserve that phonetic text as dialogue, not an English translation. Native pronunciation and lip-sync require actual output inspection. Do not promise success or claim the language is impossible without current evidence. Offer a separately authorized dubbing pass only when needed; keep narration reserved for post out of the prompt.
 - `list_models` reports `sound_generation_type: "none"` for Seedance 2 / 2.5 because there is no in-app sound toggle (`sound_baked_in: true`). That field does NOT mean the model is silent. Do not read it as a reason to add TTS.
 - For silent tension, deliver it as expression, not speech: `He does not speak. His expression clearly says: "…"`.
 
@@ -231,7 +235,7 @@ Use only the discrete steps. Not "23°" — use 18° or 29°.
 
 ### Camera placement
 
-Place CAMERA in the **3rd position** of each shot's core layers (Subject → Action → Camera → Style → Constraints). FOV gets ignored at the end, conflicts with identity at the front.
+Place a requested signature CAMERA trajectory prominently in the shot heading, then describe its timing with the subject action. GLOBAL LOOK owns shared lens / stock / grade. No fixed word order guarantees adherence.
 
 ### Pre-flight checklist (before output)
 

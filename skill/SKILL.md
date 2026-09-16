@@ -1,5 +1,5 @@
 ---
-version: 0.9.16
+version: 0.9.17
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images,

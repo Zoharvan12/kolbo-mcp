@@ -9,6 +9,9 @@
   "generation_mode": "reference-to-video",
   "control_density": "anchored",
   "duration_seconds": 8,
+  "shot_count": 1,
+  "continuous_take": true,
+  "post_voiceover": [],
   "aspect_ratio": "16:9",
   "active_assets": [
     {

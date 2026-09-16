@@ -10,8 +10,9 @@ from pathlib import Path
 from typing import Any
 
 
-TAG_RE = re.compile(r"@[A-Za-z][A-Za-z0-9_.:-]*(?:\s+\d+)?")
+TAG_RE = re.compile(r"@[\w][\w.:-]*(?:\s+\d+)?", re.UNICODE)
 SHOT_RE = re.compile(r"(?im)^\s*(?:SHOT|SEGMENT)\s+(\d+)\b")
+TOTAL_RE = re.compile(r"(?im)^\s*Total:\s*(\d+(?:\.\d+)?)s\s*/\s*(\d+)\s*shots?\s*/\s*(\d+:\d+)\s*$")
 RANGE_RE = re.compile(
     r"(?i)(\d+(?:\.\d+)?)\s*s\s*(?:-|–|—|to)\s*(\d+(?:\.\d+)?)\s*s"
 )
@@ -98,7 +99,7 @@ def check_adapter(
 
 def check_contradictions(prompt: str, report: Report) -> None:
     continuous = re.search(
-        r"(?i)\b(one|single)\s+(?:unbroken\s+)?continuous\s+take\b|\bno\s+cuts?\b",
+        r"(?i)\b(one|single)\s+(?:unbroken\s+)?continuous\s+(?:take|shot)\b|\bno\s+cuts?\b",
         prompt,
     )
     cuts = re.search(r"(?i)\b(hard|match|smash|jump|whip)\s+cut\b|\bhard\s+cuts\b", prompt)
@@ -144,8 +145,18 @@ def check_stale_language(prompt: str, report: Report) -> None:
 
 
 def check_tags(prompt: str, card: dict[str, Any] | None, report: Report) -> tuple[set[str], set[str]]:
-    found = {value.rstrip(".,;:!?") for value in TAG_RE.findall(prompt)}
     expected = expected_tags(card)
+    # Exact stored names may contain spaces, punctuation and non-Latin letters.
+    # Match those first, then scan the remainder for unregistered tags. Never
+    # normalize a canonical name, or accept @maya2 as a match for @maya.
+    remaining = prompt
+    found: set[str] = set()
+    for tag in sorted(expected, key=len, reverse=True):
+        pattern = re.escape(tag) + r"(?![\w:-])"
+        if re.search(pattern, remaining):
+            found.add(tag)
+            remaining = re.sub(pattern, "", remaining)
+    found.update(value.rstrip(".,;:!?") for value in TAG_RE.findall(remaining))
     for tag in sorted(expected - found):
         report.error("missing_active_asset", f"Shot-card asset is absent from prompt: {tag}")
     for tag in sorted(found - expected):
@@ -160,6 +171,40 @@ def check_tags(prompt: str, card: dict[str, Any] | None, report: Report) -> tupl
             f"Prompt has {len(found)} distinct references; current Kolbo Seedance contract ceiling is 50.",
         )
     return found, expected
+
+
+def check_contract(prompt: str, card: dict[str, Any] | None, report: Report) -> None:
+    """Check explicit structure, not subjective direction or rendered quality."""
+    totals = [(float(seconds), int(count), aspect) for seconds, count, aspect in TOTAL_RE.findall(prompt)]
+    if totals and any(total != totals[0] for total in totals):
+        report.error("conflicting_totals", "Opening and closing Total declarations disagree.")
+    shots = [int(value) for value in re.findall(r"(?im)^\s*SHOT\s+(\d+)\b", prompt)]
+    if shots and shots != list(range(1, len(shots) + 1)):
+        report.error("shot_sequence", "SHOT headings must be unique and sequential from 1.")
+    if totals and shots and totals[0][1] != len(shots):
+        report.error("shot_count_mismatch", "Total shot count differs from the SHOT headings.")
+    if not card:
+        return
+    for duration, count, aspect in totals:
+        if card.get("duration_seconds") is not None and duration != card["duration_seconds"]:
+            report.error("duration_mismatch", "Prompt Total duration differs from the shot card.")
+        if card.get("aspect_ratio") and aspect != card["aspect_ratio"]:
+            report.error("aspect_mismatch", "Prompt Total aspect differs from the shot card.")
+        if card.get("shot_count") is not None and count != card["shot_count"]:
+            report.error("brief_shot_count_mismatch", "Prompt Total shot count differs from the shot card.")
+    if card.get("shot_count") is not None and shots and len(shots) != card["shot_count"]:
+        report.error("brief_shot_count_mismatch", "SHOT headings differ from the shot card count.")
+    if card.get("continuous_take") is True:
+        if len(shots) > 1 or any(count != 1 for _, count, _ in totals) or re.search(r"(?i)\bMultishot\s+ON\b", prompt):
+            report.error("brief_continuous_take", "The brief requires one continuous take; prompt declares multiple shots.")
+    for item in card.get("dialogue", []):
+        if isinstance(item, dict):
+            text = item.get("prompt_text")
+            if isinstance(text, str) and text not in prompt:
+                report.error("missing_dialogue", "Exact prompt_text from the dialogue card is missing or rewritten.")
+    for text in card.get("post_voiceover", []):
+        if isinstance(text, str) and text and text in prompt:
+            report.error("post_voiceover_in_prompt", "Narration reserved for post-production appears in the generation prompt.")
 
 
 def check_timing(prompt: str, card: dict[str, Any] | None, report: Report) -> None:
@@ -220,6 +265,7 @@ def main() -> int:
     found, expected = check_tags(prompt, card, report)
     check_timing(prompt, card, report)
     check_dialogue_card(card, report)
+    check_contract(prompt, card, report)
 
     result = {
         "prompt": str(args.prompt.resolve()),

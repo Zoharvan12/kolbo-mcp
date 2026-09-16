@@ -6,6 +6,10 @@ Operate as a filmmaking system, not merely a prompt writer. Preserve project tru
 
 ## Start here
 
+For a continuing production, read `.kolbo/creative-brief.md` before compiling or revising scenes. Keep it as a compact working table: stable scene ID, current world/action/tone, first-frame and camera trajectory/framing, shot count, duration/aspect, asset IDs and exact tags, spoken lines versus VO reserved for post, approval state, rejected concepts, and pending job IDs. Update only the dimensions changed by the user. Preserve the brief across compaction; do not put unapproved generations into `.kolbo/production.md`.
+
+User direction wins over template defaults and examples. A custom skill supplements this workflow; do not require its missing supporting files without explaining the gap, and never claim to have read them. Check the final prompt and tool arguments against the brief before dispatch. A request for active movement does not require running; bright lighting does not imply pastel colors or restrained action. Replace rejected worlds substantively. Preserve approved scenes and local single-shot exceptions.
+
 1. Identify the requested production stage and deliverable.
 2. Read only the reference files required by the routing table below.
 3. Preserve or establish the relevant production truth before writing a shot.
@@ -114,6 +118,8 @@ When a generation fails:
 4. Preserve every proven line or block.
 5. Log the change and verdict.
 6. After repeated failures, redesign the shot: bake the state into an asset, add a staging/layout reference, reduce actions, split the shot, change the angle, or switch model/mode.
+
+Validate the revised approach on one representative shot before another batch, within existing authorization and budget; an explicit request for the whole batch wins. Do not silently split a user-requested continuous take, switch their selected model, or add paid tests. Distinguish defects observed in video/audio from hypotheses inferred from the prompt. Completion alone never verifies camera movement, cuts or performance.
 
 Do not keep polishing adjectives when the shot is physically or structurally overconstrained.
 

@@ -11,7 +11,7 @@ Load this file when the user wants a **Seedance 2.5** video (they said "2.5" / "
 
 **Audio:** Seedance 2.5 emits real synced audio. `list_models` shows `sound_generation_type: none` only because there is no in-app toggle (`sound_baked_in: true`) — it does NOT mean the model is silent, and it is never a reason to reach for TTS. Quoted dialogue is PERFORMED (synced voices, lip movement, room tone) alongside the SFX named in AUDIO, so scene dialogue never goes through `generate_speech` or `generate_lipsync`; write the lines in quotes inside their shot beats.
 
-**Dialogue language: English.** Other languages are not reliably performed, and Hebrew does not work — it returns accented gibberish or English-shaped mouth movement. Never offer a user "Hebrew dialogue directly". This restriction applies to rendered dialogue/prose only, never to binding identifiers: preserve an exact stored Hebrew Visual DNA or moodboard tag such as `@אביב` / `#ישראל` literally. See `models/seedance.md` for the three honest alternatives.
+**Dialogue language follows the user.** Preserve requested Hebrew or Hebrew-in-Latin transliteration; do not translate it into English or change the spoken content. Pronunciation and lip-sync must be inspected in the generated output, not guaranteed from the prompt. Keep post-production VO out of the generation prompt. Asset tags always retain their exact stored spelling, including `@אביב` / `#ישראל` literally.
 
 **Use the cheapest supported tier unless the user selected an output resolution.** Resolution is a credit MULTIPLIER, not a flat rate. Relative to 720p: 480p ×0.44, 1080p ×2.25. A 30s pass costs ~540cr at 480p against ~1230cr at 720p and ~2770cr at 1080p. When no output resolution was selected and 480p is the cheapest supported tier, block the film at 480p, get the user's sign-off on staging, performance and timing, then re-run only the approved cut at a higher delivery resolution if the user explicitly authorizes that resolution increase. Approval of the creative cut alone does not authorize a more expensive resolution. If no output resolution was selected, use the cheapest supported tier from the live catalog even for final work; pass it explicitly.
 
@@ -26,6 +26,8 @@ Load this file when the user wants a **Seedance 2.5** video (they said "2.5" / "
 - **NO FAMOUS NAMES OR IP IN PROMPTS (HARD):** Never put celebrity/public-figure names, real directors or artists, copyrighted character/franchise/IP names, famous campaign names or slogans, or famous studio/company names into a final Seedance 2.5 or Elements prompt. Translate user-supplied references into concrete visual traits without repeating the famous name; preserve exact user-owned Visual DNA and asset tags.
 
 ## Universal Rules (HARD — same as help widget OUTPUT CONTRACT)
+
+User-selected shot structure wins over examples. One continuous take uses `Single continuous shot`, `Total: Xs / 1 shot / AR`, one SHOT heading and `multi_shots: false`. Use Multishot ON only for multiple shots. Copy aspect, duration, dialogue and camera direction from the current scene brief. Expand craft blocks only when they resolve a real staging need; do not pad or introduce contradictory locks.
 
 - **First lines ALWAYS declare shot structure** (text-to-video / Elements / reference gen — NOT video-edit):
   1. `N connected cinematic shots, Xs total, AR, Multishot ON`

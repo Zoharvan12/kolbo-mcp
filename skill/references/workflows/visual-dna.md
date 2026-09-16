@@ -8,6 +8,10 @@ Visual DNA profiles capture the visual "identity" of a character, style, product
 
 ## Workflow
 
+### Creation failure recovery
+
+Create DNA through the available tool when the user requested it; do not default to asking for manual wizard work. A reference-preparation error **before submission** means this attempt did not create a profile. For an uncertain submission, reconcile with a personal/project-scoped list and inspect the matching profile before retrying. Existence alone does not establish that an errored call created it. Stop repeating an identical runtime error; report the exact failure and the verified scope, without inventing an auth outage or claiming reconnect will fix it. After success, check the returned ID, exact stored name, type and references; correct confirmed metadata errors in place rather than recreating. A headless wardrobe sheet for a recurring person remains character DNA.
+
 1. **Sheet first, then DNA.** For any production asset (character / location / prop), resolve the sheet **preset** (`list_presets` with `search`) and `generate_image` with that `preset_id` — custom instructions live on the preset. Then `create_visual_dna` with the sheet as `character_sheet_url` (max 4 extra images — if the user gives more, pick the 4 most representative **that share the same identity and vibe**; never pass 5+). Optionally video and audio. See **Purity** below before you generate those stills.
 2. **Types**: `character` (default), `style`, `product`, `scene`, `environment`.
 3. **Use** the profile by passing its `id` in `visual_dna_ids` in: `generate_image`, `generate_creative_director`, `generate_elements`, `generate_video_from_image`, `generate_video_from_video`, `generate_first_last_frame`.
