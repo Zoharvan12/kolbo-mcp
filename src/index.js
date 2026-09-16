@@ -82,6 +82,7 @@ const { registerAudioStemTools } = require('./tools/audio_stems');
 const { registerAnalyzeTools } = require('./tools/analyze');
 const { registerBlenderTools } = require('./tools/blender');
 const { registerAdobeTools } = require('./tools/adobe');
+const { registerResolveTools } = require('./tools/resolve');
 const { registerApps, attachToolWidgetMeta } = require('./apps');
 const { attachToolAnnotations } = require('./toolAnnotations');
 
@@ -203,6 +204,7 @@ function createServer(opts = {}) {
   registerAudioStemTools(server, client, toolOptions);
   registerBlenderTools(server, client, toolOptions);
   registerAdobeTools(server, client, toolOptions);
+  registerResolveTools(server, client, toolOptions);
 
   // MCP Apps widget resources (ui://kolbo/*). Registering resources is inert
   // for text-only hosts — they never fetch them.

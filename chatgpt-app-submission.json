@@ -788,6 +788,54 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
+    "resolve_list_sessions": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "resolve_list_sessions retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "resolve_get_project": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "resolve_get_project retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "resolve_get_timeline": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "resolve_get_timeline retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "resolve_get_command_status": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "resolve_get_command_status retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
     "upload_font": {
       "annotations": {
         "readOnlyHint": false,
@@ -2312,6 +2360,30 @@
         "destructive_justification": "adobe_capture_frame does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
+    "resolve_import_media": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "resolve_import_media creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "resolve_import_media can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "resolve_import_media does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "resolve_capture_frame": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "resolve_capture_frame creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "resolve_capture_frame can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "resolve_capture_frame does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
     "share_doc": {
       "annotations": {
         "readOnlyHint": false,
@@ -2430,6 +2502,30 @@
         "read_only_justification": "adobe_run_script changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "adobe_run_script can create, update, expose, or revoke content through a publicly accessible link.",
         "destructive_justification": "adobe_run_script can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "resolve_edit_timeline": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "resolve_edit_timeline changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "resolve_edit_timeline can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "resolve_edit_timeline can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "resolve_run_script": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "resolve_run_script changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "resolve_run_script can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "resolve_run_script can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     }
   },

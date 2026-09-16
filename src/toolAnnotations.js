@@ -36,6 +36,7 @@ const OPEN_WORLD_READ_ONLY = [
   'blender_list_sessions', 'blender_get_scene', 'blender_search_docs',
   'blender_get_command_status',
   'adobe_list_sessions', 'adobe_get_project', 'adobe_get_timeline', 'adobe_get_command_status',
+  'resolve_list_sessions', 'resolve_get_project', 'resolve_get_timeline', 'resolve_get_command_status',
 ];
 
 const PRIVATE_WRITE = [
@@ -106,6 +107,8 @@ const OPEN_WORLD_WRITE = [
   // Adobe edits add bins, clips, sequences or caption tracks; none delete or overwrite.
   'adobe_import_media', 'adobe_place_on_timeline', 'adobe_create_sequence', 'adobe_import_captions',
   'adobe_capture_frame',
+  // Resolve imports add Media Pool items; captures add a Kolbo library image.
+  'resolve_import_media', 'resolve_capture_frame',
 ];
 
 const OPEN_WORLD_DESTRUCTIVE = [
@@ -114,6 +117,8 @@ const OPEN_WORLD_DESTRUCTIVE = [
   'blender_undo', 'blender_file_operation', 'blender_execute_python',
   // Can delete layers; approved once per batch in the Kolbo panel.
   'adobe_edit_composition', 'adobe_run_script',
+  // Can delete timeline clips; approved once per batch in the Kolbo plugin.
+  'resolve_edit_timeline', 'resolve_run_script',
 ];
 
 const CONTRACT_GROUPS = [

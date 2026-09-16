@@ -280,6 +280,20 @@ Requires the Kolbo Studio panel open in Premiere Pro or After Effects with **AI 
 | `adobe_capture_frame` | Render a comp/sequence frame to the Kolbo library so the agent can check its work |
 | `adobe_get_command_status` | Read command status/result/error; `awaiting_approval` means stop and wait for the editor |
 
+**DaVinci Resolve Bridge**
+Requires DaVinci Resolve Studio with the Kolbo plugin open (Workspace → Workflow Integrations → Kolbo AI) and **AI agents** switched on in its header. Every edit is approved by the editor inside the plugin; scripts are shown in full before they run.
+
+| Tool | Description |
+|------|-------------|
+| `resolve_list_sessions` | List the caller's DaVinci Resolve windows connected through the Kolbo plugin |
+| `resolve_get_project` | Queue a read-only project inspection: timelines, frame rate, resolution, playhead (no approval) |
+| `resolve_get_timeline` | Queue a read-only inspection of the current timeline: clips per track with start/end, markers, playhead |
+| `resolve_import_media` | Import one Kolbo media id or Kolbo-owned HTTPS URL into the Kolbo.AI Media Pool bin |
+| `resolve_edit_timeline` | Structured edits: new timelines, timed and trimmed Kolbo clips on chosen tracks, transitions, audio fades, Fusion titles, markers, clip deletion |
+| `resolve_run_script` | Approval-gated JavaScript against Resolve's scripting API (colour, Fusion, render jobs); the editor reviews the exact code |
+| `resolve_capture_frame` | Export a timeline frame to the Kolbo library so the agent can check its work |
+| `resolve_get_command_status` | Read command status/result/error; `awaiting_approval` means stop and wait for the editor |
+
 **Discovery & Account**
 | Tool | Description |
 |------|-------------|

@@ -40,6 +40,7 @@ const EXTRA_ROUTE_SOURCES = [
   { file: path.join(KOLBO_API, 'src', 'modules', 'artifact', 'routes.js'), mountPath: '/v1/artifact' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'blender', 'index.js'), mountPath: '/v1/blender' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'adobe', 'index.js'), mountPath: '/v1/adobe' },
+  { file: path.join(KOLBO_API, 'src', 'modules', 'resolve', 'index.js'), mountPath: '/v1/resolve' },
 ];
 const MCP_TOOLS_DIR = path.join(MCP_REPO, 'src', 'tools');
 
