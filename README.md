@@ -263,6 +263,20 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `blender_execute_python` | Execute explicitly reviewed Python plus a required plain-language purpose with full host authority; approval required unless trusted mode is visibly active |
 | `blender_get_command_status` | Read bounded command status/result/error plus absolute `expires_at`; records and idempotency claims expire after 24 hours, and `awaiting_approval` means stop and wait for the user |
 
+**Premiere Pro & After Effects Bridge**
+Requires the Kolbo Studio panel open in Premiere Pro or After Effects with **AI agents** switched on in its header. Every edit is approved by the editor inside the panel; there is no raw ExtendScript tool.
+
+| Tool | Description |
+|------|-------------|
+| `adobe_list_sessions` | List the caller's Premiere Pro / After Effects windows connected through the Kolbo panel |
+| `adobe_get_project` | Queue a read-only project inspection (no approval) |
+| `adobe_get_timeline` | Queue a read-only inspection of the active sequence or composition, bounded by `max_clips` |
+| `adobe_import_media` | Import one Kolbo media id or Kolbo-owned HTTPS URL into the project bin |
+| `adobe_place_on_timeline` | Import and place one Kolbo media item at the playhead of the work sequence / active comp (no time or track control in v1) |
+| `adobe_create_sequence` | Create and open a Premiere Pro sequence (Premiere only) |
+| `adobe_import_captions` | Import a Kolbo-hosted SRT onto the active Premiere sequence (Premiere only) |
+| `adobe_get_command_status` | Read command status/result/error; `awaiting_approval` means stop and wait for the editor |
+
 **Discovery & Account**
 | Tool | Description |
 |------|-------------|

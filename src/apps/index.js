@@ -25,6 +25,8 @@ const { fontUploadWidgetHtml } = require('./widgets/fontUpload');
 const { listWidgetHtml } = require('./widgets/list');
 const { HOST_MAP } = require('../cdn');
 const { plansWidgetHtml } = require('./widgets/plans');
+const { ResourceTemplate } = require('@modelcontextprotocol/sdk/server/mcp.js');
+const { McpError, ErrorCode } = require('@modelcontextprotocol/sdk/types.js');
 
 const UI = {
   generation: 'ui://kolbo/generation.html',
@@ -165,6 +167,7 @@ function registerApps(server) {
     [UI.catalog, 'Kolbo Model Catalog Widget'],
     [UI.transcript, 'Kolbo Transcription Widget'],
     [UI.upload, 'Kolbo Upload Widget'],
+    [UI.fontUpload, 'Kolbo Font Upload Widget'],
     [UI.list, 'Kolbo List Widget'],
     [UI.plans, 'Kolbo Plans Widget'],
   ]) {
@@ -180,6 +183,26 @@ function registerApps(server) {
         })
       );
     }
+    // Published tool definitions and old conversations can retain any previous
+    // content hash. Keep those addresses readable after deploying new HTML.
+    // Match only this registered widget and the version format we publish.
+    registerAppResource(
+      server, name + ' (previous versions)',
+      new ResourceTemplate(uri + '{?v}', { list: undefined }),
+      { mimeType: RESOURCE_MIME_TYPE, _meta: { csp: WIDGET_CSP, ui: { csp: WIDGET_CSP } } },
+      async (requestedUri) => {
+        const requested = requestedUri.href;
+        if (!new RegExp('^' + uri.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\?v=[a-f0-9]{10}$').test(requested)) {
+          throw new McpError(ErrorCode.InvalidParams, 'Unknown widget version URI');
+        }
+        return {
+          contents: [{
+            uri: requested, mimeType: RESOURCE_MIME_TYPE, text: widgetHtml(uri),
+            _meta: { csp: WIDGET_CSP, ui: { csp: WIDGET_CSP } },
+          }],
+        };
+      }
+    );
   }
 }
 

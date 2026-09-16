@@ -35,6 +35,7 @@ const READ_ONLY = [
 const OPEN_WORLD_READ_ONLY = [
   'blender_list_sessions', 'blender_get_scene', 'blender_search_docs',
   'blender_get_command_status',
+  'adobe_list_sessions', 'adobe_get_project', 'adobe_get_timeline', 'adobe_get_command_status',
 ];
 
 const PRIVATE_WRITE = [
@@ -102,6 +103,8 @@ const DESTRUCTIVE_WRITE = [
 const OPEN_WORLD_WRITE = [
   'import_music_audio',
   'publish_html_artifact', 'create_review_share_link', 'blender_capture_viewport',
+  // Adobe edits add bins, clips, sequences or caption tracks; none delete or overwrite.
+  'adobe_import_media', 'adobe_place_on_timeline', 'adobe_create_sequence', 'adobe_import_captions',
 ];
 
 const OPEN_WORLD_DESTRUCTIVE = [

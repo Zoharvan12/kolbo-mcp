@@ -427,4 +427,4 @@ function registerBlenderTools(server, client) {
   );
 }
 
-module.exports = { registerBlenderTools, envelope };
+module.exports = { registerBlenderTools, envelope, isTrustedMediaUrl };

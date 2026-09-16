@@ -81,6 +81,7 @@ const { registerStockLibraryTools } = require('./tools/stock_library');
 const { registerAudioStemTools } = require('./tools/audio_stems');
 const { registerAnalyzeTools } = require('./tools/analyze');
 const { registerBlenderTools } = require('./tools/blender');
+const { registerAdobeTools } = require('./tools/adobe');
 const { registerApps, attachToolWidgetMeta } = require('./apps');
 const { attachToolAnnotations } = require('./toolAnnotations');
 
@@ -121,6 +122,7 @@ function createServer(opts = {}) {
       'LOCAL FILES: never upload a user file with your own cloud credentials, an S3/Spaces script, or a third-party host — Kolbo owns this. ' + LOCAL_FILE_ROUTING,
       'PROMPT CONVENTIONS (Kolbo-specific — these change the OUTPUT, not just the metadata):',
       'A. Visual DNA: passing `visual_dna_ids` is not enough — every DNA in play must ALSO be tagged inside the prompt text as `@Name`, using the DNA name (e.g. "@Kobi walks into frame"). Moodboards are referenced the same way with `#Name`. Resolve names via `list_visual_dnas` / `list_moodboards`.',
+      'A2. NUMBERED REFERENCE TAGS: every attached reference must ALSO be tagged in the prompt text by its 1-based position in the array you passed — `@Image 1`, `@Image 2` for `reference_images` / `source_images`, `@Video 1` for `reference_videos`, `@Audio 1` for `reference_audio_urls`. Say what each one contributes ("@Image 1 is the character reference — preserve exact face", "@Video 2 defines the camera move"). An untagged attachment is silently ignored by the engine even though it was uploaded and billed. Order is the contract: position N is bound to `@ImageN`, so append new refs, never insert. `@Image\\d+` / `@Video\\d+` / `@Audio\\d+` are reserved — they are never looked up as Visual DNAs.',
       'B. The full Kolbo skill is available to you as MCP RESOURCES under `kolbo://skill/`. Read `kolbo://skill/SKILL.md` first — it is the core rules plus a routing index — then read the matching `kolbo://skill/references/...` file before writing prompts for a specific model or workflow (per-model prompt rules, Visual DNA workflow, Creative Director, marketing, cost validation). Do this instead of guessing; the references exist precisely because the rules differ per model.',
       'PROJECT CONTRACT (read this before generating anything):',
       'Everything in Kolbo lives inside a PROJECT — sessions, generations, and media are all project-scoped.',
@@ -200,6 +202,7 @@ function createServer(opts = {}) {
   registerStockLibraryTools(server, client, toolOptions);
   registerAudioStemTools(server, client, toolOptions);
   registerBlenderTools(server, client, toolOptions);
+  registerAdobeTools(server, client, toolOptions);
 
   // MCP Apps widget resources (ui://kolbo/*). Registering resources is inert
   // for text-only hosts — they never fetch them.

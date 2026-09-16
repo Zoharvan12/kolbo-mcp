@@ -7,6 +7,19 @@
 
 ## Rendering targets
 
+### Widget address compatibility
+
+Published tool metadata and existing conversations may retain an earlier widget
+content hash. Keep both bare and current hashed resource addresses registered.
+Each known widget also accepts historical `?v=` addresses containing a ten-character
+lowercase hexadecimal hash and serves the current compatible HTML, preserving the
+requested URI, MIME type, and CSP metadata. Unknown paths and malformed versions
+remain rejected. Do not interpolate requested versions into HTML, fetch URLs, or
+create a cache entry per requested version. Future widget changes must continue
+to accept older tool-result payloads; this fallback does not archive old HTML.
+
+Regression gate: `node --test test/widget-resource-versions.test.js`.
+
 | Host | Transport | Widgets? |
 |---|---|---|
 | claude.ai (web) | kolbo-api `POST /mcp` (Streamable HTTP, stateless, OAuth) | ✅ (`apps: true` opt from kolbo-api) |
