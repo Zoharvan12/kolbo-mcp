@@ -104,7 +104,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Inspect or change a connected **Blender** scene, render, import Kolbo media, or run approved Blender Python | `references/workflows/blender.md` |
 | Inspect or edit an open **Premiere Pro / After Effects** project — timeline, Kolbo media, sequences, captions, After Effects edits and titles | `references/workflows/adobe.md` |
 | Build **motion graphics** in After Effects — shape layers, animated text, effects, expressions, logo reveals | `references/workflows/after-effects-motion.md` |
-| Edit, grade or render Kolbo media in **DaVinci Resolve** (Studio 21.1+, Blackmagic's MCP) | `references/workflows/davinci-resolve.md` |
+| Edit, title, grade or render Kolbo media in **DaVinci Resolve** (Studio) — Kolbo Resolve plugin (`resolve_*`, any agent) or Blackmagic's MCP (local) | `references/workflows/davinci-resolve.md` |
 | Create or edit a saved **Video Editor** timeline, clips, trims, speed or captions | `references/workflows/video-editor.md` |
 
 Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/src/config/systemPrompt.js` — same battle-tuned rules that power Kolbo's web-app help widget. Keep parity (see `packages/opencode/CLAUDE.md` "MCP & Skill Sync Rule").
@@ -163,6 +163,7 @@ Font tools (when exposed by the installed MCP): `list_fonts`, `get_font`, `uploa
 | `publish_html_artifact` | Publish HTML / SVG / Mermaid to `sites.kolbo.ai`. Server dedupes by content hash. Strict CSP. |
 | `blender_list_sessions` / `blender_get_scene` / `blender_search_docs` / `blender_capture_viewport` / `blender_apply_operations` / `blender_import_media` / `blender_render` / `blender_undo` / `blender_file_operation` / `blender_execute_python` / `blender_get_command_status` | Connected Blender control through the Kolbo extension. Every tool crosses into an external desktop host; read `workflows/blender.md` before the first call. |
 | `adobe_list_sessions` / `adobe_get_project` / `adobe_get_timeline` / `adobe_import_media` / `adobe_place_on_timeline` / `adobe_create_sequence` / `adobe_import_captions` / `adobe_edit_composition` / `adobe_run_script` / `adobe_capture_frame` / `adobe_get_command_status` | Connected Premiere Pro / After Effects control through the Kolbo panel. Every change needs the editor's approval in the panel; read `workflows/adobe.md` before the first call and `workflows/after-effects-motion.md` before any motion-graphics script. |
+| `resolve_list_sessions` / `resolve_get_project` / `resolve_get_timeline` / `resolve_import_media` / `resolve_edit_timeline` / `resolve_run_script` / `resolve_capture_frame` / `resolve_get_command_status` | Connected DaVinci Resolve Studio control through the Kolbo Resolve plugin: timeline edits, Fusion titles, scripts and frame checks. Every change needs the editor's approval in the plugin; read `workflows/davinci-resolve.md` before the first call. |
 
 ## ⚠️ Edit in place — never delete+recreate (HARD RULE — always on)
 

@@ -1,19 +1,67 @@
 # DaVinci Resolve Workflow
 
-Use this when the user wants Kolbo media edited, graded or rendered in DaVinci Resolve. Kolbo generates and hosts the media; **Blackmagic's own DaVinci Resolve MCP server** drives Resolve. The agent uses both connectors side by side.
+Use this when the user wants Kolbo media edited, cut, titled, graded or rendered in DaVinci Resolve. There are two ways to reach Resolve; pick by what is connected.
 
-Everything below was run against DaVinci Resolve Studio 21.1.0.17 through Blackmagic's server.
+| Path | Works from | Use it for |
+|---|---|---|
+| **Kolbo Resolve plugin** (`resolve_*` tools, this server) | Any agent, including ChatGPT and claude.ai | Reading the project, importing Kolbo media, building timeline edits, titles, frame checks - every change approved by the editor |
+| **Blackmagic's DaVinci Resolve MCP** (their own server) | Local agents only (Claude Desktop, Claude Code, Codex) | Deep scripting, colour, LUTs/DCTLs, rendering |
 
-## Requirements - check before promising anything
+Both need **DaVinci Resolve Studio**; the free edition has no plugins and no external scripting. If `resolve_list_sessions` returns a session, prefer the Kolbo plugin.
+
+## Kolbo Resolve plugin
+
+Everything in this section was run end to end through Kolbo MCP against DaVinci Resolve Studio 21.1.
+
+### Connect and target safely
+
+1. Call `resolve_list_sessions` before the first Resolve action.
+2. If no session is listed, ask the user to open **Workspace → Workflow Integrations → Kolbo AI** in Resolve Studio and sign in with the same Kolbo account as this connector. **AI agents** in the plugin header connects automatically; if its dot is not green, ask them to click it.
+3. One session: `session_id` may be omitted. Several: show each and ask. Keep the chosen `session_id` on every later call; re-list after Resolve or the plugin restarts.
+
+Every tool except `resolve_list_sessions` and `resolve_get_command_status` returns a command record. Poll `resolve_get_command_status` until `succeeded`, `failed`, `denied` or `canceled`. Reads run without approval; everything else waits for **Allow once / Allow for this session / Deny** in the plugin window. `awaiting_approval` is not a polling state: tell the user to approve in the Kolbo AI window (it may be behind Resolve), then check again. `denied` is final.
+
+### Tools
+
+| Goal | Tool |
+|---|---|
+| Project name, timelines, frame rate, resolution, playhead | `resolve_get_project` |
+| Clips on every track (position, start/end seconds), markers | `resolve_get_timeline` |
+| Kolbo media into the Media Pool only | `resolve_import_media` |
+| Build or change an edit | `resolve_edit_timeline` |
+| Anything else in Resolve's scripting API | `resolve_run_script` |
+| See the result | `resolve_capture_frame` → look at the returned `url` |
+
+### Timeline edits (`resolve_edit_timeline`)
+
+- Up to 100 operations run in order and stop at the first failure; earlier operations stay applied. Fix the failing one and continue - do not replay the batch.
+- Start new work with `timeline.create` so the user's existing timelines stay untouched. It uses the project's frame rate and resolution.
+- Times are seconds from the timeline start. `clip.append`: `record_seconds` = where it lands (default: end of that track), `trim_start_seconds` = seconds skipped at the head of the source, `duration_seconds` = length on the timeline (stills default to 5 s). media_type "video" keeps a clip's audio off the timeline; audio files always go to audio tracks. Missing tracks are added.
+- Clips are addressed by track plus position (1 = leftmost media clip on that track; transitions do not count) or exact clip name. Clip names are file names, and a file imported again gets a short prefix, so prefer positions. Positions change after inserts and deletes - re-read with `resolve_get_timeline` when unsure.
+- `clip.transition` needs handles: trim the head of the next shot (`trim_start_seconds` ≥ half the transition) or the transition will be refused.
+- `audio.fade` is for clips on audio tracks. `title.add` builds the title inside that clip's Fusion comp (`position` [0.5, 0.5] = centre, y grows upward) with a fade in and out; keep it inside title-safe (x and y between 0.1 and 0.9).
+- `clip.delete` is destructive; only delete what the user asked for.
+- The Kolbo AI window must stay open while you work; it can sit behind Resolve.
+
+### Scripts (`resolve_run_script`)
+
+- `code` is an **async JavaScript function body** with `resolve`, `project`, `timeline` and `log(...)` in scope. Every Resolve call returns a promise - `await` each one - and `return` a JSON-serialisable result.
+- The editor reads the exact code before approving. Give a plain `purpose`. Never touch files, the network or other projects unless the user asked for exactly that.
+
+## Blackmagic's DaVinci Resolve MCP
+
+Verified against DaVinci Resolve Studio 21.1.0.17.
+
+### Requirements - check before promising anything
 
 - **DaVinci Resolve Studio 21.1 or later.** The free edition has no MCP server and no external scripting.
-- A **local** agent: Claude Desktop, Claude Code or Codex on the same computer as Resolve. Browser ChatGPT and claude.ai can generate media with Kolbo but cannot reach Resolve.
+- A **local** agent: Claude Desktop, Claude Code or Codex on the same computer as Resolve. Browser ChatGPT and claude.ai cannot reach this server; use the Kolbo Resolve plugin from there.
 - Connect Resolve's server from **File → Setup AI Assistants** in Resolve, and set **Preferences → System → General → External scripting using** to **Local**.
 - Resolve must be running; the server's `launch_resolve` tool can start it.
 
-If the Resolve tools are missing from the conversation, say so and give these steps. Do not try to control Resolve any other way.
+If neither the Kolbo plugin session nor Blackmagic's tools are available, say so and give the setup steps for the path that fits the user. Do not try to control Resolve any other way.
 
-## Blackmagic's tools (not Kolbo's)
+### Blackmagic's tools (not Kolbo's)
 
 | Tool | Use |
 |---|---|
@@ -26,7 +74,7 @@ If the Resolve tools are missing from the conversation, say so and give these st
 
 Scripts get `resolve` and the current `project` pre-injected and return data by assigning `result`.
 
-## Workflow
+### Workflow
 
 1. **Generate or find media with Kolbo** (`generate_video`, `generate_music`, `list_media`, …) and wait for success.
 2. **Get the files onto disk.** In Claude Code or Codex, download the Kolbo URLs with the shell. In Claude Desktop, download inside `run_script_unsafe` with `urllib.request`. Only download Kolbo-hosted URLs.
@@ -35,7 +83,7 @@ Scripts get `resolve` and the current `project` pre-injected and return data by 
 5. **Verify visually.** Set the playhead and call `project.ExportCurrentFrameAsStill(path)` at representative times, then look at the stills before reporting.
 6. Optionally render (`AddRenderJob` / `StartRendering`) and upload the result back to Kolbo with `upload_media` so it lands in the user's library.
 
-## Verified gotchas
+### Verified gotchas
 
 - **`MediaPool.ImportMedia` needs plain path strings.** The dict form in the 21.1 stubs (`[{"FilePath": ...}]`) returned `None`. On Windows, backslash paths worked.
 - **File import fails in `run_script`**; use `run_script_unsafe` for anything that touches files.
@@ -43,7 +91,7 @@ Scripts get `resolve` and the current `project` pre-injected and return data by 
 - `AppendToTimeline` `startFrame` / `endFrame` are **source frames** at the clip's own frame rate (`GetClipProperty("FPS")`). `recordFrame` is a timeline frame; timelines start at `timeline.GetStartFrame()` (86400 = 01:00:00:00 at 24 fps).
 - New projects default to 24 fps and UHD output.
 
-## Recipe: cut, transition, music fade, title
+### Recipe: cut, transition, music fade, title
 
 ```python
 pm = resolve.GetProjectManager()
@@ -109,7 +157,7 @@ resolve.GetProjectManager().LoadProject("<original project name>")
 result = {"still": ok}
 ```
 
-## Completion proof
+### Completion proof
 
 - Look at exported stills at the title, the transition and the end before reporting.
 - Report which project and timeline you built, that the original project was saved and restored, and where any render landed.
