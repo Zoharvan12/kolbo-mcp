@@ -13,7 +13,7 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
 
 ## Creative direction takes precedence
 
-The current user brief overrides template defaults and illustrative examples. Keep the two-layer organization, but include only relevant locks. State concrete camera trajectory and visible action prominently; optics numbers, equipment names, repetition and word counts are not guarantees of fidelity. Preserve a continuous-shot exception even when other scenes are multishot. For one shot use `Single continuous shot`, `Total: Xs / 1 shot / AR`, one SHOT heading and `multi_shots: false`; for multiple shots use `Multishot ON` and matching counts. AR comes from the brief, never a copied example. Keep dialogue in the user's requested language or phonetic spelling; test pronunciation rather than claiming guaranteed support or impossibility. Narration reserved for post does not belong in the generation prompt.
+The current user brief overrides template defaults and illustrative examples. Keep the two-layer organization, but include only relevant locks. State concrete camera trajectory and visible action prominently; optics numbers, equipment names, repetition and word counts are not guarantees of fidelity. Preserve a continuous-shot exception even when other scenes are multishot. For one shot use `Single continuous shot`, `Total: Xs / 1 shot / AR`, one SHOT heading and `multi_shots: false`; for multiple shots use `Multishot ON` and matching counts. AR comes from the brief, never a copied example. Seedance does not speak Hebrew — use Latin transliteration in quotes or route native Hebrew to Gemini Omni. Narration reserved for post does not belong in the generation prompt.
 
 ## Universal Rules (apply to EVERY Seedance / Elements prompt)
 
@@ -142,7 +142,7 @@ Appearance locks WHO. Persona locks HOW THEY BEHAVE — without it Seedance rend
 ## Dialogue & expression
 
 - **Dialogue is PERFORMED by the model, never by a TTS tool.** Quoted lines in the prompt come back as synced speech with lip movement and room tone, together with the SFX you name in AUDIO. Scene dialogue therefore never routes through `generate_speech` or `generate_lipsync` — write the line in quotes inside its shot beat and let Seedance act it.
-- **Preserve requested dialogue and its language.** If the user requests Hebrew in Latin letters, preserve that phonetic text as dialogue, not an English translation. Native pronunciation and lip-sync require actual output inspection. Do not promise success or claim the language is impossible without current evidence. Offer a separately authorized dubbing pass only when needed; keep narration reserved for post out of the prompt.
+- **Hebrew (HARD):** Seedance 2 / 2.5 do **not** speak Hebrew. Never put Hebrew-script dialogue in the prompt. Use Latin transliteration in quotes (`שלום` → `"shalom"`), or recommend Gemini Omni Flash 1.1 / Gemini Omni 1 for native Hebrew. Do not promise Seedance Hebrew success. Attached-audio lip-sync on 2.5 is unreliable unless audio length matches the clip and the prompt has no Hebrew script. Keep narration reserved for post out of the prompt.
 - `list_models` reports `sound_generation_type: "none"` for Seedance 2 / 2.5 because there is no in-app sound toggle (`sound_baked_in: true`). That field does NOT mean the model is silent. Do not read it as a reason to add TTS.
 - For silent tension, deliver it as expression, not speech: `He does not speak. His expression clearly says: "…"`.
 

@@ -221,11 +221,25 @@ A URL from `generate_*`, `list_media`, `get_media`, or a prior `upload_media` is
 - `upload_media` is only for a **local disk path** or an **external** (non-Kolbo) URL — `files`/`source_images`/`image_url` reject unknown hosts with `400`; a Kolbo URL passes through as-is.
 - Same rule after compaction: pull the URL from `.kolbo/production.md` and reuse it. Never download-then-reupload.
 
-## ⚠️ Assets Before Shots (HARD RULE)
+## ⚠️ Route video per use case (decide — do not cargo-cult)
 
-For any film / ad / scene / episode / campaign the order is **Map → Create → Confirm → Shoot** (the directing guide — load `references/workflows/production-planning.md` + `filmmaking.md` before creating anything). Crack the concept first. Then every character, location, and prop becomes a Visual DNA **from a sheet** (`list_presets` search → `generate_image` with that `preset_id` → `create_visual_dna`). Do **not** register a DNA from a single portrait and skip the sheet. Publish the session plan (`Cast` / `Locations` / `Scene NN — slug`). Get a GATE lock on the asset set. **Only then** video. A shot against an unapproved cast is waste.
+Pick the cheapest route that actually controls what the brief needs. Do not invent a pipeline.
 
-Scene dialogue is **never** `generate_speech` or `generate_lipsync`. Seedance 2 / 2.5 performs quoted lines written into the shot beat itself — English only. Full flow: `references/workflows/production-planning.md`.
+**1. Recurring identity (cast / product / location must match across shots)**  
+Map → Visual DNA sheets → Confirm → `generate_elements` (or DNA-locked Multishot). Asset sheets earn their cost here.
+
+**2. Composition must be locked before motion** (deliberate framing, Pixar-like kids beats, specific staging, hero product plate, user-approved look)  
+Generate the needed keyframe still(s) first, then animate with `generate_video_from_image` / first-last / Elements **using those images as real inputs**. Stills without attaching them to the video call are waste.
+
+**3. Pure text-to-video / Multishot Locked Intro — only when keyframes are 100% unnecessary**  
+Use for generic b-roll, ambient motion, simple stock-like scenes, or any brief where the video model inventing composition is fine and stills would not improve control. If you are not sure keyframes add nothing, prefer route 2.
+
+**Anti-patterns (HARD)**  
+- Do not generate N stills and then run a Multishot T2V that never attaches them.  
+- Do not default every "make a video" to keyframes (generic b-roll does not need them).  
+- Do not default every narration-only brief to T2V when the user asked for tightly designed cute/controlled shots — those often need keyframes.
+
+Scene dialogue is **never** `generate_speech` or `generate_lipsync` on a Seedance shoot. Seedance 2 / 2.5 perform quoted lines written into the shot beat — English or Latin transliteration of Hebrew (`"shalom"`), never Hebrew script. For native Hebrew speech, prefer Gemini Omni Flash 1.1 or Gemini Omni 1. Full flow: `references/workflows/production-planning.md`.
 
 ## ⚠️ Load the matching skill BEFORE generating (HARD RULE)
 
@@ -452,7 +466,7 @@ If at this point you still don't know which `references/` file to load, default 
 ## Media selection preferences
 Honor explicit models, presets, budget and inputs. Choose only eligible catalog candidates with all required capabilities. Use requested presets; otherwise use fitting presets when useful. For video generation, editing and lip-sync, when the user has not explicitly selected an output resolution, use the cheapest supported output resolution from the live catalog and pass it explicitly; do not inherit an expensive provider default. Preserve explicit user-selected resolution/settings. Finish fully, cinematic, professional, final, production and available credits are NOT permission to increase resolution. Never infer output resolution from reference media or export settings. A budget is a ceiling, not a spending target. Do not upscale or regenerate at a higher tier without explicit user authorization. If pricing or supported resolutions cannot be verified, inspect the catalog before dispatch; never invent a tier. Models with fixed output resolution use their native output. Never treat a policy refusal as a technical failure or route around safeguards.
 Default images and edits: GPT Image 2.5 Flare/Sunburst; medium for value, high for ordinary maximum quality. Reserve xhigh/max for exceptional dense or difficult multilingual text after medium/high prove insufficient; do not automatically spend on retries. Nano Banana 2 is secondary. Seedream 5.0 Pro favors cinematic aesthetics over complex instruction fidelity; Wan 2.7 Pro is another creative alternative. Z Image/P Image for cheap tests. Midjourney for artistic concepts only, never editing. Soul V2 for realistic people/UGC concepts; derive character sheets before registering finished Visual DNA. Mirage Film 2 for environments and cinematic inspiration.
-Default video: Seedance 2.5. Kling specializes in controlled single-image and first/last-frame shots. Wan 3.0 specializes in motion graphics and Hebrew/dialogue work. MiniMax H3 offers higher resolution; H3 Max favors speed at lower resolution. Gemini Omni Flash is a secondary Hebrew option (up to 10 seconds); Grok Imagine 1.5 and Seedance 2.0 are alternatives. P Video/Draft for cheap fast tests. Use base, edit or extend variants only with their required inputs.
+Default video: Seedance 2.5 for general cinematic work (not Hebrew speech). Kling specializes in controlled single-image and first/last-frame shots. Wan 3.0 specializes in motion graphics and animated typography — native Hebrew speech is poor; attached-audio lip-sync works well. MiniMax H3 offers higher resolution and strong attached-audio lip-sync; H3 Max favors speed at lower resolution with the same audio lip-sync strength. **Native Hebrew dialogue:** Gemini Omni Flash 1.1 or Gemini Omni 1 (best). Seedance 2 / 2.5 do not speak Hebrew — use Latin transliteration in quotes on Seedance, or switch to Gemini Omni. Grok Imagine 1.5 and Seedance 2.0 are non-Hebrew alternatives. P Video/Draft for cheap fast tests. Use base, edit or extend variants only with their required inputs.
 Existing-video lip-sync: Sync 3 for active-speaker handling; PixVerse for cartoons/2D and economical faster work. Portrait lip-sync: Veed Fabric or HeyGen Avatar; P Avatar for budget work. LTX Audio to Video for camera/environment motion with audio-driven performance.
 Default music: Suno v6. ElevenLabs Music is an alternative, especially for duration-directed scoring. Both accept custom duration requests; validate the selected tool schema and inspect actual output duration.
 

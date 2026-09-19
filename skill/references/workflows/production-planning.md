@@ -9,10 +9,13 @@ starts here, **before** a single video credit is spent. Most users do not know
 this flow exists; they ask for a film and expect a film. Walk them through it
 rather than jumping to a prompt.
 
-Skip it only for a genuine one-off: a single clip, no recurring subject, nothing
-that has to match anything else.
+**Skip asset mapping** only when keyframes and DNA are **100% unnecessary**: generic b-roll,
+ambient motion, simple stock-like scenes where the video model inventing composition is fine.
+For tightly designed kids/educational beats, Pixar-like staging, or any brief where composition
+must be locked, generate keyframes (or DNA) first and attach them to the video call — do not
+invent stills and then run a Multishot T2V that ignores them.
 
-## The order is not negotiable
+## The order is not negotiable (when cast/product identity must lock)
 
 1. **Map** every element the script needs — including the **session plan** (names).
 2. **Create** each one as an asset (Visual DNA), grouped into the planned sessions.
