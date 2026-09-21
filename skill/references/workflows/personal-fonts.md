@@ -42,7 +42,7 @@ it — nothing installs the font — so these are the levers that decide how clo
 
 - **Model choice is the biggest one.** GPT Image 2 reproduced the uploaded letterforms
   clearly better than GPT Image 2.5 Sunburst / Flare, which drift toward a default bold
-  Hebrew. Recommend GPT Image 2 whenever the typeface matters.
+  Hebrew in that test. This is historical evidence, not a standing recommendation: choose from current catalog typography strengths and supported font inputs.
 - **Quality does not compensate.** 2K + `high` on GPT Image 2 beat both 2.5 rows at
   `max`. Do not sell a higher tier as a fix for typography.
 - **Weight words in the prompt beat the specimen.** "bold", "medium weight", "very large

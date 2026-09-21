@@ -4,7 +4,7 @@
 
 # GPT Image 2 / 2.5 — Prompt Rules
 
-Load this file when the user wants a **GPT Image 2 or GPT Image 2.5** image (OpenAI). The live family is `gpt-image-2`, `gpt-image-2.5-sunburst` and `gpt-image-2.5-flare` — all three are the ONLY Kolbo image models that can output a native transparent background. (`gpt-image/1.5-text-to-image` is the older row and cannot.) For other image models see `models/nano-banana.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
+Load this file when the user wants a **GPT Image 2 or GPT Image 2.5** image (OpenAI). Discover current variants and native transparency support from list_models; never assume exclusivity or support from this reference. For other image models see `models/nano-banana.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
 
 **Kolbo MCP routing:** call `generate_image` (text-to-image) or `generate_image_edit` (edits with `source_images`). Pass the exact identifier the user named (`gpt-image-2`, `gpt-image-2.5-sunburst`, `gpt-image-2.5-flare`); otherwise consult `list_models({ type: "text_to_img" })`. On `generate_image_edit` the same families appear as their `/edit` rows under `list_models({ type: "image_editing" })`.
 
@@ -26,23 +26,20 @@ Load this file when the user wants a **GPT Image 2 or GPT Image 2.5** image (Ope
 - **People, pose, action**: describe scale, body framing, gaze, object interactions ("full body visible, feet included", "looking down at the open book, not at the camera", "hands naturally gripping the handlebar").
 - **Complex scene, an edit that must not drift, or a reusable template**: use the block schema, the reference contract (`identity_lock` + an explicit `preserve` list) and named slots from `workflows/prompt-structure.md`.
 - **Constraints — what changes vs what stays**: state exclusions and invariants explicitly. For edits use **"change only X" + "keep everything else the same"**, and re-state the preserve list on every iteration to prevent drift. Common invariants: identity, geometry, layout, brand elements, camera angle, saturation, contrast, labels, surrounding objects. Always include "no watermark, no extra text, no logos/trademarks" unless the brief specifies otherwise.
-- **Text in images**: put literal text in **quotes** or **ALL CAPS**, specify typography (font style, size, color, placement). For tricky words / brand names, spell letter-by-letter. Recommend quality **high** when text is small, dense, or multi-font.
+- **Text in images**: put literal text in **quotes** or **ALL CAPS**, specify typography (font style, size, color, placement). For tricky words / brand names, spell letter-by-letter. Use the current catalog quality guidance for small, dense or multi-font text.
 - **Multi-image inputs**: reference each input by number with a short description ("Image 1: product photo… Image 2: style reference…") and describe the interaction ("apply Image 2's style to Image 1", "place the dog from Image 2 next to the woman in Image 1"). Use `@image1` / `@image2` tags — see `workflows/visual-dna.md`.
 - **Iterate, don't overload**: prefer a clean base prompt + single-change follow-ups ("make lighting warmer", "remove the extra tree", "restore the original background") over one giant prompt.
 
-## Latency vs Fidelity (recommend `quality` param)
+## Quality selection
 
-- **low**: only when the user prioritizes minimum cost or latency; medium remains the ordinary GPT Image 2.5 default.
-- **medium**: default best price/quality for ordinary generations, edits and exploration.
-- **high**: final assets, small/dense text, multi-font layouts, close-up portraits, identity-sensitive edits, infographics, diagrams, posters, UI with labels, scientific visuals, slides with charts/footnotes.
-- **xhigh/max** (GPT Image 2.5 only, when listed): exceptional dense text or difficult multilingual/Hebrew typography after medium/high are insufficient. Do not auto-run retries or raise spending without authorization.
+Read the selected model's current catalog summary, supported qualities and default_quality before recommending a tier. The catalog owns price/quality tradeoffs and exceptional higher-tier use cases. Honor explicit user settings and spending authorization; examples below are craft illustrations, not default settings.
 
 ## Use Cases (text → image)
 
 ### Infographics, diagrams, scientific visuals, slides/charts
 - Treat as artifact spec, not illustration request. Name exact deliverable. Define hierarchy. Provide real text/data verbatim in quotes.
 - Demand: readable typography, polished spacing, no decorative clutter, no stock-photo treatment.
-- Recommend: `quality: "high"`, landscape `aspect_ratio` for deck/slide outputs.
+- Recommend a supported quality from the current catalog and an aspect ratio matching the requested deck/slide output.
 
 ### Photorealism
 - Prompt as if a real photo is being captured in the moment. Use photography language (lens, lighting, framing). Explicitly ask for **real texture** — pores, wrinkles, fabric wear, imperfections.
@@ -50,7 +47,7 @@ Load this file when the user wants a **GPT Image 2 or GPT Image 2.5** image (Ope
 
 ### Logos
 - Brand personality + use case + clean, original mark + strong silhouette + balanced negative space + scales from small to large. Flat design, minimal strokes, no gradients unless essential. Plain background, generous padding, centered. "Original, non-infringing".
-- Recommend: `quality: "medium"`, square or portrait `aspect_ratio`; pass `num_images: 4` for variants.
+- Recommend quality from the selected catalog row and an aspect ratio matching the brief; request variants only within the authorized count and budget.
 
 ### Ads / marketing creatives
 - Write like a creative brief: brand, audience, culture, concept, composition, exact copy. Let the model make taste decisions inside boundaries.

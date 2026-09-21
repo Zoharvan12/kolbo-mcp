@@ -339,7 +339,7 @@ Four surfaces show the same job. Use this map — never invent a fifth:
 
 **🛑 NEVER re-fire a generation you already called.** Aborted / timed-out / `submitted` calls still process server-side. Finish with `get_generation_status` (`wait=true`) — never a second `generate_*`.
 
-**🛑 After `submitted` / `_timed_out` — END THE TURN (credit guard).** Do **not** keep thinking, writing skills, editing files, or planning "next steps" while a generation is still running — that burns the user's coding/chat credits for nothing. Either **stop immediately** after telling the user it's generating in Library / the card above (preferred when you do not need the output URLs yet), OR — if the **next** required step needs those URLs — call `get_generation_status` **once** with `wait=true` as the **only** follow-up, no parallel Write/Edit/Think while it waits.
+**After `submitted` / `_timed_out` — avoid idle work (credit guard).** For a multi-output request, first submit all independent authorized items within the supported concurrency limit. Do not end the task after submitting only the first item or batch. If more requested items are waiting for capacity or output dependencies, use one batched `get_generation_status` call with `wait=true`, then submit the next ready batch. Once every requested item is submitted and no further work needs its output, tell the user it is generating in Library / the cards and end the turn. Submitted is not completed. Do not perform unrelated thinking, file edits, or speculative extra generations while waiting.
 
 **Checking status — NEVER poll in a loop.** `get_generation_status` takes `wait=true` (blocks server-side until done, ~3 min) and `generation_ids` (check MANY generations in ONE call — returns `all_done` + which are still running). One `wait=true` call replaces any polling loop: check ALL in-flight ids in ONE call, never one by one, never without `wait`. If it comes back with some still processing, call it ONCE more with `wait=true` and the remaining ids.
 
@@ -390,8 +390,8 @@ After the user approves a bucket, write its `session_id` + plan name into `.kolb
 ## Rate Limiting & Batch Generation
 
 - `generate_image`: 30/min. All other generation tools: 10/min per type. 300/min global. `upload_media`: 300/min, no credit cost.
-- **Batch ≤10 items**: output ALL tool calls in one response — they run concurrently.
-- **Bulk >10 items**: real-world ceilings — `generate_image` 8–10 in-flight, image-edit 5–8, video tools 3–5, `generate_video_from_video` 3, music/speech/sound 5–8. Fire one batch → wait → fire next. Keep pending ids in the current run; persist only the user-approved winners in `.kolbo/production.md`.
+- **Independent outputs:** emit ready generation calls together. This applies to videos as well as images. Eight requested videos must not become eight sequential waits when parallel submission is supported.
+- **Every batch size:** respect current tool/provider concurrency limits and rate-limit responses. If no more specific limit is available, use the existing conservative batch guidance: images 8, image edits 5, videos 3, video-to-video 3, music/speech/sound 5. Submit each batch concurrently, wait for capacity with a batched status call, then submit the remaining items. Keep pending IDs in the current run; persist only user-approved winners in `.kolbo/production.md`. Never restart submitted jobs to fill a batch.
 
 ## ⚠️ Multi-output? Default to `generate_creative_director` (CRITICAL)
 
