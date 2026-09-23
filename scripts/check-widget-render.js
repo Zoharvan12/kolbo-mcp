@@ -160,6 +160,22 @@ function mountWidget(src = genSrc) {
 
 const flush = () => new Promise((r) => setImmediate(r));
 
+// Account balances must distinguish an actual zero from an unavailable field.
+{
+  const w = mountWidget(blocks(widgetHtml(UI.credits)).slice(1).join('\n'));
+  w.deliver({ widget: 'credits', credits: { total: 12345.75, plan_credits: 0, credit_pack: 12345.75 } });
+  assert.equal(w.node('total').textContent, '12,345.75');
+  assert.equal(w.node('plan').textContent, '0');
+  assert.equal(w.node('redemption').textContent, '\u2014');
+  assert.equal(w.node('balance').hidden, false);
+  assert.equal(w.node('loading').hidden, true);
+  w.deliver({ widget: 'credits', credits: { total: 0 } });
+  assert.equal(w.node('total').textContent, '0');
+  w.deliver({});
+  assert.equal(w.node('balance').hidden, true);
+  assert.equal(w.node('error').hidden, false);
+}
+
 async function hostCompletionWinsOverPendingPoll() {
   const w = mountWidget();
   let finish;

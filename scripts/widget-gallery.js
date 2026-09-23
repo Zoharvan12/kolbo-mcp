@@ -262,6 +262,11 @@ function build() {
   scenarios.push({ tool: 'media_upload_widget', title: 'upload card — documents only', args: {}, result: { widget: 'upload', title: 'Upload a document', kinds: ['document'], max_files: 1, upload_url: 'https://api.kolbo.ai/mcp/upload', token: 'gallery-token' } });
 
   // plans (requested)
+  for (const [title, credits] of [
+    ['credit balance', { total: 12450.75, plan_credits: 10000, credit_pack: 2400, redemption: 50.75 }],
+    ['zero credit balance', { total: 0, plan_credits: 0, credit_pack: 0, redemption: 0 }],
+    ['partial credit balance', { total: 12.5, plan_credits: 12.5 }],
+  ]) scenarios.push({ tool: 'check_credits', title, args: {}, result: { widget: 'credits', credits } });
   scenarios.push({ tool: 'show_plans', title: 'plans — requested', args: {}, result: { widget: 'plans', reason: 'requested', balance: 412, current_plan: { name: 'Pro' }, plans: [{ name: 'Pro', price: 29, credits: 1500 }, { name: 'Studio', price: 99, credits: 6000 }], credit_packs: [{ name: '500 credits', price: 9 }], pricing_url: 'https://app.kolbo.ai/pricing' } });
 
   return scenarios;

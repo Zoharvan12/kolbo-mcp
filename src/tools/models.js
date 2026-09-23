@@ -440,12 +440,11 @@ function registerModelTools(server, client, options = {}) {
     async () => {
       const result = await client.get('/v1/account/credits');
 
-      return {
-        content: [{
-          type: 'text',
-          text: `Credit Balance:\n- Total: ${result.credits.total}\n- Plan credits: ${result.credits.plan_credits}\n- Credit pack: ${result.credits.credit_pack}\n- Redemption: ${result.credits.redemption}`
-        }]
-      };
+      const text = `Credit Balance:\n- Total: ${result.credits.total}\n- Plan credits: ${result.credits.plan_credits}\n- Credit pack: ${result.credits.credit_pack}\n- Redemption: ${result.credits.redemption}`;
+      return ui() ? uiResult(UI.credits, text, {
+        widget: 'credits',
+        credits: result.credits,
+      }) : { content: [{ type: 'text', text }] };
     }
   );
 

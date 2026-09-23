@@ -324,7 +324,7 @@ Requires DaVinci Resolve Studio with the Kolbo plugin open (Workspace → Workfl
 | `create_moodboard` / `update_moodboard` / `delete_moodboard` | Build/edit moodboards from image URLs (AI style analysis → master prompt) |
 | `clone_voice` / `import_elevenlabs_voice` / `delete_voice` | Custom voices: clone from an audio sample, import by ElevenLabs ID, delete |
 | `trim_video` | Frame-accurate server-side trim of a Kolbo-hosted video (async job, tool waits) |
-| `check_credits` | Check credit balance |
+| `check_credits` | Check credit balance; widget hosts show total and plan, credit-pack, and redemption breakdown, while text hosts retain the plain-text response |
 | `get_generation_status` | Check one or many generations (`generation_ids`); `wait=true` blocks server-side until done — replaces client polling loops |
 
 ## Environment Variables

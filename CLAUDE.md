@@ -122,6 +122,8 @@ claude.ai (web)     → HTTPS → api.kolbo.ai/mcp (OAuth) → createServer({ ap
 
 ## MCP Apps — Interactive Kolbo Widgets (v1.30+, live since 2026-07-11)
 
+`check_credits` uses `ui://kolbo/credits.html` on widget hosts, showing a snapshot of total, plan, credit-pack, and redemption credits. Its structured payload includes the full `credits` object; text-only hosts keep the original text response.
+
 Tool results render as branded, live-updating mini-apps inside claude.ai and Claude
 Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
 
