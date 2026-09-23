@@ -1,6 +1,6 @@
 # AUTO-GENERATED — do not edit
 
-This tree is mirrored from kolbo-code@a74cf7b, the single source of truth.
+This tree is mirrored from kolbo-code@d10586e, the single source of truth.
 Canonical source: packages/opencode/skills/kolbo/
 Distribution: .github/workflows/sync-skill-to-plugin.yml
 
