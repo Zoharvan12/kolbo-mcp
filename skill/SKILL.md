@@ -1,5 +1,5 @@
 ---
-version: 0.9.17
+version: 0.9.18
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images,
@@ -58,7 +58,7 @@ Then generate **only** with the confirmed parameters. If the user changes an opt
 - **Video/lipsync `credit` is per-SECOND, not per-clip**: normally `total = credit × output_duration`. If video references are attached and `video_input_credit` is present, use the alternate provider tariff instead: `video_input_credit × (sum ceil(each input video duration) + output seconds) × video_input_resolution_multiplier`. Dedicated Seedance Edit uses its selected source duration as output; Extend uses the requested added duration. The other carve-out is `flat_credit_by_resolution`.
 - **Batch totalling 100+ credits**: run `check_credits` first.
 - **Quote real cost**: when the user approves the result, log its actual `credits_used` (from the tool result) to `.kolbo/production.md` — never `base × count`.
-- **Never state "credits remaining" from arithmetic** (opening balance − generation costs). Coding/chat usage deducts credits too, so the math is always wrong. Report cost only; if the user asks for their balance, call `check_credits` fresh at that moment.
+- **Never state "credits remaining" from arithmetic** (opening balance − generation costs). Coding/chat usage deducts credits too, so the math is always wrong. Report cost only; if the user asks for their balance, call `check_credits` fresh at that moment. Widget hosts show the total and plan, credit-pack, and redemption breakdown from `structuredContent.credits`; this is a snapshot at check time. Text hosts receive the same breakdown as plain text.
 - **Out of credits → `show_plans`.** A generation refused for credits already returns the upgrade card automatically — do NOT retry it, and do not re-run the tool "to be sure". Call `show_plans` yourself when the user asks about pricing, plans, upgrading, or how to get more credits. Prices are live and promo-adjusted; never quote them from memory. The user completes any purchase themselves on app.kolbo.ai/pricing — you cannot buy for them.
 
 For multi-scene / batch work this pairs with `generate_creative_director` (see below) — still confirm the brief first.
