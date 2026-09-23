@@ -626,7 +626,7 @@ function registerGenerateTools(server, client, options = {}) {
       duration: z.number().optional().describe('Duration in seconds. Must be a value in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration` (whichever the model exposes). Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       reference_images: z.array(z.string()).optional().describe('Array of images (URLs or absolute local paths) used as visual references (style / composition / subject). **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
-      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions. Read resolution_multipliers to predict cost.'),
+      resolution: z.string().optional().describe('Video resolution or named tier. Read supported_resolutions and resolution_multipliers from list_models. Seedance 2.5 offers "480p-draft" on the same model: ordinary credits, then optional paid draft_quote/draft_enhance finalization. Regular "480p" remains a normal generation.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" to apply a saved motion/style preset to this generation.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency. Every DNA passed here MUST also be tagged in the prompt as @ExactDNAName. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
       sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Honored by `sound_generation_type: "native"` models (Veo 3.1, Kling V3/2.6, PixVerse V6). Seedance 2.x reports type "none" (no toggle) but `sound_baked_in: true` — those still emit real audio; do not tell the user the model is silent. Omit to use `sound_enabled_by_default`. Pass `false` only when the user asks for silent AND the model is native (not baked-in). Enabling sound may apply `sound_credit_multiplier` to cost.'),
@@ -715,7 +715,7 @@ function registerGenerateTools(server, client, options = {}) {
       duration: z.number().optional().describe('Duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
       enhance_prompt: z.boolean().optional().describe('Enhance the motion prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to maintain consistency with prior characters / styles. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false` the model ignores DNA entirely.**'),
-      resolution: z.string().optional().describe('Video resolution tier (vertical pixels): "720p" / "1080p" / "1440p" / "2160p". Some models use labels like "512P"/"1024P"/"768P"/"1080P". Model-dependent — call list_models and read supported_resolutions.'),
+      resolution: z.string().optional().describe('Video resolution or named tier. Read supported_resolutions from list_models. Seedance 2.5 offers "480p-draft" on the same model, with optional paid finalization through draft_quote/draft_enhance. Regular "480p" is not draft.'),
       sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Honored by `sound_generation_type: "native"` models (Veo 3.1 Lite, Kling V3 4K, PixVerse V6). Seedance 2.x reports type "none" (no toggle) but `sound_baked_in: true` — those still emit real audio; do not tell the user the model is silent. Omit to use `sound_enabled_by_default`. Pass `false` only when the user asks for silent AND the model is native (not baked-in). Enabling sound may apply `sound_credit_multiplier` to cost.'),
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one video ungraded.'),
       project_id: projectIdField,
@@ -2358,9 +2358,11 @@ function registerGenerateTools(server, client, options = {}) {
         'generate_audio', 'remove_watermark',
         'face_swap', 'extend', 'magic_edit',
         'lipsync', 'remove_background',
-        'inpaint', 'retake'
+        'inpaint', 'retake', 'draft_enhance', 'draft_quote'
       ]).describe([
         'Edit operation:',
+        '"draft_enhance" — render an owned saved draft at full quality in its original project. Pass `resolution` from the draft model capabilities; the server selects its finalization engine. No prompt or provider task ID is needed.',
+        '"draft_quote" — check a saved draft’s supported final resolutions, expiry and exact credit cost without starting a render. Use this before draft_enhance.',
         '"upscale" — boost to 4K/2K resolution (use `scale` for factor, `resolution` for target, `target_fps` for frame rate). On model "blackforestlabs/flux-video-upscale" (Flux Video Upscale): `scale` is 1.5-3x (no named `resolution` target — billed on the OUTPUT tier it lands in), `mode` is "precise" (source-faithful, default) or "creative" (reimagines detail — a pricier tier), and `prompt` optionally guides the creative-mode enhancement.',
         '"reframe" — change aspect ratio (requires `aspect_ratio`; use `grid_position_x`/`grid_position_y` to control where the original sits).',
         '"generate_audio" — add AI-generated audio from `prompt`. Optionally split into `sound_effect_prompt` and `background_music_prompt`. Set `original_sound=true` to keep original audio alongside.',
@@ -2499,6 +2501,7 @@ function registerGenerateTools(server, client, options = {}) {
         project_id, session_id
       });
 
+      if (operation === 'draft_quote') return { content: [{ type: 'text', text: JSON.stringify(gen, null, 2) }] };
       if (returnsImmediately()) return submittedResult({
         tool: 'edit_video', kind: 'video', gen, client, model,
         prompt: prompt || operation,
