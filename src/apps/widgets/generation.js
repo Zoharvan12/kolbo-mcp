@@ -288,7 +288,7 @@ function resolutionLabel(sc) {
   var s = sc.settings || {};
   var resolution = String(s.resolution || '');
   var model = String(sc.model || '');
-  var draft = /-draft$/i.test(resolution) || /-draft$/i.test(model) || s.is_draft === true || sc.is_draft === true;
+  var draft = s.is_draft === false || sc.is_draft === false ? false : /-draft$/i.test(resolution) || /-draft$/i.test(model) || s.is_draft === true || sc.is_draft === true;
   var pixels = resolution.replace(/-draft$/i, '');
   return draft ? (pixels ? pixels + ' Draft' : 'Draft') : resolution;
 }
@@ -1387,7 +1387,7 @@ function preRefSc(toolName, a) {
   PRE_AUDIO_KEYS.forEach(function (k) { take(a[k], aud); });
   return {
     tool: toolName,
-    is_draft: /-draft$/i.test(String(a.model || '')),
+    is_draft: typeof a.draft === 'boolean' ? a.draft : /-draft$/i.test(String(a.model || '')) ? true : undefined,
     kind: kindFromTool(toolName, null),
     count: a.num_images || (Array.isArray(a.prompts) ? a.prompts.length : 1),
     reference_images: img,
@@ -1395,7 +1395,7 @@ function preRefSc(toolName, a) {
     reference_audio: aud,
     settings: {
       duration: a.duration,
-      resolution: a.resolution,
+      resolution: a.draft === true ? '480p-draft' : a.draft === false ? String(a.resolution || '').replace(/-draft$/i, '') : a.resolution,
       aspect_ratio: a.aspect_ratio,
       quality: a.quality,
       mode: a.mode,
@@ -1464,7 +1464,8 @@ function liveFromTimedOut(sc) {
     model: sc.model || originArgs.model,
     settings: {
       duration: originArgs.duration,
-      resolution: originArgs.resolution,
+      is_draft: originArgs.draft,
+      resolution: originArgs.draft === true ? '480p-draft' : originArgs.draft === false ? String(originArgs.resolution || '').replace(/-draft$/i, '') : originArgs.resolution,
       aspect_ratio: originArgs.aspect_ratio,
       quality: originArgs.quality,
       visual_dna_ids: originArgs.visual_dna_ids,
@@ -1492,7 +1493,8 @@ function completedFromPlain(sc) {
     model: sc.model || originArgs.model,
     settings: {
       duration: sc.duration || originArgs.duration,
-      resolution: originArgs.resolution,
+      is_draft: originArgs.draft,
+      resolution: originArgs.draft === true ? '480p-draft' : originArgs.draft === false ? String(originArgs.resolution || '').replace(/-draft$/i, '') : originArgs.resolution,
       aspect_ratio: originArgs.aspect_ratio,
       quality: originArgs.quality
     },

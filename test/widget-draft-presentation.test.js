@@ -37,8 +37,14 @@ test('Elements submits the explicit draft tier and preserves full prompt in its 
   };
   registerGenerateTools(server, client, { remote: true, apps: true });
   const prompt = '1 shot, 7s total, 9:16. ' + 'A quiet documentary shot. '.repeat(150);
-  const result = await generate({ prompt, model: 'seedance-2-5', resolution: '480p-draft', duration: 7, aspect_ratio: '9:16' });
+  const result = await generate({ prompt, model: 'seedance-2-5', resolution: '1080p', draft: true, duration: 7, aspect_ratio: '9:16' });
   assert.equal(calls[0].body.resolution, '480p-draft');
+  assert.equal(calls[0].body.draft, true);
   assert.equal(result.structuredContent.settings.resolution, '480p-draft');
   assert.equal(result.structuredContent.prompt, prompt);
+  const regular = await generate({ prompt, model: 'seedance-2-5-draft', resolution: '480p-draft', draft: false, duration: 7, aspect_ratio: '9:16' });
+  assert.equal(calls[1].body.resolution, '480p');
+  assert.equal(calls[1].body.draft, false);
+  assert.equal(regular.structuredContent.settings.resolution, '480p');
+  assert.equal(context.resolutionLabel(regular.structuredContent), '480p');
 });
