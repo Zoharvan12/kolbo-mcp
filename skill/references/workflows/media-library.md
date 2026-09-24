@@ -124,3 +124,12 @@ The `*_music_library` tools (`search_music_library` / `browse_music_library` / `
 - `import_music_track_to_library` charges the same way AND also copies the clean track into the media library.
 - `analyze_script_for_music` turns a script into search terms for `search_music_library`.
 - Use this family when the user needs music cleared for commercial use. When free stock will do, use `search_stock_media` with `mediaType: "music"` instead.
+
+
+## Download a public video or audio page
+
+For a YouTube, Instagram, TikTok, Facebook, X or other supported public media page, call `download_media_from_url`. Use `output_type: "video"` (default) for MP4 or `"audio"` for MP3; choose an optional resolution through `quality`. This is a download, not AI generation. Maximum output size is 500 MB.
+
+Keep the returned `job_id`. Check `get_download_status` at reasonable intervals (at least two seconds); never use `get_generation_status` for these jobs or start another download while the first is pending. Only `completed` means the returned `resultUrl` is ready. Use `cancel_download` if the user cancels. Do not repeatedly retry unavailable/private media.
+
+The result is hosted by Kolbo, not saved to the user's local folder automatically. If a local file was requested and your host supports filesystem downloads, save the completed result URL there. Never claim local delivery from a cloud URL alone. For an existing local file or direct file upload, keep using `upload_media` instead.
