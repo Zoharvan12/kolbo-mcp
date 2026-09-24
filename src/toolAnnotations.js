@@ -9,6 +9,7 @@
  */
 
 const READ_ONLY = [
+  'get_download_status',
   'get_video_editor_schema', 'list_video_editor_sessions', 'get_video_editor_session',
   'list_fonts', 'get_font', 'get_font_upload_status',
   'get_creative_director_status', 'get_generation_status', 'list_models',
@@ -70,6 +71,7 @@ const PRIVATE_WRITE = [
 ];
 
 const DESTRUCTIVE_WRITE = [
+  'cancel_download',
   'extend_music', 'cover_music',
   'update_video_editor_session',
   'delete_font',
@@ -102,6 +104,7 @@ const DESTRUCTIVE_WRITE = [
 ];
 
 const OPEN_WORLD_WRITE = [
+  'download_media_from_url',
   'import_music_audio',
   'publish_html_artifact', 'create_review_share_link', 'blender_capture_viewport',
   // Adobe edits add bins, clips, sequences or caption tracks; none delete or overwrite.

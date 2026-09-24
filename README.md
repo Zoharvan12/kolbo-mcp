@@ -356,3 +356,7 @@ Both are optional — the local install logs in via the browser on first use.
 | `update_video_editor_session` | Atomic rename, settings, tracks, clips, trims, speed, captions and effects |
 
 `create_video_editor_session` also accepts optional advanced `session_data` instead of clips/audio/texts. Read the schema and saved revision before editing. Changes affect saved state; reload an already-open editor before manual editing. Existing create/export names and arguments remain supported.
+
+### URL downloads
+
+`download_media_from_url` starts a server download for a public media page URL. Use `get_download_status` with the returned `job_id` (not `get_generation_status`) and wait for `completed` before using `resultUrl`. `cancel_download` cancels an active job. This produces a cloud file and saves it to the account library when library sync succeeds; it does not write to the caller's computer. Video returns a verified MP4, audio returns MP3; maximum 500 MB. Existing `upload_media` still handles local/direct-file uploads. SDK routes reuse the authenticated utility pipeline at `POST /v1/downloads`, `GET /v1/downloads/:jobId`, and `DELETE /v1/downloads/:jobId`.

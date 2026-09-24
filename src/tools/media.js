@@ -64,6 +64,23 @@ function uploadTicketPayload(ticket) {
 }
 
 function registerMediaTools(server, client, options = {}) {
+
+  server.tool('download_media_from_url',
+    'Download a public YouTube, Instagram, TikTok, Facebook, X or other supported media page through Kolbo servers. Use this for social page URLs; upload_media is for existing files or direct file URLs. Returns an asynchronous download job, NOT a finished file. Call get_download_status with job_id until terminal; do not use get_generation_status or resubmit while pending. Completed video output is one MP4 with its expected audio, audio output is MP3, maximum 500 MB. Returns a cloud URL, not a local filesystem path. Private/login-restricted or unavailable media may fail.',
+    { url: z.string().url(), quality: z.enum(['best','2160','1440','1080','720','480','360']).optional(), output_type: z.enum(['video','audio']).optional() },
+    async ({ url, quality = 'best', output_type = 'video' }) => {
+      const result = await client.post('/v1/downloads', { url, quality, outputType: output_type });
+      return { content: [{ type: 'text', text: JSON.stringify({ ...result, job_id: result.jobId, next_tool: 'get_download_status' }) }] };
+    });
+  server.tool('get_download_status',
+    'Read a URL-download job owned by this account. Use the job_id returned by download_media_from_url. pending/processing means wait before checking again; completed includes resultUrl/url; failed/cancelled is terminal. Do not report a file ready until completed. This is separate from AI generation status.',
+    { job_id: z.string().min(1).max(100) },
+    async ({ job_id }) => ({ content: [{ type: 'text', text: JSON.stringify(await client.get(`/v1/downloads/${encodeURIComponent(job_id)}`)) }] }));
+  server.tool('cancel_download',
+    "Cancel this account's pending or processing URL-download job. Does not delete a previously completed file.",
+    { job_id: z.string().min(1).max(100) },
+    async ({ job_id }) => ({ content: [{ type: 'text', text: JSON.stringify(await client.delete(`/v1/downloads/${encodeURIComponent(job_id)}`)) }] }));
+
   // `opts.apps` is set only by kolbo-api's per-request server (see createServer
   // in ../index.js), which makes it a TRANSPORT signal — deliberately not
   // `appsEnabled()`, which also returns true for stdio hosts that advertise UI.
