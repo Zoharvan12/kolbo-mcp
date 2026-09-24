@@ -135,6 +135,8 @@ function makeExpandable(node, raw) {
   // Synchronous layout read — rAF would never fire in a hidden/backgrounded
   // iframe, leaving long prompts stuck without the expand affordance.
   var overflow = node.scrollHeight > node.clientHeight + 2 || node.scrollWidth > node.clientWidth + 2;
+  // Hidden host iframes report zero dimensions. Long prompts still need an expand button.
+  if (node.id === 'prompt' && text.length > 120) overflow = true;
   if (overflow) node.classList.add('k-clamped');
   var tools = document.createElement('div');
   tools.className = 'k-text-tools';
@@ -282,6 +284,15 @@ function displayKind(sc) {
   return kind || 'image';
 }
 
+function resolutionLabel(sc) {
+  var s = sc.settings || {};
+  var resolution = String(s.resolution || '');
+  var model = String(sc.model || '');
+  var draft = /-draft$/i.test(resolution) || /-draft$/i.test(model) || s.is_draft === true || sc.is_draft === true;
+  var pixels = resolution.replace(/-draft$/i, '');
+  return draft ? (pixels ? pixels + ' Draft' : 'Draft') : resolution;
+}
+
 function renderChips(sc) {
   var h = modelChipHTML(modelLabel(sc), sc.model_icon);
   var s = sc.settings || {};
@@ -293,7 +304,8 @@ function renderChips(sc) {
   var shotLabel = s.shots > 1 ? (s.shots + ' shots') : (s.multi_shot ? 'multishot' : '');
   if (s.duration) h += chip(ICONS.clock + ' ' + fmtDur(s.duration) + (shotLabel ? ' · ' + shotLabel : ''));
   else if (shotLabel) h += chip(shotLabel);
-  if (s.resolution) h += chip(esc(s.resolution));
+  var resolutionText = resolutionLabel(sc);
+  if (resolutionText) h += chip(esc(resolutionText));
   if (s.aspect_ratio) h += chip(esc(s.aspect_ratio));
   if (s.quality) h += chip(esc(s.quality) + ' quality');
   if (s.enhance_prompt) h += chip(ICONS.sparkle + ' enhanced');
@@ -1343,7 +1355,7 @@ function openPromptRow(placeholder, onSend) {
 var PRE_IMAGE_KEYS = ['source_images', 'reference_images', 'image_url', 'mask_image_url',
   'additional_images', 'first_frame', 'last_frame', 'seed_reference_image_url',
   'elements', 'files', 'keyframes', 'source'];
-var PRE_VIDEO_KEYS = ['source_video', 'reference_videos'];
+var PRE_VIDEO_KEYS = ['source_video', 'video_url', 'reference_videos'];
 var PRE_AUDIO_KEYS = ['audio', 'audio_url', 'reference_audio_urls', 'seed_reference_audio_urls'];
 
 // The card mounts the moment the tool is CALLED, so the only thing it knows is
@@ -1375,6 +1387,7 @@ function preRefSc(toolName, a) {
   PRE_AUDIO_KEYS.forEach(function (k) { take(a[k], aud); });
   return {
     tool: toolName,
+    is_draft: /-draft$/i.test(String(a.model || '')),
     kind: kindFromTool(toolName, null),
     count: a.num_images || (Array.isArray(a.prompts) ? a.prompts.length : 1),
     reference_images: img,

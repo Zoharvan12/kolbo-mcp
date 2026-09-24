@@ -85,7 +85,7 @@ body {
 .k-prompt { color: var(--text-muted); font-size: 12.5px; margin-bottom: 4px; word-break: break-word;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   user-select: text; -webkit-user-select: text; cursor: text; }
-.k-prompt.expanded { -webkit-line-clamp: unset; }
+.k-prompt.expanded { -webkit-line-clamp: unset; white-space: pre-wrap; }
 .k-text-tools { display: flex; gap: 2px; justify-content: flex-end; margin: 0 0 10px; }
 .k-text-btn {
   display: inline-flex; align-items: center; gap: 4px;
