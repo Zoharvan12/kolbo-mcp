@@ -15,6 +15,14 @@ Load this file when the user wants a **Seedance 2.5** video (they said "2.5" / "
 
 **Use the cheapest supported tier unless the user selected an output resolution.** Resolution is a credit MULTIPLIER, not a flat rate. Relative to 720p: 480p ×0.44, 1080p ×2.25. A 30s pass costs ~540cr at 480p against ~1230cr at 720p and ~2770cr at 1080p. When no output resolution was selected and 480p is the cheapest supported tier, block the film at 480p, get the user's sign-off on staging, performance and timing, then re-run only the approved cut at a higher delivery resolution if the user explicitly authorizes that resolution increase. Approval of the creative cut alone does not authorize a more expensive resolution. If no output resolution was selected, use the cheapest supported tier from the live catalog even for final work; pass it explicitly.
 
+## Special Draft mode and full-quality rendering
+
+**Draft is a distinct generation mode, not a synonym for low resolution.** When the user requests Seedance 2.5 Draft, use the ordinary generation tool for their inputs (`generate_video`, `generate_video_from_image`, or `generate_elements`) with `model: "seedance-2-5"` and `resolution: "480p-draft"`. `resolution: "480p"` is a regular generation and cannot be presented as Draft. Do not silently substitute regular 480p when Draft was requested. Read the live catalog's `supported_resolutions` and draft capabilities; do not invent draft support for other models.
+
+Draft uses ordinary credits, not Unlimited. Keep the user's complete prompt, duration, aspect ratio, references, audio and shot settings. Tell the user which mode was actually submitted; the widget should say **480p Draft** for Draft. Choosing the cheapest pixel size alone does not select Draft.
+
+To turn an approved draft into full quality, use its saved output video URL and original project: call `edit_video` with `operation: "draft_quote"`, `video_url`, `project_id`, and the desired supported `resolution`. Read the exact credits, expiry and supported resolutions from that quote. Once the paid finalization is authorized, call `edit_video` with `operation: "draft_enhance"` and the same source/project/resolution. This is a dedicated render of the saved draft, not a new text-to-video generation or generic upscale. Never ask the user for provider task IDs or cache handles. If the draft has expired or cannot be finalized, explain that result before proposing a new paid generation.
+
 ## What's NEW in 2.5 (verified — never hedge)
 
 - **Duration 4–30 seconds**, whole seconds. 30s IS supported.
