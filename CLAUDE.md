@@ -122,6 +122,8 @@ claude.ai (web)     → HTTPS → api.kolbo.ai/mcp (OAuth) → createServer({ ap
 
 ## MCP Apps — Interactive Kolbo Widgets (v1.30+, live since 2026-07-11)
 
+`edit_video` carries source/mask videos, image and audio inputs in its widget reference fields on submit and completion. Build these fields from the resolved request body so local files preview via the same uploaded CDN URLs sent to the API.
+
 `check_credits` uses `ui://kolbo/credits.html` on widget hosts, showing a snapshot of total, plan, credit-pack, and redemption credits. Its structured payload includes the full `credits` object; text-only hosts keep the original text response.
 
 Tool results render as branded, live-updating mini-apps inside claude.ai and Claude

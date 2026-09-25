@@ -97,6 +97,7 @@ function build() {
     model: 'nano-banana-2', model_name: 'Nano Banana 2', model_icon: SAMPLE.icon,
     settings: settingsFor(kind), session_id: 'sess-1', project_id: 'proj-1', open_url: 'https://app.kolbo.ai/',
     reference_images: tool === 'generate_image_edit' || tool === 'edit_image' ? [IMG2] : undefined,
+    reference_videos: tool === 'edit_video' ? [VID] : undefined,
     poll_tool: 'get_generation_status', status_args: { generation_id: id, wait: true },
   });
 
@@ -107,6 +108,7 @@ function build() {
     const PRE_REF_ARGS = {
       generate_image_edit: { source_images: [IMG, IMG2] },
       edit_image: { image_url: IMG, mask_image_url: IMG2 },
+      edit_video: { video_url: VID, operation: 'upscale' },
       generate_video_from_image: { image_url: IMG },
       generate_video_from_video: { source_video: VID },
       generate_elements: { files: [IMG, VID, AUD] },

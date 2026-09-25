@@ -1355,7 +1355,7 @@ function openPromptRow(placeholder, onSend) {
 var PRE_IMAGE_KEYS = ['source_images', 'reference_images', 'image_url', 'mask_image_url',
   'additional_images', 'first_frame', 'last_frame', 'seed_reference_image_url',
   'elements', 'files', 'keyframes', 'source'];
-var PRE_VIDEO_KEYS = ['source_video', 'video_url', 'reference_videos'];
+var PRE_VIDEO_KEYS = ['source_video', 'video_url', 'mask_video_url', 'reference_videos'];
 var PRE_AUDIO_KEYS = ['audio', 'audio_url', 'reference_audio_urls', 'seed_reference_audio_urls'];
 
 // The card mounts the moment the tool is CALLED, so the only thing it knows is

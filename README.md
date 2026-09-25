@@ -364,3 +364,5 @@ Both are optional — the local install logs in via the browser on first use.
 ### URL downloads
 
 `download_media_from_url` starts a server download for a public media page URL. Use `get_download_status` with the returned `job_id` (not `get_generation_status`) and wait for `completed` before using `resultUrl`. `cancel_download` cancels an active job. This produces a cloud file and saves it to the account library when library sync succeeds; it does not write to the caller's computer. Video returns a verified MP4, audio returns MP3; maximum 500 MB. Existing `upload_media` still handles local/direct-file uploads. SDK routes reuse the authenticated utility pipeline at `POST /v1/downloads`, `GET /v1/downloads/:jobId`, and `DELETE /v1/downloads/:jobId`.
+
+Video-edit widgets keep source-video and mask-video previews, image references, and audio references through generation and completion. Click a video thumbnail to inspect the source. Local edit inputs preview through their uploaded CDN URLs.

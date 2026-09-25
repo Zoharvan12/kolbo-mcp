@@ -10,7 +10,7 @@ const { resolveToBuffer, pollOrTimedOut, creditFields, projectIdField, sessionId
 const { ownedUrl } = require('./owned-url');
 const { UI, uiResult, canonicalModelId, assertModelSupportsType, modelInfo, voiceInfo, resolveCatalogAspectRatio } = require('../apps');
 const { modelTypeForEditOperation, assertExecutableEditModel } = require('./editModelCatalog');
-const { withLocalRehost } = require('./local-rehost');
+const { withLocalRehost, rehostLocalPaths } = require('./local-rehost');
 const { validateVideoPrompt } = require('./video-prompt');
 
 // ─── Cinematic Dimensions schema (shared by generate_image + generate_image_edit) ───
@@ -2505,7 +2505,9 @@ function registerGenerateTools(server, client, options = {}) {
       if (operation === 'lipsync' && !audio_url && !text_prompt) throw new Error('audio_url or text_prompt is required for lipsync');
       if (operation === 'extend'        && !duration)    throw new Error('duration is required for extend');
 
-      const gen = await client.post('/v1/edit/video', {
+      // Keep the resolved inputs so the widget can load local-file references
+      // from the same CDN URLs submitted to the API.
+      const editBody = await rehostLocalPaths(client, {
         video_url, operation, model, aspect_ratio, scale, prompt, enhancement_model,
         image_url, audio_url, duration, mode,
         target_fps, resolution,
@@ -2517,14 +2519,20 @@ function registerGenerateTools(server, client, options = {}) {
         mask_video_url, object_prompt, video_strength,
         start_time,
         project_id, session_id
-      });
+      }, { allowLocalFiles: !options.remote });
+      const gen = await client.post('/v1/edit/video', editBody);
+      const editRefs = {
+        reference_images: [editBody.image_url].filter(Boolean),
+        reference_videos: [editBody.video_url, editBody.mask_video_url].filter(Boolean),
+        reference_audio: [editBody.audio_url].filter(Boolean),
+      };
 
       if (operation === 'draft_quote') return { content: [{ type: 'text', text: JSON.stringify(gen, null, 2) }] };
       if (returnsImmediately()) return submittedResult({
         tool: 'edit_video', kind: 'video', gen, client, model,
         prompt: prompt || operation,
         settings: { mode: operation, duration, aspect_ratio, resolution },
-        reference_images: image_url ? [image_url] : []
+        ...editRefs
       });
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {
@@ -2538,7 +2546,7 @@ function registerGenerateTools(server, client, options = {}) {
         tool: 'edit_video', kind: 'video', gen, client, model,
         prompt: prompt || operation,
         settings: { mode: operation, duration, aspect_ratio, resolution },
-        reference_images: image_url ? [image_url] : [],
+        ...editRefs,
         urls: result.result?.urls || [],
         duration: result.result?.duration || null,
         credits_used: creditFields(result).credits_used,

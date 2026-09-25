@@ -547,6 +547,36 @@ function preRenderShowsTheInputRefs() {
   assert.ok(w.html('chips').includes('Kobi'), 'resolved DNA name did not replace the pre-render count chip');
 }
 
+async function videoEditKeepsSourceThroughPolling() {
+  const { registerGenerateTools } = require('../src/tools/generate');
+  let edit;
+  registerGenerateTools({ tool(name, ...args) { if (name === 'edit_video') edit = args.at(-1); } }, {
+    async get() { return { models: [] }; },
+    async post() { return { generation_id: 'edit-source' }; },
+  }, { apps: true, remote: true });
+  const args = { operation: 'upscale', video_url: 'https://media.kolbo.ai/source.mp4',
+    mask_video_url: 'https://media.kolbo.ai/mask.mp4' };
+  const w = mountWidget();
+  w.input('edit_video', args);
+  const check = () => {
+    const chips = w.html('chips');
+    for (const url of [args.video_url, args.mask_video_url]) {
+      assert.ok(chips.includes(url), 'edit card lost a video reference');
+      assert.ok(chips.includes('data-peek="' + url + '" data-peek-kind="video"'), 'video reference cannot open in the player');
+    }
+    assert.strictEqual((chips.match(/<video /g) || []).length, 2);
+  };
+  check();
+  w.status({ state: 'completed', result: { urls: ['https://media.kolbo.ai/edited.mp4'] } });
+  w.deliver((await edit(args)).structuredContent);
+  check();
+  w.scrollIntoView();
+  w.drain();
+  await flush();
+  check();
+  assert.ok(w.html('stage').includes('https://media.kolbo.ai/edited.mp4'), 'edited output did not render');
+}
+
 function stopNeedsASecondClick() {
   const w = mountWidget();
   w.deliver({
@@ -747,6 +777,7 @@ async function openInKolboOpensTheSession() {
   await completedCardNamesWhatActuallyRan();
   cardShowsEveryReferenceImage();
   preRenderShowsTheInputRefs();
+  await videoEditKeepsSourceThroughPolling();
   generatingCardShowsNamedChipsAndPeek();
   promptToolsStayOffTheText();
   stopNeedsASecondClick();
