@@ -1,11 +1,11 @@
 ---
-version: 0.9.18
+version: 0.9.19
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images,
   video (Seedance, Veo, Kling, Hailuo), music, speech, sound, 3D, transcription,
   Visual DNA, Creative Director batches, marketing assets, HTML artifacts, and
-  AI Docs, and approved Blender scene control. Use for sophisticated AI
+  AI Docs, Flow node workflows and session/system prompts, and approved Blender scene control. Use for sophisticated AI
   filmmaking as well as individual media:
   scripts, production bibles, recurring characters and locations, acting,
   dialogue, music performance, blocking, physics, multi-shot continuity,
@@ -67,6 +67,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 
 | If the user wants to… | Read first |
 |---|---|
+| Build, edit, inspect, organize or run **Flow sessions / nodes / prompts / system prompts** | `references/workflows/flow.md` |
 | Make a **film / ad / scene / episode / campaign / any video with multiple or recurring characters** — read BEFORE planning a single shot | `references/workflows/production-planning.md` |
 | Direct, develop, audit, or continue a **film / episode / connected scene / complex performance** with continuity, acting, dialogue, music, blocking, or physics | `references/workflows/filmmaking.md` |
 | Build, inspect, animate, light, render, or edit a **Blender scene through Kolbo Blender MCP** | `references/workflows/blender-mcp.md` |
@@ -137,6 +138,13 @@ Font tools (when exposed by the installed MCP): `list_fonts`, `get_font`, `uploa
 | `separate_audio_stems` | Split a soundtrack into Dialogue / Music / Effects / without-dialogue (M&E). The route for removing or isolating speech, instrumental beds, and stems for dubbing. 5cr, inline. See `workflows/audio-stems.md`. |
 | `clean_dialogue_leftovers` | Strip voices still faintly audible in an M&E layer. 17cr — only when the user reports the leak, it trades fidelity. |
 | `separate_ambience` | Pull room tone out of the Effects bed as its own lane. 17cr. |
+
+### Flow sessions and node workflows
+| Tool | Purpose |
+|------|---------|
+| `get_flow_schema` / `list_flow_sessions` / `get_flow_session` / `create_flow_session` / `update_flow_session` / `validate_flow_session` / `undo_flow_edit` | Exact, revision-checked node, edge, prompt, system prompt and session edits. Read `references/workflows/flow.md` before use. |
+| `duplicate_flow_session` / `move_flow_session` / `trash_flow_session` / `restore_flow_session` | Flow lifecycle; use these dedicated operations for Flow sessions. |
+| `estimate_flow_run` / `run_flow_session` / `get_flow_run` / `list_flow_runs` / `cancel_flow_run` / `retry_flow_run` | Durable execution with an explicit aggregate budget; editing alone does not authorize spending. |
 
 ### Discovery, Library, Visual DNA, Moodboards, Chat, Publishing
 | Tool | Purpose |
@@ -467,7 +475,9 @@ If at this point you still don't know which `references/` file to load, default 
 ## Media selection preferences
 Honor explicit models, presets, budget and inputs. Choose only eligible catalog candidates with all required capabilities. Use requested presets; otherwise use fitting presets when useful. For video generation, editing and lip-sync, when the user has not explicitly selected an output resolution, use the cheapest supported output resolution from the live catalog and pass it explicitly; do not inherit an expensive provider default. Preserve explicit user-selected resolution/settings. Finish fully, cinematic, professional, final, production and available credits are NOT permission to increase resolution. Never infer output resolution from reference media or export settings. A budget is a ceiling, not a spending target. Do not upscale or regenerate at a higher tier without explicit user authorization. If pricing or supported resolutions cannot be verified, inspect the catalog before dispatch; never invent a tier. Models with fixed output resolution use their native output. Never treat a policy refusal as a technical failure or route around safeguards.
 Default images and edits: GPT Image 2.5 Flare/Sunburst; medium for value, high for ordinary maximum quality. Reserve xhigh/max for exceptional dense or difficult multilingual text after medium/high prove insufficient; do not automatically spend on retries. Nano Banana 2 is secondary. Seedream 5.0 Pro favors cinematic aesthetics over complex instruction fidelity; Wan 2.7 Pro is another creative alternative. Z Image/P Image for cheap tests. Midjourney for artistic concepts only, never editing. Soul V2 for realistic people/UGC concepts; derive character sheets before registering finished Visual DNA. Mirage Film 2 for environments and cinematic inspiration.
-**Seedance 2.5 Draft:** explicitly pass `model: "seedance-2-5", resolution: "480p-draft"` on the matching video generation tool. Plain `480p` is regular video, never Draft. Use ordinary credits. Finalize a saved draft via `edit_video` `draft_quote` then authorized `draft_enhance`, with its video URL, original project and quoted supported resolution; do not regenerate the prompt. See `references/models/seedance25.md`.
+**Seedance 2.5 Draft:** explicitly pass `model: "seedance-2-5", draft: true` (or legacy `resolution: "480p-draft"`) on the matching video generation tool. Plain `480p` is regular video, never Draft. Use ordinary credits. Finalize a saved draft via `edit_video` `draft_quote` then authorized `draft_enhance`, with its video URL, original project and quoted supported resolution; do not regenerate the prompt. See `references/models/seedance25.md`.
+For Draft video editing, use `generate_video_from_video` with `model: "seedance-2-5-video-to-video", draft: true`. The source duration and aspect ratio are inherited. Draft uses regular edit 480p pricing; optional finalization uses regular edit 1080p pricing, both charging combined input/output seconds. Read the live catalog and quote rather than hardcoding prices. This app-credit/MCP route does not imply USD-wallet video-edit execution availability.
+
 
 Default video: Seedance 2.5 for general cinematic work (not Hebrew speech). Kling specializes in controlled single-image and first/last-frame shots. Wan 3.0 specializes in motion graphics and animated typography — native Hebrew speech is poor; attached-audio lip-sync works well. MiniMax H3 offers higher resolution and strong attached-audio lip-sync; H3 Max favors speed at lower resolution with the same audio lip-sync strength. **Native Hebrew dialogue:** Gemini Omni Flash 1.1 or Gemini Omni 1 (best). Seedance 2 / 2.5 do not speak Hebrew — use Latin transliteration in quotes on Seedance, or switch to Gemini Omni. Grok Imagine 1.5 and Seedance 2.0 are non-Hebrew alternatives. P Video/Draft for cheap fast tests. Use base, edit or extend variants only with their required inputs.
 Existing-video lip-sync: Sync 3 for active-speaker handling; PixVerse for cartoons/2D and economical faster work. Portrait lip-sync: Veed Fabric or HeyGen Avatar; P Avatar for budget work. LTX Audio to Video for camera/environment motion with audio-driven performance.

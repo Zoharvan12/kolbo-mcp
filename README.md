@@ -20,6 +20,10 @@ Generate images, videos, music, speech, sound effects, multi-scene campaigns, an
 
 ## Set up — paste one prompt, or one config block (keyless, no API key)
 
+### Flow sessions and nodes
+
+Flow tools create, inspect, precisely edit, organize, validate and run saved node workflows in an explicit project. Use `get_flow_schema`, `get_flow_session` and revision-checked `update_flow_session` for prompts, Assistant system prompts, settings, groups and connections. Runs use explicit aggregate credit limits and persisted run IDs. Compatible Flow API routes are required. See [Flow MCP workflow and contract](docs/FLOW-MCP.md).
+
 ### Easiest: paste this prompt to your AI
 
 Copy this and paste it to Claude, ChatGPT, Cursor, or any AI assistant — it installs Kolbo itself (picks local config or remote connector based on what it can do):

@@ -1,0 +1,297 @@
+{
+  "schema_version": 1,
+  "node_types": [
+    "text-input",
+    "image-input",
+    "video-input",
+    "audio-input",
+    "image-generation",
+    "video-generation",
+    "video-to-video",
+    "lipsync",
+    "elements-video",
+    "music-generation",
+    "text-to-sound",
+    "text-to-speech",
+    "speech-to-text",
+    "assistant",
+    "image-editing",
+    "director",
+    "download-media",
+    "merge-media",
+    "trim-media",
+    "speed-media",
+    "crop-media",
+    "extract-media",
+    "voice-to-voice",
+    "media-library",
+    "group",
+    "sticky-note",
+    "comment-node"
+  ],
+  "node_fields": [
+    "label",
+    "prompt",
+    "config",
+    "position",
+    "width",
+    "height",
+    "parentId",
+    "customColor",
+    "groupColor",
+    "locked",
+    "text",
+    "color",
+    "resolved",
+    "imageUrl",
+    "videoUrl",
+    "audioUrl",
+    "visualDnaIds",
+    "moodboardId",
+    "presetId",
+    "items",
+    "keepItems",
+    "selectedMediaIds",
+    "nodeWidth",
+    "nodeHeight",
+    "currentFlatIndex",
+    "format",
+    "fontSize",
+    "textColor",
+    "backgroundColor",
+    "textAlign",
+    "settings",
+    "clipOrder",
+    "richText",
+    "textFormat",
+    "textStyle",
+    "listStyle",
+    "stickyBgColor",
+    "mediaLibraryItems",
+    "gridColumns",
+    "viewMode",
+    "comments"
+  ],
+  "config_fields": [
+    "text",
+    "imageUrl",
+    "videoUrl",
+    "audioUrl",
+    "model",
+    "aspectRatio",
+    "quantity",
+    "prompt",
+    "duration",
+    "instrumental",
+    "voice_id",
+    "language",
+    "systemPrompt",
+    "operation",
+    "scale",
+    "frameCount",
+    "url",
+    "quality",
+    "startTime",
+    "endTime",
+    "speed",
+    "preservePitch",
+    "timestamp",
+    "audioFormat",
+    "targetVoiceLibraryId",
+    "label",
+    "color",
+    "resolved",
+    "t2iModel",
+    "i2iModel",
+    "t2vModel",
+    "i2vModel",
+    "flModel",
+    "modelId",
+    "engineId",
+    "resolution",
+    "enhancePrompt",
+    "soundEnabled",
+    "sound_enabled",
+    "voice",
+    "selectedVoice",
+    "targetAudioUrl",
+    "lyrics",
+    "showLyrics",
+    "speaking_speed",
+    "promptInfluence",
+    "creativity",
+    "resemblance",
+    "movement",
+    "style",
+    "backgroundColor",
+    "backgroundMusicPrompt",
+    "soundEffectPrompt",
+    "enhancementModel",
+    "upscaleFactor",
+    "upscaleMode",
+    "targetResolution",
+    "targetFps",
+    "extendMode",
+    "extendDuration",
+    "presetId",
+    "referenceImages",
+    "referenceVideos",
+    "referenceAudios",
+    "visualDnaIds",
+    "moodboardId",
+    "skinIntensity",
+    "start",
+    "end",
+    "cropX",
+    "cropY",
+    "cropWidth",
+    "cropHeight",
+    "x",
+    "y",
+    "width",
+    "height",
+    "fps",
+    "outputFormat",
+    "format",
+    "extractType",
+    "frameTime",
+    "includeAudio",
+    "loop",
+    "seed",
+    "negativePrompt",
+    "temperature",
+    "maxTokens",
+    "thinkingMode",
+    "reasoningEffort",
+    "volume",
+    "reverse"
+  ],
+  "settings_fields": [
+    "url",
+    "previewInfo",
+    "quality",
+    "startTime",
+    "endTime",
+    "speed",
+    "preservePitch",
+    "aspectRatio",
+    "customWidth",
+    "customHeight",
+    "extractAudio",
+    "extractFrame",
+    "timestamp"
+  ],
+  "defaults": {
+    "text-input": {
+      "text": ""
+    },
+    "image-input": {
+      "imageUrl": ""
+    },
+    "video-input": {
+      "videoUrl": ""
+    },
+    "audio-input": {
+      "audioUrl": ""
+    },
+    "image-generation": {
+      "model": null,
+      "aspectRatio": "1:1",
+      "quantity": 1,
+      "prompt": ""
+    },
+    "video-generation": {
+      "model": null,
+      "prompt": "",
+      "duration": 5,
+      "aspectRatio": "16:9"
+    },
+    "video-to-video": {
+      "model": null,
+      "prompt": "",
+      "duration": 5
+    },
+    "lipsync": {
+      "model": null,
+      "prompt": ""
+    },
+    "elements-video": {
+      "model": null,
+      "prompt": ""
+    },
+    "music-generation": {
+      "model": null,
+      "prompt": "",
+      "duration": 30,
+      "instrumental": true
+    },
+    "text-to-sound": {
+      "model": null,
+      "prompt": "",
+      "duration": 5
+    },
+    "text-to-speech": {
+      "model": null,
+      "prompt": "",
+      "voice_id": ""
+    },
+    "speech-to-text": {
+      "language": ""
+    },
+    "assistant": {
+      "model": null,
+      "prompt": "",
+      "systemPrompt": ""
+    },
+    "image-editing": {
+      "operation": "upscale",
+      "scale": 2,
+      "aspectRatio": "16:9",
+      "prompt": ""
+    },
+    "director": {
+      "model": null,
+      "aspectRatio": "1:1",
+      "frameCount": 4,
+      "prompt": ""
+    },
+    "download-media": {
+      "url": "",
+      "quality": "best"
+    },
+    "merge-media": {
+      "aspectRatio": "auto"
+    },
+    "trim-media": {
+      "startTime": 0,
+      "endTime": null
+    },
+    "speed-media": {
+      "speed": 1,
+      "preservePitch": true
+    },
+    "crop-media": {
+      "aspectRatio": "16:9"
+    },
+    "extract-media": {
+      "timestamp": 0,
+      "audioFormat": "mp3"
+    },
+    "voice-to-voice": {
+      "targetVoiceLibraryId": ""
+    },
+    "media-library": {},
+    "group": {
+      "label": "",
+      "color": "#3b82f6"
+    },
+    "sticky-note": {
+      "text": "",
+      "color": "#fef08a"
+    },
+    "comment-node": {
+      "text": "",
+      "resolved": false
+    }
+  }
+}

@@ -47,6 +47,8 @@ const MCP_TOOLS_DIR = path.join(MCP_REPO, 'src', 'tools');
 // SDK routes intentionally NOT exposed via MCP (deprecated or internal).
 // Add a route here to silence the GAP warning without needing an MCP tool.
 const KNOWN_GAPS = new Set([
+  // Full graph snapshots are the revisioned browser save path. MCP uses typed edits.
+  'POST /v1/flows/:param/snapshot',
   // App-owner provisioning is an explicit server-side SDK operation, not a creative agent tool.
   'PUT /v1/apps/:param/fonts',
   // Authenticated binary previews are consumed by the font library UI, not an MCP tool.
@@ -123,6 +125,9 @@ function normalizePath(p) {
  */
 function normalizeTemplatePath(raw) {
   let out = raw;
+  // Flow uses a shared URLSearchParams helper; its interpolation is a query,
+  // never another path segment. Keep the route gate checking actual Flow paths.
+  out = out.replace(/\$\{query\([^}]*\)\}/g, '');
   // Drop ${...} blocks that look like querystring handlers
   out = out.replace(/\$\{[^}]*[?&][^}]*\}/g, '');
   // Replace remaining ${...} with :param
@@ -218,6 +223,11 @@ function parseSdkRoutes(src) {
 // `app.use('/credit-usage', creditUsageRouter)` — the full external path
 // then becomes `/credit-usage/by-caller-session`.
 function parseExtraModuleRoutes(src, mountPath) {
+  // Small lifecycle tables can use a one-statement loop with a template path.
+  // Expand actual literals instead of treating ${action} as an Express segment.
+  src = src.replace(/for\s*\(\s*const\s+(\w+)\s+of\s*\[([^\]]+)\]\s*\)\s*(router\.[^\n]+)/g,
+    (whole, name, list, statement) => [...list.matchAll(/['"]([^'"]+)['"]/g)]
+      .map(match => statement.replaceAll('${' + name + '}', match[1])).join('\n'));
   const re = /router\.(post|get|delete|put|patch)\(\s*['"`]([^'"`]+)['"`]/g;
   const routes = new Set();
   let m;
@@ -328,6 +338,12 @@ console.log('Parity check: kolbo-mcp tools vs kolbo-api SDK routes\n');
 
 const sdkSrc = readFileOrBail(SDK_INDEX);
 const sdkRoutes = parseSdkRoutes(sdkSrc);
+// Flow is mounted as a shared subrouter rather than repeated SDK handlers.
+// Verify the mount exists, and keep API location configurable through KOLBO_API_PATH.
+if (/router\.use\(['"]\/flows['"],\s*require\(['"]\.\.\/flowControl['"]\)/.test(sdkSrc)) {
+  const source = readFileOrBail(path.join(KOLBO_API, 'src', 'modules', 'flowControl', 'index.js'));
+  for (const route of parseExtraModuleRoutes(source, '/v1/flows')) sdkRoutes.add(route);
+}
 
 // Extra modules contribute routes for the STALE check only (so MCP calls
 // into /credit-usage and /v1/artifact aren't flagged as targeting nonexistent
