@@ -1,6 +1,6 @@
 // Validate only explicit, machine-readable declarations. Never infer creative
 // intent from adjectives, require a template, or rewrite a user's prompt.
-function validateVideoPrompt({ prompt, duration, aspect_ratio, multi_shots, multi_shot_count }) {
+function validateVideoPrompt({ prompt = '', duration, aspect_ratio, multi_shots, multi_shot_count }) {
   const totals = [...prompt.matchAll(/^\s*Total:\s*(\d+(?:\.\d+)?)s\s*\/\s*(\d+)\s*shots?\s*\/\s*(\d+:\d+)\s*$/gim)]
     .map((m) => ({ duration: Number(m[1]), count: Number(m[2]), aspect: m[3] }));
   if (!totals.length) return; // Existing free-form clients remain supported.

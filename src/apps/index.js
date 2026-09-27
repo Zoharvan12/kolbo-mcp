@@ -612,11 +612,19 @@ function sibling(models, hit, types) {
  * unchanged, so identifiers the catalog does not publish (hidden models) still
  * reach the API and it stays the source of truth.
  */
+const NATIVE_WORKFLOW_MODEL_IDS = new Set([
+  'kolbo-morphious-motion', 'kolbo-morphious-swap', 'kolbo-morphious-reframe',
+  'kolbo-morphious-lite-motion', 'kolbo-morphious-lite-swap',
+  'higgsfield-genjutsu-motion-transfer', 'higgsfield-genjutsu-object-swap',
+]);
 async function canonicalModelId(client, input, type) {
   if (!input || typeof input !== 'string') return input;
   const key = input.toLowerCase().trim();
   const want = normId(key);
-  if (!want || AUTO_ALIASES.has(want)) return input;
+  if (!want || AUTO_ALIASES.has(want)) return input;
+  // Exact native-workflow ids pass through: the near-miss check below would reject an
+  // unpublished or cached-out 'kolbo-*' id as unknown.
+  if (NATIVE_WORKFLOW_MODEL_IDS.has(key)) return input;
 
   let all;
   try {
