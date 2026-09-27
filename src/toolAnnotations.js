@@ -33,6 +33,8 @@ const READ_ONLY = [
   'get_music_track_related', 'get_music_track_lyrics',
   'search_stock_media', 'get_stock_sources', 'get_stock_categories',
   'get_stock_collections', 'get_stock_asset', 'analyze_script_for_stock',
+  // Free (no credits, no DB write) — returns a scratch composition plan for the caller to edit.
+  'create_music_composition_plan',
 ];
 
 const OPEN_WORLD_READ_ONLY = [
@@ -85,6 +87,9 @@ const DESTRUCTIVE_WRITE = [
   'generate_image', 'generate_image_edit', 'generate_creative_director',
   'generate_video', 'generate_video_from_image', 'generate_music',
   'generate_speech', 'generate_sound', 'cancel_generation',
+  // Both spend credits — reference-audio upload is billed by ElevenLabs like a generation,
+  // section edit creates a new billed track.
+  'create_music_reference_audio', 'edit_music_section',
   'generate_elements', 'generate_first_last_frame', 'generate_lipsync',
   'generate_video_from_video', 'transcribe_audio', 'generate_3d',
   'edit_image', 'edit_video', 'trim_video', 'clone_voice',

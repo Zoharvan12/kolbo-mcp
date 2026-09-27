@@ -57,6 +57,27 @@ const CINEMATIC_SCHEMA = z.object({
 // alongside the prompt (generate_video_from_image: `{ image_url, prompt }` — the
 // image is what varies, and that is the whole point). Either way the widget
 // captions each tile with the item's prompt, so that is the label we carry.
+// ElevenLabs Music v2.5 composition-plan chunk — one entry is EITHER a generation chunk
+// (text/duration_ms/positive_styles, optionally conditioning_ref to steer its style off a
+// stored song) OR an audio-reference chunk (song_id/range, splices that slice in unchanged).
+// All fields optional at the schema level; the backend validates the real constraints
+// (3-120s per generation chunk, <=30s conditioning reference, <=30 chunks per plan).
+const MUSIC_TIME_RANGE_SCHEMA = z.object({
+  start_ms: z.number().int().min(0),
+  end_ms: z.number().int().min(0),
+}).describe('{ start_ms, end_ms } — a slice of a stored song, in milliseconds.');
+const MUSIC_CHUNK_SCHEMA = z.object({
+  text: z.string().optional().describe('Generation chunk only: section name in [brackets], lyric lines, {inline directions}. E.g. "[Chorus]\\nWe rise tonight".'),
+  duration_ms: z.number().int().min(3000).max(120000).optional().describe('Generation chunk only: length in ms, 3000-120000.'),
+  positive_styles: z.array(z.string()).optional().describe('Generation chunk only: styles/directions to include (max 50). The first chunk\'s styles set the whole song\'s tone.'),
+  negative_styles: z.array(z.string()).optional().describe('Generation chunk only: styles/directions to avoid.'),
+  context_adherence: z.enum(['low', 'medium', 'high']).optional().describe('Generation chunk only: how closely it follows neighboring chunks. Default high.'),
+  conditioning_ref: z.object({ song_id: z.string(), range: MUSIC_TIME_RANGE_SCHEMA }).optional().describe('Generation chunk only: condition this chunk\'s STYLE on <=30s of a stored song (does not splice audio in — it steers a fresh generation).'),
+  condition_strength: z.enum(['low', 'medium', 'high', 'xhigh']).optional().describe('Generation chunk only: how strongly it follows conditioning_ref. Default medium.'),
+  song_id: z.string().optional().describe('Audio-reference chunk only: id of a stored song (from a prior generate_music result\'s song_id, or create_music_reference_audio) to splice in unchanged.'),
+  range: MUSIC_TIME_RANGE_SCHEMA.optional().describe('Audio-reference chunk only: the slice of song_id to insert unchanged.'),
+});
+
 const MAX_BATCH_PROMPTS = 8;
 const MAX_STATUS_IDS = 20;
 async function submitBatch(rawItems, submitOne) {
@@ -797,7 +818,7 @@ function registerGenerateTools(server, client, options = {}) {
     'generate_music',
     'Generate music from a text description using Kolbo AI. Supports instrumental mode, custom lyrics, style direction, vocal gender, negative tags, song length, and Suno fine-controls (style weight, weirdness, audio weight, persona/singing voice). Default model is Suno. Some controls are Suno-only; the engine ignores controls that do not apply to the chosen model. Returns the final audio URL when complete.',
     {
-      prompt: z.string().describe('Text description of the music to generate (e.g., "upbeat electronic dance track with synthesizers")'),
+      prompt: z.string().optional().describe('Text description of the music to generate (e.g., "upbeat electronic dance track with synthesizers"). Required unless composition_plan is passed (ElevenLabs Music v2.5 structured mode, which cannot be combined with prompt).'),
       model: z.string().optional().describe('Model identifier. Use list_models type="music_gen" to see options. Omit for Suno (default).'),
       style: z.string().optional().describe('Music style / genre (e.g., "pop", "rock", "lo-fi", "electronic", "jazz")'),
       title: z.string().optional().describe('Song title. If omitted, one is generated.'),
@@ -816,16 +837,22 @@ function registerGenerateTools(server, client, options = {}) {
       use_composition_plan: z.boolean().optional().describe('Suno: enable structured composition planning (verse/chorus structure).'),
       singing_dna_id: z.string().optional().describe('Visual DNA character id whose singing voice to use (must be owned by the caller).'),
       singing_voice_id: z.string().optional().describe('Custom cloned singing-voice id (must be owned by the caller).'),
+      // ── ElevenLabs Music v2.5 structured mode (mutually exclusive with `prompt`) ──
+      composition_plan: z.array(MUSIC_CHUNK_SCHEMA).optional().describe('ElevenLabs Music v2.5 ONLY, model must resolve to the ElevenLabs music model: an ordered list of chunks instead of a prompt. A GENERATION chunk has text/duration_ms/positive_styles (optionally conditioning_ref+condition_strength to steer it off a stored song). An AUDIO-REFERENCE chunk has song_id/range and splices that stored slice in unchanged (used to keep part of an existing track — see edit_music_section for the common case of regenerating one section). Get a starter plan from create_music_composition_plan, or build one from a prior generate_music result\'s `song_id`. Cannot be combined with `prompt`.'),
+      seed: z.number().optional().describe('ElevenLabs Music v2.5: random seed for reproducibility. Only valid together with composition_plan, never with prompt.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt = false, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, project_id, session_id }) => {
+    async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt = false, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, composition_plan, seed, project_id, session_id }) => {
+      if (!prompt && !composition_plan) throw new Error('prompt is required (or pass composition_plan for ElevenLabs Music v2.5)');
       model = await canonicalModelId(client, model, 'music_gen'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/music', {
         prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags,
         duration_seconds, enhance_prompt, preset_id,
         style_weight, weirdness, audio_weight, persona_id, use_composition_plan,
-        singing_dna_id, singing_voice_id, project_id, session_id
+        singing_dna_id, singing_voice_id,
+        ...(composition_plan ? { composition_plan: { chunks: composition_plan }, seed } : {}),
+        project_id, session_id
       });
 
       if (returnsImmediately()) return submittedResult({
@@ -855,10 +882,98 @@ function registerGenerateTools(server, client, options = {}) {
         playback_urls: result.result.playback_urls,
         title: result.result.title,
         duration: result.result.duration,
-        lyrics: result.result.lyrics
+        lyrics: result.result.lyrics,
+        // ElevenLabs Music v2.5 only — reuse in a later composition_plan / edit_music_section.
+        ...(result.result.song_id ? { song_id: result.result.song_id } : {}),
       }, null, 2));
     }
   );
+
+  // ─── create_music_composition_plan ─────────────────────────
+  // FREE (no credits, no generation created) — ElevenLabs Music v2.5's POST /v1/music/plan.
+  server.tool(
+    'create_music_composition_plan',
+    'Generate a starter ElevenLabs Music v2.5 structured composition plan (an ordered list of chunks with section text, styles, and durations) from a plain-text prompt. FREE — creates no generation and charges no credits. Edit the returned chunks and pass them as `composition_plan` to generate_music to actually create the track.',
+    {
+      prompt: z.string().describe('Text description of the song to plan (e.g. "an upbeat pop song with verse and chorus about summer").'),
+      duration_seconds: z.number().optional().describe('Target total length in seconds, 3-600. Omit to let the model choose.'),
+      project_id: projectIdField,
+      session_id: sessionIdField,
+    },
+    async ({ prompt, duration_seconds, project_id, session_id }) => {
+      const res = await client.post('/v1/generate/music/composition-plan', { prompt, duration_seconds, project_id, session_id });
+      return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+    }
+  );
+
+  // ─── create_music_reference_audio ───────────────────────────
+  // BILLED at the same rate as a song generation of the clip's length (ElevenLabs charges
+  // the upload itself, even half-price if it flags the clip for copyright) — this is NOT a
+  // free utility call, unlike create_music_composition_plan above.
+  server.tool(
+    'create_music_reference_audio',
+    'Upload an existing audio clip you already have in Kolbo so it can be used as an audio reference in a later generate_music composition_plan (as a song_id in a conditioning_ref, to steer style, or in an audio-reference chunk, to splice a slice in unchanged) or as the source for edit_music_section. BILLED the same as generating a track of the clip\'s length — ElevenLabs charges for this upload itself. LOCAL FILE? Call upload_media first and pass the returned media id here.',
+    {
+      media_id: z.string().describe('A media-library item id for an audio file you own — from upload_media, or from list_media (mediaType audio).'),
+      project_id: projectIdField,
+      session_id: sessionIdField,
+    },
+    async ({ media_id, project_id, session_id }) => {
+      const res = await client.post('/v1/generate/music/reference-audio', { media_id, project_id, session_id });
+      return { content: [{ type: 'text', text: JSON.stringify(res, null, 2) }] };
+    }
+  );
+
+  // ─── edit_music_section ─────────────────────────────────────
+  // ElevenLabs Music v2.5 inpainting — regenerate one time range of an existing track,
+  // keeping the rest unchanged. BILLED like an ordinary generation (creates a new track).
+  server.tool(
+    'edit_music_section',
+    'Regenerate one section (time range) of an ElevenLabs Music v2.5 track you already generated, keeping the rest of the song unchanged — e.g. "redo the outro with different lyrics". Only works on tracks made with the ElevenLabs Music model (check the earlier generate_music result for a `song_id`; a track without one cannot be edited this way). Creates a NEW generation in the same session; the source track is untouched. Returns a generation_id to poll like any other generate_music call.',
+    {
+      source_generation_id: z.string().describe('The generation_id of the ElevenLabs Music v2.5 track to edit (must have returned a song_id).'),
+      start_ms: z.number().int().min(0).describe('Start of the region to regenerate, in milliseconds.'),
+      end_ms: z.number().int().min(0).describe('End of the region to regenerate, in milliseconds. (end_ms - start_ms) must be 3000-120000ms.'),
+      text: z.string().optional().describe('New section text — [Section Name], lyric lines, {inline directions}. Omit to keep it instrumental/unlabeled.'),
+      positive_styles: z.array(z.string()).optional().describe('Styles/directions for the regenerated section.'),
+      negative_styles: z.array(z.string()).optional().describe('Styles/directions to avoid in the regenerated section.'),
+      context_adherence: z.enum(['low', 'medium', 'high']).optional().describe('How closely the new section follows the kept audio around it. Default high.'),
+      project_id: projectIdField,
+      session_id: sessionIdField,
+    },
+    async ({ source_generation_id, start_ms, end_ms, text, positive_styles, negative_styles, context_adherence, project_id, session_id }) => {
+      const gen = await client.post('/v1/generate/music/edit-section', {
+        source_generation_id, start_ms, end_ms, text,
+        positive_styles, negative_styles, context_adherence,
+        project_id, session_id,
+      });
+
+      if (returnsImmediately()) return submittedResult({
+        tool: 'edit_music_section', kind: 'audio', gen, client, model: 'ElevenLabs Music', prompt: text || '(section edit)',
+      });
+
+      const poll = await pollOrTimedOut(client, gen.generation_id, { interval: (gen.poll_interval_hint || 8) * 1000, timeout: 150000 });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
+
+      return uiCompleted({
+        tool: 'edit_music_section', kind: 'audio', gen, client, model: 'ElevenLabs Music', prompt: text || '(section edit)',
+        urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
+        title: result.result.title,
+        duration: result.result.duration,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: gen.session_id,
+        urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
+        duration: result.result.duration,
+        ...(result.result.song_id ? { song_id: result.result.song_id } : {}),
+      }, null, 2));
+    }
+  );
+
 
   // ─── music import / extend / cover ─────────────────────────
   // Three tools over the SDK's /v1/generate/music/{import,extend,cover}. The web app has
