@@ -1,11 +1,11 @@
 ---
-version: 0.9.19
+version: 0.9.17
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images,
   video (Seedance, Veo, Kling, Hailuo), music, speech, sound, 3D, transcription,
   Visual DNA, Creative Director batches, marketing assets, HTML artifacts, and
-  AI Docs, Flow node workflows and session/system prompts, and approved Blender scene control. Use for sophisticated AI
+  AI Docs, and approved Blender scene control. Use for sophisticated AI
   filmmaking as well as individual media:
   scripts, production bibles, recurring characters and locations, acting,
   dialogue, music performance, blocking, physics, multi-shot continuity,
@@ -58,7 +58,7 @@ Then generate **only** with the confirmed parameters. If the user changes an opt
 - **Video/lipsync `credit` is per-SECOND, not per-clip**: normally `total = credit × output_duration`. If video references are attached and `video_input_credit` is present, use the alternate provider tariff instead: `video_input_credit × (sum ceil(each input video duration) + output seconds) × video_input_resolution_multiplier`. Dedicated Seedance Edit uses its selected source duration as output; Extend uses the requested added duration. The other carve-out is `flat_credit_by_resolution`.
 - **Batch totalling 100+ credits**: run `check_credits` first.
 - **Quote real cost**: when the user approves the result, log its actual `credits_used` (from the tool result) to `.kolbo/production.md` — never `base × count`.
-- **Never state "credits remaining" from arithmetic** (opening balance − generation costs). Coding/chat usage deducts credits too, so the math is always wrong. Report cost only; if the user asks for their balance, call `check_credits` fresh at that moment. Widget hosts show the total and plan, credit-pack, and redemption breakdown from `structuredContent.credits`; this is a snapshot at check time. Text hosts receive the same breakdown as plain text.
+- **Never state "credits remaining" from arithmetic** (opening balance − generation costs). Coding/chat usage deducts credits too, so the math is always wrong. Report cost only; if the user asks for their balance, call `check_credits` fresh at that moment.
 - **Out of credits → `show_plans`.** A generation refused for credits already returns the upgrade card automatically — do NOT retry it, and do not re-run the tool "to be sure". Call `show_plans` yourself when the user asks about pricing, plans, upgrading, or how to get more credits. Prices are live and promo-adjusted; never quote them from memory. The user completes any purchase themselves on app.kolbo.ai/pricing — you cannot buy for them.
 
 For multi-scene / batch work this pairs with `generate_creative_director` (see below) — still confirm the brief first.
@@ -67,7 +67,6 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 
 | If the user wants to… | Read first |
 |---|---|
-| Build, edit, inspect, organize or run **Flow sessions / nodes / prompts / system prompts** | `references/workflows/flow.md` |
 | Make a **film / ad / scene / episode / campaign / any video with multiple or recurring characters** — read BEFORE planning a single shot | `references/workflows/production-planning.md` |
 | Direct, develop, audit, or continue a **film / episode / connected scene / complex performance** with continuity, acting, dialogue, music, blocking, or physics | `references/workflows/filmmaking.md` |
 | Build, inspect, animate, light, render, or edit a **Blender scene through Kolbo Blender MCP** | `references/workflows/blender-mcp.md` |
@@ -139,18 +138,10 @@ Font tools (when exposed by the installed MCP): `list_fonts`, `get_font`, `uploa
 | `clean_dialogue_leftovers` | Strip voices still faintly audible in an M&E layer. 17cr — only when the user reports the leak, it trades fidelity. |
 | `separate_ambience` | Pull room tone out of the Effects bed as its own lane. 17cr. |
 
-### Flow sessions and node workflows
-| Tool | Purpose |
-|------|---------|
-| `get_flow_schema` / `list_flow_sessions` / `get_flow_session` / `create_flow_session` / `update_flow_session` / `validate_flow_session` / `undo_flow_edit` | Exact, revision-checked node, edge, prompt, system prompt and session edits. Read `references/workflows/flow.md` before use. |
-| `duplicate_flow_session` / `move_flow_session` / `trash_flow_session` / `restore_flow_session` | Flow lifecycle; use these dedicated operations for Flow sessions. |
-| `estimate_flow_run` / `run_flow_session` / `get_flow_run` / `list_flow_runs` / `cancel_flow_run` / `retry_flow_run` | Durable execution with an explicit aggregate budget; editing alone does not authorize spending. |
-
 ### Discovery, Library, Visual DNA, Moodboards, Chat, Publishing
 | Tool | Purpose |
 |------|---------|
 | `list_models` / `list_voices` / `check_credits` / `show_plans` / `get_generation_status` / `cancel_generation` / `get_session_usage` | Discovery + status. `list_models` with no args returns the recommended shortlist out of ~428 — pass `type` for a full category with per-model caps. `cancel_generation` stops an in-flight job and refunds what it can: use it when the user changes their mind mid-generation instead of letting it run. `show_plans` renders the balance + upgrade card for pricing/plan/upgrade questions. |
-| `download_media_from_url` / `get_download_status` / `cancel_download` | Download a public social/video page URL to Kolbo storage. Async job; use download status, not generation status. See `workflows/media-library.md`. |
 | `upload_media` / `create_upload_ticket` / `list_media` / `get_media` / `get_media_stats` / `favorite_media` / `unfavorite_media` / `delete_media` / `restore_media` / `permanently_delete_media` / `move_media` / `bulk_*_media` / `*_media_folder` | Media library — see `workflows/media-library.md`. Getting a LOCAL file in depends on where the server runs: `upload_media` with a path only works on a local (stdio) install; over a remote connector use `create_upload_ticket` and POST the file yourself. |
 | `create_visual_dna` / `update_visual_dna` / `generate_character_sheet` / `list_visual_dnas` / `get_visual_dna` / `delete_visual_dna` / `*_visual_dna_folder` (5 folder tools) | Visual DNA (+ character sheet, character folders) — see `workflows/visual-dna.md`. Edit with `update_visual_dna`; never delete+recreate. |
 | `list_moodboards` / `get_moodboard` / `list_presets` / `list_cinematic_presets` | Style overlays + presets. `list_presets` spans FOUR distinct catalogs (`image`, `image_edit`, `video`, `music`; `text_to_video` is an alias for `video`, `shorts` is empty) — the `video` one holds 200+ Seedance shot recipes. `list_cinematic_presets` is a separate tool feeding the `cinematic` arg, never `preset_id`. Full doctrine + intent→catalog map: `references/workflows/presets.md`. Never omit `preset_id` after claiming a preset was used. |
@@ -166,7 +157,6 @@ Font tools (when exposed by the installed MCP): `list_fonts`, `get_font`, `uploa
 | `create_moodboard` / `update_moodboard` / `delete_moodboard` | Moodboards from image URLs → AI master style prompt → pass `moodboard_id` to generation tools. Edit with `update_moodboard`; never delete+recreate. |
 | `clone_voice` / `import_elevenlabs_voice` / `delete_voice` | Custom voices (clone CHARGES CREDITS — confirm first; new voices show in `list_voices`) |
 | `trim_video` | Frame-accurate trim of a Kolbo-hosted video (tool waits and returns the URL). `edit_video` also gained `remove_background`. |
-| `edit_video` input previews | Edit widgets retain the source video, optional mask video, face image, and audio references through generation and completion. Local edit files use their uploaded CDN URLs for previews. Click a video thumbnail to inspect the source. |
 | `create_doc` / `list_docs` / `get_doc` / `update_doc` / `share_doc` / `delete_doc` | AI Docs (Magic Pad): YOU author full HTML documents (plans, briefs, scripts, research) saved into the user's project, editable in the Kolbo app. `share_doc` returns a public link. `update_doc` content replaces the WHOLE doc — `get_doc` first. |
 | `chat_send_message` / `chat_list_conversations` / `chat_get_messages` | Kolbo chat with optional `media_urls` (up to 10 per call) and `thinking_level` from `list_models` type `text` thinkingLevels; omitted/invalid levels use the resolved model default, safeguards and legacy `deep_think` take precedence |
 | `create_review_asset` / `add_review_version` / `set_review_status` / `create_review_comment` / `reply_review_comment` / `resolve_review_comment` / `unresolve_review_comment` / `create_review_collection` / `create_review_share_link` / `revoke_review_share_link` / `get_review_storage_usage` (+ list/get/update/delete siblings) | **Kolbo Review** — Frame.io-style client review: asset = media + appended versions (new cut = `add_review_version`, never delete+recreate), timecoded comments per version, approve/request-changes status, guest share links (no Kolbo account; comment-only unless `canSetStatus`). 5GB review storage cap. See `workflows/review-collections.md`. |
@@ -476,10 +466,6 @@ If at this point you still don't know which `references/` file to load, default 
 ## Media selection preferences
 Honor explicit models, presets, budget and inputs. Choose only eligible catalog candidates with all required capabilities. Use requested presets; otherwise use fitting presets when useful. For video generation, editing and lip-sync, when the user has not explicitly selected an output resolution, use the cheapest supported output resolution from the live catalog and pass it explicitly; do not inherit an expensive provider default. Preserve explicit user-selected resolution/settings. Finish fully, cinematic, professional, final, production and available credits are NOT permission to increase resolution. Never infer output resolution from reference media or export settings. A budget is a ceiling, not a spending target. Do not upscale or regenerate at a higher tier without explicit user authorization. If pricing or supported resolutions cannot be verified, inspect the catalog before dispatch; never invent a tier. Models with fixed output resolution use their native output. Never treat a policy refusal as a technical failure or route around safeguards.
 Default images and edits: GPT Image 2.5 Flare/Sunburst; medium for value, high for ordinary maximum quality. Reserve xhigh/max for exceptional dense or difficult multilingual text after medium/high prove insufficient; do not automatically spend on retries. Nano Banana 2 is secondary. Seedream 5.0 Pro favors cinematic aesthetics over complex instruction fidelity; Wan 2.7 Pro is another creative alternative. Z Image/P Image for cheap tests. Midjourney for artistic concepts only, never editing. Soul V2 for realistic people/UGC concepts; derive character sheets before registering finished Visual DNA. Mirage Film 2 for environments and cinematic inspiration.
-**Seedance 2.5 Draft:** explicitly pass `model: "seedance-2-5", draft: true` (or legacy `resolution: "480p-draft"`) on the matching video generation tool. Plain `480p` is regular video, never Draft. Use ordinary credits. Finalize a saved draft via `edit_video` `draft_quote` then authorized `draft_enhance`, with its video URL, original project and quoted supported resolution; do not regenerate the prompt. See `references/models/seedance25.md`.
-For Draft video editing, use `generate_video_from_video` with `model: "seedance-2-5-video-to-video", draft: true`. The source duration and aspect ratio are inherited. Draft uses regular edit 480p pricing; optional finalization uses regular edit 1080p pricing, both charging combined input/output seconds. Read the live catalog and quote rather than hardcoding prices. This app-credit/MCP route does not imply USD-wallet video-edit execution availability.
-
-
 Default video: Seedance 2.5 for general cinematic work (not Hebrew speech). Kling specializes in controlled single-image and first/last-frame shots. Wan 3.0 specializes in motion graphics and animated typography — native Hebrew speech is poor; attached-audio lip-sync works well. MiniMax H3 offers higher resolution and strong attached-audio lip-sync; H3 Max favors speed at lower resolution with the same audio lip-sync strength. **Native Hebrew dialogue:** Gemini Omni Flash 1.1 or Gemini Omni 1 (best). Seedance 2 / 2.5 do not speak Hebrew — use Latin transliteration in quotes on Seedance, or switch to Gemini Omni. Grok Imagine 1.5 and Seedance 2.0 are non-Hebrew alternatives. P Video/Draft for cheap fast tests. Use base, edit or extend variants only with their required inputs.
 Existing-video lip-sync: Sync 3 for active-speaker handling; PixVerse for cartoons/2D and economical faster work. Portrait lip-sync: Veed Fabric or HeyGen Avatar; P Avatar for budget work. LTX Audio to Video for camera/environment motion with audio-driven performance.
 Default music: Suno v6. ElevenLabs Music is an alternative, especially for duration-directed scoring. Both accept custom duration requests; validate the selected tool schema and inspect actual output duration.
