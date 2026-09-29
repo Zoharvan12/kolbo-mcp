@@ -1391,6 +1391,9 @@ function registerGenerateTools(server, client, options = {}) {
             type: single.type,
           },
           state: single.state,
+          // The failure reason. The SDK always sends it, but this card dropped it, so a
+          // failed generation surfaced as a bare "failed" with no way to act on it.
+          error: single.state === 'failed' ? single.error : undefined,
           urls: done ? urls : undefined,
           thumbnail_url: res.thumbnail_url,
           // Transcription results ride the same status tool as media
@@ -1419,6 +1422,7 @@ function registerGenerateTools(server, client, options = {}) {
           items: [{
             id: single.generation_id,
             state: single.state,
+            error: single.state === 'failed' ? single.error : undefined,
             title: res.prompt_used || res.prompt || undefined,
             url: Array.isArray(res.urls) ? res.urls[0] : undefined,
           }],
@@ -1487,6 +1491,7 @@ function registerGenerateTools(server, client, options = {}) {
           return {
             id: r.generation_id,
             state: r.state,
+            error: r.state === 'failed' ? r.error : undefined,
             title: res.prompt_used || res.prompt || undefined,
             url: Array.isArray(res.urls) ? res.urls[0] : undefined,
             // A live batch card reads these from structuredContent (its only
