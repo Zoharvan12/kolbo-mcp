@@ -409,14 +409,22 @@ window.addEventListener('message', (ev) => {
     return;
   }
   if (m.method === 'ui/notifications/size-changed') {
-    const h = m.params && m.params.height; if (h) entry.iframe.style.height = Math.min(h, 1200) + 'px';
+    const h = m.params && m.params.height; if (h && entry.iframe.style.position !== 'fixed') { entry.inlineHeight = Math.min(h, 1200); entry.iframe.style.height = entry.inlineHeight + 'px'; }
     return;
   }
   if (m.method === 'tools/call') {
     respond(entry, m.params && m.params.name, m.params && m.params.arguments).then((res) => post(win, { jsonrpc: '2.0', id: m.id, result: res }));
     return;
   }
-  if (m.method === 'ui/request-display-mode') { post(win, { jsonrpc: '2.0', id: m.id, result: { mode: 'inline' } }); log(entry, 'ev', 'request-display-mode ' + JSON.stringify(m.params)); return; }
+  // Grant fullscreen the way claude.ai does: the iframe covers the whole window
+  // until the widget asks for inline again. Always refusing hid what users see.
+  if (m.method === 'ui/request-display-mode') {
+    const fs = m.params && m.params.mode === 'fullscreen';
+    entry.iframe.style.cssText = fs ? 'position:fixed;inset:0;width:100vw;height:100vh;max-width:none;z-index:1000;border:0;background:#0b0d12' : 'height:' + (entry.inlineHeight || 300) + 'px';
+    post(win, { jsonrpc: '2.0', id: m.id, result: { mode: fs ? 'fullscreen' : 'inline' } });
+    log(entry, 'ev', 'request-display-mode ' + JSON.stringify(m.params));
+    return;
+  }
   if (m.id != null) {
     const p = m.params || {};
     const text = p.text || (p.content && p.content[0] && p.content[0].text) || p.url || '';

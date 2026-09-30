@@ -178,7 +178,10 @@ html.k-peek-open .k-card { min-height: 460px; }
 /* Host granted fullscreen: the lightbox owns the whole viewport, not the card. */
 html.k-peek-fs, html.k-peek-fs body { height: 100%; overflow: hidden; }
 html.k-peek-fs .k-peek { position: fixed; inset: 0; z-index: 50; }
-html.k-peek-fs .k-card { min-height: 0; }
+/* backdrop-filter (and any transform) makes the card the containing block for
+   position:fixed descendants, so a GRANTED fullscreen still showed the lightbox
+   card-sized. Drop them while the lightbox owns the viewport. */
+html.k-peek-fs .k-card { min-height: 0; backdrop-filter: none; -webkit-backdrop-filter: none; transform: none; animation: none; }
 /* Expand button on every inline video — replaces the native fullscreen button,
    which a host iframe without allow="fullscreen" always greys out. */
 .k-vexpand {
