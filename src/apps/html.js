@@ -179,6 +179,15 @@ function ensurePeek() {
     if (it) window.kolbo.openLink(downloadUrl(it.dl || it.url));
   };
   box.onclick = function (e) { if (e.target === box || e.target === el('peek-stage')) closePeek(); };
+  // Touch hosts have no arrow keys: a horizontal swipe pages.
+  var x0 = null;
+  box.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+  box.addEventListener('touchend', function (e) {
+    if (x0 == null) return;
+    var dx = e.changedTouches[0].clientX - x0;
+    x0 = null;
+    if (Math.abs(dx) > 50) stepPeek(dx < 0 ? 1 : -1);
+  }, { passive: true });
   return box;
 }
 function peekAttrs(url, kind, cap) {

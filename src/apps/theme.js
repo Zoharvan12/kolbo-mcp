@@ -307,7 +307,10 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; opacity: 0; transition: opacity 150ms var(--smooth), background 150ms var(--smooth);
 }
-.k-media:hover .k-dl, .k-viewer:hover .k-dl, .k-skel:hover .k-dl { opacity: 1; }
+.k-media:hover .k-dl, .k-viewer:hover .k-dl, .k-skel:hover .k-dl, .k-dl:focus-visible { opacity: 1; }
+/* Same contract as .k-tile-acts: on a touch host there is no hover, and the
+   hover-only Download / Attach buttons were simply invisible. */
+@media (hover: none) { .k-dl { opacity: 1; } }
 .k-dl:hover { background: var(--brand); border-color: var(--brand); }
 /* Attach-to-prompt sits immediately left of Download (30px button + 8px gap). */
 .k-attach { right: 46px; }
