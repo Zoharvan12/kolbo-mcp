@@ -55,6 +55,8 @@ function pageSize() {
   var audio = items.filter(isAudio).length;
   return audio > items.length / 2 ? 6 : 12;
 }
+// Items fetched per Next when the widget pages the server itself.
+var FETCH_BATCH = 24;
 function pageCount() { return Math.max(1, Math.ceil(((state && state.items) || []).length / pageSize())); }
 // Only a tool that told us HOW to page can go past what is already loaded.
 // Every other grid used to render a Load more that did nothing.
@@ -250,6 +252,10 @@ function fetchNextPage(btn) {
   // when it shipped next_args, send exactly that. The query+page shape is the
   // legacy fallback list_media has always used.
   var args = {};
+  // Set when the first page was too small to page with (the model asked
+  // list_media for 3 items): re-read from the start in a full batch instead of
+  // adding 3 more tiles per Next.
+  var replaceFrom = -1;
   if (state.next_args) {
     for (var nk in state.next_args) { if (state.next_args[nk] !== undefined && state.next_args[nk] !== null) args[nk] = state.next_args[nk]; }
   } else {
@@ -257,6 +263,15 @@ function fetchNextPage(btn) {
     for (var k in q) { if (q[k] !== undefined && q[k] !== null && q[k] !== '') args[k] = q[k]; }
     args.page = nextPage;
     if (state.page_size) args.page_size = state.page_size;
+    var loaded = (state.items || []).length;
+    if ((state.page_size || 0) < FETCH_BATCH && loaded < 200 - FETCH_BATCH) {
+      // One aligned batch: page 1 at a size that is a whole number of batches
+      // covering everything loaded plus one more batch. After this the batch
+      // size divides the loaded count, so later Nexts append normally.
+      args.page = 1;
+      args.page_size = Math.ceil((loaded + 1) / FETCH_BATCH) * FETCH_BATCH;
+      replaceFrom = loaded;
+    }
   }
 
   window.kolbo.callTool(state.page_tool, args).then(function (res) {
@@ -273,6 +288,18 @@ function fetchNextPage(btn) {
       // still looks like it has pages behind it.
       state.has_next = false;
       state.next_args = undefined;
+      render();
+      return;
+    }
+    if (replaceFrom >= 0) {
+      // Keep the view on the first tile the user has not seen yet.
+      state.items = more;
+      state.page = (args.page_size / FETCH_BATCH);
+      state.page_size = FETCH_BATCH;
+      state.next_args = undefined;
+      if (sc && sc.total != null && sc.total >= 0) state.total = sc.total;
+      state.has_next = sc && typeof sc.has_next === 'boolean' ? sc.has_next : undefined;
+      page = Math.floor(replaceFrom / pageSize());
       render();
       return;
     }
