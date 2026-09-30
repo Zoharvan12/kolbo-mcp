@@ -59,10 +59,12 @@ function registerMoodboardTools(server, client, options = {}) {
     'get_moodboard',
     'Fetch a single moodboard by ID. Returns the full moodboard including master_prompt, style_guide, and all image URLs.',
     {
-      moodboard_id: z.string().describe('The moodboard ID')
+      moodboard_id: z.string().describe('The moodboard ID'),
+      project_id: projectScopeReadField
     },
-    async ({ moodboard_id }) => {
-      const result = await client.get(`/v1/moodboards/${encodeURIComponent(moodboard_id)}`);
+    async ({ moodboard_id, project_id }) => {
+      const suffix = project_id ? `?project_id=${encodeURIComponent(project_id)}` : '';
+      const result = await client.get(`/v1/moodboards/${encodeURIComponent(moodboard_id)}${suffix}`);
       return {
         content: [{
           type: 'text',
@@ -79,13 +81,15 @@ function registerMoodboardTools(server, client, options = {}) {
     {
       name: z.string().describe('Moodboard name (1–100 chars).'),
       image_urls: z.array(z.string()).min(1).max(15).describe('1–15 public image URLs. For local files, get URLs first via the LOCAL FILE route in this tool\'s description.'),
-      style_guide: z.string().optional().describe('Optional style notes (max 500 chars) that steer the analysis, e.g. "focus on the color grading, not the subjects".')
+      style_guide: z.string().optional().describe('Optional style notes (max 500 chars) that steer the analysis, e.g. "focus on the color grading, not the subjects".'),
+      project_id: z.string().optional().describe('Create the moodboard inside this project so every teammate with edit access can list, fetch and use it as #Name (pass the same project_id to list_moodboards / get_moodboard). Requires edit access; otherwise it is created private.')
     },
-    async ({ name, image_urls, style_guide }) => {
+    async ({ name, image_urls, style_guide, project_id }) => {
       const body = {
         name,
         images: image_urls.map(u => ({ type: 'url', url: u })),
-        ...(style_guide ? { style_guide } : {})
+        ...(style_guide ? { style_guide } : {}),
+        ...(project_id ? { project_id } : {})
       };
       const result = await client.post('/v1/moodboards', body);
       return { content: [{ type: 'text', text: JSON.stringify({ moodboard: result.moodboard, _hint: 'Pass this id as moodboard_id on generate_image / generate_creative_director to apply the style.' }, null, 2) }] };

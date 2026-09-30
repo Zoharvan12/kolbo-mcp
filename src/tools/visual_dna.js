@@ -37,9 +37,10 @@ function registerVisualDnaTools(server, client, options = {}) {
       audio: z.string().optional().describe('Optional audio source (URL or absolute local path) — the character\'s voice, 5-30s of clean speech. Stored on the DNA and used two ways: (1) as REFERENCE AUDIO in video generation — attaching this DNA to an image-to-video generation on a model with audio slots (Seedance 2.x, Wan 3.0) auto-attaches the clip and tells the model it is that character\'s voice; (2) as the source for a real speaking voice, but ONLY when you ask for one — see `voice_source`.'),
       voice_source: z.enum(['none', 'clone', 'assign', 'design']).optional().describe('What to do about a SPEAKING voice. **Pass "none" when the audio is just a reference clip** (the usual case for video work) — the clip is stored and usable as video reference audio, and nothing else happens. "clone" mints an ElevenLabs voice from the uploaded audio, which consumes a voice slot and may EVICT another of the user\'s voices to free one; it also makes the DNA addressable as `dna_<id>` in text-to-speech. "assign" points at an existing voice (pass `assigned_voice_id`). "design" generates a voice from the character\'s look. ⚠️ Omitting this while passing `audio` keeps the legacy behaviour and CLONES — pass "none" explicitly unless the user asked for a voice.'),
       assigned_voice_id: z.string().optional().describe('Voice to attach when voice_source="assign" — a `custom_<id>` from the user\'s clones or a voice_id from `list_voices`.'),
-      character_sheet_url: z.string().optional().describe('URL of a reference sheet (from `generate_character_sheet`, any sheet_type) to set as the DNA\'s primary reference. Works for ALL DNA types — character turnaround, product detail sheet, location sheet, or style board — and is the single biggest consistency booster. Omit only when the user declines.')
+      character_sheet_url: z.string().optional().describe('URL of a reference sheet (from `generate_character_sheet`, any sheet_type) to set as the DNA\'s primary reference. Works for ALL DNA types — character turnaround, product detail sheet, location sheet, or style board — and is the single biggest consistency booster. Omit only when the user declines.'),
+      project_id: z.string().optional().describe('Create the DNA inside this project so every teammate with edit access to it can list, fetch and generate with it (pass the same project_id to list_visual_dnas / get_visual_dna / generations). Requires edit access to the project. Omit for a private DNA.')
     },
-    async ({ name, dna_type, prompt_helper, description, images, video, audio, voice_source, assigned_voice_id, character_sheet_url }) => {
+    async ({ name, dna_type, prompt_helper, description, images, video, audio, voice_source, assigned_voice_id, character_sheet_url, project_id }) => {
       const helper = prompt_helper !== undefined ? prompt_helper : description;
       if (!name || !name.trim()) {
         throw new Error('name is required');
@@ -71,6 +72,7 @@ function registerVisualDnaTools(server, client, options = {}) {
       // long-standing behaviour older installs depend on. Only an explicit choice is forwarded.
       if (voice_source) form.append('voiceSource', voice_source);
       if (assigned_voice_id) form.append('assignedVoiceId', assigned_voice_id);
+      if (project_id) form.append('project_id', project_id);
 
       for (const f of imageFiles) {
         form.append('images', f.buffer, { filename: f.filename, contentType: f.contentType });

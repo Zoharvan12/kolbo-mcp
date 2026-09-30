@@ -5,6 +5,7 @@
 
 const { z } = require('zod');
 const { UI, uiResult, appsEnabled } = require('../apps');
+const { projectScopeReadField } = require('./_shared');
 
 /** SVG strip of the palette's colors as a data URI — every palette gets a real
  *  thumbnail in the media-grid widget even when it has no source images. */
@@ -25,9 +26,10 @@ function registerColorPaletteTools(server, client, options = {}) {
   server.tool(
     'list_color_palettes',
     'List the user\'s Color DNA palettes (personal + org). Each has a name, 1-10 colors, and an is_active flag — at most one palette is active per account at a time, and the active one auto-applies to every generation.',
-    {},
-    async () => {
-      const result = await client.get('/v1/color-palettes');
+    { project_id: projectScopeReadField },
+    async ({ project_id } = {}) => {
+      const suffix = project_id ? `?project_id=${encodeURIComponent(project_id)}` : '';
+      const result = await client.get(`/v1/color-palettes${suffix}`);
       const palettes = result.color_palettes || [];
       const text = JSON.stringify({ color_palettes: palettes, pagination: result.pagination }, null, 2);
 
@@ -82,10 +84,11 @@ function registerColorPaletteTools(server, client, options = {}) {
         role: z.enum(['dominant', 'secondary', 'accent', 'background']).optional().describe('Role of this color in the palette. Default: "accent".')
       })).min(1).max(10).describe('1-10 colors.'),
       source_image_urls: z.array(z.string()).max(5).optional().describe('Optional reference image URLs this palette was derived from.'),
-      is_active: z.boolean().optional().describe('Activate immediately on save. Default: true (saving auto-activates and unsets any other active palette).')
+      is_active: z.boolean().optional().describe('Activate immediately on save. Default: true (saving auto-activates and unsets any other active palette).'),
+      project_id: z.string().optional().describe('Save the palette inside this project so teammates with edit access see it in list_color_palettes (with the same project_id). Requires edit access; ignored otherwise.')
     },
-    async ({ name, colors, source_image_urls, is_active }) => {
-      const result = await client.post('/v1/color-palettes', { name, colors, source_image_urls, is_active });
+    async ({ name, colors, source_image_urls, is_active, project_id }) => {
+      const result = await client.post('/v1/color-palettes', { name, colors, source_image_urls, is_active, ...(project_id ? { project_id } : {}) });
       return { content: [{ type: 'text', text: JSON.stringify({ color_palette: result.color_palette }, null, 2) }] };
     }
   );
@@ -125,9 +128,12 @@ function registerColorPaletteTools(server, client, options = {}) {
   server.tool(
     'activate_color_palette',
     `Make this the account's sticky active Color DNA palette (unsets any other active palette first). ${STICKY_NOTE}`,
-    { color_palette_id: z.string().describe('Palette id to activate.') },
-    async ({ color_palette_id }) => {
-      const result = await client.post(`/v1/color-palettes/${encodeURIComponent(color_palette_id)}/activate`, {});
+    {
+      color_palette_id: z.string().describe('Palette id to activate.'),
+      project_id: z.string().optional().describe('Shared project the palette belongs to — needed to activate a teammate palette from that project (edit access required).')
+    },
+    async ({ color_palette_id, project_id }) => {
+      const result = await client.post(`/v1/color-palettes/${encodeURIComponent(color_palette_id)}/activate`, project_id ? { project_id } : {});
       return { content: [{ type: 'text', text: JSON.stringify({ color_palette: result.color_palette }, null, 2) }] };
     }
   );
