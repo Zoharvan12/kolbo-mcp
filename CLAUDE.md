@@ -201,7 +201,10 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
   `.k-pager` — chevrons + dot pills — underneath, so the card keeps a constant
   height whatever the result count. `list` uses the same pager at 8 rows. Titles ride
   a gradient scrim INSIDE the tile (`.k-tile-cap`), never a text block under it, and
-  Use/Download are hover buttons (`@media (hover:none)` pins them on for touch hosts).
+  like Use/Download it shows on hover only (`@media (hover:none)` pins them on for touch
+  hosts). Card style (v1.105, modelled on Higgsfield's widget): title left + Kolbo mark
+  right, no header rule, no "Powered by" footer (footer shows only the credit cost),
+  one quiet chip line, media in an inset `--panel`, lightbox with a filmstrip.
   No backdrop-filter on the scrim — a dozen blurred strips over a dozen images forces
   a per-frame backdrop re-sample on phones, same reason `.k-gen-badge` has none.
 - **Paging is a server contract: `page_tool` + `next_args`.** Back/Next walk the

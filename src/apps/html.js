@@ -128,6 +128,10 @@ function applyTheme(ctx) {
   } catch (e) {}
 }
 window.kolbo.ready(function (ctx) { applyTheme(ctx); window.kolbo.notifySize(); });
+// The header mark is the way into the app (the footer link is no longer shown).
+document.addEventListener('click', function (e) {
+  if (e.target && e.target.closest && e.target.closest('#logo')) window.kolbo.openLink('https://app.kolbo.ai');
+});
 window.kolbo.onThemeChange(applyTheme);
 
 // Model chip: real icon when the API provided one, brand monogram fallback.
@@ -163,6 +167,7 @@ function ensurePeek() {
     // nofullscreen: host iframes are never granted allow="fullscreen", so the
     // native button is always greyed out. The lightbox IS the fullscreen view.
     + '<video id="peek-video" playsinline controls controlslist="nofullscreen"></video></div>'
+    + '<div class="k-peek-strip" id="peek-strip" hidden></div>'
     + '<button type="button" class="k-peek-nav prev" id="peek-prev" aria-label="Previous"></button>'
     + '<button type="button" class="k-peek-nav next" id="peek-next" aria-label="Next"></button>';
   card.appendChild(box);
@@ -247,6 +252,25 @@ function showPeekItem(time) {
   el('peek-count').textContent = many ? (peekIndex + 1) + ' / ' + peekList.length : '';
   el('peek-prev').hidden = !many;
   el('peek-next').hidden = !many;
+  var strip = el('peek-strip');
+  strip.hidden = !many;
+  Array.prototype.forEach.call(strip.children, function (t, i) {
+    t.classList.toggle('on', i === peekIndex);
+    if (i === peekIndex && t.scrollIntoView) { try { t.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {} }
+  });
+}
+// Filmstrip under the lightbox: every item in the set, current one outlined.
+function buildPeekStrip() {
+  var strip = el('peek-strip');
+  strip.innerHTML = peekList.length > 1 ? peekList.map(function (it, i) {
+    var inner = it.kind === 'video'
+      ? '<video src="' + esc(it.url) + '#t=0.1" muted playsinline preload="metadata"></video>'
+      : it.kind === 'image' ? '<img src="' + esc(it.url) + '" alt="" loading="lazy">' : kindIcon(it.kind);
+    return '<button type="button" class="k-peek-thumb" data-strip="' + i + '" aria-label="Item ' + (i + 1) + '">' + inner + '</button>';
+  }).join('') : '';
+  Array.prototype.forEach.call(strip.children, function (t) {
+    t.onclick = function (e) { e.stopPropagation(); peekIndex = +t.getAttribute('data-strip'); showPeekItem(0); };
+  });
 }
 function stepPeek(d) {
   var box = el('peek');
@@ -265,6 +289,7 @@ function openPeek(url, kind, cap, opts) {
   Array.prototype.forEach.call(document.querySelectorAll('video'), function (v) {
     if (v.id !== 'peek-video') { try { v.pause(); } catch (e) {} }
   });
+  buildPeekStrip();
   showPeekItem(opts.time || 0);
   box.hidden = false;
   document.documentElement.classList.add('k-peek-open');
@@ -287,6 +312,7 @@ function closePeek(hostExited) {
   box.hidden = true;
   document.documentElement.classList.remove('k-peek-open');
   el('peek-img').removeAttribute('src');
+  el('peek-strip').innerHTML = '';
   var vid = el('peek-video');
   if (vid) { try { vid.pause(); } catch (e) {} vid.removeAttribute('src'); }
   if (peekWentFullscreen) {

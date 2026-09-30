@@ -11,8 +11,9 @@
 const KOLBO_CSS = `
 :root {
   --bg: #0f0f0f;
-  --card: rgba(38, 38, 38, 0.90);
-  --card-solid: #262626;
+  --card: rgba(22, 22, 25, 0.96);
+  --card-solid: #161619;
+  --panel: rgba(255, 255, 255, 0.035);
   --surface: rgba(255, 255, 255, 0.03);
   --surface-2: rgba(255, 255, 255, 0.06);
   --border: rgba(255, 255, 255, 0.08);
@@ -25,8 +26,8 @@ const KOLBO_CSS = `
   --success: #22c55e;
   --error: #ef4444;
   --warning: #f59e0b;
-  --radius-card: 16px;
-  --radius-btn: 8px;
+  --radius-card: 18px;
+  --radius-btn: 10px;
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --specular: inset 0 1px 0 rgba(255, 255, 255, 0.18);
@@ -36,6 +37,7 @@ const KOLBO_CSS = `
   --bg: #f5f5f2;
   --card: rgba(255, 255, 255, 0.85);
   --card-solid: #ffffff;
+  --panel: rgba(0, 0, 0, 0.035);
   --surface: rgba(0, 0, 0, 0.02);
   --surface-2: rgba(0, 0, 0, 0.04);
   --border: rgba(0, 0, 0, 0.08);
@@ -65,28 +67,34 @@ body {
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25), var(--specular);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.22), var(--specular);
   overflow: hidden;
   animation: k-in 400ms var(--spring);
 }
 @keyframes k-in { from { opacity: 0; transform: translateY(6px) scale(0.985); } to { opacity: 1; transform: none; } }
 
 .k-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px 10px;
 }
-.k-logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; letter-spacing: -0.01em; }
+/* The mark sits at the far right and the card is named by what it shows:
+   the brand word next to the title was chrome, not information. */
+.k-logo { order: 99; margin-left: auto; display: flex; align-items: center; cursor: pointer; opacity: 0.9; }
+.k-logo:hover { opacity: 1; }
+.k-logo > span { display: none; }
 .k-logo svg { display: block; }
-.k-head .k-title { color: var(--text-muted); font-size: 12.5px; font-weight: 500; }
+.k-head .k-title { color: var(--text); font-size: 13.5px; font-weight: 650; letter-spacing: -0.01em; }
 .k-head .k-spacer { flex: 1; }
 
-.k-body { padding: 14px 16px; }
-.k-prompt { color: var(--text-muted); font-size: 12.5px; margin-bottom: 4px; word-break: break-word;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+.k-body { padding: 0 12px 12px; }
+.k-prompt { color: var(--text-muted); font-size: 12.5px; margin: 0 2px 2px; word-break: break-word;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
   user-select: text; -webkit-user-select: text; cursor: text; }
 .k-prompt.expanded { -webkit-line-clamp: unset; white-space: pre-wrap; }
-.k-text-tools { display: flex; gap: 2px; justify-content: flex-end; margin: 0 0 10px; }
+.k-text-tools { display: flex; gap: 2px; justify-content: flex-end; margin: -2px 0 6px; }
+/* The prompt's Copy / Expand sit on the prompt's own line, not a row of their own. */
+#prompt { padding-right: 132px; }
+#prompt + .k-text-tools { margin: -24px 0 8px; }
 .k-text-btn {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 3px 8px; border: 0; border-radius: 6px;
@@ -113,20 +121,19 @@ body {
 .k-caption + .k-text-tools { margin: 0 2px 6px; justify-content: flex-start; }
 
 /* ---- Chips ---- */
-.k-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px; }
+.k-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 0 0 10px; }
 .k-chip {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 9px; border-radius: 999px;
-  background: var(--surface-2); border: 1px solid var(--border);
-  box-shadow: var(--specular);
-  font-size: 11px; font-weight: 500; color: var(--text-muted);
+  padding: 3px 8px; border-radius: 999px;
+  background: var(--surface-2); border: 0;
+  font-size: 10.5px; font-weight: 500; color: var(--text-muted);
   white-space: nowrap;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   letter-spacing: 0.01em;
   animation: k-chip-in 200ms var(--spring);
 }
 @keyframes k-chip-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
-.k-chip.brand { background: var(--brand-soft); border-color: rgba(59, 130, 246, 0.3); color: var(--brand); }
+.k-chip.brand { background: var(--brand-soft); color: var(--brand); }
 .k-chip img { width: 14px; height: 14px; border-radius: 4px; object-fit: cover; }
 .k-chip .k-mono-icon {
   width: 14px; height: 14px; border-radius: 4px; background: var(--brand);
@@ -139,7 +146,7 @@ body {
 .k-peek {
   position: absolute; inset: 0; z-index: 20;
   display: flex; flex-direction: column;
-  background: rgba(6, 8, 12, 0.96);
+  background: #0b0b0d;
 }
 .k-peek[hidden] { display: none !important; }
 /* An inline lightbox needs room: a short card (one list row, a 3-tile grid)
@@ -172,6 +179,19 @@ html.k-peek-open .k-card { min-height: 460px; }
   display: inline-flex; align-items: center; justify-content: center;
 }
 .k-peek-nav[hidden] { display: none; }
+.k-peek-strip { flex: none; display: flex; gap: 6px; padding: 0 12px 12px;
+  overflow-x: auto; scrollbar-width: none; }
+.k-peek-strip > :first-child { margin-left: auto; }
+.k-peek-strip > :last-child { margin-right: auto; }
+.k-peek-strip[hidden] { display: none; }
+.k-peek-strip::-webkit-scrollbar { display: none; }
+.k-peek-thumb { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 8px; overflow: hidden; cursor: pointer;
+  border: 2px solid transparent; background: #1c1c20; color: #fff; opacity: 0.55;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: opacity 150ms var(--smooth), border-color 150ms var(--smooth); }
+.k-peek-thumb:hover { opacity: 0.9; }
+.k-peek-thumb.on { border-color: var(--brand); opacity: 1; }
+.k-peek-thumb img, .k-peek-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
 .k-peek-nav:hover { background: var(--brand); border-color: var(--brand); }
 .k-peek-nav.prev { left: 10px; }
 .k-peek-nav.next { right: 10px; }
@@ -230,8 +250,8 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
 .k-gen-grid.n2 { grid-template-columns: 1fr 1fr; }
 .k-gen-grid.n3, .k-gen-grid.n4 { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 .k-skel {
-  position: relative; border-radius: 10px; overflow: hidden;
-  background: var(--surface-2); border: 1px solid var(--border);
+  position: relative; border-radius: 12px; overflow: hidden;
+  background: var(--surface-2);
   min-height: 120px; max-height: 300px;
   /* width:100% is load-bearing, not cosmetic. Without a definite width the
      aspect-ratio transfers the OTHER way: a 16/9 cell in a 196px auto-fill
@@ -322,29 +342,33 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
 /* Keep the whole completed card under the host's iframe height cap (~800px):
    header + prompt + chips + viewer + thumbs + actions + footer must all fit,
    or claude.ai adds an inner scrollbar. Click the image to expand in-Claude. */
-.k-viewer { margin-bottom: 10px; }
-.k-viewer img, .k-viewer video { display: block; width: 100%;
+/* Media sits in an inset panel. The image is sized to itself (width:auto) so a
+   portrait result no longer floats in a wide black letterbox. */
+.k-viewer { margin-bottom: 0; padding: 8px; border-radius: 16px; background: var(--panel);
+  display: flex; justify-content: center; }
+.k-viewer img, .k-viewer video { display: block; max-width: 100%;
   /* Fixed px, no vh: vh inside an iframe is the height the host granted, so a
      vh-based cap grew as the iframe grew and the card chased its own tail. */
-  max-height: 320px; object-fit: contain;
-  border-radius: 12px; background: #000; border: 1px solid var(--border); cursor: zoom-in; }
-.k-viewer video { cursor: default; }
+  max-height: 400px; object-fit: contain;
+  border-radius: 10px; cursor: zoom-in; }
+.k-viewer img { width: auto; height: auto; }
+.k-viewer video { width: 100%; background: #000; cursor: default; }
+#stage > .k-gen-grid, #stage > .k-grid { padding: 8px; border-radius: 16px; background: var(--panel); }
 
 .k-expand-hint { display: none; }
-.k-thumbs { display: flex; gap: 6px; margin: 10px 0 2px; }
-.k-thumbs .k-thumb { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; cursor: pointer;
-  border: 2px solid transparent; opacity: 0.75; transition: all 150ms var(--smooth); flex: none; }
+.k-thumbs { display: flex; gap: 6px; margin: 8px 0 0; justify-content: center; }
+.k-thumbs .k-thumb { width: 44px; height: 44px; border-radius: 9px; overflow: hidden; cursor: pointer;
+  border: 2px solid transparent; opacity: 0.6; transition: all 150ms var(--smooth); flex: none; }
 .k-thumbs .k-thumb:hover { opacity: 1; }
 .k-thumbs .k-thumb.active { border-color: var(--brand); opacity: 1; }
 .k-thumbs .k-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ---- Buttons ---- */
-.k-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 12px; }
+.k-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding-top: 10px; }
 .k-btn {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 14px; border-radius: var(--radius-btn);
-  border: 1px solid var(--border); background: var(--surface-2);
-  box-shadow: var(--specular);
+  padding: 7px 13px; border-radius: var(--radius-btn);
+  border: 1px solid transparent; background: var(--surface-2);
   color: var(--text); font-size: 12px; font-weight: 600; font-family: inherit;
   cursor: pointer; transition: all 150ms var(--smooth);
   text-decoration: none; user-select: none;
@@ -387,16 +411,18 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
    tiles below a thumbnail worth looking at. The 520px block further down wins
    under 520 and takes it to 2. */
 @media (max-width: 620px) { .k-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-.k-tile { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden;
-  border: 1px solid var(--border); background: var(--surface); cursor: pointer;
-  transition: transform 250ms var(--spring), box-shadow 250ms var(--smooth), border-color 150ms var(--smooth); }
-.k-tile:hover { transform: translateY(-2px); border-color: var(--border-strong);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42); }
-.k-tile img, .k-tile video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.k-tile { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden;
+  background: var(--surface-2); cursor: pointer; }
+.k-tile img, .k-tile video { display: block; width: 100%; height: 100%; object-fit: cover;
+  transition: transform 350ms var(--smooth), filter 200ms var(--smooth); }
+.k-tile:hover img { transform: scale(1.03); filter: brightness(1.06); }
 .k-tile-fb { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   color: var(--text-faint); font-size: 24px; }
 .k-tile-cap { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; pointer-events: none;
-  padding: 20px 8px 7px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.78)); }
+  padding: 20px 8px 7px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
+  opacity: 0; transition: opacity 150ms var(--smooth); }
+.k-tile:hover .k-tile-cap, .k-tile:focus-within .k-tile-cap { opacity: 1; }
+@media (hover: none) { .k-tile-cap { opacity: 1; } }
 .k-tile-t { font-size: 11px; font-weight: 600; color: #fff;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .k-tile-s { font-size: 10px; color: rgba(255, 255, 255, 0.66);
@@ -412,7 +438,8 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
   transition: background 150ms var(--smooth); }
 .k-tile-act:hover { background: var(--brand); border-color: var(--brand); }
-.k-tile-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2; }
+.k-tile-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2;
+  width: 46px; height: 38px; border-radius: 12px; border: 0; background: rgba(40, 44, 50, 0.62); font-size: 15px; }
 
 /* ---- Pager (media grid + list) ----
    A page of results at a fixed card height, instead of a card that grows a row
@@ -437,7 +464,7 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
 
 /* ---- Audio rows ---- */
 .k-audio-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px;
-  border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
+  border-radius: 12px; background: var(--panel);
   margin-bottom: 6px; transition: background 150ms var(--smooth); }
 .k-audio-row:hover { background: var(--surface-2); }
 .k-audio-art { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none;
@@ -470,8 +497,8 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
   .k-generated-audio .k-audio-player { grid-column: 1 / -1; }
   /* Touch-friendly MCP App layout (Claude iOS/Android iframe). */
   .k-head { padding: 10px 12px; gap: 8px; }
-  .k-body { padding: 10px 12px 12px; }
-  .k-footer { padding: 8px 12px 12px; }
+  .k-body { padding: 0 10px 10px; }
+  .k-footer { padding: 0 12px 10px; }
   .k-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .k-tile-act { width: 30px; height: 30px; }
   .k-pager-btn { width: 34px; height: 34px; }
@@ -497,8 +524,10 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
   background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25);
   color: #fca5a5; font-size: 12.5px; }
 .k-empty { padding: 22px; text-align: center; color: var(--text-faint); font-size: 12.5px; }
-.k-footer { display: flex; align-items: center; gap: 6px; padding: 8px 16px 12px;
+.k-footer { display: flex; align-items: center; gap: 6px; padding: 0 14px 10px;
   font-size: 10.5px; color: var(--text-faint); }
+.k-footer > span:not(.k-credits) { display: none; }
+.k-footer:not(:has(.k-credits:not(:empty))) { display: none; }
 .k-footer a { color: var(--text-faint); text-decoration: none; }
 .k-footer a:hover { color: var(--brand); }
 .k-credits { margin-left: auto; font-family: 'JetBrains Mono', monospace; }
