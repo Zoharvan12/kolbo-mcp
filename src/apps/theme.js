@@ -138,27 +138,58 @@ body {
 .k-peek-hit { cursor: zoom-in; }
 .k-peek {
   position: absolute; inset: 0; z-index: 20;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 10px; padding: 28px 16px 16px;
-  background: rgba(8, 10, 16, 0.92);
+  display: flex; flex-direction: column;
+  background: rgba(6, 8, 12, 0.96);
 }
 .k-peek[hidden] { display: none !important; }
-.k-peek img, .k-peek video {
-  display: none; max-width: 100%; max-height: min(360px, 70vh);
-  border-radius: 10px; object-fit: contain; background: #000;
-}
-.k-peek img[src], .k-peek video[src] { display: block; }
-.k-peek-close {
-  position: absolute; top: 8px; right: 8px;
-  width: 28px; height: 28px; border: 0; border-radius: 999px;
-  background: var(--surface-2); color: var(--text); cursor: pointer;
+/* An inline lightbox needs room: a short card (one list row, a 3-tile grid)
+   used to clip the media to a sliver. The card grows while it is open and
+   notifySize() asks the host for the height. */
+html.k-peek-open .k-card { min-height: 460px; }
+.k-peek-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; min-height: 44px; }
+.k-peek-cap { flex: 1; min-width: 0; font-size: 12.5px; color: rgba(255,255,255,0.78);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k-peek-count { flex: none; font-size: 11.5px; color: rgba(255,255,255,0.55); font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.k-peek-btn {
+  flex: none; width: 32px; height: 32px; border: 1px solid rgba(255,255,255,0.14); border-radius: 999px;
+  background: rgba(255,255,255,0.08); color: #fff; cursor: pointer; font-size: 15px;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.k-peek-cap { font-size: 12px; color: var(--text-muted); text-align: center; max-width: 100%; word-break: break-word; }
-/* Peek granted host fullscreen: the overlay owns the whole viewport, not the card. */
+.k-peek-btn:hover { background: var(--brand); border-color: var(--brand); }
+/* min-height:0 + max 100% on BOTH axes: the media is contained in whatever box
+   the lightbox has, never cropped and never overflowing it. */
+.k-peek-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0 12px 12px; }
+.k-peek-stage img, .k-peek-stage video {
+  display: none; max-width: 100%; max-height: 100%; width: auto; height: auto;
+  object-fit: contain; border-radius: 8px; background: #000;
+}
+.k-peek-stage img[src], .k-peek-stage video[src] { display: block; }
+.k-peek-stage video[src] { width: 100%; height: 100%; }
+.k-peek-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 40px; height: 40px; border: 1px solid rgba(255,255,255,0.14); border-radius: 999px;
+  background: rgba(0,0,0,0.55); color: #fff; cursor: pointer; font-size: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.k-peek-nav[hidden] { display: none; }
+.k-peek-nav:hover { background: var(--brand); border-color: var(--brand); }
+.k-peek-nav.prev { left: 10px; }
+.k-peek-nav.next { right: 10px; }
+/* Host granted fullscreen: the lightbox owns the whole viewport, not the card. */
 html.k-peek-fs, html.k-peek-fs body { height: 100%; overflow: hidden; }
 html.k-peek-fs .k-peek { position: fixed; inset: 0; z-index: 50; }
-html.k-peek-fs .k-peek img, html.k-peek-fs .k-peek video { max-height: calc(100vh - 72px); }
+html.k-peek-fs .k-card { min-height: 0; }
+/* Expand button on every inline video — replaces the native fullscreen button,
+   which a host iframe without allow="fullscreen" always greys out. */
+.k-vexpand {
+  position: absolute; top: 8px; left: 8px; z-index: 3;
+  width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0, 0, 0, 0.62); color: #fff; font-size: 14px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.k-vexpand:hover { background: var(--brand); border-color: var(--brand); }
+/* Recent Chromium still draws the native button despite controlslist. */
+video::-webkit-media-controls-fullscreen-button { display: none !important; }
 /* ---- Plans / upgrade card ---- */
 .k-plan-toggle { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 12px;
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; }
@@ -293,21 +324,6 @@ html.k-peek-fs .k-peek img, html.k-peek-fs .k-peek video { max-height: calc(100v
   border-radius: 12px; background: #000; border: 1px solid var(--border); cursor: zoom-in; }
 .k-viewer video { cursor: default; }
 
-/* ---- Fullscreen (ui/request-display-mode granted) ----
-   position:fixed pins the card to the iframe viewport regardless of document
-   flow/host sizing quirks — the media physically cannot exceed the screen. */
-html.k-fullscreen, html.k-fullscreen body { height: 100%; overflow: hidden; }
-html.k-fullscreen .k-card { position: fixed; inset: 0; display: flex; flex-direction: column; border-radius: 0; }
-html.k-fullscreen .k-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-html.k-fullscreen .k-prompt, html.k-fullscreen .k-chips { flex: none; }
-html.k-fullscreen #stage { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-html.k-fullscreen .k-viewer { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
-html.k-fullscreen .k-viewer img, html.k-fullscreen .k-viewer video {
-  max-height: 100%; max-width: 100%; height: auto;
-  width: auto; margin: 0 auto; cursor: zoom-out; object-fit: contain; }
-html.k-fullscreen .k-thumbs { flex: none; }
-html.k-fullscreen .k-thumbs .k-thumb { width: 56px; height: 56px; }
-html.k-fullscreen .k-actions { flex: none; padding-top: 8px; }
 .k-expand-hint { display: none; }
 .k-thumbs { display: flex; gap: 6px; margin: 10px 0 2px; }
 .k-thumbs .k-thumb { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; cursor: pointer;

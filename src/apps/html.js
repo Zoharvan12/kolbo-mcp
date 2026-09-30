@@ -62,7 +62,8 @@ var ICONS = {
   chevronDown: _svg('<path d="M6 9l6 6 6-6"/>'),
   chevronLeft: _svg('<path d="M15 18l-6-6 6-6"/>'),
   chevronRight: _svg('<path d="M9 18l6-6-6-6"/>'),
-  chevronUp: _svg('<path d="M18 15l-6-6-6 6"/>')
+  chevronUp: _svg('<path d="M18 15l-6-6-6 6"/>'),
+  expand: _svg('<path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/>')
 };
 // Media-kind → icon (accepts model kind / media_type strings).
 function kindIcon(kind) {
@@ -141,9 +142,12 @@ function monogram(name) {
   var ch = String(name || '').replace(/^[@#]+/, '').trim().charAt(0) || '?';
   return '<span class="k-mono-icon">' + esc(ch.toUpperCase()) + '</span>';
 }
-// In-widget preview overlay — every card (generation chips, media grid, list
-// rows) uses this so a DNA / reference / library thumb opens a popup in Kolbo
-// Code, Claude Code, Codex, and any other host. Host fullscreen is not required.
+// In-widget lightbox — every card (generation results, chips, media grid, list
+// rows) opens media here. It shows inside the card at once, then asks the host
+// for fullscreen: granted, it fills the host viewport; refused or unanswered,
+// the in-card popup still works (a click never depends on the host answering).
+// Any [data-peek] node opens it through ONE delegated listener, and the
+// lightbox pages through the other [data-peek] items in the same #stage.
 function ensurePeek() {
   if (el('peek')) return el('peek');
   var card = document.querySelector('.k-card') || document.body;
@@ -151,55 +155,116 @@ function ensurePeek() {
   box.id = 'peek';
   box.className = 'k-peek';
   box.hidden = true;
-  box.innerHTML = '<button type="button" class="k-peek-close" id="peek-close" aria-label="Close"></button>'
-    + '<img id="peek-img" alt="">'
-    + '<video id="peek-video" muted playsinline controls></video>'
-    + '<div class="k-peek-cap" id="peek-cap"></div>';
+  box.innerHTML = '<div class="k-peek-bar"><span class="k-peek-cap" id="peek-cap"></span>'
+    + '<span class="k-peek-count" id="peek-count"></span>'
+    + '<button type="button" class="k-peek-btn" id="peek-dl" aria-label="Download"></button>'
+    + '<button type="button" class="k-peek-btn" id="peek-close" aria-label="Close"></button></div>'
+    + '<div class="k-peek-stage" id="peek-stage"><img id="peek-img" alt="">'
+    // nofullscreen: host iframes are never granted allow="fullscreen", so the
+    // native button is always greyed out. The lightbox IS the fullscreen view.
+    + '<video id="peek-video" playsinline controls controlslist="nofullscreen"></video></div>'
+    + '<button type="button" class="k-peek-nav prev" id="peek-prev" aria-label="Previous"></button>'
+    + '<button type="button" class="k-peek-nav next" id="peek-next" aria-label="Next"></button>';
   card.appendChild(box);
   el('peek-close').innerHTML = ICONS.x;
+  el('peek-dl').innerHTML = ICONS.download;
+  el('peek-prev').innerHTML = ICONS.chevronLeft;
+  el('peek-next').innerHTML = ICONS.chevronRight;
   el('peek-close').onclick = function (e) { e.stopPropagation(); closePeek(); };
-  box.onclick = function (e) { if (e.target === box) closePeek(); };
+  el('peek-prev').onclick = function (e) { e.stopPropagation(); stepPeek(-1); };
+  el('peek-next').onclick = function (e) { e.stopPropagation(); stepPeek(1); };
+  el('peek-dl').onclick = function (e) {
+    e.stopPropagation();
+    var it = peekList[peekIndex];
+    if (it) window.kolbo.openLink(downloadUrl(it.dl || it.url));
+  };
+  box.onclick = function (e) { if (e.target === box || e.target === el('peek-stage')) closePeek(); };
   return box;
 }
 function peekAttrs(url, kind, cap) {
   if (!url) return '';
   return ' data-peek="' + esc(url) + '" data-peek-kind="' + esc(kind || 'image') + '" data-peek-cap="' + esc(cap || '') + '"';
 }
-function bindPeekHits(root) {
-  if (!root) return;
-  Array.prototype.forEach.call(root.querySelectorAll('[data-peek]'), function (node) {
-    node.onclick = function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      openPeek(node.getAttribute('data-peek'), node.getAttribute('data-peek-kind'), node.getAttribute('data-peek-cap'));
-    };
-  });
+function peekItem(node) {
+  return {
+    url: node.getAttribute('data-peek'),
+    kind: node.getAttribute('data-peek-kind') || 'image',
+    cap: node.getAttribute('data-peek-cap') || '',
+    dl: node.getAttribute('data-peek-dl') || ''
+  };
 }
-// Whether THIS peek took the iframe fullscreen (vs. opening inside a card the
-// user had already fullscreened) — only then does closing it hand the mode back.
+document.addEventListener('click', function (e) {
+  var node = e.target && e.target.closest && e.target.closest('[data-peek]');
+  if (!node || node.closest('#peek')) return;
+  // A control INSIDE a previewable tile (download, use, a player) keeps its own job.
+  var ctl = e.target.closest('button, a, audio, video[controls]');
+  if (ctl && ctl !== node && node.contains(ctl)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  var scope = node.closest('#stage') || node.parentNode;
+  var seen = {};
+  var list = [];
+  Array.prototype.forEach.call(scope.querySelectorAll('[data-peek]'), function (n) {
+    var it = peekItem(n);
+    if (!it.url || seen[it.url]) return;
+    seen[it.url] = 1;
+    list.push(it);
+  });
+  var at = peekItem(node);
+  openPeek(at.url, at.kind, at.cap, { list: list, time: +node.getAttribute('data-peek-time') || 0 });
+}, true);
+var peekList = [];
+var peekIndex = 0;
+// Whether THIS peek took the iframe fullscreen — only then does closing it
+// hand the display mode back.
 var peekWentFullscreen = false;
-function openPeek(url, kind, cap) {
-  if (!url) return;
-  var box = ensurePeek();
+function showPeekItem(time) {
+  var it = peekList[peekIndex];
   var img = el('peek-img');
   var vid = el('peek-video');
-  var video = kind === 'video';
-  if (video) { vid.setAttribute('src', url); img.removeAttribute('src'); }
-  else { img.setAttribute('src', url); vid.removeAttribute('src'); }
-  el('peek-cap').textContent = cap || '';
+  if (it.kind === 'video') {
+    img.removeAttribute('src');
+    vid.setAttribute('src', it.url);
+    if (time) vid.addEventListener('loadedmetadata', function () { try { vid.currentTime = time; } catch (e) {} }, { once: true });
+    var p = vid.play && vid.play();
+    if (p && p.catch) p.catch(function () {});
+  } else {
+    try { vid.pause(); } catch (e) {}
+    vid.removeAttribute('src');
+    img.setAttribute('src', it.url);
+  }
+  el('peek-cap').textContent = it.cap || '';
+  var many = peekList.length > 1;
+  el('peek-count').textContent = many ? (peekIndex + 1) + ' / ' + peekList.length : '';
+  el('peek-prev').hidden = !many;
+  el('peek-next').hidden = !many;
+}
+function stepPeek(d) {
+  var box = el('peek');
+  if (!box || box.hidden || peekList.length < 2) return;
+  peekIndex = (peekIndex + d + peekList.length) % peekList.length;
+  showPeekItem(0);
+}
+function openPeek(url, kind, cap, opts) {
+  if (!url) return;
+  opts = opts || {};
+  var box = ensurePeek();
+  peekList = [{ url: url, kind: kind || 'image', cap: cap || '' }];
+  peekIndex = 0;
+  (opts.list || []).forEach(function (it, i) { if (it.url === url) { peekList = opts.list; peekIndex = i; } });
+  // Pause inline players so two soundtracks never overlap.
+  Array.prototype.forEach.call(document.querySelectorAll('video'), function (v) {
+    if (v.id !== 'peek-video') { try { v.pause(); } catch (e) {} }
+  });
+  showPeekItem(opts.time || 0);
   box.hidden = false;
+  document.documentElement.classList.add('k-peek-open');
   if (window.kolbo && window.kolbo.notifySize) window.kolbo.notifySize();
-  // Go big when the host allows it: the overlay is ALREADY visible inside the
-  // card, so a host that refuses fullscreen (or never answers the request)
-  // still shows the preview — the failure mode is "smaller", never "nothing".
-  // Skip the request when the card itself is fullscreen; the overlay covers it.
-  if (!window.kolbo || !window.kolbo.requestDisplayMode) return;
-  if (document.documentElement.classList.contains('k-fullscreen')) return;
+  if (peekWentFullscreen || !window.kolbo || !window.kolbo.requestDisplayMode) return;
   try {
     window.kolbo.requestDisplayMode('fullscreen').then(function (res) {
-      // The user may have closed the peek before the host answered — hand the
-      // grant straight back instead of fullscreening an empty card.
       if (!(res && res.mode === 'fullscreen')) return;
+      // Closed before the host answered — hand the grant straight back.
       if (box.hidden) { window.kolbo.requestDisplayMode('inline').catch(function () {}); return; }
       peekWentFullscreen = true;
       document.documentElement.classList.add('k-peek-fs');
@@ -207,22 +272,69 @@ function openPeek(url, kind, cap) {
     }).catch(function () {});
   } catch (e) {}
 }
-function closePeek() {
+function closePeek(hostExited) {
   var box = el('peek');
   if (!box || box.hidden) return;
   box.hidden = true;
+  document.documentElement.classList.remove('k-peek-open');
   el('peek-img').removeAttribute('src');
   var vid = el('peek-video');
   if (vid) { try { vid.pause(); } catch (e) {} vid.removeAttribute('src'); }
   if (peekWentFullscreen) {
     peekWentFullscreen = false;
     document.documentElement.classList.remove('k-peek-fs');
-    try { window.kolbo.requestDisplayMode('inline').catch(function () {}); } catch (e) {}
+    if (hostExited !== true) { try { window.kolbo.requestDisplayMode('inline').catch(function () {}); } catch (e) {} }
     if (window.kolbo.setFullscreen) window.kolbo.setFullscreen(false);
   }
   if (window.kolbo && window.kolbo.notifySize) window.kolbo.notifySize();
 }
-document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePeek(); });
+// The host's own exit control (claude.ai's fullscreen X / Esc) drops the card
+// back to inline without asking us — close the lightbox along with it.
+window.kolbo.onThemeChange(function (ctx) {
+  if (peekWentFullscreen && ctx && ctx.displayMode && ctx.displayMode !== 'fullscreen') closePeek(true);
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closePeek();
+  else if (e.key === 'ArrowLeft') stepPeek(-1);
+  else if (e.key === 'ArrowRight') stepPeek(1);
+});
+// Every inline <video controls> gets an Expand button (and double-click) that
+// opens the lightbox at the current time; the native fullscreen button is
+// hidden because the host iframe can never honour it. A MutationObserver
+// covers every render path (results, batch/status grids, scenes, media-grid
+// play swap) with no per-widget wiring.
+function wireVideoExpand(root) {
+  if (!root || !root.querySelectorAll) return;
+  var vids = root.tagName === 'VIDEO' ? [root] : root.querySelectorAll('video[controls]');
+  Array.prototype.forEach.call(vids, function (v) {
+    if (v.id === 'peek-video' || !v.controls || v.getAttribute('data-expand') || !v.parentNode) return;
+    var src = v.getAttribute('src');
+    if (!src) return;
+    v.setAttribute('data-expand', '1');
+    v.setAttribute('controlslist', 'nofullscreen');
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'k-vexpand';
+    b.title = 'Expand';
+    b.setAttribute('aria-label', 'Expand video');
+    b.innerHTML = ICONS.expand;
+    b.setAttribute('data-peek', src);
+    b.setAttribute('data-peek-kind', 'video');
+    var holder = v.parentNode.closest && v.parentNode.closest('[title]');
+    if (holder) b.setAttribute('data-peek-cap', holder.getAttribute('title'));
+    // Resume where the inline player was.
+    function mark() { b.setAttribute('data-peek-time', String(v.currentTime || 0)); }
+    b.addEventListener('pointerdown', mark);
+    b.addEventListener('keydown', mark);
+    v.addEventListener('dblclick', function (e) { e.preventDefault(); mark(); b.click(); });
+    v.parentNode.insertBefore(b, v.nextSibling);
+  });
+}
+if (window.MutationObserver) {
+  new MutationObserver(function (muts) {
+    muts.forEach(function (m) { Array.prototype.forEach.call(m.addedNodes, wireVideoExpand); });
+  }).observe(document.documentElement, { childList: true, subtree: true });
+}
 // Pull structuredContent out of a tools/call result (host bridge shape).
 function structured(res) {
   if (!res) return null;

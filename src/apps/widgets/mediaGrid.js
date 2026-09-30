@@ -180,7 +180,6 @@ function audioRowHTML(item) {
 
 function wire() {
   var stage = el('stage');
-  bindPeekHits(stage);
   Array.prototype.forEach.call(stage.querySelectorAll('.k-tile, .k-audio-row'), function (c) {
     c.onclick = function (e) {
       if (e.target && e.target.closest && e.target.closest('[data-peek],[data-use],[data-dl],[data-video-play]')) return;

@@ -335,7 +335,6 @@ function renderChips(sc) {
   if (sc.count > 1) h += chip('×' + sc.count);
   h += referenceHTML(sc);
   el('chips').innerHTML = h;
-  bindPeekHits(el('chips'));
 }
 
 var REF_VIDEO_RE = /\\.(mp4|mov|webm|mkv|avi|m4v)(\\?|#|$)/i;
@@ -920,13 +919,6 @@ function renderImages(sc, urls) {
     else renderLinks(urls);
     window.kolbo.notifySize();
   };
-  // Click → expand into an in-Claude fullscreen viewer (all actions stay
-  // available); click again (or Exit) collapses back. Hosts that refuse
-  // fullscreen fall back to opening the original in a new tab.
-  setTimeout(function () {
-    var img = el('main-img');
-    if (img) img.onclick = toggleFullscreen;
-  }, 0);
   var thumbs = '';
   if (urls.length > 1) {
     thumbs = '<div class="k-thumbs">' + urls.map(function (u, i) {
@@ -935,6 +927,10 @@ function renderImages(sc, urls) {
   }
   el('stage').innerHTML = viewer + thumbs;
   wireDlButtons(el('stage'));
+  // Click → lightbox (host fullscreen when granted), paging through every result.
+  el('main-img').onclick = function () {
+    openPeek(state.urls[selected], 'image', '', { list: state.urls.map(function (u) { return { url: u, kind: 'image' }; }) });
+  };
   Array.prototype.forEach.call(el('stage').querySelectorAll('.k-thumb'), function (t) {
     t.onclick = function () {
       selected = +t.getAttribute('data-i');
@@ -1094,20 +1090,11 @@ function renderBatchGrid(sc) {
         (it.label ? ' title="' + esc(it.label) + '"' : '') + '>' +
         (it.type === 'video'
           ? '<video class="k-cell-fill" src="' + esc(it.url) + '" controls playsinline preload="metadata"></video>'
-          : '<img class="k-cell-fill" src="' + esc(it.url) + '" alt="" loading="lazy" style="cursor:zoom-in">') +
+          : '<img class="k-cell-fill k-peek-hit" src="' + esc(it.url) + '" alt="" loading="lazy"' + peekAttrs(it.url, 'image', it.label) + '>') +
         (it.label ? '<span class="k-skel-cap" title="' + esc(it.label) + '">' + esc(it.label) + '</span>' : '') +
         dlBtnHTML(it.url) + '</div>';
     }).join('') + '</div>';
   wireDlButtons(el('stage'));
-  // In-widget popup, not the host round-trip focusMedia() uses — a batch grid
-  // tile has no visible full-size image otherwise, so a host that never resolves
-  // requestDisplayMode() (or drops window.open after the async round trip eats
-  // the click's user-activation window) leaves the click doing nothing at all.
-  Array.prototype.forEach.call(el('stage').querySelectorAll('[data-focus]'), function (cell) {
-    var it = items[+cell.getAttribute('data-focus')];
-    if (it.type !== 'image') return; // <video controls> owns its own clicks
-    cell.onclick = function () { openPeek(it.url, 'image', it.label); };
-  });
   renderActions(sc);
   window.kolbo.notifySize();
 }
@@ -1142,7 +1129,7 @@ function renderStatusGrid(sc) {
             ? '<video class="k-cell-fill" src="' + esc(it.url) + '" controls playsinline preload="metadata"></video>'
             : it.kind === 'audio'
               ? '<div class="k-cell-fill" style="display:flex;align-items:center;justify-content:center">' + ICONS.sound + '</div>'
-              : '<img class="k-cell-fill" src="' + esc(it.url) + '" alt="" loading="lazy" style="cursor:zoom-in">') +
+              : '<img class="k-cell-fill k-peek-hit" src="' + esc(it.url) + '" alt="" loading="lazy"' + peekAttrs(it.url, 'image', it.title) + '>') +
           cap + dlBtnHTML(it.url) + '</div>';
       }
       var failed = it.state === 'failed' || it.state === 'cancelled';
@@ -1152,11 +1139,6 @@ function renderStatusGrid(sc) {
       return '<div class="k-skel square">' + badge + cap + '</div>';
     }).join('') + '</div>';
   wireDlButtons(el('stage'));
-  Array.prototype.forEach.call(el('stage').querySelectorAll('[data-focus]'), function (cell) {
-    var it = items[+cell.getAttribute('data-focus')];
-    if (it.kind !== 'image') return; // <video controls> owns its own clicks
-    cell.onclick = function () { openPeek(it.url, 'image', it.title); };
-  });
   renderActions(sc);
   window.kolbo.notifySize();
 }
@@ -1182,34 +1164,14 @@ function renderScenes(sc) {
   makeExpandable(el('scene-cap'), it.label);
   wireDlButtons(el('stage'));
   if (it.type === 'image') {
-    var main = el('scene-main');
-    if (main) main.onclick = function () { focusMedia(it.url); };
+    el('scene-main').onclick = function () {
+      openPeek(it.url, 'image', it.label, { list: items.map(function (x) { return { url: x.url, kind: x.type === 'video' ? 'video' : 'image', cap: x.label }; }) });
+    };
   }
   Array.prototype.forEach.call(el('stage').querySelectorAll('.k-thumb'), function (t) {
     t.onclick = function () { selected = +t.getAttribute('data-i'); renderScenes(sc); window.kolbo.notifySize(); };
   });
   renderActions(sc);
-}
-
-// Fullscreen a single item out of a multi-item grid (Creative Director
-// scenes). Exit restores the grid.
-function focusMedia(url) {
-  window.kolbo.requestDisplayMode('fullscreen').then(function (res) {
-    if (!(res && res.mode === 'fullscreen')) return window.kolbo.openLink(url);
-    isFullscreen = true;
-    el('stage').innerHTML = '<div class="k-viewer"><img id="focus-img" src="' + esc(url) + '" alt="" style="cursor:zoom-out">' + dlBtnHTML(url) + '</div>';
-    wireDlButtons(el('stage'));
-    el('focus-img').onclick = exitFocus;
-    applyFullscreen(true, exitFocus);
-    window.kolbo.notifySize();
-  }).catch(function () { window.kolbo.openLink(url); });
-}
-function exitFocus() {
-  window.kolbo.requestDisplayMode('inline').catch(function () {});
-  isFullscreen = false;
-  applyFullscreen(false);
-  renderResult(state); // restore whichever multi-item view we came from
-  window.kolbo.notifySize();
 }
 
 function renderError(msg) {
@@ -1241,38 +1203,6 @@ function renderTrackingIssue(msg) {
   window.kolbo.notifySize();
 }
 
-/* ---------- fullscreen viewer ---------- */
-var isFullscreen = false;
-function toggleFullscreen() {
-  var want = isFullscreen ? 'inline' : 'fullscreen';
-  window.kolbo.requestDisplayMode(want).then(function (res) {
-    var granted = res && res.mode;
-    if (granted === 'fullscreen') { isFullscreen = true; applyFullscreen(true); }
-    else if (granted === 'inline' || isFullscreen) { isFullscreen = false; applyFullscreen(false); }
-    else if (!isFullscreen) {
-      // Host refused fullscreen — degrade to opening the original file.
-      window.kolbo.openLink(state.urls && state.urls[selected]);
-    }
-  }).catch(function () {
-    if (!isFullscreen) window.kolbo.openLink(state.urls && state.urls[selected]);
-  });
-}
-function applyFullscreen(on, exitHandler) {
-  document.documentElement.classList.toggle('k-fullscreen', on);
-  if (window.kolbo.setFullscreen) window.kolbo.setFullscreen(on);
-  var c = el('phase-chip');
-  if (on) {
-    c.style.display = '';
-    c.innerHTML = ICONS.x + ' ' + esc('Exit');
-    c.style.cursor = 'pointer';
-    c.onclick = exitHandler || toggleFullscreen;
-  } else {
-    c.style.display = 'none';
-    c.onclick = null;
-    c.style.cursor = '';
-  }
-  window.kolbo.notifySize();
-}
 
 function setPhaseChip(text, spinning) {
   var c = el('phase-chip');

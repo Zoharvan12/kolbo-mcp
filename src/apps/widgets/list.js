@@ -151,7 +151,6 @@ function itemHTML(item) {
 
 function wire() {
   var stage = el('stage');
-  bindPeekHits(stage);
   Array.prototype.forEach.call(stage.querySelectorAll('[data-open]'), function (b) {
     b.onclick = function (e) {
       e.stopPropagation();

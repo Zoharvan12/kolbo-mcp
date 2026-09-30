@@ -234,10 +234,15 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
 - **Downloads**: widget Download buttons route through
   `GET api.kolbo.ai/mcp/download?url=` (forces Content-Disposition attachment — plain
   CDN URLs open media inline). Per-item hover ⬇ button on every media cell.
-- **Fullscreen** (`ui/request-display-mode`): the card goes `position:fixed inset:0`
-  so media can never exceed the viewport; size-changed reports are SUPPRESSED while
-  fullscreen (`kolbo.setFullscreen`) — they used to balloon the inline iframe over
-  Claude's composer — and inline height is clamped to one viewport.
+- **Lightbox / fullscreen**: EVERY media click opens the shared lightbox (`openPeek`
+  in `src/apps/html.js`) — mark a node `data-peek` (via `peekAttrs()`) and one
+  delegated listener opens it, paging through the other `data-peek` items in the
+  same `#stage`. It shows in-card at once (card grows to fit, media contained, never
+  cropped), then requests host fullscreen (`ui/request-display-mode`); size reports
+  are SUPPRESSED while fullscreen (`kolbo.setFullscreen`). Host iframes never get
+  `allow="fullscreen"`, so native `<video>` fullscreen is always dead: it is hidden,
+  and a MutationObserver gives every `<video controls>` an Expand button that opens
+  the lightbox at the current time. Never wire a click to a host round-trip alone.
 - **Deep links**: submit responses carry `session_id`/`project_id`; `buildOpenUrl()` in
   `_shared.js` maps tool → app route (hyphen slugs verified against kolbo-map pages;
   ProjectContext switches project from `?project=`). Tools with no session page fall
