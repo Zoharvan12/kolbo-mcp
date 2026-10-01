@@ -171,7 +171,7 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
   Connector instruction #9 (`src/index.js`) + each generation tool's `model` description
   tell the model to pick a concrete model (call list_models if unsure) rather than
   omitting → auto-pick. Backend still SUPPORTS omitting (K_AUTO); we just don't encourage
-  it from the MCP. Concrete provider defaults (music→Suno, TTS→eleven_v3) are fine to keep.
+  it from the MCP. Concrete provider defaults (music→Suno, TTS→eleven_v4) are fine to keep.
 - **CSP**: widget iframes are deny-by-default. External assets must be allowlisted in
   `WIDGET_CSP.resourceDomains` (`src/apps/index.js`) — EXACT hosts first, wildcards
   second (not all hosts honor wildcards). New CDN bucket ⇒ add it there AND to the

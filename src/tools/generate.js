@@ -1081,7 +1081,8 @@ function registerGenerateTools(server, client, options = {}) {
     {
       text: z.string().describe('The text to convert to speech'),
       voice: z.string().optional().describe('Voice ID or display name — MUST come from a `list_voices` result, never constructed. Google/Gemini ids in particular are not validated provider-side: an id that is not in the catalog is silently mapped to another voice (or a default one) and the audio comes back in a voice nobody asked for. Do not pattern-match a locale onto an id you saw for another language. Default: "Rachel"'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="text_to_speech" to see options. Default: eleven_v3'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="text_to_speech" to see options. Default: eleven_v4 (ElevenLabs V4). ElevenLabs V4/V3 voices follow inline audio tags in the text: delivery ([whispers], [shouting], [sarcastic]), reactions ([laughs], [sighs], [clears throat]), pauses ([pause], [long pause]) and, on V4, free-form directions like [Low, steady voice, restrained urgency]. Tags are always English, even in Hebrew text. SSML such as <break> is NOT supported.'),
+      turbo: z.boolean().optional().describe('ElevenLabs V4 voices ONLY. Turbo: faster generation at half the credits, slightly lower quality. Rejected (TURBO_UNSUPPORTED) for any voice not on ElevenLabs V4. Default false.'),
       language: z.string().optional().describe('Language / accent code (e.g., "en-US", "he-IL", "es-ES"). For Google/Gemini voices this is the Accent control (does not translate the text). Default: "en-US"'),
       // ── Expressive style / emotion (provider-specific) ──
       // Google/Gemini: prefer a named preset id from the Kolbo UI picker; free-form
@@ -1119,7 +1120,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ text, voice, model, language, style_instructions_preset_id, style_instructions, style_instructions_label, selected_style, emotion, speaking_speed, similarity_boost, style, use_speaker_boost, variance, tempo, promptBoost, seed, accentControl, voiceTitle, minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre, project_id, session_id }) => {
+    async ({ text, voice, model, turbo, language, style_instructions_preset_id, style_instructions, style_instructions_label, selected_style, emotion, speaking_speed, similarity_boost, style, use_speaker_boost, variance, tempo, promptBoost, seed, accentControl, voiceTitle, minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'text_to_speech'); // lenient id resolution ("z-image" → "z-image/turbo")
       // Resolve the requested voice against the REAL catalog (cached) so the card
       // can show its display name + portrait instead of a raw id, and so an id
@@ -1132,7 +1133,7 @@ function registerGenerateTools(server, client, options = {}) {
         ? `Voice "${voice}" is not in the Kolbo voice catalog. Call list_voices and pass a voice_id it returns — an unrecognised id is NOT rejected, it is silently mapped to a different voice, so the audio will not be the voice you named.`
         : null;
       const gen = await client.post('/v1/generate/speech', {
-        text, voice, model, language,
+        text, voice, model, turbo, language,
         style_instructions_preset_id, style_instructions, style_instructions_label,
         selected_style, emotion, speaking_speed,
         similarity_boost, style, use_speaker_boost,
