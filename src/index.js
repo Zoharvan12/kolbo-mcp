@@ -69,6 +69,7 @@ const { registerColorPaletteTools } = require('./tools/color_palettes');
 const { registerFontTools } = require('./tools/fonts');
 const { registerEditorTools } = require('./tools/editor');
 const { registerFlowTools } = require('./tools/flow');
+const { registerTemplateTools } = require('./tools/templates');
 const { registerMediaTools } = require('./tools/media');
 const { registerPresetTools } = require('./tools/presets');
 const { registerArtifactTools } = require('./tools/artifacts');
@@ -194,6 +195,7 @@ function createServer(opts = {}) {
   registerFontTools(server, client, { allowLocalFiles: opts.allowLocalFiles === true && !toolOptions.remote });
   registerEditorTools(server, client);
   registerFlowTools(server, client);
+  registerTemplateTools(server, client);
   registerAnalyzeTools(server, client, toolOptions);
   registerMediaTools(server, client, toolOptions);
   registerPresetTools(server, client, toolOptions);
