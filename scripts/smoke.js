@@ -708,6 +708,24 @@ async function main() {
     console.log('[smoke] generating card resolves DNA thumbs + preset names OK');
   }
 
+  // Internal variant ids ("seedance-2-5-draft-enhance") are not catalog rows;
+  // they must resolve to the base model's name + icon, not a letter monogram.
+  {
+    const { modelInfo } = require('../src/apps');
+    const client = {
+      apiBase: 'smoke-variant',
+      async request() {
+        return { models: [
+          { identifier: 'seedance-2', name: 'Seedance 2.0', avatar: 'seedance.svg' },
+          { identifier: 'seedance-2-5', name: 'Seedance 2.5', avatar: 'seedance.svg' },
+        ] };
+      },
+    };
+    const info = await modelInfo(client, 'seedance-2-5-draft-enhance');
+    if (info.name !== 'Seedance 2.5') throw new Error(`variant id resolved to "${info.name}" instead of Seedance 2.5`);
+    console.log('[smoke] variant model ids resolve to the base catalog model OK');
+  }
+
   // 0d. Every HTTP request must be bounded. An unbounded fetch is the failure
   // users report as "the tool never finishes": pollUntilDone only checks its
   // deadline BETWEEN polls, so one request that never settles hangs the tool

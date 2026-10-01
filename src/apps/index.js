@@ -371,7 +371,23 @@ async function modelInfo(client, modelName) {
   const rows = catalog.all || [];
   return rows.find((row) => normId(row.id) === want || normId(row.name) === want)
     || rows.find((row) => normId(row.id).startsWith(want) || normId(row.name).startsWith(want))
+    || variantBase(rows, modelName)
     || { icon: null, eta: null, name: null };
+}
+
+// A finished generation can report an internal variant of a catalog model —
+// "seedance-2-5-draft-enhance" (draft tier + prompt enhance) is not itself in
+// /v1/models, so the chip showed a letter monogram and the raw id. Resolve it
+// to the LONGEST catalog identifier it extends at a "-" boundary
+// ("seedance-2-5", not "seedance-2").
+function variantBase(rows, modelName) {
+  const raw = String(modelName).toLowerCase();
+  let best = null;
+  for (const row of rows) {
+    const id = row.id && String(row.id).toLowerCase();
+    if (id && raw.startsWith(id + '-') && (!best || id.length > best.id.length)) best = row;
+  }
+  return best;
 }
 
 /**
@@ -621,8 +637,8 @@ async function canonicalModelId(client, input, type) {
   if (!input || typeof input !== 'string') return input;
   const key = input.toLowerCase().trim();
   const want = normId(key);
-  if (!want || AUTO_ALIASES.has(want)) return input;
-  // Exact native-workflow ids pass through: the near-miss check below would reject an
+  if (!want || AUTO_ALIASES.has(want)) return input;
+  // Exact native-workflow ids pass through: the near-miss check below would reject an
   // unpublished or cached-out 'kolbo-*' id as unknown.
   if (NATIVE_WORKFLOW_MODEL_IDS.has(key)) return input;
 
