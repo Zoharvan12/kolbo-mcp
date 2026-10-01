@@ -36,6 +36,7 @@ const SDK_INDEX = path.join(KOLBO_API, 'src', 'modules', 'sdk', 'index.js');
 // Add new entries when MCP tools call out to non-SDK route modules.
 const EXTRA_ROUTE_SOURCES = [
   { file: path.join(KOLBO_API, 'src', 'modules', 'fonts', 'index.js'), mountPath: '/v1/fonts' },
+  { file: path.join(KOLBO_API, 'src', 'modules', 'templates', 'index.js'), mountPath: '/v1/templates' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'creditUsage', 'index.js'), mountPath: '/credit-usage' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'artifact', 'routes.js'), mountPath: '/v1/artifact' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'blender', 'index.js'), mountPath: '/v1/blender' },
