@@ -95,7 +95,7 @@ function registerTrendTools(server, client) {
       const summary = trends.map(t => ({
         slug: t.slug, name: t.name, description: t.description, family: t.family, output_type: t.output_type,
         estimated_credits: t.estimated_credits, free_trial: t.free_trial, badges: t.badges,
-        inputs: (t.inputs || []).map(i => ({ key: i.key, kind: i.kind, label: i.label, required: i.required })),
+        inputs: (t.inputs || []).map(i => ({ key: i.key, kind: i.kind, role: i.role, label: i.label, required: i.required })),
       }));
       return uiResult(UI.mediaGrid, JSON.stringify({ trends: summary, count: summary.length, free_trials_left: baseData.free_trials_left ?? null }, null, 2), {
         widget: 'media-grid',
@@ -109,7 +109,7 @@ function registerTrendTools(server, client) {
 
   server.tool(
     'get_trend',
-    'Get one trend: description, the exact inputs it needs (key, kind: image/video/audio/text/choice, required, options), output type/aspect ratio, estimated credits, example results and whether a free trial is available.',
+    'Get one trend: description, the exact inputs it needs (key, kind: image/video/audio/text/choice, role: what the input is (character/pet/product/location/video/text) - a character input also takes a Visual DNA image URL, required, options), output type/aspect ratio, estimated credits, example results and whether a free trial is available.',
     { slug: slugField },
     async ({ slug }) => text(unwrap(await client.get(`/v1/trends/${slugPath(slug)}`)))
   );
