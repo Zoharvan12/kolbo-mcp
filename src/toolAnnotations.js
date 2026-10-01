@@ -11,7 +11,7 @@
 const READ_ONLY = [
   'get_flow_schema', 'list_flow_sessions', 'get_flow_session', 'validate_flow_session',
   'estimate_flow_run', 'get_flow_run', 'list_flow_runs',
-  'list_templates', 'get_template', 'estimate_template_run', 'get_template_run', 'list_template_runs',
+  'list_trends', 'get_trend', 'estimate_trend_run', 'get_trend_run', 'list_trend_runs',
   'get_download_status',
   'get_video_editor_schema', 'list_video_editor_sessions', 'get_video_editor_session',
   'list_fonts', 'get_font', 'get_font_upload_status',
@@ -79,7 +79,7 @@ const PRIVATE_WRITE = [
 const DESTRUCTIVE_WRITE = [
   'update_flow_session', 'undo_flow_edit', 'trash_flow_session',
   'run_flow_session', 'cancel_flow_run', 'retry_flow_run',
-  'run_template', 'cancel_template_run',
+  'run_trend', 'cancel_trend_run',
   'cancel_download',
   'extend_music', 'cover_music',
   'update_video_editor_session',
