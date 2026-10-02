@@ -30,7 +30,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function trendTile(t) {
   const example = (t.examples || [])[0] || {};
-  const poster = t.cover?.image || example.poster || t.source_poster;
+  const poster = t.cover?.image || example.poster;
   return {
     id: t.slug,
     title: t.name,
