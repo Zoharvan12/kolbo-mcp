@@ -92,6 +92,66 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
+    "list_trends": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "list_trends retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "get_trend": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "get_trend retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "estimate_trend_run": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "estimate_trend_run retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "get_trend_run": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "get_trend_run retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "list_trend_runs": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "list_trend_runs retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
     "get_download_status": {
       "annotations": {
         "readOnlyHint": true,
@@ -784,6 +844,18 @@
       },
       "justifications": {
         "read_only_justification": "analyze_script_for_stock retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "create_music_composition_plan": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "create_music_composition_plan retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
@@ -1748,6 +1820,30 @@
         "destructive_justification": "retry_flow_run can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
+    "run_trend": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "run_trend changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
+        "destructive_justification": "run_trend can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "cancel_trend_run": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "cancel_trend_run changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
+        "destructive_justification": "cancel_trend_run can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
     "cancel_download": {
       "annotations": {
         "readOnlyHint": false,
@@ -1926,6 +2022,30 @@
         "read_only_justification": "cancel_generation changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
         "destructive_justification": "cancel_generation can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "create_music_reference_audio": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "create_music_reference_audio changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
+        "destructive_justification": "create_music_reference_audio can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "edit_music_section": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "edit_music_section changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
+        "destructive_justification": "edit_music_section can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
     "generate_elements": {
