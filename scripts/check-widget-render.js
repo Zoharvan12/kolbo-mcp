@@ -244,7 +244,9 @@ async function batchStaysOneGrid({ kind, tool, ext }) {
   // The finished batch is kind:'scenes' whatever it holds — the kind chip must
   // name the media actually generated (an image batch wore a "video" chip).
   const chips = w.html('chips');
-  assert.ok(new RegExp('\\b' + kind + '\\b').test(chips), `[${tool}] completed batch chip does not say ${kind}`);
+  // The chip reads "4 images" (count + plural) since one chip carries both.
+  assert.ok(new RegExp('\\b' + kind + 's?\\b').test(chips), `[${tool}] completed batch chip does not say ${kind}`);
+  assert.ok(!/>Generations</.test(chips), `[${tool}] placeholder "Generations" rendered as a model chip`);
   if (kind === 'image') assert.ok(!/\bvideo\b/.test(chips), `[${tool}] completed image batch chip says video`);
 }
 

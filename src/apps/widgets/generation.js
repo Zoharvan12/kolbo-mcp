@@ -221,7 +221,13 @@ function boot(sc) {
 // model_name / voice_name are the CLEAN catalog names, resolved server-side
 // (src/tools/_shared.js on submit, get_generation_status on completion). The raw
 // ids stay in sc.model / sc.voice for Recreate + model context — never for display.
-function modelLabel(sc) { return sc.model_name || sc.model; }
+// 'Generations' is the server's placeholder when a status check spans
+// several generations and no single model is known (src/tools/generate.js).
+// It is not a model: rendered as one it showed a "G Generations" brand chip.
+function modelLabel(sc) {
+  var m = sc.model_name || sc.model;
+  return m && m !== 'Generations' ? m : '';
+}
 function voiceLabel(sc) { return sc.voice_name || sc.voice || (sc.settings || {}).voice; }
 
 // @VisualDNA / #Moodboard mentions are the tag syntax the server resolves into
@@ -297,7 +303,10 @@ function renderChips(sc) {
   var h = modelChipHTML(modelLabel(sc), sc.model_icon);
   var s = sc.settings || {};
   var kind = displayKind(sc);
-  if (kind) h += chip(iconFor(kind) + ' ' + kind);
+  // One chip says what and how many: "7 images", not "image" + "×7".
+  var many = sc.count > 1;
+  var noun = kind === '3d' ? '3D model' : kind === 'audio' ? 'track' : kind;
+  if (kind) h += chip(iconFor(kind) + ' ' + (many ? sc.count + ' ' + noun + 's' : (kind === '3d' ? '3D' : kind)));
   // Shot count when we know it, otherwise just say multishot is on — the
   // provider picks the count in that case, and showing nothing made an
   // enabled toggle look like it had not applied.
@@ -332,7 +341,7 @@ function renderChips(sc) {
     h += chip(face + ' ' + esc(voice));
   }
   if (s.mode) h += chip(esc(s.mode));
-  if (sc.count > 1) h += chip('×' + sc.count);
+  if (many && !kind) h += chip(sc.count + ' items');
   h += referenceHTML(sc);
   el('chips').innerHTML = h;
 }

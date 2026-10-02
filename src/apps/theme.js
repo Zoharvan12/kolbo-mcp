@@ -126,10 +126,11 @@ body {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 8px; border-radius: 999px;
   background: var(--surface-2); border: 0;
-  font-size: 10.5px; font-weight: 500; color: var(--text-muted);
+  font-size: 11.5px; font-weight: 500; color: var(--text-muted);
   white-space: nowrap;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  letter-spacing: 0.01em;
+  /* UI font, not a code font: tags are labels people read ("7 images",
+     "Seedance 2.5"), and monospace made the whole row look like a log line. */
+  font-variant-numeric: tabular-nums;
   animation: k-chip-in 200ms var(--spring);
 }
 @keyframes k-chip-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
