@@ -11,7 +11,10 @@
 const KOLBO_CSS = `
 :root {
   --bg: #0f0f0f;
-  --card: rgba(22, 22, 25, 0.96);
+  /* A translucent lift, not a fixed colour: every host paints its own dark grey
+     behind the iframe (claude.ai, ChatGPT, Codex, Kolbo Code all differ), and a
+     fixed near-black card read as a hole cut into the chat. */
+  --card: rgba(255, 255, 255, 0.04);
   --card-solid: #161619;
   --panel: rgba(255, 255, 255, 0.035);
   --surface: rgba(255, 255, 255, 0.03);
@@ -67,7 +70,8 @@ body {
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.22), var(--specular);
+  /* No drop shadow: on a dark host it only adds a muddy halo. */
+  box-shadow: var(--specular);
   overflow: hidden;
   animation: k-in 400ms var(--spring);
 }
