@@ -1040,24 +1040,16 @@ function renderLinks(urls) {
 // Small hover download button attached to a media cell (per-item downloads —
 // batch grids and CD scenes have no single "current" url for the action row).
 function dlBtnHTML(u) {
-  // Attach sits beside Download on the same hover overlay. It is the reliable
-  // route into the composer — see window.kolbo.attachMedia for why dragging the
-  // media out of the iframe cannot be made to work.
-  return '<button class="k-dl k-attach" data-attach="' + esc(u) + '" title="Attach to prompt" aria-label="Attach to prompt">'
-    + ICONS.upload + '</button>'
-    + '<button class="k-dl" data-dl="' + esc(u) + '" title="Download" aria-label="Download">' + ICONS.download + '</button>';
+  // Download only. The "attach to prompt" button that sat beside it was
+  // removed: no host (claude.ai, ChatGPT, Claude Code, Kolbo Code) reliably
+  // put the media into the composer, so it read as a dead upload button.
+  return '<button class="k-dl" data-dl="' + esc(u) + '" title="Download" aria-label="Download">' + ICONS.download + '</button>';
 }
 function wireDlButtons(root) {
   Array.prototype.forEach.call((root || document).querySelectorAll('.k-dl[data-dl]'), function (b) {
     b.onclick = function (e) {
       e.stopPropagation();
       window.kolbo.openLink(downloadUrl(b.getAttribute('data-dl')));
-    };
-  });
-  Array.prototype.forEach.call((root || document).querySelectorAll('.k-attach[data-attach]'), function (b) {
-    b.onclick = function (e) {
-      e.stopPropagation();
-      window.kolbo.attachMedia(b.getAttribute('data-attach'));
     };
   });
 }

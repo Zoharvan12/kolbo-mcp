@@ -335,8 +335,6 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
    hover-only Download / Attach buttons were simply invisible. */
 @media (hover: none) { .k-dl { opacity: 1; } }
 .k-dl:hover { background: var(--brand); border-color: var(--brand); }
-/* Attach-to-prompt sits immediately left of Download (30px button + 8px gap). */
-.k-attach { right: 46px; }
 .k-viewer { position: relative; }
 
 /* Keep the whole completed card under the host's iframe height cap (~800px):
