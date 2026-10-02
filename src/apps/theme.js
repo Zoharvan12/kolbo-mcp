@@ -34,7 +34,13 @@ const KOLBO_CSS = `
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --specular: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  color-scheme: dark;
+  /* "light dark" on the ROOT, never a fixed scheme. When an iframe's root
+     scheme differs from the host frame's, the browser paints an OPAQUE canvas
+     behind the page: a fixed "dark" here drew a dark square around every card
+     in hosts whose frame is light/normal (Codex). "light dark" adopts the host
+     frame's scheme, so the canvas stays transparent everywhere. The card
+     carries the real theme for its native controls below. */
+  color-scheme: light dark;
 }
 [data-theme="light"] {
   --bg: #f5f5f2;
@@ -50,12 +56,13 @@ const KOLBO_CSS = `
   --text-faint: rgba(10, 10, 12, 0.40);
   --brand-soft: rgba(59, 130, 246, 0.10);
   --specular: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  color-scheme: light;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { background: transparent; }
+.k-card { color-scheme: dark; }
+[data-theme="light"] .k-card { color-scheme: light; }
 body {
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
   color: var(--text);
   font-size: 14px;
   line-height: 1.5;
@@ -114,7 +121,6 @@ body {
 .k-mention {
   display: inline; padding: 1px 5px; border-radius: 5px;
   background: var(--brand-soft); color: var(--brand);
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: 0.94em; font-weight: 500;
 }
 /* Single-line media caption (scene / batch prompt under the viewer) */
@@ -143,7 +149,7 @@ body {
 .k-chip .k-mono-icon {
   width: 14px; height: 14px; border-radius: 4px; background: var(--brand);
   color: #fff; font-size: 9px; font-weight: 700; display: inline-flex;
-  align-items: center; justify-content: center; font-family: 'Inter', sans-serif;
+  align-items: center; justify-content: center; font-family: inherit;
 }
 .k-chip img.k-voice-thumb { width: 18px; height: 18px; border-radius: 999px; margin-left: -3px; }
 .k-ref-thumb { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-strong); }
@@ -161,7 +167,7 @@ html.k-peek-open .k-card { min-height: 460px; }
 .k-peek-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; min-height: 44px; }
 .k-peek-cap { flex: 1; min-width: 0; font-size: 12.5px; color: rgba(255,255,255,0.78);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.k-peek-count { flex: none; font-size: 11.5px; color: rgba(255,255,255,0.55); font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.k-peek-count { flex: none; font-size: 11.5px; color: rgba(255,255,255,0.55); font-variant-numeric: tabular-nums; }
 .k-peek-btn {
   flex: none; width: 32px; height: 32px; border: 1px solid rgba(255,255,255,0.14); border-radius: 999px;
   background: rgba(255,255,255,0.08); color: #fff; cursor: pointer; font-size: 15px;
@@ -303,7 +309,7 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
     animating k-sweep skeleton forced per-frame backdrop re-sampling on phones;
     0.65 black over the shimmer reads identically without it */
   border: 1px solid rgba(255, 255, 255, 0.14);
-  font-size: 11px; font-weight: 600; color: #fff;
+  font-size: 11px; font-weight: 600; color: #fff; text-transform: capitalize;
 }
 .k-spin {
   width: 12px; height: 12px; border-radius: 50%;
@@ -463,7 +469,7 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
 .k-dot.on { width: 22px; opacity: 0.95; cursor: default; }
 .k-dot.ghost { cursor: default; opacity: 0.14; }
 .k-pager-label { font-size: 11px; color: var(--text-faint);
-  font-family: 'JetBrains Mono', ui-monospace, monospace; min-width: 58px; text-align: center; }
+  font-variant-numeric: tabular-nums; min-width: 58px; text-align: center; }
 
 /* ---- Audio rows ---- */
 .k-audio-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px;
@@ -533,7 +539,7 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
 .k-footer:not(:has(.k-credits:not(:empty))) { display: none; }
 .k-footer a { color: var(--text-faint); text-decoration: none; }
 .k-footer a:hover { color: var(--brand); }
-.k-credits { margin-left: auto; font-family: 'JetBrains Mono', monospace; }
+.k-credits { margin-left: auto; font-variant-numeric: tabular-nums; }
 `;
 
 /**

@@ -453,11 +453,17 @@ function moodboardChipsHTML(sc, s) {
   }
   return h;
 }
-function chip(inner) { return '<span class="k-chip">' + inner + '</span>'; }
+// Labels read as words: "Image", "Enhanced", "Web search" — the first letter
+// of the visible text (after any leading icon markup) is uppercased. Digits
+// first ("1080p", "16:9", "7 images") are left alone.
+function capLabel(inner) {
+  return String(inner).replace(/(^|>)(\\s*)([a-z])/, function (m, gt, sp, ch) { return gt + sp + ch.toUpperCase(); });
+}
+function chip(inner) { return '<span class="k-chip">' + capLabel(inner) + '</span>'; }
 // Same chip with a hover title — used to surface the asset id behind a
 // "2 Visual DNA" / "preset" label without spending chip width on it.
 function chipT(inner, title) {
-  return '<span class="k-chip" title="' + esc(title) + '">' + inner + '</span>';
+  return '<span class="k-chip" title="' + esc(title) + '">' + capLabel(inner) + '</span>';
 }
 function iconFor(kind) {
   switch (kind) {
