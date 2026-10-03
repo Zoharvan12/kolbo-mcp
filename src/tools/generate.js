@@ -240,7 +240,8 @@ const MORPHIOUS_GUIDE = ' MORPHIOUS / GENJUTSU (exactly ONE source video, omit d
   + 'kolbo-morphious-motion 1-30 images, 4-30s; kolbo-morphious-swap 0-30 images, 4-30s; both 480p/720p/1080p, output keeps the source shape. '
   + 'Lite (kolbo-morphious-lite-motion 1-10 images / kolbo-morphious-lite-swap 0-10 images) caps at 15s. '
   + 'kolbo-morphious-reframe: NO images/DNA, 1-300s, aspect_ratio REQUIRED (16:9, 9:16, 1:1, 4:3, 3:4, 21:9), 540p or 720p. '
-  + 'higgsfield-genjutsu-motion-transfer / -object-swap: 1-8 images or Visual DNA, 4-30s, 480p/720p/1080p.';
+  + 'higgsfield-genjutsu-motion-transfer / -object-swap: 1-8 images or Visual DNA, 4-30s, 480p/720p/1080p. '
+  + 'STYLES: to restyle a whole video into an animated look (2D toon, painterly 3D, gouache, comic, clay, felt...), pick an id from list_morphious_styles and pass it as style_id with model kolbo-morphious-motion; no reference image or prompt is needed.';
 
 function registerGenerateTools(server, client, options = {}) {
   // Every JSON POST from these tools rehosts local file paths into the media
@@ -1579,6 +1580,7 @@ function registerGenerateTools(server, client, options = {}) {
       preset_id: z.string().optional().describe('Preset ID from list_presets type="video" (optional)'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency across outputs. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.**'),
+      style_id: z.string().optional().describe('Morphious Styles only (kolbo-morphious-motion / -lite-motion): id of a look from list_morphious_styles (Kolbo catalog or a custom style the user made). Restyles the WHOLE video in that look; the style counts as reference image 1, so no reference_images are needed. Prompt optional.'),
       draft: z.boolean().optional().describe('Special Draft mode. True forces 480p Draft even if resolution says 1080p; false selects regular video. Only supported when list_models advertises draft capabilities. For Seedance 2.5 editing use model seedance-2-5-video-to-video with generate_video_from_video; the source duration and aspect ratio are preserved. Uses ordinary credits; finalize through draft_quote then draft_enhance.'),
       resolution: z.string().optional().describe('Video resolution or named tier: read supported_resolutions from list_models. For Seedance 2.5 Draft use resolution="480p-draft" on the matching public model: seedance-2-5 for creation, seedance-2-5-video-to-video for editing. Plain "480p" generates regular video, NOT Draft. Finalize an actual draft with edit_video operation="draft_quote" then "draft_enhance".'),
       sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Honored by `sound_generation_type: "native"` models (Kling O3/V3, Veo 3.1, PixVerse V6). Omit to use `sound_enabled_by_default`. Enabling sound may apply `sound_credit_multiplier` to cost.'),
@@ -1592,7 +1594,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt = '', model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, resolution, draft, sound_enabled, keyframes, multi_shots, multi_shot_count, session_name, project_id, session_id }) => {
+    async ({ prompt = '', model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, style_id, resolution, draft, sound_enabled, keyframes, multi_shots, multi_shot_count, session_name, project_id, session_id }) => {
       validateVideoPrompt({ prompt, duration, aspect_ratio, multi_shots, multi_shot_count });
       if (draft === true) resolution = '480p-draft';
       else if (draft === false && resolution?.endsWith('-draft')) resolution = resolution.slice(0, -6);
@@ -1638,7 +1640,7 @@ function registerGenerateTools(server, client, options = {}) {
         reference_images: some(urlsOf('image')),
         reference_videos: some(urlsOf('video')),
         reference_audio_urls: some(urlsOf('audio')),
-        duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids,
+        duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, style_id,
         resolution, draft, sound_enabled, keyframes, multi_shots, multi_shot_count,
         session_name, project_id, session_id
       };
@@ -1994,6 +1996,7 @@ function registerGenerateTools(server, client, options = {}) {
       duration: z.number().optional().describe('Output duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: matches source'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
+      style_id: z.string().optional().describe('Morphious Styles only (kolbo-morphious-motion / -lite-motion): id of a look from list_morphious_styles (Kolbo catalog or a custom style the user made). Restyles the WHOLE video in that look; the style counts as reference image 1, so no reference_images are needed. Prompt optional.'),
       draft: z.boolean().optional().describe('Special Draft mode. True forces 480p Draft even if resolution says 1080p; false selects regular video. Only supported when list_models advertises draft capabilities. For Seedance 2.5 editing use model seedance-2-5-video-to-video with generate_video_from_video; the source duration and aspect ratio are preserved. Uses ordinary credits; finalize through draft_quote then draft_enhance.'),
       resolution: z.string().optional().describe('Video resolution or named tier: read supported_resolutions from list_models. For Seedance 2.5 Draft use resolution="480p-draft" on the matching public model: seedance-2-5 for creation, seedance-2-5-video-to-video for editing. Plain "480p" generates regular video, NOT Draft. Finalize an actual draft with edit_video operation="draft_quote" then "draft_enhance".'),
       reference_images: z.array(z.string()).optional().describe('Array of reference image URLs for models that support additional image inputs. **Cap: pass at most `max_images` URLs from list_models — if `max_images === 0` the model does not accept image refs.** Examples: character reference images for Kling O1/O3, style reference for Aleph/gen4_aleph, character image for WAN VACE video-edit.'),
@@ -2029,7 +2032,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, draft, sound_enabled, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, enhancement_model, target_fps, slowdown_factor, output_format, project_id, session_id }) => {
+    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, style_id, resolution, draft, sound_enabled, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, enhancement_model, target_fps, slowdown_factor, output_format, project_id, session_id }) => {
       if (draft === true) resolution = '480p-draft';
       else if (draft === false && resolution?.endsWith('-draft')) resolution = resolution.slice(0, -6);
       model = await canonicalModelId(client, model, 'video_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
@@ -2040,7 +2043,7 @@ function registerGenerateTools(server, client, options = {}) {
       let startResponse;
       if (isUrl) {
         startResponse = await client.post('/v1/generate/video-from-video', {
-          video_url: source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, draft, sound_enabled,
+          video_url: source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, style_id, resolution, draft, sound_enabled,
           reference_images, reference_videos, elements, preset, source_language, translation_language,
           srt_content, srt_file_url, vocabulary, customization,
           enhancement_model, target_fps, slowdown_factor, output_format,
@@ -2063,6 +2066,7 @@ function registerGenerateTools(server, client, options = {}) {
         if (duration !== undefined) form.append('duration', String(duration));
         if (enhance_prompt !== undefined) form.append('enhance_prompt', String(enhance_prompt));
         if (visual_dna_ids) form.append('visual_dna_ids', JSON.stringify(visual_dna_ids));
+        if (style_id) form.append('style_id', style_id);
         if (resolution) form.append('resolution', resolution);
         if (draft !== undefined) form.append('draft', String(draft));
         if (sound_enabled !== undefined) form.append('sound_enabled', String(sound_enabled));

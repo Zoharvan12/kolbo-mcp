@@ -11,6 +11,7 @@
 const READ_ONLY = [
   'get_flow_schema', 'list_flow_sessions', 'get_flow_session', 'validate_flow_session',
   'estimate_flow_run', 'get_flow_run', 'list_flow_runs',
+  'list_morphious_styles',
   'list_trends', 'get_trend', 'estimate_trend_run', 'get_trend_run', 'list_trend_runs',
   'get_download_status',
   'get_video_editor_schema', 'list_video_editor_sessions', 'get_video_editor_session',
@@ -59,7 +60,7 @@ const PRIVATE_WRITE = [
   'import_elevenlabs_voice',
   'create_visual_dna', 'create_visual_dna_folder', 'update_visual_dna_folder',
   'move_visual_dna_to_folder',
-  'create_moodboard',
+  'create_moodboard', 'create_morphious_style',
   'create_color_palette', 'activate_color_palette', 'deactivate_color_palette',
   'move_session', 'bulk_move_sessions', 'move_generations_to_session',
   'split_session', 'undo_session_organization',
@@ -102,7 +103,7 @@ const DESTRUCTIVE_WRITE = [
 
   // Deletes and whole-value replacement updates are conservatively destructive.
   'delete_voice', 'update_visual_dna', 'delete_visual_dna', 'delete_visual_dna_folder',
-  'update_moodboard', 'delete_moodboard',
+  'update_moodboard', 'delete_moodboard', 'delete_morphious_style',
   'update_color_palette', 'delete_color_palette',
   'delete_media_folder', 'delete_media', 'permanently_delete_media',
   'bulk_delete_media', 'bulk_permanently_delete_media',

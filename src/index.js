@@ -70,6 +70,7 @@ const { registerFontTools } = require('./tools/fonts');
 const { registerEditorTools } = require('./tools/editor');
 const { registerFlowTools } = require('./tools/flow');
 const { registerTrendTools } = require('./tools/trends');
+const { registerMorphiousStyleTools } = require('./tools/morphious_styles');
 const { registerMediaTools } = require('./tools/media');
 const { registerPresetTools } = require('./tools/presets');
 const { registerArtifactTools } = require('./tools/artifacts');
@@ -196,6 +197,7 @@ function createServer(opts = {}) {
   registerEditorTools(server, client);
   registerFlowTools(server, client);
   registerTrendTools(server, client);
+  registerMorphiousStyleTools(server, client);
   registerAnalyzeTools(server, client, toolOptions);
   registerMediaTools(server, client, toolOptions);
   registerPresetTools(server, client, toolOptions);

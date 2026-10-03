@@ -779,6 +779,7 @@ const TOOL_WIDGETS = {
   list_voices: UI.mediaGrid,
   list_visual_dnas: UI.mediaGrid,
   list_moodboards: UI.mediaGrid,
+  list_morphious_styles: UI.mediaGrid,
   // NOTE: list_color_palettes' handler has always called uiResult(UI.mediaGrid, ...)
   // (see color_palettes.js) but was missing here — hosts that prepare the widget
   // iframe from the tool DECLARATION (claude.ai reads tools/list, not the result)
