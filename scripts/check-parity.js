@@ -37,6 +37,7 @@ const SDK_INDEX = path.join(KOLBO_API, 'src', 'modules', 'sdk', 'index.js');
 const EXTRA_ROUTE_SOURCES = [
   { file: path.join(KOLBO_API, 'src', 'modules', 'fonts', 'index.js'), mountPath: '/v1/fonts' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'trends', 'index.js'), mountPath: '/v1/trends' },
+  { file: path.join(KOLBO_API, 'src', 'modules', 'morphiousStyles', 'index.js'), mountPath: '/v1/morphious-styles' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'creditUsage', 'index.js'), mountPath: '/credit-usage' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'artifact', 'routes.js'), mountPath: '/v1/artifact' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'blender', 'index.js'), mountPath: '/v1/blender' },
