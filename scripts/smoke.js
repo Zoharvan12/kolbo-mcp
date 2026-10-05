@@ -724,6 +724,18 @@ async function main() {
     const info = await modelInfo(client, 'seedance-2-5-draft-enhance');
     if (info.name !== 'Seedance 2.5') throw new Error(`variant id resolved to "${info.name}" instead of Seedance 2.5`);
     console.log('[smoke] variant model ids resolve to the base catalog model OK');
+
+    // edit_video draft_enhance passes no model: the server picks a hidden engine.
+    // The card must still name it as Seedance 2.5 Draft Enhance with the
+    // Seedance icon, never "Smart Select".
+    const { uiGenerating } = require('../src/tools/_shared');
+    const sc = (await uiGenerating({
+      tool: 'edit_video', kind: 'video', client, prompt: '',
+      gen: { generation_id: 'g-draft' }, settings: { mode: 'draft_enhance' },
+    })).structuredContent;
+    if (sc.model_name !== 'Seedance 2.5 Draft Enhance') throw new Error(`draft_enhance chip shows "${sc.model_name}"`);
+    if (!String(sc.model_icon || '').includes('seedance.svg')) throw new Error(`draft_enhance chip icon: ${sc.model_icon}`);
+    console.log('[smoke] draft_enhance card names Seedance 2.5 Draft Enhance OK');
   }
 
   // 0d. Every HTTP request must be bounded. An unbounded fetch is the failure

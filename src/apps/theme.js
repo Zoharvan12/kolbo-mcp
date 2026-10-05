@@ -222,6 +222,17 @@ html.k-peek-fs .k-card { min-height: 0; backdrop-filter: none; -webkit-backdrop-
   display: inline-flex; align-items: center; justify-content: center;
 }
 .k-vexpand:hover { background: var(--brand); border-color: var(--brand); }
+/* Undecodable video (10/12-bit HEVC): the dead player is replaced by a note. */
+video[data-unplayable] { display: none !important; }
+video[data-unplayable] ~ .k-vexpand { display: none; }
+.k-vnote { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; min-height: 160px; padding: 18px 16px; border-radius: 10px; text-align: center;
+  background: rgba(255, 255, 255, 0.05); }
+.k-vnote-t { font-size: 13px; font-weight: 600; color: var(--text); }
+.k-vnote-s { font-size: 12px; color: var(--text-muted); max-width: 360px; margin-bottom: 4px; }
+.k-peek-stage .k-vnote { max-width: 440px; color: #fff; }
+.k-peek-stage .k-vnote-t { color: #fff; }
+.k-peek-stage .k-vnote-s { color: rgba(255, 255, 255, 0.7); }
 /* Recent Chromium still draws the native button despite controlslist. */
 video::-webkit-media-controls-fullscreen-button { display: none !important; }
 /* ---- Plans / upgrade card ---- */

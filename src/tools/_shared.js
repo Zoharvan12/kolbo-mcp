@@ -698,7 +698,7 @@ function buildProjectUrl(projectId, opts = {}) {
 // ui://kolbo/generation.html widget takes over: live progress, inline result,
 // action buttons. Text-only hosts never enter this path — their blocking
 // behavior and response bytes are UNCHANGED.
-const { UI, uiResult, appsEnabled, modelInfo } = require('../apps');
+const { UI, uiResult, appsEnabled, modelInfo, OPERATION_ENGINES } = require('../apps');
 
 /**
  * Chip identity for a model: the CLEAN display name + its icon, resolved from
@@ -706,8 +706,13 @@ const { UI, uiResult, appsEnabled, modelInfo } = require('../apps');
  * user/LLM supplied (an identifier like `google_tts`, `fal-ai/…/omnihuman/v1.5`,
  * or a display name) — the card must never show the raw id.
  */
-async function modelChipFields(client, model) {
-  const info = await modelInfo(client, model).catch(() => null);
+// `operation`: an edit whose engine the server picks when no model is passed
+// (draft_enhance) still names that engine on the chip, not "Smart Select".
+// `model` itself stays unset so Recreate never pins a hidden engine id.
+async function modelChipFields(client, model, operation) {
+  const lookup = model || (operation && OPERATION_ENGINES[operation]);
+  const info = await modelInfo(client, lookup).catch(() => null);
+  if (!model && info && info.name) return { model: 'Smart Select', model_name: info.name, model_icon: info.icon || null };
   return {
     model: model || 'Smart Select',
     model_name: (info && info.name) || model || 'Smart Select',
@@ -898,7 +903,7 @@ function moodboardIds(settings) {
  */
 async function uiGenerating(p) {
   // No ETAs anywhere — just a spinner until the poll flips to completed.
-  const chip = await modelChipFields(p.client, p.model);
+  const chip = await modelChipFields(p.client, p.model, p.settings && p.settings.mode);
   const settings = await decorateSettings(p.client, p.settings || {});
   const structured = {
     phase: 'generating',
@@ -1009,7 +1014,7 @@ function preferOwnedUrls(urls) {
 }
 
 async function uiCompleted(p, textPayload, extraContent) {
-  const chip = await modelChipFields(p.client, p.model);
+  const chip = await modelChipFields(p.client, p.model, p.settings && p.settings.mode);
   const settings = p.settings ? await decorateSettings(p.client, p.settings) : undefined;
   const structured = {
     phase: 'completed',

@@ -358,8 +358,20 @@ async function modelInfoMap(client) {
 }
 
 /** Resolve one model's { icon, eta, name }; missing → all null. */
+// Engines hidden from /v1/models that still reach a card, shown as the public
+// model the user actually knows. draft_enhance finalizes a Seedance 2.5 Draft;
+// its engine id is internal, so the card showed "Smart Select" / a raw id.
+const DISPLAY_ALIASES = {
+  'flux-3-draft-enhance': { base: 'seedance-2-5', name: 'Seedance 2.5 Draft Enhance' },
+  'video-draft-enhance': { base: 'seedance-2-5', name: 'Seedance 2.5 Draft Enhance' },
+};
+// Operations whose engine is picked server-side when no model is passed.
+const OPERATION_ENGINES = { draft_enhance: 'flux-3-draft-enhance' };
+
 async function modelInfo(client, modelName) {
   if (!modelName) return { icon: null, eta: null, name: null };
+  const alias = DISPLAY_ALIASES[String(modelName).toLowerCase()];
+  if (alias) return { ...(await modelInfo(client, alias.base)), name: alias.name };
   const catalog = await modelCatalog(client);
   const exact = catalog.byKey.get(String(modelName).toLowerCase());
   if (exact) return exact;
@@ -827,6 +839,7 @@ module.exports = {
   appsEnabled,
   modelIcon,
   modelInfo,
+  OPERATION_ENGINES,
   modelInfoMap,
   voiceInfo,
   canonicalModelId,

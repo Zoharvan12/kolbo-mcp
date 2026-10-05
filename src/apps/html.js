@@ -236,9 +236,13 @@ function showPeekItem(time) {
   var it = peekList[peekIndex];
   var img = el('peek-img');
   var vid = el('peek-video');
+  var oldNote = el('peek-stage') && el('peek-stage').querySelector('.k-vnote');
+  if (oldNote) oldNote.parentNode.removeChild(oldNote);
+  vid.removeAttribute('data-unplayable');
   if (it.kind === 'video') {
     img.removeAttribute('src');
     vid.setAttribute('src', it.url);
+    guardPlayback(vid);
     if (time) vid.addEventListener('loadedmetadata', function () { try { vid.currentTime = time; } catch (e) {} }, { once: true });
     var p = vid.play && vid.play();
     if (p && p.catch) p.catch(function () {});
@@ -363,6 +367,42 @@ function wireVideoExpand(root) {
     b.addEventListener('keydown', mark);
     v.addEventListener('dblclick', function (e) { e.preventDefault(); mark(); b.click(); });
     v.parentNode.insertBefore(b, v.nextSibling);
+    guardPlayback(v);
+  });
+}
+// Some outputs cannot be decoded by a browser: 10/12-bit HEVC (Bytedance
+// Upscaler Pro, Seedance 1080p masters) either errors or plays sound over a
+// black frame. Detect both and replace the dead player with a clear note and
+// a Download button instead of leaving the user staring at nothing.
+function guardPlayback(v) {
+  if (!v || v.getAttribute('data-guard')) return;
+  v.setAttribute('data-guard', '1');
+  function fail() {
+    if (v.getAttribute('data-unplayable') || !v.parentNode) return;
+    v.setAttribute('data-unplayable', '1');
+    try { v.pause(); } catch (e) {}
+    var url = v.currentSrc || v.getAttribute('src');
+    var note = document.createElement('div');
+    note.className = 'k-vnote';
+    note.innerHTML = '<div class="k-vnote-t"></div><div class="k-vnote-s"></div><button type="button" class="k-btn primary"></button>';
+    note.querySelector('.k-vnote-t').textContent = "This video can't play in the browser";
+    note.querySelector('.k-vnote-s').textContent = 'It uses a high-quality format (HEVC, 10/12-bit) most browsers do not decode. Download it and open it in a video player.';
+    var dl = note.querySelector('button');
+    dl.innerHTML = ICONS.download + ' Download video';
+    dl.onclick = function (e) { e.stopPropagation(); window.kolbo.openLink(downloadUrl(url)); };
+    v.parentNode.insertBefore(note, v.nextSibling);
+    if (window.kolbo && window.kolbo.notifySize) window.kolbo.notifySize();
+  }
+  v.addEventListener('error', function () {
+    var code = v.error && v.error.code;
+    // 3 = decode failure, 4 = format not supported. Network errors (2) are not a format problem.
+    if (code === 3 || code === 4) fail();
+  });
+  // Sound with no picture: time advances but no video frame was ever decoded.
+  v.addEventListener('timeupdate', function () {
+    if (v.currentTime < 1.2 || v.getAttribute('data-unplayable')) return;
+    var q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+    if ((q && q.totalVideoFrames === 0) || (v.readyState >= 2 && v.videoWidth === 0)) fail();
   });
 }
 if (window.MutationObserver) {
