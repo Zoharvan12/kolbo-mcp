@@ -315,6 +315,57 @@ function registerProjectTools(server, client) {
     }
   );
 
+  // ─── project transfer (hand a project to another account) ──
+  server.tool(
+    'transfer_project',
+    'Ask another Kolbo account (by email) to take over a project you OWN. Nothing moves until they accept (in the app, or via `respond_project_transfer`) within 7 days. On accept EVERYTHING moves to them with the same ids — sessions, generations, media, chats, docs, agents; your Visual DNA / moodboards / palette in the project cast are COPIED to them (you keep yours). Credit history keeps you as the payer. Set `keep_sender_as_editor` false to lose access entirely (default: you stay as an editor). Team/organization projects cannot be transferred. ALWAYS confirm the recipient email and the keep-editor choice with the user before calling.',
+    {
+      project_id: z.string().describe('Project ObjectId you own (from list_projects).'),
+      email: z.string().describe('Email of the EXISTING Kolbo account that should become the owner.'),
+      keep_sender_as_editor: z.boolean().optional().describe('Stay on the project as an editor after the transfer. Default: true.'),
+    },
+    async ({ project_id, email, keep_sender_as_editor }) => {
+      const result = await client.post(`/v1/projects/${encodeURIComponent(project_id)}/transfer`, {
+        email,
+        ...(keep_sender_as_editor === undefined ? {} : { keep_sender_as_editor }),
+      });
+      return { content: [{ type: 'text', text: JSON.stringify(result.transfer, null, 2) }] };
+    }
+  );
+  server.tool(
+    'list_project_transfers',
+    'List project transfer requests. `direction: incoming` (default) = projects other people want to give you; `outgoing` = ones you sent. Defaults to pending only. Use the `id` with `respond_project_transfer`.',
+    {
+      direction: z.enum(['incoming', 'outgoing']).optional().describe('Default: incoming.'),
+      status: z.enum(['pending', 'accepted', 'declined', 'cancelled', 'expired', 'failed']).optional().describe('Default: pending.'),
+    },
+    async ({ direction, status }) => {
+      const params = new URLSearchParams();
+      if (direction) params.set('direction', direction);
+      if (status) params.set('status', status);
+      const qs = params.toString();
+      const result = await client.get(`/v1/project-transfers${qs ? '?' + qs : ''}`);
+      return { content: [{ type: 'text', text: JSON.stringify(result.transfers || [], null, 2) }] };
+    }
+  );
+  server.tool(
+    'respond_project_transfer',
+    'Act on a project transfer request. `accept` / `decline` = you are the recipient; `cancel` = you sent it. Accepting makes you the owner of the whole project immediately. If the project still has generations running, accept returns TRANSFER_BLOCKED_IN_FLIGHT — wait and retry. Confirm with the user before accepting.',
+    {
+      transfer_id: z.string().describe('Transfer id from list_project_transfers.'),
+      action: z.enum(['accept', 'decline', 'cancel']),
+    },
+    async ({ transfer_id, action }) => {
+      const id = encodeURIComponent(transfer_id);
+      // Explicit paths (not `/${action}`) so check-parity can see each route.
+      let result;
+      if (action === 'cancel') result = await client.delete(`/v1/project-transfers/${id}`);
+      else if (action === 'accept') result = await client.post(`/v1/project-transfers/${id}/accept`, {});
+      else result = await client.post(`/v1/project-transfers/${id}/decline`, {});
+      return { content: [{ type: 'text', text: JSON.stringify(result.transfer, null, 2) }] };
+    }
+  );
+
   // ─── list_sessions ─────────────────────────────────────────
   server.tool(
     'list_sessions',

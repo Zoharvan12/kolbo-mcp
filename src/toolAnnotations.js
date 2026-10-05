@@ -26,6 +26,7 @@ const READ_ONLY = [
   'list_presets', 'list_cinematic_presets',
   'list_projects', 'get_project', 'list_sessions', 'list_project_context', 'get_project_profile',
   'list_project_assets',
+  'list_project_transfers',
   'list_session_generations',
   'list_agents', 'list_skills', 'list_docs', 'get_doc',
   'get_review_storage_usage', 'list_review_assets', 'get_review_asset',
@@ -111,6 +112,8 @@ const DESTRUCTIVE_WRITE = [
   'delete_session',
   'delete_project_context', 'regenerate_project_profile',
   'update_project_asset',
+  // Ownership hand-off: the sender loses the project (and maybe all access) on accept.
+  'transfer_project', 'respond_project_transfer',
   'update_agent', 'delete_agent', 'update_skill', 'delete_skill', 'update_doc', 'delete_doc',
   'delete_review_asset', 'delete_review_collection',
   'edit_review_comment', 'delete_review_comment',

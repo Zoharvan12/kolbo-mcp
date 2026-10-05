@@ -317,6 +317,7 @@ Requires DaVinci Resolve Studio with the Kolbo plugin open (Workspace → Workfl
 | `generate_character_sheet` | Generate a multi-angle character sheet from reference images (credits) → pass URL to create_visual_dna or update_visual_dna |
 | `list_visual_dna_folders` / `create_visual_dna_folder` / `update_visual_dna_folder` / `delete_visual_dna_folder` / `move_visual_dna_to_folder` | Organize Visual DNA characters into user folders (create/rename/recolor/delete + move DNAs in/out) |
 | `create_project` / `update_project` / `archive_project` / `unarchive_project` | Project lifecycle (create/rename/describe/archive; deletion stays in-app) |
+| `transfer_project` / `list_project_transfers` / `respond_project_transfer` | Hand a project you own to another Kolbo account (they accept; same ids; cast assets copied; payer history unchanged) |
 | `list_skills` / `create_skill` / `update_skill` / `delete_skill` | Skills — reusable named personas for the chat tool; `description` is the system instruction |
 | `list_agents` / `create_agent` / `update_agent` / `delete_agent` | Same four tools under their original names. Still supported and unchanged; new integrations should use the `*_skill` names |
 | `create_video_editor_session` / `export_video_editor_session` | Build an editable timeline from Kolbo-hosted clips, audio and text, then export it to MP4. No new media is generated; identical snapshots reuse the same export job |
