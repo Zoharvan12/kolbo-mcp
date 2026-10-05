@@ -2396,7 +2396,7 @@ function registerGenerateTools(server, client, options = {}) {
         '"inpaint" — paint over a masked area using `mask_image_url` (B&W mask, white = fill area) and optional `prompt`. Add reference images via `additional_images`.',
         '"erase" — erase an object defined by `mask_image_url` (white = erase area).',
         '"face_swap" — swap the face in `image_url` with the face from `mask_image_url` (required).',
-        '"camera_angle" — generate the image from a different camera angle. Set `generate_all_angles=true` for a full set. Use `prompt` to guide the angle.',
+        '"camera_angle" — generate the image from a different camera angle. Set the view with `horizontal_angle` / `vertical_angle` / `camera_zoom` (preferred — exact), or describe it in `prompt` ("left side", "back", "low angle", "bird\'s eye", "close up", "wide"); with neither, the view barely changes. Set `generate_all_angles=true` for the 12-angle set.',
         '"split" — split the image into a 3×3 grid of tiles. "split_upscale" — split into a grid and upscale each tile.',
         '"multi_shot" — generate a 3×3 multi-shot grid of scenes (uses `additional_images` as reference shots). Use `resolution` for output quality.',
         '"magic_edit" (DEPRECATED) — prompt-driven content edit. Prefer `generate_image_edit` for better results.',

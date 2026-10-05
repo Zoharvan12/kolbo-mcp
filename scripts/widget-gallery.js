@@ -179,6 +179,24 @@ function build() {
       settings: { mode: 'enhance_skin', details: ['realistic', 'fix lighting'] },
     }),
   });
+  const angleArgs = { image_url: IMG, operation: 'camera_angle', horizontal_angle: 270, vertical_angle: -30, camera_zoom: 8 };
+  scenarios.push({ tool: 'edit_image', title: 'pre-render — camera_angle (operation label, no prompt line)', args: angleArgs, result: null });
+  scenarios.push({
+    tool: 'edit_image', title: 'generating → completes — camera_angle keeps its settings chips', args: angleArgs,
+    result: Object.assign(baseGen('edit_image', 'image', 'edit-angle-live'), {
+      phase: 'generating', count: 1, prompt: '', model: 'qwen-image-edit-2511-multiple-angles', model_name: 'Qwen Angles',
+      settings: { mode: 'camera_angle', details: ['270° turn', '-30° tilt', 'zoom 8'] },
+    }),
+    calls: { get_generation_status: [status('edit-angle-live', 'processing', 'image'), status('edit-angle-live', 'completed', 'image')] },
+  });
+  scenarios.push({
+    tool: 'edit_video', title: 'completed — upscale (operation label + factor/engine chips)',
+    args: { video_url: VID, operation: 'upscale', scale: 2, enhancement_model: 'Proteus' },
+    result: Object.assign(baseGen('edit_video', 'video', 'edit-vup-done'), {
+      phase: 'completed', prompt: '', urls: [urlFor('video')], credits_used: 12,
+      settings: { mode: 'upscale', resolution: '4k', details: ['2×', 'Proteus'] },
+    }),
+  });
   // Creative Director scenes + speech voice chip + DNA/moodboard chips + out-of-credits
   scenarios.push({
     tool: 'generate_creative_director', title: 'completed — 3 scenes', args: { prompt: PROMPT, scene_count: 3 },
