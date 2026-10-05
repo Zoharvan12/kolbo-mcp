@@ -2325,6 +2325,46 @@ function registerGenerateTools(server, client, options = {}) {
       }, null, 2));
     }
   );
+  // Short human chips for the settings an edit actually ran with — the card
+  // shows these next to the operation label (raw ids never reach the card).
+  const editDetails = (op, a) => {
+    const d = [];
+    const has = (v) => v !== undefined && v !== null && v !== '';
+    if (op === 'upscale' || op === 'split_upscale') {
+      if (has(a.scale)) d.push(`${a.scale}×`);
+      if (a.face_enhancement === false) d.push('no face enhance');
+      else if (has(a.face_enhancement_strength)) d.push(`face ${a.face_enhancement_strength}`);
+    }
+    if (op === 'clarity_upscale') {
+      if (has(a.scale)) d.push(`${a.scale}×`);
+      if (has(a.creativity)) d.push(`creativity ${a.creativity}`);
+      if (has(a.resemblance)) d.push(`resemblance ${a.resemblance}`);
+    }
+    if (op === 'enhance_skin') {
+      d.push(a.skin_strength || 'realistic');
+      if (a.fix_lighting) d.push('fix lighting');
+      if (has(a.freckle_intensity) && a.skin_strength === 'freckle') d.push(`freckles ${a.freckle_intensity}`);
+    }
+    if (op === 'camera_angle') {
+      if (a.generate_all_angles) d.push('all angles');
+      else {
+        if (has(a.horizontal_angle)) d.push(`${a.horizontal_angle}° turn`);
+        if (has(a.vertical_angle)) d.push(`${a.vertical_angle}° tilt`);
+        if (has(a.camera_zoom)) d.push(`zoom ${a.camera_zoom}`);
+      }
+    }
+    if (op === 'zoom_out') {
+      if ([a.expand_left, a.expand_right, a.expand_top, a.expand_bottom].some(has)) d.push('custom expand');
+      else if (has(a.zoom_out_percentage)) d.push(`${a.zoom_out_percentage}%`);
+    }
+    if (op === 'split' && has(a.split_layout)) d.push(a.split_layout);
+    if (op === 'background_replace' && a.background_reference_image) d.push('reference bg');
+    if (has(a.enhancement_model)) d.push(a.enhancement_model);
+    if (has(a.target_fps)) d.push(`${a.target_fps} fps`);
+    if (op === 'extend' && has(a.mode)) d.push(`at ${a.mode}`);
+    return d.length ? d : undefined;
+  };
+
   // ─── edit_image ────────────────────────────────────────────
   server.tool(
     'edit_image',
@@ -2406,6 +2446,40 @@ function registerGenerateTools(server, client, options = {}) {
       fix_lighting: z.boolean().optional()
         .describe('Also correct uneven / flat lighting on the face. Used with operation="enhance_skin" and skin_strength="realistic". Default: false.'),
 
+      // ── camera_angle ───────────────────────────────────────
+      horizontal_angle: z.number().min(0).max(360).optional()
+        .describe('Camera rotation around the subject in degrees (0-360; 0 = unchanged, 90 = right side, 180 = behind). Used with operation="camera_angle" when generate_all_angles is not set.'),
+      vertical_angle: z.number().min(-30).max(90).optional()
+        .describe('Camera tilt in degrees (-30 = from below, 0 = eye level, 90 = straight down). Used with operation="camera_angle".'),
+      camera_zoom: z.number().min(0).max(10).optional()
+        .describe('Camera distance (0 = far, 5 = unchanged, 10 = close-up). Used with operation="camera_angle". Default: 5.'),
+
+      // ── upscale (Topaz) / clarity_upscale ──────────────────
+      face_enhancement: z.boolean().optional()
+        .describe('Topaz face recovery. Used with operation="upscale" on Topaz precision/generative engines. Default: true — set false to keep faces exactly as in the source.'),
+      face_enhancement_strength: z.number().min(0).max(1).optional()
+        .describe('How strongly faces are recovered (0-1). Used with operation="upscale" (Topaz). Default: 0.8.'),
+      face_enhancement_creativity: z.number().min(0).max(1).optional()
+        .describe('How much new facial detail Topaz may invent (0-1; 0 = faithful). Used with operation="upscale". Default: 0.'),
+      subject_detection: z.enum(['All', 'Foreground', 'Background']).optional()
+        .describe('Which part Topaz enhances. Used with operation="upscale". Default: "All".'),
+      crop_to_fill: z.boolean().optional()
+        .describe('Crop to fill the target size instead of keeping the source framing. Used with operation="upscale" (Topaz). Default: false.'),
+      creativity: z.number().optional()
+        .describe('How much new detail is invented. operation="clarity_upscale": 0-1 (default 0.35). operation="upscale" with the Bloom (creative) engine: 1-9.'),
+      resemblance: z.number().min(0).max(1).optional()
+        .describe('How closely the result must match the source (0-1). Used with operation="clarity_upscale". Default: 0.6.'),
+
+      // ── background_replace / split / erase ─────────────────
+      background_reference_image: z.string().optional()
+        .describe('URL or absolute local path of an image to use as the new background. Used with operation="background_replace" (prompt still required).'),
+      negative_prompt: z.string().optional()
+        .describe('What must NOT appear. Used with operation="background_replace" and "clarity_upscale".'),
+      split_layout: z.string().optional()
+        .describe('Grid to split into: "auto" (detect), "2x2", "3x3" or "4x4". Used with operation="split" / "split_upscale". Default: "auto".'),
+      mask_expansion: z.number().min(0).max(100).optional()
+        .describe('Pixels to grow the erase mask so edges blend. Used with operation="erase". Default: 15.'),
+
       // ── inpaint / erase / face_swap / background_replace / zoom_out / camera_angle / magic_edit ──
       prompt: z.string().optional()
         .describe('Text instruction guiding the edit. Required for "background_replace". Used with "inpaint", "zoom_out", "camera_angle", and the deprecated "magic_edit". For "zoom_out" it describes what fills the NEW space only — the original image is left as-is.'),
@@ -2435,6 +2509,10 @@ function registerGenerateTools(server, client, options = {}) {
       mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize = false,
       zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
       enhancement_model, output_format,
+      horizontal_angle, vertical_angle, camera_zoom,
+      face_enhancement, face_enhancement_strength, face_enhancement_creativity,
+      subject_detection, crop_to_fill, creativity, resemblance,
+      background_reference_image, negative_prompt, split_layout, mask_expansion,
       project_id, session_id
     }) => {
       const editModelType = modelTypeForEditOperation('image', operation);
@@ -2458,23 +2536,37 @@ function registerGenerateTools(server, client, options = {}) {
       }
 
       // Local paths → CDN URLs (image_url / mask_image_url / additional_images).
-      [image_url, mask_image_url, additional_images] = await Promise.all([
+      [image_url, mask_image_url, additional_images, background_reference_image] = await Promise.all([
         rehostLocal(image_url, 'image', project_id),
         rehostLocal(mask_image_url, 'image', project_id),
         additional_images ? Promise.all(additional_images.map((s) => rehostLocal(s, 'image', project_id))) : additional_images,
+        rehostLocal(background_reference_image, 'image', project_id),
       ]);
       const gen = await client.post('/v1/edit/image', {
         image_url, operation, model, scale, aspect_ratio, skin_strength, freckle_intensity, fix_lighting, prompt,
         mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize,
         zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
         enhancement_model, output_format,
+        horizontal_angle, vertical_angle, camera_zoom,
+        face_enhancement, face_enhancement_strength, face_enhancement_creativity,
+        subject_detection, crop_to_fill, creativity, resemblance,
+        background_reference_image, negative_prompt, split_layout, mask_expansion,
         project_id, session_id
       });
+      const cardSettings = {
+        mode: operation, aspect_ratio, resolution,
+        details: editDetails(operation, {
+          scale, skin_strength, freckle_intensity, fix_lighting, generate_all_angles,
+          horizontal_angle, vertical_angle, camera_zoom, face_enhancement, face_enhancement_strength,
+          creativity, resemblance, zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
+          split_layout, background_reference_image, enhancement_model,
+        }),
+      };
 
       if (returnsImmediately()) return submittedResult({
         tool: 'edit_image', kind: 'image', gen, client, model,
-        prompt: prompt || operation,
-        settings: { mode: operation, aspect_ratio, scale, resolution },
+        prompt: prompt || '',
+        settings: cardSettings,
         reference_images: [image_url, mask_image_url, ...(additional_images || [])].filter(Boolean)
       });
 
@@ -2487,8 +2579,8 @@ function registerGenerateTools(server, client, options = {}) {
 
       return uiCompleted({
         tool: 'edit_image', kind: 'image', gen, client, model,
-        prompt: prompt || operation,
-        settings: { mode: operation, aspect_ratio, scale, resolution },
+        prompt: prompt || '',
+        settings: cardSettings,
         reference_images: [image_url, mask_image_url, ...(additional_images || [])].filter(Boolean),
         urls: result.result?.urls || [],
         credits_used: creditFields(result).credits_used,
@@ -2666,10 +2758,14 @@ function registerGenerateTools(server, client, options = {}) {
       };
 
       if (operation === 'draft_quote') return { content: [{ type: 'text', text: JSON.stringify(gen, null, 2) }] };
+      const cardSettings = {
+        mode: operation, duration, aspect_ratio, resolution,
+        details: editDetails(operation, { scale, enhancement_model, target_fps, mode }),
+      };
       if (returnsImmediately()) return submittedResult({
         tool: 'edit_video', kind: 'video', gen, client, model,
-        prompt: prompt || operation,
-        settings: { mode: operation, duration, aspect_ratio, resolution },
+        prompt: prompt || '',
+        settings: cardSettings,
         ...editRefs
       });
 
@@ -2682,8 +2778,8 @@ function registerGenerateTools(server, client, options = {}) {
 
       return uiCompleted({
         tool: 'edit_video', kind: 'video', gen, client, model,
-        prompt: prompt || operation,
-        settings: { mode: operation, duration, aspect_ratio, resolution },
+        prompt: prompt || '',
+        settings: cardSettings,
         ...editRefs,
         urls: result.result?.urls || [],
         duration: result.result?.duration || null,

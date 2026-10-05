@@ -340,7 +340,8 @@ function renderChips(sc) {
       : ICONS.mic;
     h += chip(face + ' ' + esc(voice));
   }
-  if (s.mode) h += chip(esc(s.mode));
+  if (s.mode) h += chip(esc(editLabel(s.mode)));
+  if (Array.isArray(s.details)) s.details.forEach(function (d) { if (d) h += chip(esc(String(d))); });
   if (many && !kind) h += chip(sc.count + ' items');
   h += referenceHTML(sc);
   el('chips').innerHTML = h;
@@ -460,6 +461,17 @@ function capLabel(inner) {
   return String(inner).replace(/(^|>)(\\s*)([a-z])/, function (m, gt, sp, ch) { return gt + sp + ch.toUpperCase(); });
 }
 function chip(inner) { return '<span class="k-chip">' + capLabel(inner) + '</span>'; }
+// edit_image / edit_video operation ids -> the words a user reads. Unknown ids
+// fall back to the id with spaces, never the raw snake_case.
+var EDIT_LABELS = {
+  upscale: 'Upscale', clarity_upscale: 'Clarity upscale', reframe: 'Reframe', zoom_out: 'Expand',
+  removebg: 'Remove background', remove_background: 'Remove background', background_replace: 'Replace background',
+  enhance_skin: 'Skin enhance', enhance: 'Photo enhance', inpaint: 'Inpaint', erase: 'Erase', face_swap: 'Face swap',
+  camera_angle: 'Camera angle', split: 'Split grid', split_upscale: 'Split + upscale', multi_shot: 'Multi-shot',
+  magic_edit: 'Magic edit', generate_audio: 'Add audio', remove_watermark: 'Remove watermark', extend: 'Extend',
+  lipsync: 'Lipsync', retake: 'Retake', draft_enhance: 'Finalize draft', draft_quote: 'Draft quote'
+};
+function editLabel(mode) { return EDIT_LABELS[mode] || String(mode).split('_').join(' '); }
 // Same chip with a hover title — used to surface the asset id behind a
 // "2 Visual DNA" / "preset" label without spending chip width on it.
 function chipT(inner, title) {
@@ -1246,6 +1258,7 @@ function renderActions(sc) {
   bind('btn-open', function () { window.kolbo.openLink(kolboUrl(state)); });
   bind('btn-recreate', function () {
     window.kolbo.sendMessage('Recreate this with the same settings' +
+      (state.settings && state.settings.mode ? '\\nOperation: ' + state.settings.mode : '') +
       (state.model ? '\\nModel: ' + state.model : '') +
       (state.prompt ? '\\nPrompt: ' + state.prompt : '') +
       '\\n(from the ' + (TOOL_TITLES[state.tool] || 'generation') + ' widget)');
@@ -1335,7 +1348,7 @@ function preRefSc(toolName, a) {
       resolution: a.draft === true ? '480p-draft' : a.draft === false ? String(a.resolution || '').replace(/-draft$/i, '') : a.resolution,
       aspect_ratio: a.aspect_ratio,
       quality: a.quality,
-      mode: a.mode,
+      mode: a.operation || a.mode,
       cinematic: a.cinematic,
       visual_dna_ids: a.visual_dna_ids,
       moodboard_ids: a.moodboard_ids,
@@ -1405,6 +1418,7 @@ function liveFromTimedOut(sc) {
       resolution: originArgs.draft === true ? '480p-draft' : originArgs.draft === false ? String(originArgs.resolution || '').replace(/-draft$/i, '') : originArgs.resolution,
       aspect_ratio: originArgs.aspect_ratio,
       quality: originArgs.quality,
+      mode: originArgs.operation,
       visual_dna_ids: originArgs.visual_dna_ids,
       moodboard_id: originArgs.moodboard_id
     },
@@ -1433,7 +1447,8 @@ function completedFromPlain(sc) {
       is_draft: originArgs.draft,
       resolution: originArgs.draft === true ? '480p-draft' : originArgs.draft === false ? String(originArgs.resolution || '').replace(/-draft$/i, '') : originArgs.resolution,
       aspect_ratio: originArgs.aspect_ratio,
-      quality: originArgs.quality
+      quality: originArgs.quality,
+      mode: originArgs.operation
     },
     urls: sc.urls || [],
     session_id: sc.session_id || originArgs.session_id,

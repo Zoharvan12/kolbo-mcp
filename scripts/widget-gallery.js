@@ -170,6 +170,15 @@ function build() {
       });
     }
   }
+  // Operation edit card: no prompt line, plain operation label + its settings.
+  scenarios.push({
+    tool: 'edit_image', title: 'completed — enhance_skin (operation label + settings chips)',
+    args: { image_url: IMG, operation: 'enhance_skin', skin_strength: 'realistic', fix_lighting: true },
+    result: Object.assign(baseGen('edit_image', 'image', 'edit-skin-done'), {
+      phase: 'completed', prompt: '', model: 'realistic-skin', model_name: 'Enhancor', urls: [urlFor('image')], credits_used: 10,
+      settings: { mode: 'enhance_skin', details: ['realistic', 'fix lighting'] },
+    }),
+  });
   // Creative Director scenes + speech voice chip + DNA/moodboard chips + out-of-credits
   scenarios.push({
     tool: 'generate_creative_director', title: 'completed — 3 scenes', args: { prompt: PROMPT, scene_count: 3 },
