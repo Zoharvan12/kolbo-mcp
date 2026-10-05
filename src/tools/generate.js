@@ -2360,6 +2360,10 @@ function registerGenerateTools(server, client, options = {}) {
     if (op === 'split' && has(a.split_layout)) d.push(a.split_layout);
     if (op === 'background_replace' && a.background_reference_image) d.push('reference bg');
     if (has(a.enhancement_model)) d.push(a.enhancement_model);
+    if (has(a.scale_ratio)) d.push(`${a.scale_ratio}×`);
+    if (has(a.enhancement_tier) && a.enhancement_tier !== 'standard') d.push(a.enhancement_tier);
+    if (has(a.enhancement_preset) && a.enhancement_preset !== 'general') d.push(a.enhancement_preset);
+    if (has(a.bit_depth) && Number(a.bit_depth) > 8) d.push(`${a.bit_depth}-bit`);
     if (has(a.target_fps)) d.push(`${a.target_fps} fps`);
     if (op === 'extend' && has(a.mode)) d.push(`at ${a.mode}`);
     return d.length ? d : undefined;
@@ -2611,7 +2615,7 @@ function registerGenerateTools(server, client, options = {}) {
         'Edit operation:',
         '"draft_enhance" — render an owned saved draft at full quality in its original project. Pass `resolution` from the draft model capabilities; the server selects its finalization engine. No prompt or provider task ID is needed.',
         '"draft_quote" — check a saved draft’s supported final resolutions, expiry and exact credit cost without starting a render. Use this before draft_enhance.',
-        '"upscale" — boost to 4K/2K resolution (use `scale` for factor, `resolution` for target, `target_fps` for frame rate). On model "blackforestlabs/flux-video-upscale" (Flux Video Upscale): `scale` is 1.5-3x (no named `resolution` target — billed on the OUTPUT tier it lands in), `mode` is "precise" (source-faithful, default) or "creative" (reimagines detail — a pricier tier), and `prompt` optionally guides the creative-mode enhancement.',
+        '"upscale" — boost to 4K/2K resolution (use `scale` for factor, `resolution` for target, `target_fps` for frame rate). On model "blackforestlabs/flux-video-upscale" (Flux Video Upscale): `scale` is 1.5-3x (no named `resolution` target — billed on the OUTPUT tier it lands in), `mode` is "precise" (source-faithful, default) or "creative" (reimagines detail — a pricier tier), and `prompt` optionally guides the creative-mode enhancement. On model "bytedance-upscaler/upscale/video" (Bytedance Upscaler): `resolution` is "1080p" | "2k" | "4k" | "6k" | "8k" (OR `scale_ratio` 1.1-10, output ≤4K), plus `target_fps` (24-120), `enhancement_tier`, `enhancement_preset`, `fidelity`, `bit_depth` — see each field. Price = resolution tier (1080p 1 · 2k 2 · 4k 4 · 6k 8 · 8k 16 credits/s) × every started 30 fps (60 = 2×, 120 = 4×) × tier (fast 0.5×, pro 10×). Source-length caps: 6K 120s, 8K 60s, Pro 30s, otherwise 300s.',
         '"reframe" — change aspect ratio (requires `aspect_ratio`; use `grid_position_x`/`grid_position_y` to control where the original sits).',
         '"generate_audio" — add AI-generated audio from `prompt`. Optionally split into `sound_effect_prompt` and `background_music_prompt`. Set `original_sound=true` to keep original audio alongside.',
         '"remove_watermark" — AI-powered watermark removal.',
@@ -2631,11 +2635,24 @@ function registerGenerateTools(server, client, options = {}) {
       scale: z.number().optional()
         .describe('Upscale factor (e.g. 2, 4). Used with operation="upscale". On "blackforestlabs/flux-video-upscale" the valid range is 1.5-3 (default 2).'),
       resolution: z.string().optional()
-        .describe('Target resolution (e.g. "4k", "2k", "1080p"). Used with "upscale" and "reframe". Not used by "blackforestlabs/flux-video-upscale" — use `scale` instead.'),
+        .describe('Target resolution (e.g. "4k", "2k", "1080p"; Bytedance Upscaler also "6k", "8k"). Used with "upscale" and "reframe". Not used by "blackforestlabs/flux-video-upscale" — use `scale` instead.'),
       target_fps: z.number().optional()
-        .describe('Target frame rate (e.g. 24, 30, 60). Used with operation="upscale".'),
+        .describe('Target frame rate (e.g. 24, 30, 60). Used with operation="upscale". Bytedance Upscaler: 24-120, default 30; price multiplies per started 30 fps.'),
       enhancement_model: z.string().optional()
         .describe('Topaz enhancement engine for operation="upscale" on model "topaz/upscale/video". Families: Precision (faithful — "Proteus", "Artemis High Quality", "Iris", "Dione TV", "Gaia CG", "Gaia 2"), Denoise ("Nyx", "Nyx Fast"), Generative (rebuilds detail that is not in the source — "Starlight Fast 2", "Starlight HQ", "Starlight Precise 2.6"), Creative ("Astra 2", always renders 4K). Generative and Creative engines cost several times the Precision rate. Omit for the default.'),
+
+      // Bytedance Upscaler ("bytedance-upscaler/upscale/video") controls. Validated, priced and
+      // duration-capped server-side (kolbo-api services/globalVideoEditing/bytedanceUpscale.js).
+      enhancement_tier: z.enum(['fast', 'standard', 'pro']).optional()
+        .describe('Bytedance Upscaler quality tier for operation="upscale". "fast" = half price, lighter enhancement; "standard" (default); "pro" = large-model restoration at 10× credits, source ≤30s, required for 10/12-bit.'),
+      enhancement_preset: z.enum(['general', 'ugc', 'short_series', 'aigc', 'old_film']).optional()
+        .describe('Bytedance Upscaler content type for operation="upscale": "general" (default), "ugc" (phone/social shorts), "short_series" (short dramas), "aigc" (AI-generated footage), "old_film" (classic film restoration). Same price for all.'),
+      fidelity: z.enum(['high', 'medium']).optional()
+        .describe('Bytedance Upscaler enhancement strength for operation="upscale": "high" (default, mild and source-faithful) or "medium" (stronger, balanced). Same price.'),
+      bit_depth: z.union([z.literal(8), z.literal(10), z.literal(12)]).optional()
+        .describe('Bytedance Upscaler output bit depth for operation="upscale": 8 (default), 10 or 12. 10/12 require enhancement_tier="pro" and are delivered as HEVC.'),
+      scale_ratio: z.number().min(1.1).max(10).optional()
+        .describe('Bytedance Upscaler custom scale (1.1-10) for operation="upscale", used INSTEAD of `resolution`. Output must stay within 4K; billed on the 1080p/2k/4k tier it lands in. For 6K/8K use `resolution`.'),
 
       // ── reframe ────────────────────────────────────────────
       aspect_ratio: z.string().optional()
@@ -2708,6 +2725,7 @@ function registerGenerateTools(server, client, options = {}) {
       video_url, operation, model, aspect_ratio, scale, prompt,
       image_url, audio_url, duration, mode,
       target_fps, resolution, enhancement_model,
+      enhancement_tier, enhancement_preset, fidelity, bit_depth, scale_ratio,
       grid_position_x, grid_position_y,
       sound_effect_prompt, background_music_prompt, original_sound, cfg_strength,
       audio_format, segments,
@@ -2741,6 +2759,7 @@ function registerGenerateTools(server, client, options = {}) {
         video_url, operation, model, aspect_ratio, scale, prompt, enhancement_model,
         image_url, audio_url, duration, mode,
         target_fps, resolution,
+        enhancement_tier, enhancement_preset, fidelity, bit_depth, scale_ratio,
         grid_position_x, grid_position_y,
         sound_effect_prompt, background_music_prompt, original_sound, cfg_strength,
         audio_format, segments,
@@ -2760,7 +2779,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (operation === 'draft_quote') return { content: [{ type: 'text', text: JSON.stringify(gen, null, 2) }] };
       const cardSettings = {
         mode: operation, duration, aspect_ratio, resolution,
-        details: editDetails(operation, { scale, enhancement_model, target_fps, mode }),
+        details: editDetails(operation, { scale, enhancement_model, target_fps, mode, enhancement_tier, enhancement_preset, bit_depth, scale_ratio }),
       };
       if (returnsImmediately()) return submittedResult({
         tool: 'edit_video', kind: 'video', gen, client, model,
