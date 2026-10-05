@@ -7,7 +7,7 @@ const { z } = require('zod');
 const { projectIdField } = require('./_shared');
 const { listResult } = require('../apps');
 
-const CONTENT_GUIDE = 'HTML body content. Use clean semantic HTML the in-app editor understands: <h1>-<h3>, <p>, <ul>/<ol>/<li>, <table>, <blockquote>, <strong>/<em>, <a>. No <script>/<style>/<iframe> (stripped server-side). Write the FULL document yourself — this is where you author the doc.';
+const CONTENT_GUIDE = 'HTML body content. Use clean semantic HTML the in-app editor understands: <h1>-<h3>, <p>, <ul>/<ol>/<li>, <table>, <blockquote>, <strong>/<em>, <a>, <img>, <video>/<audio> (http(s) src, e.g. Kolbo CDN URLs from list_media), and <iframe> embeds from YouTube, Vimeo, Spotify, SoundCloud, CodePen, CodeSandbox, Google Maps, Figma or Loom (https only; other iframe hosts are stripped). No <script>/<style> (stripped server-side). Write the FULL document yourself — this is where you author the doc.';
 
 function registerDocTools(server, client) {
   // ─── create_doc ────────────────────────────────────────────
@@ -90,12 +90,14 @@ function registerDocTools(server, client) {
     {
       doc_id: z.string().describe('The doc ObjectId to update.'),
       title: z.string().optional().describe('New title. Omit to keep the current one.'),
-      content: z.string().optional().describe('Full replacement ' + CONTENT_GUIDE)
+      content: z.string().optional().describe('Full replacement ' + CONTENT_GUIDE),
+      destructive_intent: z.enum(['replace-document', 'clear-document']).optional().describe('Only when the update intentionally removes most of the document. The server rejects with 409 DESTRUCTIVE_DOCUMENT_REPLACEMENT when new content drops most of the text or every table/image/video, and with 409 DOCUMENT_CLEAR_REQUIRES_INTENT when it empties a populated doc. "replace-document" = the user asked for a rewrite/replacement; "clear-document" = the user asked to empty the doc (send empty content). Never pass it to get past a 409 the user did not ask for — re-read with get_doc and merge instead.')
     },
-    async ({ doc_id, title, content }) => {
+    async ({ doc_id, title, content, destructive_intent }) => {
       const body = {};
       if (title !== undefined) body.title = title;
       if (content !== undefined) body.content = content;
+      if (destructive_intent !== undefined) body.destructive_intent = { kind: destructive_intent };
       const result = await client.put(`/v1/docs/${encodeURIComponent(doc_id)}`, body);
       return { content: [{ type: 'text', text: JSON.stringify(result.doc, null, 2) }] };
     }

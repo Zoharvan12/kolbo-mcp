@@ -573,10 +573,16 @@ async function modelIcon(client, modelName) {
 // `key.replace(/\s+/g, '-')`) is why "flux-2-flash" never found "flux-2/flash".
 const normId = (s) => String(s || '').toLowerCase().replace(/[\s._/-]+/g, '');
 
-// The API maps these to Smart Select itself. They are never typos, so they must
-// never be "corrected" or reported as unknown.
+// "Let Kolbo pick" spellings. They are never typos, so they must never be
+// "corrected" or reported as unknown. The API only accepts the exact spellings
+// in API_AUTO_ALIASES; it answers any other explicit model with 400
+// MODEL_NOT_FOUND, so the rest ("Smart Select", "default", "none") are sent
+// as 'auto'.
 const AUTO_ALIASES = new Set([
   'auto', 'autoselect', 'smartselect', 'kolbosmartselectrouter', 'default', 'none',
+]);
+const API_AUTO_ALIASES = new Set([
+  'smart-select', 'smart_select', 'smartselect', 'auto', 'auto-select', 'kolbo_smart_select_router',
 ]);
 
 /**
@@ -649,7 +655,8 @@ async function canonicalModelId(client, input, type) {
   if (!input || typeof input !== 'string') return input;
   const key = input.toLowerCase().trim();
   const want = normId(key);
-  if (!want || AUTO_ALIASES.has(want)) return input;
+  if (!want) return input;
+  if (AUTO_ALIASES.has(want)) return API_AUTO_ALIASES.has(key) ? input : 'auto';
   // Exact native-workflow ids pass through: the near-miss check below would reject an
   // unpublished or cached-out 'kolbo-*' id as unknown.
   if (NATIVE_WORKFLOW_MODEL_IDS.has(key)) return input;

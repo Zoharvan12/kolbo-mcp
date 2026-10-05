@@ -26,11 +26,11 @@ function registerChatTools(server, client) {
       project_id: projectIdField
     },
     async ({ message, model, session_id, system_prompt, web_search, deep_think, thinking_level, routing_mode, enhance_prompt = false, media_urls, project_id }) => {
-      // Every generate_* tool resolves its model this way; chat was the one
-      // `model` arg that went straight to the API, which has no fuzzy matching.
-      // So the display names list_models hands back ("Claude Fable 5") came
-      // back as a bare `Model not found: Claude Fable 5 [MODEL_NOT_FOUND]` —
-      // discovery had no path to use.
+      // Every generate_* tool resolves its model this way. The API answers an
+      // explicit model it cannot match with 400 MODEL_NOT_FOUND (plus "did you
+      // mean" suggestions) instead of silently falling back to Smart Select, so
+      // resolve display names list_models hands back ("Claude Fable 5") to their
+      // catalog identifier here, scoped to the text catalog, before sending.
       model = await canonicalModelId(client, model, 'text'); // lenient id resolution ("Grok 4.5" → its identifier)
 
       const gen = await client.post('/v1/chat', {

@@ -35,14 +35,23 @@ function registerSkillCrud(server, client, { noun, idArg, suffix, plural }) {
   server.tool(
     `list_${plural}`,
     `List the user's custom ${plural} (personal + any platform/org preset ${plural} visible to them). A ${noun} is a reusable, named persona for the chat tool — its \`description\` is the system instruction the model adopts. Use this to resolve a ${noun} NAME the user mentioned into its id, or to show what ${plural} exist. Returns id, name, description, emoji, is_global. Personal ${plural} (is_global:false) are editable/deletable; platform presets are not.${legacyNote}`,
-    { search: z.string().optional().describe('Optional case-insensitive name filter.') },
-    async ({ search }) => {
-      const qs = search ? `?search=${encodeURIComponent(search)}` : '';
-      const result = await client.get(`/v1/skills${qs}`);
+    {
+      search: z.string().optional().describe('Optional case-insensitive name filter.'),
+      page: z.number().int().min(1).optional().describe('Page number, 1-indexed. Default: 1. The response `pagination.has_more` says whether another page exists.'),
+      limit: z.number().int().min(1).max(100).optional().describe('Results per page, max 100. Default: 50.')
+    },
+    async ({ search, page, limit }) => {
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (page) params.set('page', String(page));
+      if (limit) params.set('limit', String(limit));
+      const qs = params.toString();
+      const result = await client.get(`/v1/skills${qs ? '?' + qs : ''}`);
       const agents = result.agents || [];
       const text = JSON.stringify({
         agents,
-        count: result.count || agents.length
+        count: result.count || agents.length,
+        ...(result.pagination ? { pagination: result.pagination } : {})
       }, null, 2);
 
       return listResult(text, {
@@ -55,7 +64,9 @@ function registerSkillCrud(server, client, { noun, idArg, suffix, plural }) {
           badge: a.is_global ? 'preset' : null,
           use_hint: `Use my "{TITLE}" ${noun} (${idArg}: {ID}) for this conversation.`
         })),
-        total: agents.length
+        total: agents.length,
+        page_tool: `list_${plural}`,
+        next_args: result.pagination?.has_more ? { search, page: (page || 1) + 1, limit } : undefined
       });
     }
   );
@@ -66,7 +77,7 @@ function registerSkillCrud(server, client, { noun, idArg, suffix, plural }) {
     `Create a reusable custom ${noun} (a named persona for the chat tool). The \`description\` IS the ${noun}'s system instruction — write it as the persona + behavior you want ("You are a senior creative director. Turn any brief into a structured shot list…"). Use when the user wants a persistent, reusable assistant ("make me a creative-director ${noun}", "set up a support-triage bot"). For a ONE-OFF persona on a single conversation, pass \`system_prompt\` to chat_send_message instead — no need to create a ${noun}. Plan limits apply (server rejects when the ${noun} cap is reached).${legacyNote}`,
     {
       name: z.string().optional().describe(`${noun[0].toUpperCase() + noun.slice(1)} name. If omitted, a name is generated from the description.`),
-      description: z.string().describe(`The ${noun} persona + instructions (max 2000 chars). This becomes the system prompt the model adopts in every conversation that uses the ${noun}.`),
+      description: z.string().describe(`The ${noun} persona + instructions (no API length cap; keep it under 8000 characters if it should stay editable in the Kolbo app). This becomes the system prompt the model adopts in every conversation that uses the ${noun}.`),
       emoji: z.string().optional().describe('Optional emoji avatar (auto-picked if omitted).'),
       thumbnail: z.string().optional().describe('Optional thumbnail image URL.')
     },
@@ -87,7 +98,7 @@ function registerSkillCrud(server, client, { noun, idArg, suffix, plural }) {
     {
       [idArg]: z.string().describe(idDesc),
       name: z.string().optional().describe('New name.'),
-      description: z.string().optional().describe('New persona/instructions (replaces the old description; max 2000 chars).'),
+      description: z.string().optional().describe('New persona/instructions (replaces the old description; no API length cap, keep it under 8000 characters if it should stay editable in the Kolbo app).'),
       emoji: z.string().optional().describe('New emoji avatar.'),
       thumbnail: z.string().optional().describe('New thumbnail image URL.')
     },

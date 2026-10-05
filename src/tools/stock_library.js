@@ -49,7 +49,7 @@ function registerStockLibraryTools(server, client, options = {}) {
     'Covers external providers (Pexels photos/videos, Pixabay, Sketchfab 3D, licensed Music) AND Kolbo\'s OWN AI-generated library: thousands of SOUND EFFECTS (mediaType="sfx") and MUSIC tracks (source="kolbo-ai"). Use this to FIND ready-made photos, videos, 3D models, music, or sound effects as b-roll/references/project assets — distinct from generate_* tools which create new content.\n\nFor SOUND EFFECTS or MUSIC, Kolbo supports SEMANTIC "VIBE" SEARCH: pass a natural-language description of the feeling/use ("tense ominous build-up for a horror reveal", "uplifting hopeful corporate background", "retro arcade coin pickup") with source="kolbo-ai" and mediaType="sfx" (or "music") — it matches by meaning, not just keywords. For external visual providers, use concrete keywords.\n\nsource="all" interleaves providers for the requested media type; or pick a single source. Returns assets with source, sourceId, mediaType, dimensions, author, attribution, thumbnail, and downloadable variants. To turn a script into queries first, call analyze_script_for_stock.',
     {
       query: z.string().max(200).optional().describe('For visual providers: concrete keywords ("city skyline sunset"). For Kolbo SFX/music (source="kolbo-ai"): a natural-language VIBE works great ("eerie suspenseful drone", "emotional sad piano"). Omit to browse.'),
-      source: z.enum(['all', 'kolbo-ai', 'pexels', 'pixabay', 'sketchfab', 'music', 'freesound']).optional().describe('Provider. "all" (default) interleaves. "kolbo-ai" = Kolbo\'s own AI SFX + music (best for vibe search). "freesound" = external CC sound effects.'),
+      source: z.enum(['all', 'kolbo-ai', 'pexels', 'unsplash', 'pixabay', 'coverr', 'sketchfab', 'music', 'freesound']).optional().describe('Provider. "all" (default) interleaves. "kolbo-ai" = Kolbo\'s own AI SFX + music (best for vibe search). "unsplash" = photos. "coverr" = stock video + music. "freesound" = external CC sound effects. "music" is not available over the API (returns not found) — use "kolbo-ai" or "coverr" for music.'),
       mediaType: z.enum(['image', 'illustration', 'vector', 'video', '3d', 'music', 'sfx']).optional().describe('Asset type (default "image"). "sfx" = sound effects, "music" = music tracks. Not every source supports every type — call get_stock_sources.'),
       category: z.string().optional().describe('Category/group chip value (providerParam) from get_stock_categories. For Kolbo SFX these are 77 Soundly-style top-level groups (e.g. Ambience, Animals, Vehicles, Weapons, Water, Designed, Magic, UI) — call get_stock_categories to list them all.'),
       subcategory: z.string().optional().describe('Kolbo SFX sub-filter within a group (providerParam from get_stock_categories, e.g. Weapons>sword, Water>splash, Footsteps>concrete, Designed>riser). 623 sub-filters across the 77 groups.'),
@@ -57,10 +57,11 @@ function registerStockLibraryTools(server, client, options = {}) {
       collectionId: z.string().optional().describe('Filter to one Kolbo collection id (from get_stock_collections).'),
       orientation: z.enum(['horizontal', 'vertical', 'landscape', 'portrait', 'square']).optional().describe('Orientation filter (provider-dependent).'),
       color: z.string().optional().describe('Color filter (Pixabay named color, or Pexels named/hex color).'),
-      order: z.enum(['popular', 'latest']).optional().describe('Sort order (Pixabay).'),
+      order: z.enum(['popular', 'latest', 'trending', 'newest', 'title', 'duration_asc', 'duration_desc', 'bpm_asc', 'bpm_desc']).optional().describe('Sort order, provider-dependent. "popular"/"latest": Pixabay, Freesound, Coverr. "trending": Coverr. Music (mediaType="music"): "popular", "newest", "title", "duration_asc", "duration_desc", "bpm_asc", "bpm_desc". A provider ignores values it does not support.'),
       cursor: z.string().optional().describe('Opaque pagination cursor for Sketchfab single-source browse (from a previous response).'),
       page: z.number().int().min(1).optional().describe('1-based page number (default 1).'),
-      perPage: z.number().int().min(1).max(80).optional().describe('Results per page (default 24, max 80).')
+      perPage: z.number().int().min(1).max(80).optional().describe('Results per page (default 24, max 80).'),
+      projectId: z.string().optional().describe('Optional project id. Prices Kolbo music/SFX for that project (e.g. org-project access), so meta.priceCredits matches what importing into that project would cost.')
     },
     async (args) => {
       const q = buildQuery(args);
@@ -136,7 +137,7 @@ function registerStockLibraryTools(server, client, options = {}) {
     'get_stock_categories',
     'List the dynamic category chips for stock sources. For external providers: Pixabay/Sketchfab categories + curated Pexels topics. For Kolbo SFX (source="kolbo-ai", mediaType="sfx"): the 77 Soundly-style top-level groups (group=null) AND their 623 sub-filters (each has a `group` pointing to its parent). Pass a row\'s `providerParam` as `category` (groups) or `subcategory` (sub-filters) to search_stock_media.',
     {
-      source: z.enum(['kolbo-ai', 'pexels', 'pixabay', 'sketchfab']).optional().describe('Restrict to one source. Use "kolbo-ai" to list the SFX groups + sub-filters.'),
+      source: z.enum(['kolbo-ai', 'pexels', 'unsplash', 'pixabay', 'coverr', 'sketchfab', 'freesound']).optional().describe('Restrict to one source. Use "kolbo-ai" to list the SFX groups + sub-filters.'),
       mediaType: z.string().optional().describe('Restrict to one media type (e.g. "image", "video", "3d", "sfx").')
     },
     async (args) => {
@@ -204,12 +205,13 @@ function registerStockLibraryTools(server, client, options = {}) {
     'get_stock_asset',
     'Get a single normalized stock asset with all downloadable variants, author, license, and attribution, by source + id. Call after search_stock_media to resolve the exact download URLs (incl. WAV master + MP3 for Kolbo SFX/music).',
     {
-      source: z.enum(['kolbo-ai', 'pexels', 'pixabay', 'sketchfab', 'music', 'freesound']).describe('The asset source.'),
+      source: z.enum(['kolbo-ai', 'pexels', 'unsplash', 'pixabay', 'coverr', 'sketchfab', 'music', 'freesound']).describe('The asset source. "music" is not available over the API.'),
       id: z.string().describe('The provider asset id (sourceId).'),
-      mediaType: z.string().optional().describe('Media type hint (e.g. "video") — needed for sources that share ids across types.')
+      mediaType: z.string().optional().describe('Media type hint (e.g. "video") — needed for sources that share ids across types.'),
+      projectId: z.string().optional().describe('Optional project id used to price Kolbo music/SFX for that project (same as search_stock_media).')
     },
-    async ({ source, id, mediaType }) => {
-      const q = buildQuery({ mediaType });
+    async ({ source, id, mediaType, projectId }) => {
+      const q = buildQuery({ mediaType, projectId });
       const result = await client.get(`/v1/stock/asset/${encodeURIComponent(source)}/${encodeURIComponent(id)}${q ? '?' + q : ''}`);
       return { content: [{ type: 'text', text: JSON.stringify(result.asset, null, 2) }] };
     }
@@ -233,7 +235,7 @@ function registerStockLibraryTools(server, client, options = {}) {
     'import_stock_asset',
     "Copy a stock asset into the account's Kolbo media library (downloaded to Kolbo's CDN with a stable URL) so it can be used in projects/generations. FREE for images, video and 3D. Kolbo's own MUSIC and SFX are free for subscribers, org members and anyone who already bought the track; for everyone else they COST CREDITS (search results carry the exact price in meta.priceCredits; 0/absent means free for this caller). When a price is shown, tell the user the cost and get agreement BEFORE calling this. Returns the created media library item. Works for Kolbo SFX (source='kolbo-ai', mediaType='sfx') and supported external visual/audio sources. For SYNCI music use import_music_track_to_library; that paid action acquires a clean licensed file.",
     {
-      source: z.enum(['kolbo-ai', 'pexels', 'pixabay', 'sketchfab', 'freesound']).describe('The asset source.'),
+      source: z.enum(['kolbo-ai', 'pexels', 'unsplash', 'pixabay', 'coverr', 'sketchfab', 'freesound']).describe('The asset source.'),
       id: z.string().describe('The provider asset id (sourceId).'),
       mediaType: z.string().optional().describe('Media type hint (e.g. "video", "image", "vector", "3d").'),
       variant: z.string().optional().describe('Which download variant label to import (from get_stock_asset). Defaults to the best/largest available.'),

@@ -486,7 +486,7 @@ function registerGenerateTools(server, client, options = {}) {
       aspect_ratio: z.string().optional().describe(aspectRatioDescribe('1:1')),
       workflow_type: z.string().optional().describe('"image" (default) or "video"'),
       duration: z.number().optional().describe('Duration in seconds per scene (video mode only). Must be a value in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. E.g., 5 or 10.'),
-      enhance_prompt: z.boolean().optional().describe('Enhance prompts per scene. Default: false — only pass true if the user explicitly asks to enhance/improve the prompts.'),
+      enhance_prompt: z.boolean().optional().describe('Ignored by the server: Creative Director always writes and enhances each scene prompt itself, so true and false behave the same. Kept for backward compatibility.'),
       reference_images: z.array(z.string()).optional().describe('Array of reference images (URLs or absolute local paths) to guide style/composition of every scene. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model.**'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply consistently across every scene. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.** This is the ideal way to keep a character or product looking the same in all scenes of a campaign.'),
       moodboard_id: z.string().optional().describe('A single moodboard ID whose master_prompt and style_guide should shape every scene.'),
