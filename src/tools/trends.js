@@ -14,8 +14,12 @@ const { UI, uiResult } = require('../apps');
 
 const slugField = z.string().min(1).max(200).regex(/^[\w-]+(\/[\w-]+)?$/)
   .describe('Trend slug from list_trends, e.g. "vanish" or "motion/kolbo-urban-dance-glide".');
-const inputsField = z.record(z.string(), z.string().max(2048))
-  .describe('Values for the trend\'s declared inputs, keyed by input `key` from get_trend. Media inputs take an https URL (upload local files with upload_media / create_upload_ticket first). Text inputs take plain text.');
+const inputsField = z.record(z.string(), z.union([z.string().max(2048), z.array(z.string().max(2048)).min(1).max(3)]))
+  .describe('Values for the trend\'s declared inputs, keyed by input `key` from get_trend. Media inputs take an https URL (upload local files with upload_media / create_upload_ticket first); a photo input with max_images > 1 also takes an ARRAY of up to that many photos of the same subject (more angles = better likeness). Text inputs take plain text.');
+const dnaField = z.record(z.string(), z.string().regex(/^[a-f0-9]{24}$/i)).optional()
+  .describe('Use a saved Visual DNA for a photo input: { input key: visual DNA id } (ids from list_visual_dnas). The DNA\'s own character sheet and photos are used for that input, so leave that key out of inputs.');
+const previewField = z.boolean().optional()
+  .describe('Run a short preview (~4 s cut of the trend, priced at its own length) instead of the full video. Only trends whose get_trend shows `preview`.');
 const resolutionField = z.enum(['480p', '720p', '1080p']).optional()
   .describe('Render resolution for video trends (see resolutions in get_trend). Default: the trend\'s own. Higher costs more; quote it with estimate_trend_run.');
 const projectField = z.string().min(1).max(128).optional()
@@ -95,7 +99,8 @@ function registerTrendTools(server, client) {
       const summary = trends.map(t => ({
         slug: t.slug, name: t.name, description: t.description, family: t.family, output_type: t.output_type,
         estimated_credits: t.estimated_credits, free_trial: t.free_trial, badges: t.badges,
-        inputs: (t.inputs || []).map(i => ({ key: i.key, kind: i.kind, role: i.role, label: i.label, required: i.required })),
+        inputs: (t.inputs || []).map(i => ({ key: i.key, kind: i.kind, role: i.role, label: i.label, required: i.required, ...(i.max_images && { max_images: i.max_images }) })),
+        ...(t.preview && { preview: t.preview }),
       }));
       return uiResult(UI.mediaGrid, JSON.stringify({ trends: summary, count: summary.length, free_trials_left: baseData.free_trials_left ?? null }, null, 2), {
         widget: 'media-grid',
@@ -117,8 +122,8 @@ function registerTrendTools(server, client) {
   server.tool(
     'estimate_trend_run',
     'Quote a trend run before spending: returns total_credits for these exact inputs (video trends are priced by the source clip length). Free — no credits spent.',
-    { slug: slugField, inputs: inputsField, project_id: projectField, resolution: resolutionField },
-    async ({ slug, inputs, project_id, resolution }) => text(unwrap(await client.post(`/v1/trends/${slugPath(slug)}/estimate`, { inputs, ...(project_id && { project_id }), ...(resolution && { resolution }) })))
+    { slug: slugField, inputs: inputsField, dna: dnaField, preview: previewField, project_id: projectField, resolution: resolutionField },
+    async ({ slug, inputs, dna, preview, project_id, resolution }) => text(unwrap(await client.post(`/v1/trends/${slugPath(slug)}/estimate`, { inputs, ...(dna && { dna }), ...(preview && { preview: true }), ...(project_id && { project_id }), ...(resolution && { resolution }) })))
   );
 
   server.tool(
@@ -127,6 +132,8 @@ function registerTrendTools(server, client) {
     {
       slug: slugField,
       inputs: inputsField,
+      dna: dnaField,
+      preview: previewField,
       project_id: projectField,
       resolution: resolutionField,
       max_credits: z.number().finite().min(0).optional().describe('Credit ceiling for this run. Default: the trend\'s own ceiling.'),
@@ -135,8 +142,8 @@ function registerTrendTools(server, client) {
       wait: z.boolean().optional().describe('Wait for the result. Default true.'),
       wait_seconds: z.number().int().min(0).max(170).optional().describe('How long to wait before returning. Default 150.'),
     },
-    async ({ slug, inputs, project_id, resolution, max_credits, free_trial, idempotency_key, wait, wait_seconds }) => {
-      const body = { inputs, idempotency_key: idempotency_key || randomUUID(), ...(project_id && { project_id }), ...(resolution && { resolution }), ...(max_credits !== undefined && { max_credits }), ...(free_trial && { free_trial: true }) };
+    async ({ slug, inputs, dna, preview, project_id, resolution, max_credits, free_trial, idempotency_key, wait, wait_seconds }) => {
+      const body = { inputs, ...(dna && { dna }), ...(preview && { preview: true }), idempotency_key: idempotency_key || randomUUID(), ...(project_id && { project_id }), ...(resolution && { resolution }), ...(max_credits !== undefined && { max_credits }), ...(free_trial && { free_trial: true }) };
       const started = unwrap(await client.post(`/v1/trends/${slugPath(slug)}/runs`, body));
       started.idempotency_key = body.idempotency_key;
       if (wait === false || TERMINAL.has(started.status)) return runResult(started);
