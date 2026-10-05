@@ -134,6 +134,9 @@ function normalizeTemplatePath(raw) {
   out = out.replace(/\$\{[^}]*[?&][^}]*\}/g, '');
   // Replace remaining ${...} with :param
   out = out.replace(/\$\{[^}]*\}/g, ':param');
+  // `${id}${suffix}` — an interpolation glued to a segment is a query suffix,
+  // not a second path segment.
+  out = out.replace(/([^/]):param/g, '$1');
   // Apply standard normalization
   return normalizePath(out);
 }
