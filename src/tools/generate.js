@@ -2351,7 +2351,7 @@ function registerGenerateTools(server, client, options = {}) {
         '"reframe" — RE-GENERATES the entire picture at a new aspect ratio (Luma Photon). The subject is re-imagined, not preserved — expect a different-looking image. Use ONLY when the user explicitly wants the shot re-taken in another format. If they said "expand", "extend", "widen", "uncrop", "add space", "fill the sides", or "keep it the same but 16:9", they want "zoom_out" instead. Requires `aspect_ratio`.',
         '"removebg" — remove the image background, output is transparent PNG.',
         '"background_replace" — remove background and replace it with AI-generated content from `prompt`.',
-        '"enhance_skin" — portrait skin retouching (use `skin_strength`: "subtle" | "realistic" | "pimple" | "freckle").',
+        '"enhance_skin" — realistic skin texture on portraits (Enhancor). `skin_strength`: "subtle" (barely visible — avoid unless asked), "realistic" (default, visible pore/texture detail; add `fix_lighting=true` to also even out lighting), "pimple" (removes blemishes), "freckle" (adds freckles — set `freckle_intensity`). Works on visible faces: on a full-body shot or a multi-panel character sheet the face is small and the change is hard to see — run it on a face close-up or crop instead.',
         '"enhance" — Topaz photo correction at the SOURCE resolution (no resizing). Pick the tool with `model`: "topaz/adjust/image" (exposure, white balance, or colorizing a black-and-white photo), "topaz/sharpen/image" (lens / motion / portrait / wildlife blur, or Super Focus for severely blurred shots), "topaz/denoise/image" (high-ISO and night noise), "topaz/restore/image" (old or damaged photos, dust and scratches). Choose the specific engine with `enhancement_model` — call list_models type="graphics_enhance" to see each model\'s engines. To make an image BIGGER use "upscale" instead.',
         '"inpaint" — paint over a masked area using `mask_image_url` (B&W mask, white = fill area) and optional `prompt`. Add reference images via `additional_images`.',
         '"erase" — erase an object defined by `mask_image_url` (white = erase area).',
@@ -2400,7 +2400,11 @@ function registerGenerateTools(server, client, options = {}) {
 
       // ── enhance_skin ───────────────────────────────────────
       skin_strength: z.enum(['subtle', 'realistic', 'pimple', 'freckle']).optional()
-        .describe('Skin enhancement preset. Used with operation="enhance_skin". Default: "realistic".'),
+        .describe('Skin enhancement preset. Used with operation="enhance_skin". Default: "realistic". "subtle" changes very little.'),
+      freckle_intensity: z.union([z.literal(0), z.literal(50), z.literal(100)]).optional()
+        .describe('Freckle amount: 0, 50 or 100. Used with operation="enhance_skin" and skin_strength="freckle". Default: 50.'),
+      fix_lighting: z.boolean().optional()
+        .describe('Also correct uneven / flat lighting on the face. Used with operation="enhance_skin" and skin_strength="realistic". Default: false.'),
 
       // ── inpaint / erase / face_swap / background_replace / zoom_out / camera_angle / magic_edit ──
       prompt: z.string().optional()
@@ -2427,7 +2431,7 @@ function registerGenerateTools(server, client, options = {}) {
       session_id: sessionIdField
     },
     async ({
-      image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
+      image_url, operation, model, scale, aspect_ratio, skin_strength, freckle_intensity, fix_lighting, prompt,
       mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize = false,
       zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
       enhancement_model, output_format,
@@ -2460,7 +2464,7 @@ function registerGenerateTools(server, client, options = {}) {
         additional_images ? Promise.all(additional_images.map((s) => rehostLocal(s, 'image', project_id))) : additional_images,
       ]);
       const gen = await client.post('/v1/edit/image', {
-        image_url, operation, model, scale, aspect_ratio, skin_strength, prompt,
+        image_url, operation, model, scale, aspect_ratio, skin_strength, freckle_intensity, fix_lighting, prompt,
         mask_image_url, additional_images, generate_all_angles, resolution, quality, ai_optimize,
         zoom_out_percentage, expand_left, expand_right, expand_top, expand_bottom,
         enhancement_model, output_format,
