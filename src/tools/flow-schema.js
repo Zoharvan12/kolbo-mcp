@@ -20,7 +20,7 @@ const voice = z.union([z.string().max(256), z.object({
   name: z.string().max(500).optional(), type: z.string().max(128).optional(),
 }).strict()]);
 const booleanConfig = new Set('instrumental preservePitch resolved enhancePrompt soundEnabled sound_enabled showLyrics includeAudio loop reverse'.split(' '));
-const numberConfig = new Set('scale frameCount quantity startTime endTime speed timestamp speaking_speed promptInfluence creativity resemblance movement upscaleFactor targetFps extendDuration skinIntensity start end cropX cropY cropWidth cropHeight x y width height fps frameTime seed temperature maxTokens volume'.split(' '));
+const numberConfig = new Set('scale frameCount quantity startTime endTime speed timestamp speaking_speed promptInfluence creativity resemblance movement upscaleFactor targetFps scaleRatio bitDepth extendDuration skinIntensity start end cropX cropY cropWidth cropHeight x y width height fps frameTime seed temperature maxTokens volume'.split(' '));
 const modelConfig = new Set('model t2iModel i2iModel t2vModel i2vModel flModel modelId engineId'.split(' '));
 const configShape = Object.fromEntries(contract.config_fields.map(field => {
   let schema = text;
