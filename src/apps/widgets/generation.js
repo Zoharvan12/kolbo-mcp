@@ -230,6 +230,45 @@ function modelLabel(sc) {
 }
 function voiceLabel(sc) { return sc.voice_name || sc.voice || (sc.settings || {}).voice; }
 
+// generate_speech controls. What the API reports it APPLIED wins: \`speech\`
+// (status / completed payload; a key there is authoritative even when null),
+// then the raw status result's own fields, then what the caller submitted.
+var SPEECH_KEYS = ['turbo', 'speaking_speed', 'stability', 'similarity_boost', 'enforce_language',
+  'output_format', 'audio_effect', 'audio_effect_strength', 'seed'];
+var SPEECH_FORMATS = { mp3_44100_128: 'MP3 128', mp3_44100_192: 'MP3 192', wav_44100: 'WAV' };
+function withSpeech(settings, a) {
+  SPEECH_KEYS.forEach(function (k) { if (a && a[k] != null) settings[k] = a[k]; });
+  return settings;
+}
+function speechVal(sc, k) {
+  if (sc.speech && Object.prototype.hasOwnProperty.call(sc.speech, k)) return sc.speech[k];
+  var vs = sc.voice_settings || {};
+  if (vs[k] != null) return vs[k];
+  if (sc[k] != null) return sc[k];
+  return (sc.settings || {})[k];
+}
+function num(v) { return String(Math.round(Number(v) * 100) / 100); }
+function speechChipsHTML(sc) {
+  if (sc.tool !== 'generate_speech' && !sc.speech) return '';
+  var h = '', v;
+  if (speechVal(sc, 'turbo') === true) h += chip('Turbo');
+  v = speechVal(sc, 'speaking_speed'); if (v != null) h += chip('Speed ' + esc(num(v)) + '×');
+  v = speechVal(sc, 'stability'); if (v != null) h += chip('Stability ' + esc(num(v)));
+  v = speechVal(sc, 'similarity_boost'); if (v != null) h += chip('Similarity ' + esc(num(v)));
+  v = speechVal(sc, 'enforce_language');
+  h += chip('Language ' + (v ? esc(String(v).toUpperCase()) : 'Auto'));
+  v = speechVal(sc, 'output_format'); if (v) h += chip(esc(SPEECH_FORMATS[v] || v));
+  v = speechVal(sc, 'audio_effect');
+  if (v && v !== 'none') {
+    var strength = speechVal(sc, 'audio_effect_strength');
+    var name = String(v).replace(/_/g, ' ');
+    h += chip(esc(name.charAt(0).toUpperCase() + name.slice(1)) +
+      (strength != null && Number(strength) < 1 ? ' ' + Math.round(Number(strength) * 100) + '%' : ''));
+  }
+  v = speechVal(sc, 'seed'); if (v != null) h += chip('Seed ' + esc(String(v)));
+  return h;
+}
+
 // @VisualDNA / #Moodboard mentions are the tag syntax the server resolves into
 // real reference assets — rendering them as flat prose hid the single most
 // consequential part of the prompt. Escape FIRST, then wrap: the pattern only
@@ -340,6 +379,7 @@ function renderChips(sc) {
       : ICONS.mic;
     h += chip(face + ' ' + esc(voice));
   }
+  h += speechChipsHTML(sc);
   if (s.mode) h += chip(esc(editLabel(s.mode)));
   if (Array.isArray(s.details)) s.details.forEach(function (d) { if (d) h += chip(esc(String(d))); });
   if (many && !kind) h += chip(sc.count + ' items');
@@ -1358,7 +1398,7 @@ function preRefSc(toolName, a) {
     reference_videos: vid,
     reference_audio: aud,
     local_references: local,
-    settings: {
+    settings: withSpeech({
       duration: a.duration,
       resolution: a.draft === true ? '480p-draft' : a.draft === false ? String(a.resolution || '').replace(/-draft$/i, '') : a.resolution,
       aspect_ratio: a.aspect_ratio,
@@ -1369,7 +1409,7 @@ function preRefSc(toolName, a) {
       moodboard_ids: a.moodboard_ids,
       moodboard_id: a.moodboard_id,
       preset_id: a.preset_id
-    }
+    }, a)
   };
 }
 
@@ -1427,7 +1467,7 @@ function liveFromTimedOut(sc) {
     kind: kindFromTool(originTool, sc),
     prompt: originArgs.prompt || originArgs.text || '',
     model: sc.model || originArgs.model,
-    settings: {
+    settings: withSpeech({
       duration: originArgs.duration,
       is_draft: originArgs.draft,
       resolution: originArgs.draft === true ? '480p-draft' : originArgs.draft === false ? String(originArgs.resolution || '').replace(/-draft$/i, '') : originArgs.resolution,
@@ -1436,7 +1476,7 @@ function liveFromTimedOut(sc) {
       mode: originArgs.operation,
       visual_dna_ids: originArgs.visual_dna_ids,
       moodboard_id: originArgs.moodboard_id
-    },
+    }, originArgs),
     count: ids ? ids.length : (originArgs.num_images || 1),
     generation_id: sc.generation_id,
     poll_tool: 'get_generation_status',
@@ -1457,14 +1497,14 @@ function completedFromPlain(sc) {
     kind: kindFromTool(originTool, sc),
     prompt: originArgs.prompt || originArgs.text || sc.prompt_used || '',
     model: sc.model || originArgs.model,
-    settings: {
+    settings: withSpeech({
       duration: sc.duration || originArgs.duration,
       is_draft: originArgs.draft,
       resolution: originArgs.draft === true ? '480p-draft' : originArgs.draft === false ? String(originArgs.resolution || '').replace(/-draft$/i, '') : originArgs.resolution,
       aspect_ratio: originArgs.aspect_ratio,
       quality: originArgs.quality,
       mode: originArgs.operation
-    },
+    }, originArgs),
     urls: sc.urls || [],
     session_id: sc.session_id || originArgs.session_id,
     project_id: sc.project_id || originArgs.project_id,

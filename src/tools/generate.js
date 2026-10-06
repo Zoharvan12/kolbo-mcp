@@ -151,6 +151,24 @@ function mediaKind(url) {
   return 'image';
 }
 
+// The speech settings the API says it APPLIED (status result, kolbo-api
+// sdk/controller.js extractResult). Keys are always present (null = not
+// applied) so the card prefers these over what the caller asked for; only a
+// speech result carries `enforce_language`, so every other result returns
+// undefined and its card is untouched.
+function speechFromResult(r) {
+  if (!r || typeof r !== 'object' || !Object.prototype.hasOwnProperty.call(r, 'enforce_language')) return undefined;
+  const vs = r.voice_settings || {};
+  const out = {
+    stability: vs.stability, similarity_boost: vs.similarity_boost, style: vs.style, use_speaker_boost: vs.use_speaker_boost,
+    speaking_speed: r.speaking_speed, enforce_language: r.enforce_language, output_format: r.output_format,
+    text_normalization: r.text_normalization, audio_effect: r.audio_effect,
+    audio_effect_strength: r.audio_effect_strength, seed: r.seed,
+  };
+  for (const k of Object.keys(out)) if (out[k] === undefined) out[k] = null;
+  return out;
+}
+
 function preferOwned(urls) {
   const list = (urls || []).filter((item) => typeof item === 'string' && item);
   const ours = list.filter(ownedUrl);
@@ -1099,14 +1117,20 @@ function registerGenerateTools(server, client, options = {}) {
       emotion: z.string().optional().describe('MiniMax / Cartesia voices. Emotion: happy, sad, angry, fearful, disgusted, surprised, calm, fluent, whisper. Prefer this OR selected_style (both map to the same delivery control).'),
       speaking_speed: z.number().optional().describe('Speech speed 0.5 (slow) – 2.0 (fast); Cartesia clamped 0.6–1.5. Default 1.0. Applies to ElevenLabs / OpenAI / Google / MiniMax / Cartesia / DeepDub (as tempo when tempo omitted).'),
       // ── ElevenLabs voice settings ──
-      similarity_boost: z.number().optional().describe('ElevenLabs voice similarity, 0–1. Default 0.75. Higher hews closer to the original voice.'),
-      style: z.number().optional().describe('ElevenLabs style exaggeration, 0–1. Default 0.5. Higher = more expressive/dramatic.'),
-      use_speaker_boost: z.boolean().optional().describe('ElevenLabs speaker boost. Default true.'),
+      stability: z.number().min(0).max(1).optional().describe('ElevenLabs Stability, 0–1. Default 0.5. Lower = more expressive and varied between takes (Creative); higher = steadier, more consistent delivery (Robust). Supported on V4.'),
+      similarity_boost: z.number().optional().describe('ElevenLabs voice similarity, 0–1. Default 0.75. Higher hews closer to the original voice. Also applies to the user\'s own cloned/character ElevenLabs voices.'),
+      style: z.number().optional().describe('ElevenLabs style exaggeration, 0–1. Default 0. Higher = more expressive/dramatic. V3/V2 voices only — ElevenLabs V4 ignores it (use stability or inline audio tags instead).'),
+      use_speaker_boost: z.boolean().optional().describe('ElevenLabs speaker boost (presence/clarity). Default true.'),
+      enforce_language: z.string().optional().describe('ElevenLabs voices ONLY. Force the spoken language with an ISO 639-1 code ("he", "en", "fr"; a locale like "he-IL" is also accepted). Omit (recommended) and ElevenLabs auto-detects the language from the text. Different from `language`, which stays the accent/locale control.'),
+      output_format: z.enum(['mp3_44100_128', 'mp3_44100_192', 'wav_44100']).optional().describe('ElevenLabs voices ONLY. Audio file format: "mp3_44100_128" (default), "mp3_44100_192" (higher-bitrate MP3) or "wav_44100" (uncompressed; the result is a .wav file). ElevenLabs\' native render is delivered as is. Any other provider rejects it (OUTPUT_FORMAT_UNSUPPORTED).'),
+      text_normalization: z.enum(['auto', 'on', 'off']).optional().describe('ElevenLabs voices. Spell out numbers, dates and abbreviations before speaking: "auto" (default), "on" (always), "off" (read as written).'),
+      audio_effect: z.enum(['none', 'phone', 'radio', 'megaphone', 'small_room', 'hall', 'distant']).optional().describe('Kolbo post-processing effect applied to the finished voice: phone, radio, megaphone, small_room, hall, distant, or "none" (default). Works for ANY voice/provider, no extra credits.'),
+      audio_effect_strength: z.number().min(0).max(1).optional().describe('Mix of audio_effect with the dry voice, 0–1. Default 1 (full effect). Ignored without audio_effect.'),
       // ── DeepDub controls ──
       variance: z.number().optional().describe('DeepDub voice variance, 0–1. Default 0.2. Higher = more takes/variation.'),
       tempo: z.number().optional().describe('DeepDub tempo multiplier, 0–2. Default 1.0.'),
       promptBoost: z.boolean().optional().describe('DeepDub prompt-fidelity boost. Default true.'),
-      seed: z.number().optional().describe('Reproducibility seed (DeepDub / Zonos). Same seed + inputs → same output.'),
+      seed: z.number().optional().describe('Reproducibility seed (ElevenLabs / DeepDub / Zonos). Same seed + inputs → same output. ElevenLabs: integer 0–4294967295, best-effort determinism (not guaranteed).'),
       accentControl: z.object({
         accentBaseLocale: z.string().describe('Base accent locale, e.g. "en-US".'),
         accentLocale: z.string().describe('Target accent locale, e.g. "en-GB".'),
@@ -1121,7 +1145,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ text, voice, model, turbo, language, style_instructions_preset_id, style_instructions, style_instructions_label, selected_style, emotion, speaking_speed, similarity_boost, style, use_speaker_boost, variance, tempo, promptBoost, seed, accentControl, voiceTitle, minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre, project_id, session_id }) => {
+    async ({ text, voice, model, turbo, language, style_instructions_preset_id, style_instructions, style_instructions_label, selected_style, emotion, speaking_speed, stability, similarity_boost, style, use_speaker_boost, enforce_language, output_format, text_normalization, audio_effect, audio_effect_strength, variance, tempo, promptBoost, seed, accentControl, voiceTitle, minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'text_to_speech'); // lenient id resolution ("z-image" → "z-image/turbo")
       // Resolve the requested voice against the REAL catalog (cached) so the card
       // can show its display name + portrait instead of a raw id, and so an id
@@ -1133,11 +1157,14 @@ function registerGenerateTools(server, client, options = {}) {
       const unknownVoice = voice && !voiceRecord && !/^custom_/i.test(voice)
         ? `Voice "${voice}" is not in the Kolbo voice catalog. Call list_voices and pass a voice_id it returns — an unrecognised id is NOT rejected, it is silently mapped to a different voice, so the audio will not be the voice you named.`
         : null;
+      // ElevenLabs / effect controls carried on the card (undefined keys drop out of the JSON).
+      const ttsControls = { turbo, stability, similarity_boost, style, use_speaker_boost, enforce_language, output_format, text_normalization, audio_effect, audio_effect_strength, seed };
       const gen = await client.post('/v1/generate/speech', {
         text, voice, model, turbo, language,
         style_instructions_preset_id, style_instructions, style_instructions_label,
         selected_style, emotion, speaking_speed,
-        similarity_boost, style, use_speaker_boost,
+        stability, similarity_boost, style, use_speaker_boost,
+        enforce_language, output_format, text_normalization, audio_effect, audio_effect_strength,
         variance, tempo, promptBoost, seed, accentControl, voiceTitle,
         minimax_pitch, minimax_vol, minimax_intensity, minimax_timbre,
         project_id, session_id
@@ -1151,6 +1178,7 @@ function registerGenerateTools(server, client, options = {}) {
           style: selected_style || emotion || style_instructions_preset_id || style_instructions,
           speaking_speed,
           language,
+          ...ttsControls,
         },
         warning: unknownVoice
       });
@@ -1178,7 +1206,9 @@ function registerGenerateTools(server, client, options = {}) {
           style: selected_style || emotion || style_instructions_preset_id || style_instructions,
           speaking_speed,
           language,
+          ...ttsControls,
         },
+        speech: speechFromResult(result.result),
         urls: result.result.urls,
         playback_urls: result.result.playback_urls,
         duration: result.result.duration,
@@ -1420,6 +1450,7 @@ function registerGenerateTools(server, client, options = {}) {
           txt_url: res.txt_url || undefined,
           audio_url: res.audio_url || undefined,
           prompt: res.prompt_used || res.prompt || undefined,
+          speech: speechFromResult(res),
           credits_used: creditFields(single).credits_used,
           items: [{
             id: single.generation_id,
