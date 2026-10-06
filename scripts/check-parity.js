@@ -64,6 +64,14 @@ const KNOWN_GAPS = new Set([
   // Project duplication can clone large storage trees and remains an explicit
   // web/SDK workflow until MCP has a dedicated confirmation contract.
   'POST /v1/projects/:param/duplicate',
+  // Seedance 2.5 Lipsync plans — not launched yet (Zohar, 2026-10-06). Add MCP tools
+  // and drop these entries when the feature ships.
+  'POST /v1/lipsync-plans/:param/assets',
+  'POST /v1/lipsync-plans/:param',
+  'GET /v1/lipsync-plans/:param/:param',
+  'PATCH /v1/lipsync-plans/:param/:param',
+  'POST /v1/lipsync-plans/:param/:param/prepare',
+  'POST /v1/lipsync-plans/:param/:param/quote',
 ]);
 
 // MCP tool call patterns that trigger false-positive STALE warnings.
