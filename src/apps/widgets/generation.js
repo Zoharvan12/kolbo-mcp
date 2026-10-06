@@ -1312,7 +1312,8 @@ function openPromptRow(placeholder, onSend) {
 // like the result path, so a .mp4 handed to the files arg renders as video.
 var PRE_IMAGE_KEYS = ['source_images', 'reference_images', 'image_url', 'mask_image_url',
   'additional_images', 'first_frame', 'last_frame', 'seed_reference_image_url',
-  'elements', 'files', 'keyframes', 'source'];
+  'elements', 'files', 'keyframes', 'source', 'first_frame_url', 'last_frame_url',
+  'texture_image_url', 'background_reference_image'];
 var PRE_VIDEO_KEYS = ['source_video', 'video_url', 'mask_video_url', 'reference_videos'];
 var PRE_AUDIO_KEYS = ['audio', 'audio_url', 'reference_audio_urls', 'seed_reference_audio_urls'];
 
