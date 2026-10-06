@@ -1066,7 +1066,8 @@ async function uiCompleted(p, textPayload, extraContent) {
     // voice's face. Exactly the "never show a raw id on a card" rule, broken on
     // the one path the user actually ends up looking at.
     ...(p.voice ? { voice_name: p.voice.name, voice_thumbnail: p.voice.thumbnail } : {}),
-    // Speech settings the API reports it applied (generate.js speechFromResult);
+    // Speech settings the API reports it applied (generate.js speechFromResult,
+    // incl. eleven_model); passed through whole.
     // the card prefers them over the submitted `settings`.
     ...(p.speech ? { speech: p.speech } : {}),
     // The RAW generation state, when the caller has one. `phase` above is

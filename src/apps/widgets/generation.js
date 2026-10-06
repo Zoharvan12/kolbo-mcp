@@ -233,8 +233,9 @@ function voiceLabel(sc) { return sc.voice_name || sc.voice || (sc.settings || {}
 // generate_speech controls. What the API reports it APPLIED wins: \`speech\`
 // (status / completed payload; a key there is authoritative even when null),
 // then the raw status result's own fields, then what the caller submitted.
-var SPEECH_KEYS = ['turbo', 'speaking_speed', 'stability', 'similarity_boost', 'enforce_language',
+var SPEECH_KEYS = ['eleven_model', 'turbo', 'speaking_speed', 'stability', 'similarity_boost', 'enforce_language',
   'output_format', 'audio_effect', 'audio_effect_strength', 'seed'];
+var SPEECH_MODELS = { eleven_v4: 'V4', eleven_v3: 'V3', eleven_multilingual_v2: 'V2' };
 var SPEECH_FORMATS = { mp3_44100_128: 'MP3 128', mp3_44100_192: 'MP3 192', wav_44100: 'WAV' };
 function withSpeech(settings, a) {
   SPEECH_KEYS.forEach(function (k) { if (a && a[k] != null) settings[k] = a[k]; });
@@ -251,6 +252,7 @@ function num(v) { return String(Math.round(Number(v) * 100) / 100); }
 function speechChipsHTML(sc) {
   if (sc.tool !== 'generate_speech' && !sc.speech) return '';
   var h = '', v;
+  v = speechVal(sc, 'eleven_model'); if (v) h += chip('Model ' + esc(SPEECH_MODELS[v] || v));
   if (speechVal(sc, 'turbo') === true) h += chip('Turbo');
   v = speechVal(sc, 'speaking_speed'); if (v != null) h += chip('Speed ' + esc(num(v)) + '×');
   v = speechVal(sc, 'stability'); if (v != null) h += chip('Stability ' + esc(num(v)));

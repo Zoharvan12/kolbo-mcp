@@ -210,7 +210,7 @@ function build() {
     result: Object.assign(baseGen('generate_speech', 'audio', 'sp-1'), {
       phase: 'completed', urls: [AUD], credits_used: 1, model: 'eleven_v3', model_name: 'ElevenLabs v3',
       voice_name: 'Rachel', voice_thumbnail: IMG2, settings: { voice: 'Rachel', language: 'en', turbo: true },
-      speech: { stability: 0.5, similarity_boost: 0.75, speaking_speed: 1, enforce_language: null, output_format: 'wav_44100', audio_effect: 'radio', audio_effect_strength: 0.7, seed: 42 },
+      speech: { eleven_model: 'eleven_v3', stability: 0.5, similarity_boost: 0.75, speaking_speed: 1, enforce_language: null, output_format: 'wav_44100', audio_effect: 'radio', audio_effect_strength: 0.7, seed: 42 },
     }),
   });
   scenarios.push({

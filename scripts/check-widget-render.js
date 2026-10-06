@@ -492,7 +492,7 @@ async function speechCardShowsItsSettings() {
       urls: [WAV], model: 'eleven_v4', model_name: 'ElevenLabs V4',
       voice_settings: { stability: 0.3, similarity_boost: 0.8, style: 0, use_speaker_boost: true },
       speaking_speed: 1.1, enforce_language: 'he', output_format: 'wav_44100',
-      text_normalization: 'auto', audio_effect: 'small_room', audio_effect_strength: 0.6, seed: 42,
+      text_normalization: 'auto', audio_effect: 'small_room', audio_effect_strength: 0.6, seed: 42, eleven_model: 'eleven_v3',
     },
   });
   w.deliver({
@@ -500,10 +500,10 @@ async function speechCardShowsItsSettings() {
     generation_id: 'gen-tts', poll_tool: 'get_generation_status',
     status_args: { generation_id: 'gen-tts', wait: true },
     model: 'eleven_v4', model_name: 'ElevenLabs V4', prompt: 'Shalom',
-    settings: { voice: 'Rachel', turbo: true, speaking_speed: 1.1, stability: 0.5, similarity_boost: 0.8, output_format: 'mp3_44100_192', audio_effect: 'radio' },
+    settings: { voice: 'Rachel', eleven_model: 'eleven_v4', turbo: true, speaking_speed: 1.1, stability: 0.5, similarity_boost: 0.8, output_format: 'mp3_44100_192', audio_effect: 'radio' },
   });
   let chips = w.html('chips');
-  for (const want of ['Rachel', 'ElevenLabs V4', 'Turbo', 'Speed 1.1', 'Stability 0.5', 'Similarity 0.8', 'Language Auto', 'MP3 192', 'Radio']) {
+  for (const want of ['Rachel', 'ElevenLabs V4', 'Turbo', 'Speed 1.1', 'Stability 0.5', 'Similarity 0.8', 'Language Auto', 'MP3 192', 'Radio', 'Model V4']) {
     assert.ok(chips.includes(want), `submitted speech card is missing the "${want}" chip`);
   }
   assert.ok(!chips.includes('Seed'), 'submitted speech card invented a seed chip');
@@ -512,10 +512,10 @@ async function speechCardShowsItsSettings() {
   w.drain();
   await flush();
   chips = w.html('chips');
-  for (const want of ['Turbo', 'Speed 1.1', 'Stability 0.3', 'Similarity 0.8', 'Language HE', 'WAV', 'Small room 60%', 'Seed 42']) {
+  for (const want of ['Turbo', 'Speed 1.1', 'Stability 0.3', 'Similarity 0.8', 'Language HE', 'WAV', 'Small room 60%', 'Seed 42', 'Model V3']) {
     assert.ok(chips.includes(want), `completed speech card is missing the "${want}" chip`);
   }
-  assert.ok(!chips.includes('Stability 0.5') && !chips.includes('MP3 192') && !chips.includes('Radio'),
+  assert.ok(!chips.includes('Stability 0.5') && !chips.includes('MP3 192') && !chips.includes('Radio') && !chips.includes('Model V4'),
     'completed speech card kept the submitted values over what the API applied');
   const stage = w.html('stage');
   assert.ok(/<audio class="k-audio-player" src="https:\/\/media\.kolbo\.ai\/speech-1\.wav"/.test(stage), 'WAV result did not render in the audio player');
@@ -526,11 +526,11 @@ async function speechCardShowsItsSettings() {
   const s = mountWidget();
   s.deliver({
     phase: 'completed', widget: 'generation', kind: 'audio', tool: 'get_generation_status', urls: [WAV],
-    settings: { enforce_language: 'fr', stability: 0.9 },
-    speech: { stability: 0.4, similarity_boost: null, enforce_language: null, output_format: 'wav_44100', audio_effect: 'none', audio_effect_strength: null, seed: null, speaking_speed: null },
+    settings: { enforce_language: 'fr', stability: 0.9, eleven_model: 'eleven_v4' },
+    speech: { eleven_model: 'eleven_multilingual_v2', stability: 0.4, similarity_boost: null, enforce_language: null, output_format: 'wav_44100', audio_effect: 'none', audio_effect_strength: null, seed: null, speaking_speed: null },
   });
   chips = s.html('chips');
-  assert.ok(chips.includes('Stability 0.4') && chips.includes('Language Auto') && chips.includes('WAV'), 'speech payload chips did not render');
+  assert.ok(chips.includes('Stability 0.4') && chips.includes('Language Auto') && chips.includes('WAV') && chips.includes('Model V2'), 'speech payload chips did not render');
   assert.ok(!chips.includes('FR') && !chips.includes('Stability 0.9') && !chips.includes('Seed') && !chips.includes('None'),
     'speech payload did not win over the submitted settings');
 
