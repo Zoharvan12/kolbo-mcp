@@ -393,6 +393,14 @@ function referenceHTML(sc) {
         + peek + ' onerror="this.style.display=\\'none\\'">';
     }
   }
+  // Local files the caller passed by path: the iframe cannot load them and they
+  // are only uploaded during the run, so name them instead of showing nothing.
+  // The finished card carries the uploaded thumbnails and drops these.
+  if (sc.phase !== 'completed' && Array.isArray(sc.local_references)) {
+    sc.local_references.slice(0, 6).forEach(function (name) {
+      h += '<span class="k-chip" title="' + esc(name) + '">' + ICONS.image + ' ' + esc(String(name).slice(0, 24)) + '</span>';
+    });
+  }
   return h;
 }
 // Which characters/looks are locked into this generation — by face and name,
@@ -1319,11 +1327,16 @@ var PRE_AUDIO_KEYS = ['audio', 'audio_url', 'reference_audio_urls', 'seed_refere
 // this) — rendering the raw identifier the caller passed would put an id on the
 // card, which is never allowed.
 function preRefSc(toolName, a) {
-  var img = [], vid = [], aud = [];
+  var img = [], vid = [], aud = [], local = [];
   var take = function (v, bucket) {
     if (typeof v === 'string') {
-      // http(s) only — an absolute local path is not loadable from the iframe.
-      if (/^https?:/i.test(v) && bucket.indexOf(v) < 0) bucket.push(v);
+      // http(s) only — an absolute local path is not loadable from the iframe,
+      // so it is shown by file name instead (see referenceHTML).
+      if (/^https?:/i.test(v)) { if (bucket.indexOf(v) < 0) bucket.push(v); }
+      else if (/^(?:[a-z]:[\\\\/]|\\/|~[\\\\/]|file:)/i.test(v)) {
+        var name = v.split(/[\\\\/]/).pop() || v;
+        if (local.indexOf(name) < 0) local.push(name);
+      }
       return;
     }
     if (Array.isArray(v)) {
@@ -1343,6 +1356,7 @@ function preRefSc(toolName, a) {
     reference_images: img,
     reference_videos: vid,
     reference_audio: aud,
+    local_references: local,
     settings: {
       duration: a.duration,
       resolution: a.draft === true ? '480p-draft' : a.draft === false ? String(a.resolution || '').replace(/-draft$/i, '') : a.resolution,
