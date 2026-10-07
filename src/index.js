@@ -83,6 +83,7 @@ const { registerMusicLibraryTools } = require('./tools/music_library');
 const { registerStockLibraryTools } = require('./tools/stock_library');
 const { registerAudioStemTools } = require('./tools/audio_stems');
 const { registerAnalyzeTools } = require('./tools/analyze');
+const { registerVideoInspectionTools } = require('./tools/video_inspection');
 const { registerBlenderTools } = require('./tools/blender');
 const { registerAdobeTools } = require('./tools/adobe');
 const { registerResolveTools } = require('./tools/resolve');
@@ -200,6 +201,7 @@ function createServer(opts = {}) {
   registerTrendTools(server, client);
   registerMorphiousStyleTools(server, client);
   registerAnalyzeTools(server, client, toolOptions);
+  registerVideoInspectionTools(server, client);
   registerMediaTools(server, client, toolOptions);
   registerPresetTools(server, client, toolOptions);
   registerArtifactTools(server, client, toolOptions);

@@ -55,6 +55,7 @@ const LOCAL_FILE_ROUTING =
 // cannot take their file at all. attachFileInputHints() below appends the route
 // that actually works for the current transport, so the refusal never happens.
 const FILE_INPUT_TOOLS = [
+  'prepare_video_inspection',
   'generate_image', 'generate_image_edit', 'generate_creative_director',
   'generate_video', 'generate_video_from_image', 'generate_video_from_video',
   'generate_elements', 'generate_first_last_frame', 'generate_lipsync',

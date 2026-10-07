@@ -9,6 +9,7 @@
  */
 
 const READ_ONLY = [
+  'get_video_inspection',
   'get_flow_schema', 'list_flow_sessions', 'get_flow_session', 'validate_flow_session',
   'estimate_flow_run', 'get_flow_run', 'list_flow_runs',
   'list_morphious_styles',
@@ -41,6 +42,8 @@ const READ_ONLY = [
 ];
 
 const OPEN_WORLD_READ_ONLY = [
+  // Reads public source media into private ephemeral scratch evidence, no library writes.
+  'prepare_video_inspection', 'inspect_video',
   'blender_list_sessions', 'blender_get_scene', 'blender_search_docs',
   'blender_get_command_status',
   'adobe_list_sessions', 'adobe_get_project', 'adobe_get_timeline', 'adobe_get_command_status',
@@ -101,6 +104,7 @@ const DESTRUCTIVE_WRITE = [
   'acquire_clean_music_track', 'import_music_track_to_library',
   'separate_audio_stems', 'clean_dialogue_leftovers', 'separate_ambience',
   'analyze_video',
+  'analyze_video_evidence', 'transcribe_video_evidence', 'cancel_video_inspection',
 
   // Deletes and whole-value replacement updates are conservatively destructive.
   'delete_voice', 'update_visual_dna', 'delete_visual_dna', 'delete_visual_dna_folder',
