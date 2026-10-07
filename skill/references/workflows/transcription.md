@@ -4,19 +4,20 @@ Load this file when the user wants to transcribe audio/video, get SRT subtitles,
 
 ## Decision Tree
 
-You have three routes. The right one depends on the file profile — pick before calling any tool.
+Pick the route from the question and coverage needed. For long recordings or iterative evidence review, first read `video-investigation.md`.
 
 ```
 Image (jpg/png/webp)?                         → Read directly (native vision, up to 10 per pass)
-Any QUESTION about a video (what/when/how many/summarize/describe)? → analyze_video (agentic — the default for video)
+Long recording / cuts / verified content or audiovisual investigation? → prepare_video_inspection → inspect_video → targeted evidence analysis/ASR
+One-off short video or YouTube question?      → analyze_video
 User wants the transcript/SRT as deliverable? → transcribe_audio, return the URLs
-Precise answer about one specific frame?      → ffmpeg that frame → Read
+Precise answer about one specific frame?      → inspect_video kind=frame at a source timestamp
 File is only reachable locally and >100MB?    → split with ffmpeg, or HYBRID below
 ```
 
-## `analyze_video` — Kolbo's official video understanding (use this first)
+## `analyze_video` — one-off video understanding
 
-Agentic Gemini: instead of sampling the video at a fixed frame rate, the model navigates the timeline itself — loading frames, audio, and the transcript only where the question needs them. That removes the two old failure modes below (long-form decay, transcription-dense laziness): a 90-minute lecture is answered from the parts that matter, at a fraction of the tokens.
+Agentic Gemini can navigate selected frames/audio/transcript. It remains bounded by provider limits, timeout and model behavior; do not assume it reviewed an entire recording. For long-form investigation use the prepared-source evidence workflow so the agent controls coverage and can verify or revise findings.
 
 - `video_url` (public https, e.g. the URL returned by `upload_media` / `list_media`) **or** `youtube_url`.
 - `prompt`: the question. Ask directly — "At what timestamp does the logo appear?", "How many people speak, and who says X?", "List every product shown with its time". Omit for a full description + verbatim transcript.

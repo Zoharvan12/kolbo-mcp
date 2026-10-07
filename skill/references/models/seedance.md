@@ -15,6 +15,19 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
 
 The current user brief overrides template defaults and illustrative examples. Keep the two-layer organization, but include only relevant locks. State concrete camera trajectory and visible action prominently; optics numbers, equipment names, repetition and word counts are not guarantees of fidelity. Preserve a continuous-shot exception even when other scenes are multishot. For one shot use `Single continuous shot`, `Total: Xs / 1 shot / AR`, one SHOT heading and `multi_shots: false`; for multiple shots use `Multishot ON` and matching counts. AR comes from the brief, never a copied example. Seedance does not speak Hebrew — use Latin transliteration in quotes or route native Hebrew to Gemini Omni. Narration reserved for post does not belong in the generation prompt.
 
+## Draft to final
+
+Discover draft capability with `list_models`: `draft.is_draft`, `can_finalize`,
+`final_resolutions`, and `lifetime_seconds`. Generate with the returned draft model
+identifier. Seedance 2.5 Draft is 480p and supports a separate 1080p final render
+within seven days; ordinary credits apply to each stage, with no Unlimited.
+Call `edit_video` with `operation: "draft_quote"`, the saved draft `video_url`, and
+its original `project_id` to check availability and exact cost. Then use
+`operation: "draft_enhance"` with a supported `resolution`. The server selects
+the engine and recovers the original task; do not pass a prompt or task ID.
+This preserves the draft's generation plan. Generic video upscaling is a separate
+operation. Do not assume Seedance 2.0 supports this flow.
+
 ## Universal Rules (apply to EVERY Seedance / Elements prompt)
 
 - **NO MUSIC BY DEFAULT (HARD):** Unless the user explicitly asks for music, every final Seedance prompt—including every Elements/reference-driven prompt—must explicitly say `No music. No musical score.` Keep requested dialogue, synchronized production sound, ambience, and SFX; "no music" does not mean "no audio." If the user explicitly requests music, describe that music instead and omit the no-music lock. Never invent background music from cinematic tone alone.

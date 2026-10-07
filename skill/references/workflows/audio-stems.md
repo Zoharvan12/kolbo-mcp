@@ -4,12 +4,11 @@ Load this file when the user wants to **pull a soundtrack apart**: remove or iso
 strip narration, mute the music, get a clean instrumental / M&E bed, prepare a track for
 dubbing or localisation, clean up a podcast, or hand an editor stems.
 
-This is Kolbo's own pipeline, not a vendor passthrough. It is a **masking** separation — the
-layers sum back to the original at −30 to −37 dB, so nothing is resynthesised — with a speech
-classifier layered on top. That classifier is the part that matters: a "vocals" mask is not
-the same thing as dialogue. Engines, impacts and centred ambience land in it at full volume,
-and a plain vocal remover hands those back labelled as speech. When no words are actually
-spoken, Kolbo folds that mask into Effects instead.
+This is Kolbo's own pipeline, not a vendor passthrough. It runs prompted source separation in
+sequence — speech, then music, then ambience — each pass working on what the previous one left,
+so the layers do not overlap. `mode: "full"` (default) returns every layer; `mode: "dialogue"`
+stops after the speech pass and returns only Dialogue + M&E (use it when the user just needs
+the voice/background split).
 
 ## Decision tree
 
@@ -19,7 +18,8 @@ spoken, Kolbo folds that mask into Effects instead.
 "Get me the instrumental / music bed"                → separate_audio_stems, hand back the `music` layer
 "Give the editor stems" / dubbing / localisation     → separate_audio_stems, hand back ALL layers
 "I can still hear voices in the clean track"         → clean_dialogue_leftovers on the `me` URL
-"I want the room tone / atmosphere on its own"       → separate_ambience on the `sfx` URL
+"I want the room tone / atmosphere on its own"       → separate_audio_stems (full), hand back `ambience`;
+                                                       separate_ambience only on a dialogue-mode / older split
 Just want the words as text, not the audio           → transcribe_audio (references/workflows/transcription.md)
 ```
 
@@ -34,6 +34,7 @@ generated audio layer, it does not take one away.
 |---|---|
 | `dialogue` | Speech only. Absent when the clip has no spoken words. |
 | `music` | Score / song bed. Absent when the clip has no music. |
+| `ambience` | Room tone / atmosphere. Full mode only. |
 | `sfx` | Effects and Foley. |
 | `me` | Everything except dialogue ("M&E") — the track you dub over. |
 | `original` | The untouched mix, for reference. |
@@ -60,12 +61,12 @@ keeps the API and the web app in agreement.
 |---|---|---|
 | `separate_audio_stems` | 5 | Always the first call. |
 | `clean_dialogue_leftovers` | 17 | ONLY when the user actually hears voice bleeding through `me`. |
-| `separate_ambience` | 17 | ONLY when the user wants room tone as its own lane. |
+| `separate_ambience` | 17 | ONLY for room tone from a dialogue-mode or older split (full mode already returns `ambience`); pass `source_type`. |
 
 `clean_dialogue_leftovers` is deliberately not automatic. It trades fidelity to do its job —
-the model that removes the leak reconstructs the bed less cleanly (~−12 dB) than the masking
-model that produced it (~−30 dB) — so running it by reflex makes the common case worse to fix
-a rare one. Typical on dense crowd scenes; unnecessary on clean dialogue. Ask, or wait for the
+each cleanup pass re-separates the bed (up to 3 passes, until the voices are gone), so the M&E
+comes back less faithful than the original split — running it by reflex makes the common case
+worse to fix a rare one. Typical on dense crowd scenes; unnecessary on clean dialogue. Ask, or wait for the
 user to report the leak. Both 17-credit tools bill even when the analysis finds nothing to
 remove (the pass still runs); the response reports `already_clean` / `skipped` when that
 happens, so say so rather than presenting a no-op as a result.

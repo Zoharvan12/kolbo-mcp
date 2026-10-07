@@ -30,6 +30,10 @@ This re-wires the MCP configuration automatically. Then restart the session.
 
 Status semantics, `wait=true` batching, black-card-is-normal and the credit guard live in SKILL.md "⚠️ Generation lifecycle — source of truth, waiting, failures".
 
+## `MODEL_NOT_FOUND` (400)
+
+An explicit `model` the API cannot match is rejected with `400 MODEL_NOT_FOUND` plus "did you mean" suggestions — it no longer falls back to Smart Select. Nothing ran and nothing was billed. Pick the right identifier from the suggestions or `list_models` (with the tool's `type`) and retry. Only an omitted `model` or an auto alias (`auto`, `smart-select`) auto-selects.
+
 ## "Rate limited" (429 errors)
 
 Wait 60s for the window to reset, retry only the failed calls. For batch image work prefer `generate_creative_director` over multiple `generate_image` calls. Full rate-limit details + retry sequence: see SKILL.md "Rate Limiting & Batch Generation".

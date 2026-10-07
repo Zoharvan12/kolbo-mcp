@@ -120,3 +120,7 @@ After the user approves the actual result, log its `credits_used`, resolution, d
 ## Reference evidence in generation status
 
 For a reference audit, inspect the persisted status result's `visual_dna` and reference image fields. The widget's `visual_dnas` is display metadata, not the original submitted request. Missing widget metadata means unknown, not that no reference was used. Server-side @mention resolution can attach references beyond the caller’s explicit fields. Keep submitted inputs, persisted references, and observed visual fidelity distinct; attaching a DNA does not prove identity fidelity.
+
+## Native reference-video exceptions
+
+Use the exact native Motion Transfer or Object Swap model identifier returned by `list_models`; they are separate execution IDs behind one public model family. Where the `generate_elements` or `generate_video_from_video` tool description explicitly marks that identifier as prompt-optional, omit the prompt rather than inventing a Locked Intro. Other Elements models still require a prompt. Both native operations accept one 4–30 second source video and 1–8 combined reference images/Visual DNAs at 480p or 720p. Omit output duration and aspect ratio. Each DNA consumes at least one reference slot; the server allocates its stills within the combined budget. Billing uses the ceiling of source seconds once, with the selected resolution rate, not combined input plus output seconds. The 4–30 second window is the product launch limit, not a claim about the provider API.
