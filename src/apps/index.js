@@ -328,7 +328,9 @@ async function modelCatalog(client) {
         ? m.supported_aspect_ratios
         : (Array.isArray(m.supportedAspectRatios) ? m.supportedAspectRatios : []);
       const aspectsByType = m.supported_aspect_ratios_by_type || m.supportedAspectRatiosByType || null;
-      const info = { icon, eta, id: m.identifier || null, name: m.name || null, types, aspects, aspectsByType };
+      // images_per_request: fixed outputs per call (Midjourney = 4, whatever num_images says).
+      const ipr = Number(m.images_per_request || m.imagesPerRequest) || 1;
+      const info = { icon, eta, id: m.identifier || null, name: m.name || null, types, aspects, aspectsByType, ipr };
       all.push(info);
       // Display names collide across variants ("Nano Banana 2" names both the
       // t2i model and its editing sibling) — on collision keep the model with

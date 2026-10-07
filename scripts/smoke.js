@@ -736,6 +736,19 @@ async function main() {
     if (sc.model_name !== 'Seedance 2.5 Draft Enhance') throw new Error(`draft_enhance chip shows "${sc.model_name}"`);
     if (!String(sc.model_icon || '').includes('seedance.svg')) throw new Error(`draft_enhance chip icon: ${sc.model_icon}`);
     console.log('[smoke] draft_enhance card names Seedance 2.5 Draft Enhance OK');
+
+    // Midjourney returns 4 images per generation whatever num_images says; the
+    // card must expect 4 per prompt (2 prompts = 8), not one per prompt.
+    const mjClient = {
+      apiBase: 'smoke-mj',
+      async request() { return { models: [{ identifier: 'midjourney', name: 'Midjourney', avatar: 'mj.svg', images_per_request: 4 }] }; },
+    };
+    const mj = (await uiGenerating({
+      tool: 'generate_image', kind: 'image', client: mjClient, model: 'midjourney', prompt: 'a',
+      gen: { generation_id: 'g-mj' }, count: 2, generation_ids: ['g1', 'g2'],
+    })).structuredContent;
+    if (mj.count !== 8) throw new Error(`Midjourney x2 prompts card expects ${mj.count} images, not 8`);
+    console.log('[smoke] Midjourney cards expect 4 images per prompt OK');
   }
 
   // 0d. Every HTTP request must be bounded. An unbounded fetch is the failure

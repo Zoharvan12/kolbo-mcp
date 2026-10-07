@@ -902,6 +902,17 @@ function moodboardIds(settings) {
  *   poll_tool      widget-side status tool (default 'get_generation_status')
  *   status_args    args for poll_tool (default { generation_id, wait: true })
  */
+// How many outputs the card should expect. A model with a fixed
+// images_per_request (Midjourney = 4) returns that many per generation
+// regardless of num_images, so 2 prompts are 8 images, not "2 images".
+async function outputCount(p) {
+  const info = p.model ? await modelInfo(p.client, p.model).catch(() => null) : null;
+  const ipr = info && info.ipr > 1 ? info.ipr : 0;
+  if (!ipr) return p.count || 1;
+  const gens = Array.isArray(p.generation_ids) && p.generation_ids.length ? p.generation_ids.length : 1;
+  return ipr * gens;
+}
+
 async function uiGenerating(p) {
   // No ETAs anywhere — just a spinner until the poll flips to completed.
   const chip = await modelChipFields(p.client, p.model, p.settings && p.settings.mode);
@@ -920,7 +931,7 @@ async function uiGenerating(p) {
     ...chip,
     ...(p.voice ? { voice_name: p.voice.name, voice_thumbnail: p.voice.thumbnail } : {}),
     prompt: p.prompt,
-    count: p.count || 1,
+    count: await outputCount(p),
     settings,
     visual_dnas: await resolveVisualDnas(p.client, settings.visual_dna_ids),
     moodboards: await resolveMoodboards(p.client, moodboardIds(settings)),
@@ -1024,7 +1035,7 @@ async function uiCompleted(p, textPayload, extraContent) {
     tool: p.tool,
     ...chip,
     prompt: p.prompt,
-    count: p.count || 1,
+    count: await outputCount(p),
     // Omitted entirely when the caller has none. A live generation card merges
     // an incoming status payload over its own state, so an empty-but-present
     // `settings` wiped the resolution / aspect / DNA chips off the finished
