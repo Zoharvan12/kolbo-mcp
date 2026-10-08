@@ -463,6 +463,62 @@ function registerVisualDnaTools(server, client, options = {}) {
       return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
     }
   );
+
+  registerVisualDnaTransferTools(server, client);
+}
+
+// ─── Visual DNA transfer (send DNAs to another account) ──────
+function registerVisualDnaTransferTools(server, client) {
+  server.tool(
+    'transfer_visual_dna',
+    'Send one or more Visual DNAs you OWN to another Kolbo account (by email). Nothing changes until they accept (in the app, or via `respond_visual_dna_transfer`) within 7 days. On accept they get their OWN copy of each DNA (new ids, same references, description and voice settings; renamed "Name (1)" if they already have that name). `keep_sender_copy` (default true) keeps yours; false = a MOVE — your originals go to trash on accept. Global, organization and still-generating DNAs cannot be sent. Cloned/designed custom voices stay owned by you. ALWAYS confirm the recipient email, the DNA list and the keep-copy choice with the user before calling.',
+    {
+      visual_dna_ids: z.array(z.string()).min(1).max(50).describe('Visual DNA ids you own (from list_visual_dnas). 1-50.'),
+      email: z.string().describe('Email of the EXISTING Kolbo account that should receive them.'),
+      keep_sender_copy: z.boolean().optional().describe('Keep your own copy after they accept. Default: true. false = move (your originals are trashed on accept).'),
+    },
+    async ({ visual_dna_ids, email, keep_sender_copy }) => {
+      const result = await client.post('/v1/visual-dna-transfers', {
+        visual_dna_ids,
+        email,
+        ...(keep_sender_copy === undefined ? {} : { keep_sender_copy }),
+      });
+      return { content: [{ type: 'text', text: JSON.stringify(result.transfer, null, 2) }] };
+    }
+  );
+  server.tool(
+    'list_visual_dna_transfers',
+    'List Visual DNA transfer requests. `direction: incoming` (default) = DNAs other people want to send you; `outgoing` = ones you sent. Defaults to pending only. Use the `id` with `respond_visual_dna_transfer`.',
+    {
+      direction: z.enum(['incoming', 'outgoing']).optional().describe('Default: incoming.'),
+      status: z.enum(['pending', 'accepted', 'declined', 'cancelled', 'expired', 'failed']).optional().describe('Default: pending.'),
+    },
+    async ({ direction, status }) => {
+      const params = new URLSearchParams();
+      if (direction) params.set('direction', direction);
+      if (status) params.set('status', status);
+      const qs = params.toString();
+      const result = await client.get(`/v1/visual-dna-transfers${qs ? '?' + qs : ''}`);
+      return { content: [{ type: 'text', text: JSON.stringify(result.transfers || [], null, 2) }] };
+    }
+  );
+  server.tool(
+    'respond_visual_dna_transfer',
+    'Act on a Visual DNA transfer request. `accept` / `decline` = you are the recipient; `cancel` = you sent it. Accept adds copies to your library and returns their NEW ids in `copies` — use those ids (and their names as @Name tags) in generations. Confirm with the user before accepting.',
+    {
+      transfer_id: z.string().describe('Transfer id from list_visual_dna_transfers.'),
+      action: z.enum(['accept', 'decline', 'cancel']),
+    },
+    async ({ transfer_id, action }) => {
+      const id = encodeURIComponent(transfer_id);
+      // Explicit paths (not `/${action}`) so check-parity can see each route.
+      let result;
+      if (action === 'cancel') result = await client.delete(`/v1/visual-dna-transfers/${id}`);
+      else if (action === 'accept') result = await client.post(`/v1/visual-dna-transfers/${id}/accept`, {});
+      else result = await client.post(`/v1/visual-dna-transfers/${id}/decline`, {});
+      return { content: [{ type: 'text', text: JSON.stringify(result.transfer, null, 2) }] };
+    }
+  );
 }
 
 module.exports = { registerVisualDnaTools };

@@ -24,6 +24,16 @@ assert(new RegExp(`^version:\\s*${version.replace(/\./g, '\\.')}\\s*$`, 'm').tes
 assert(text.split(/\r?\n/).length <= 500, 'SKILL.md exceeds the 500-line hard package limit');
 
 for (const rel of [
+  'references/workflows/micro-drama.md',
+  'references/workflows/micro-drama/chat.md',
+  'references/workflows/micro-drama/series-bible.md',
+  'references/workflows/micro-drama/writing.md',
+  'references/workflows/micro-drama/cast-locations-voices.md',
+  'references/workflows/micro-drama/shots-prompts.md',
+  'references/workflows/micro-drama/render-qa.md',
+  'references/workflows/micro-drama/edit-deliver.md',
+  'scripts/micro-drama/cut.py',
+  'scripts/micro-drama/media.py',
   'references/workflows/filmmaking.md',
   'references/models/seedance25.md',
   'references/filmmaking/blocking-continuity.md',
