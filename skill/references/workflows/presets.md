@@ -1,5 +1,11 @@
 # Presets — Kolbo's stored instruction blocks
 
+Generation widgets show the selected template name and thumbnail in a dedicated
+Template section, plus every supplied reference in References. Local image sources
+preview through their uploaded CDN URLs. Both sections persist through completion,
+including image batches and standalone status checks. Keep passing the exact
+`preset_id`; the thumbnail is a preview, not an extra conditioning image.
+
 A preset is a long, hand-tuned instruction block stored in Kolbo's catalog. Passing
 `preset_id` prepends it to the user's prompt at generation time. **The craft lives on
 the preset** — a three-panel character sheet, a Seedance shot-sequence structure, a
