@@ -156,7 +156,7 @@ body {
 .k-input-section { flex-basis: 100%; min-width: 0; margin-top: 6px; }
 .k-input-label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 6px; }
 .k-input-media { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.k-input-media .k-ref-thumb { width: 80px; height: 80px; object-fit: contain; background: var(--panel); }
+.k-input-media .k-ref-thumb { width: 40px; height: 40px; object-fit: contain; background: var(--panel); }
 .k-ref-audio { display: flex; flex-direction: column; gap: 6px; max-width: 100%; font-size: 11px; }
 .k-ref-audio audio { width: 240px; max-width: 100%; height: 32px; }
 .k-template { display: flex; align-items: center; gap: 12px; font-size: 12px; }
