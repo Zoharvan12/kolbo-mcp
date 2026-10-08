@@ -697,12 +697,14 @@ function generatingCardShowsNamedChipsAndPeek() {
     tool: 'generate_image', generation_id: 'gen-chips',
     model: 'gpt-image-2', model_name: 'GPT Image 2',
     model_icon: 'https://kolbo-general-media.fra1.cdn.digitaloceanspaces.com/models_icons/chatgpt-icon.svg',
-    settings: { preset_id: 'bible-1', preset_name: 'Character Bible', visual_dna_ids: ['dna_rock'] },
+    settings: { preset_id: 'bible-1', preset_name: 'Character Bible', preset_thumbnail: thumb, visual_dna_ids: ['dna_rock'] },
     visual_dnas: [{ id: 'dna_rock', name: 'Rock Lead', thumbnail: thumb }],
     reference_images: [ref],
   });
   const chips = w.html('chips');
   assert.ok(chips.includes('Character Bible'), 'preset chip did not show the preset name');
+  assert.ok(chips.includes('k-template-thumb') && chips.includes('>Template<'), 'template must have a dedicated preview section');
+  assert.ok(chips.includes('>References<'), 'references must have their own visible section');
   assert.ok(!/k-chip"[^>]*>preset</.test(chips) || chips.includes('Character Bible'), 'preset chip still shows the bare word preset');
   assert.ok(chips.includes('Rock Lead'), 'DNA chip lost the DNA name');
   assert.ok(chips.includes(thumb), 'generating DNA chip has no thumbnail');
@@ -713,6 +715,37 @@ function generatingCardShowsNamedChipsAndPeek() {
   assert.ok(grid.includes('function openPeek') && grid.includes('data-peek'), 'media-grid tiles are not previewable');
   const list = widgetHtml(UI.list);
   assert.ok(list.includes('function openPeek') && list.includes('data-peek'), 'list thumbs are not previewable');
+}
+
+async function templateSurvivesStatusAndTimeout() {
+  const refs = ['https://media.kolbo.ai/source.png', 'https://media.kolbo.ai/style.png'];
+  const thumb = 'https://media.kolbo.ai/template.png';
+  const w = mountWidget();
+  w.status({ structuredContent: {
+    state: 'completed', urls: ['https://media.kolbo.ai/result.png'],
+    settings: { preset_id: 'sheet', preset_name: 'Character Sheet', preset_thumbnail: thumb },
+  } });
+  w.deliver({
+    phase: 'generating', tool: 'generate_image_edit', kind: 'image', generation_id: 'template-poll',
+    settings: { preset_id: 'sheet', preset_name: 'Character Sheet', preset_thumbnail: thumb, resolution: '2K' },
+    reference_images: refs,
+  });
+  w.scrollIntoView();
+  w.drain();
+  await flush();
+  assert.ok(w.html('chips').includes('k-template-thumb'), 'completion dropped template preview');
+  assert.ok(w.html('chips').includes('2K'), 'template-only status settings erased output resolution');
+  refs.forEach(url => assert.ok(w.html('chips').includes(url), 'completion dropped source reference'));
+
+  const legacy = mountWidget();
+  legacy.input('generate_image_edit', { source_images: refs, preset_id: 'sheet' });
+  legacy.deliver({ state: 'processing', generation_id: 'template-timeout', _timed_out: true });
+  assert.ok(legacy.html('chips').includes('>Template<'), 'timeout recovery dropped selected template');
+  refs.forEach(url => assert.ok(legacy.html('chips').includes(url), 'timeout recovery dropped reference'));
+
+  const audio = mountWidget();
+  audio.deliver({ phase: 'generating', tool: 'generate_elements', kind: 'video', reference_audio: ['https://media.kolbo.ai/voice.mp3'] });
+  assert.ok(audio.html('chips').includes('<audio controls'), 'audio reference has no usable player');
 }
 
 function mountList() {
@@ -843,6 +876,7 @@ async function openInKolboOpensTheSession() {
   preRenderShowsTheInputRefs();
   await videoEditKeepsSourceThroughPolling();
   generatingCardShowsNamedChipsAndPeek();
+  await templateSurvivesStatusAndTimeout();
   promptToolsStayOffTheText();
   stopNeedsASecondClick();
   listWidgetLeavesLoading();

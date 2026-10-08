@@ -1,5 +1,13 @@
 # Kolbo MCP Apps — Interactive Widgets Design
 
+Generation cards show a dedicated Template section with the selected preset name
+and an expandable thumbnail, followed by every reference in a wrapping References
+section. Image and video references open the shared lightbox; audio references
+have inline players. Local image generation/edit sources use the same uploaded CDN
+URLs in submission and widget payloads. Template settings survive status merges,
+blocking image batches, and legacy timeout recovery. A standalone status card
+resolves the API's persisted `result.preset` through the preset catalog.
+
 > Implements MCP Apps (SEP-1865, `io.modelcontextprotocol/ui`, protocol `2026-01-26`) so Kolbo tool
 > results render as branded, live-updating mini-apps inside claude.ai, Claude Desktop, and Codex
 > Desktop. Text-only clients (Claude Code, Codex CLI, Cursor, old cached

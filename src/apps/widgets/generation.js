@@ -385,7 +385,7 @@ function renderChips(sc) {
   if (s.mode) h += chip(esc(editLabel(s.mode)));
   if (Array.isArray(s.details)) s.details.forEach(function (d) { if (d) h += chip(esc(String(d))); });
   if (many && !kind) h += chip(sc.count + ' items');
-  h += referenceHTML(sc);
+  h += templateHTML(sc) + referenceHTML(sc);
   el('chips').innerHTML = h;
 }
 
@@ -429,7 +429,7 @@ function referenceHTML(sc) {
       h += '<video class="k-ref-thumb k-peek-hit" src="' + url + '#t=0.1" muted playsinline preload="metadata" title="'
         + title + '"' + peek + ' onerror="this.style.display=\\'none\\'"></video>';
     } else if (refs[i].kind === 'audio') {
-      h += '<span class="k-chip" title="' + title + '">' + ICONS.sound + ' audio ref</span>';
+      h += '<span class="k-ref-audio" title="' + title + '">' + ICONS.sound + ' audio ref<audio controls preload="none" src="' + url + '"></audio></span>';
     } else {
       h += '<img class="k-ref-thumb k-peek-hit" src="' + url + '" alt="" loading="lazy" title="' + title + '"'
         + peek + ' onerror="this.style.display=\\'none\\'">';
@@ -438,12 +438,23 @@ function referenceHTML(sc) {
   // Local files the caller passed by path: the iframe cannot load them and they
   // are only uploaded during the run, so name them instead of showing nothing.
   // The finished card carries the uploaded thumbnails and drops these.
-  if (sc.phase !== 'completed' && Array.isArray(sc.local_references)) {
-    sc.local_references.slice(0, 6).forEach(function (name) {
+  if (sc.phase !== 'completed' && Array.isArray(sc.local_references) && !refs.length) {
+    sc.local_references.forEach(function (name) {
       h += '<span class="k-chip" title="' + esc(name) + '">' + ICONS.image + ' ' + esc(String(name).slice(0, 24)) + '</span>';
     });
   }
-  return h;
+  return h ? '<div class="k-input-section"><span class="k-input-label">References</span><div class="k-input-media">' + h + '</div></div>' : '';
+}
+function templateHTML(sc) {
+  var s = sc.settings || {};
+  if (!s.preset_id && !s.preset_name && !s.preset_thumbnail) return '';
+  var name = s.preset_name || 'Selected template';
+  var url = s.preset_thumbnail;
+  var media = url ? '<img class="k-template-thumb k-peek-hit" src="' + esc(url) + '" alt="' + esc(name)
+    + '" loading="lazy" data-peek="' + esc(url) + '" data-peek-kind="image" data-peek-cap="' + esc(name) + '">'
+    : '<span class="k-template-placeholder">' + ICONS.image + '</span>';
+  return '<div class="k-input-section"><span class="k-input-label">Template</span><div class="k-template">'
+    + media + '<span>' + esc(name) + '</span></div></div>';
 }
 // Which characters/looks are locked into this generation — by face and name,
 // resolved from visual_dna_ids server-side. "1 Visual DNA" told the user nothing
@@ -830,6 +841,7 @@ function poll(sc) {
 
       var done = Object.assign({}, sc, r, {
         phase: 'completed',
+        settings: Object.assign({}, sc.settings || {}, r.settings || {}),
         urls: r.urls || st.urls || [],
         credits_used: st.credits_used != null ? st.credits_used : sc.credits_used,
         // Status structuredContent used to set open_url:undefined and wipe the
@@ -1462,7 +1474,7 @@ function kindFromTool(tool, sc) {
 function liveFromTimedOut(sc) {
   if (!sc || !sc.generation_id || isTerminal(sc.state) || Array.isArray(sc.urls)) return null;
   var ids = Array.isArray(sc.generation_ids) && sc.generation_ids.length > 1 ? sc.generation_ids : null;
-  var live = {
+  var live = Object.assign({}, preRefSc(originTool, originArgs), {
     widget: 'generation',
     phase: 'generating',
     tool: originTool,
@@ -1477,7 +1489,8 @@ function liveFromTimedOut(sc) {
       quality: originArgs.quality,
       mode: originArgs.operation,
       visual_dna_ids: originArgs.visual_dna_ids,
-      moodboard_id: originArgs.moodboard_id
+      moodboard_id: originArgs.moodboard_id,
+      preset_id: originArgs.preset_id
     }, originArgs),
     count: ids ? ids.length : (originArgs.num_images || 1),
     generation_id: sc.generation_id,
@@ -1485,14 +1498,14 @@ function liveFromTimedOut(sc) {
     status_args: ids ? { generation_ids: ids, wait: true } : { generation_id: sc.generation_id, wait: true },
     session_id: sc.session_id || originArgs.session_id,
     project_id: sc.project_id || originArgs.project_id
-  };
+  });
   if (ids) { live.generation_ids = ids; live.prompts = originArgs.prompts || []; }
   return live;
 }
 
 function completedFromPlain(sc) {
   if (!sc || (!Array.isArray(sc.urls) && !Array.isArray(sc.scenes))) return null;
-  return Object.assign({}, sc, {
+  return Object.assign({}, preRefSc(originTool, originArgs), sc, {
     widget: 'generation',
     phase: 'completed',
     tool: originTool,
@@ -1505,7 +1518,8 @@ function completedFromPlain(sc) {
       resolution: originArgs.draft === true ? '480p-draft' : originArgs.draft === false ? String(originArgs.resolution || '').replace(/-draft$/i, '') : originArgs.resolution,
       aspect_ratio: originArgs.aspect_ratio,
       quality: originArgs.quality,
-      mode: originArgs.operation
+      mode: originArgs.operation,
+      preset_id: originArgs.preset_id
     }, originArgs),
     urls: sc.urls || [],
     session_id: sc.session_id || originArgs.session_id,

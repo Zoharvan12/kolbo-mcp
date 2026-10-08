@@ -153,6 +153,15 @@ body {
 }
 .k-chip img.k-voice-thumb { width: 18px; height: 18px; border-radius: 999px; margin-left: -3px; }
 .k-ref-thumb { width: 26px; height: 26px; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-strong); }
+.k-input-section { flex-basis: 100%; min-width: 0; margin-top: 6px; }
+.k-input-label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 6px; }
+.k-input-media { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.k-input-media .k-ref-thumb { width: 80px; height: 80px; object-fit: contain; background: var(--panel); }
+.k-ref-audio { display: flex; flex-direction: column; gap: 6px; max-width: 100%; font-size: 11px; }
+.k-ref-audio audio { width: 240px; max-width: 100%; height: 32px; }
+.k-template { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+.k-template-thumb, .k-template-placeholder { width: 104px; height: 80px; border-radius: 8px; object-fit: contain; background: var(--panel); border: 1px solid var(--border-strong); }
+.k-template-placeholder { display: flex; align-items: center; justify-content: center; color: var(--muted); }
 .k-peek-hit { cursor: zoom-in; }
 .k-peek {
   position: absolute; inset: 0; z-index: 20;

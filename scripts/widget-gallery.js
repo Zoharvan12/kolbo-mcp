@@ -102,6 +102,16 @@ function build() {
   });
 
   const scenarios = [];
+  for (const phase of ['generating', 'completed']) scenarios.push({
+    tool: 'generate_image_edit', title: 'template and all references: ' + phase,
+    args: { prompt: 'Create a character sheet', preset_id: 'gallery-template', source_images: [IMG, IMG2] },
+    result: {
+      ...baseGen('generate_image_edit', 'image', 'template-' + phase), phase,
+      settings: { aspect_ratio: '4:3', resolution: '2K', preset_id: 'gallery-template', preset_name: 'Character Sheet', preset_thumbnail: IMG },
+      reference_images: [IMG, IMG2], urls: phase === 'completed' ? [IMG2] : undefined,
+    },
+    calls: { get_generation_status: [status('template-generating', 'processing', 'image')] },
+  });
   for (const [tool, kind] of Object.entries(GEN_TOOLS)) {
     // Real reference args, so the pre-render card exercises the input-derived
     // chip row (references + DNA count) the way a live call does.

@@ -110,7 +110,7 @@ async function submitBatch(rawItems, submitOne) {
 // multi-id branch, same fix: always ship structuredContent via the shared
 // kind:'status' grid, which already renders any mix of completed/processing
 // items correctly.
-async function pollBatch(client, batch, { interval, timeout }, toolName, submittedModel) {
+async function pollBatch(client, batch, { interval, timeout }, toolName, submittedModel, inputs = {}) {
   const polls = await Promise.all(batch.ids.map((id) => pollOrTimedOut(client, id, { interval, timeout })));
   const generations = polls.map((p, i) => p.timedOut
     ? { prompt: batch.ok[i].prompt, generation_id: batch.ids[i], status: 'processing', note: 'Still running — call get_generation_status with wait=true to collect it.' }
@@ -128,6 +128,7 @@ async function pollBatch(client, batch, { interval, timeout }, toolName, submitt
     model: modelsRan.length === 1 ? modelsRan[0] : (submittedModel || 'Generations'),
     gen: { generation_id: batch.ids[0], session_id: batch.ok[0].gen.session_id },
     settings: {},
+    ...inputs,
     items: generations.map(g => ({
       id: g.generation_id,
       state: g.status,
@@ -338,10 +339,11 @@ function registerGenerateTools(server, client, options = {}) {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'text_to_img'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'text_to_img');
-      const shared = {
+      const shared = await rehostLocalPaths(client, {
         model, aspect_ratio, enhance_prompt, font_ids,
         reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id
-      };
+      }, { allowLocalFiles: !options.remote });
+      reference_images = [...(shared.reference_images || []), shared.mask_image_url].filter(Boolean);
 
       // Batch mode: N different prompts, one widget owning all generation ids.
       if (prompts && prompts.length) {
@@ -354,7 +356,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 150000 }, 'generate_image', model);
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 150000 }, 'generate_image', model, { settings: imageSettings(shared), reference_images });
       }
 
       const gen = await client.post('/v1/generate/image', { ...shared, prompt, num_images });
@@ -429,10 +431,12 @@ function registerGenerateTools(server, client, options = {}) {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'image_editing'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'image_editing');
-      const shared = {
+      const shared = await rehostLocalPaths(client, {
         model, source_images, reference_images, aspect_ratio, enhance_prompt, font_ids,
         visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id
-      };
+      }, { allowLocalFiles: !options.remote });
+      source_images = shared.source_images;
+      reference_images = [...(shared.reference_images || []), shared.mask_image_url].filter(Boolean);
       const settings = imageSettings(shared);
 
       // Batch mode: N different edit instructions against the SAME source
@@ -449,7 +453,7 @@ function registerGenerateTools(server, client, options = {}) {
           status_args: { generation_ids: batch.ids, wait: true },
           reference_images: [...(source_images || []), ...(reference_images || [])]
         });
-        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 150000 }, 'generate_image_edit', model);
+        return pollBatch(client, batch, { interval: (batch.ok[0].gen.poll_interval_hint || 3) * 1000, timeout: 150000 }, 'generate_image_edit', model, { settings, reference_images: [...(source_images || []), ...reference_images] });
       }
 
       const gen = await client.post('/v1/generate/image-edit', { ...shared, prompt, num_images });
@@ -1442,6 +1446,13 @@ function registerGenerateTools(server, client, options = {}) {
           // the finished card shows every reference, including server-side
           // additions (DNA stills, merged sources) the tool call never named.
           reference_images: res.reference_images,
+          reference_videos: res.reference_videos,
+          reference_audio: res.reference_audio,
+          ...(res.preset ? { settings: {
+            preset_id: res.preset.id,
+            preset_name: res.preset.name,
+            preset_thumbnail: res.preset.thumbnail_url,
+          } } : {}),
           // Transcription results ride the same status tool as media
           // generations; without these the transcript widget merges a payload
           // with no transcript in it.
