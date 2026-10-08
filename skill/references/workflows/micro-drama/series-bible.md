@@ -58,4 +58,4 @@ A character changes look only when the story says so (new day, new place, new si
 
 ## Release unit
 
-Each series goes out as trailer + Episode 1 together. The trailer is made right after Episode 1 is approved (`edit-deliver.md`). Number episodes in post captions ("Episode 2") and tease the next one; the call to action lives in the post caption, never in the video.
+Each series goes out as trailer + Episode 1 together. The trailer is made right after Episode 1 is approved (`references/workflows/micro-drama/edit-deliver.md`). Number episodes in post captions ("Episode 2") and tease the next one; the call to action lives in the post caption, never in the video.

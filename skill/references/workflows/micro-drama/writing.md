@@ -1,6 +1,6 @@
 # Micro-drama — writing (series, season, episode)
 
-Story craft comes from `filmmaking/scene-engine.md` (Goal → Obstacle → Tactic → Reversal → value shift). This file adds the micro-drama format and the anti-slop rules.
+Story craft comes from `references/filmmaking/scene-engine.md` (Goal → Obstacle → Tactic → Reversal → value shift). This file adds the micro-drama format and the anti-slop rules.
 
 ## Format
 

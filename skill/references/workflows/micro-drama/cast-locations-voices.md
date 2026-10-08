@@ -21,7 +21,7 @@ Men: "calm, closed-mouth, contained expression, eyes just past the lens; a worki
 
 QA before showing: face matches the source, including small marks (a mole or scar in the same place; cheap edit models move them, and the video copies the sheet); front, back and close-up panels agree on neckline, straps, colours; body unchanged; no text. Write the wardrobe in the bible from the FRONT panel; Seedance copies the sheet, not the prompt.
 
-Then create a **Visual DNA** from the sheet (`visual-dna.md`) and record its `@tag` in the bible.
+Then create a **Visual DNA** from the sheet (`references/workflows/visual-dna.md`) and record its `@tag` in the bible.
 
 ### 3. Looks and props
 

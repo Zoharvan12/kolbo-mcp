@@ -254,16 +254,15 @@ Tools: `list_visual_dna_folders`, `create_visual_dna_folder` (`name`, optional h
 - **Creating many characters for one production?** Create the folder FIRST, then `move_visual_dna_to_folder` each DNA right after `create_visual_dna` — don't leave a big cast unsorted at root.
 - To list a folder's contents: `list_visual_dnas` and filter by each profile's `folder_id` (there is no server-side folder filter).
 
-## Transfer through Kolbo UI — send DNAs to another account
+## Transfer — send DNAs to another account
 
-Use the authenticated Kolbo UI for account transfers. Dedicated MCP transfer tools
-are not in the current published tool surface; do not invent or call them.
+When exposed by the connected MCP, use `transfer_visual_dna` for 1 to 50 owned ready DNAs, `list_visual_dna_transfers` to inspect incoming/outgoing requests, and `respond_visual_dna_transfer` to accept/decline incoming requests or cancel outgoing ones. If absent from the connected tool surface, use the authenticated Kolbo UI instead.
 
 - Recipient must already have a Kolbo account; nothing changes until they accept (7-day expiry).
 - On accept the recipient gets their OWN copy — **new ids**, returned in `copies`. Use those ids and names for the recipient's generations, never the sender's ids. A name clash becomes "Name (1)".
 - `keep_sender_copy: false` is a move: the sender's originals go to trash on accept. Default keeps them.
 - Only the sender's personal, ready DNAs — not global, organization, or still-generating ones. Custom cloned/designed voices stay owned by the sender.
-- GATE: confirm recipient email, the DNA list and keep/move with the user before sending through the UI; confirm before accepting.
+- GATE: confirm recipient email, the DNA list and keep/move with the user before sending; confirm before accepting.
 - Whole project instead (cast comes along as copies)? Use `transfer_project`.
 
 ## Character sheet — default for production assets (not a catalog preset)

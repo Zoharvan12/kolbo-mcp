@@ -1,6 +1,6 @@
 # Micro-drama — Draft renders, QA, finals
 
-Every part is blocked in **Seedance 2.5 Draft** (`draft: true`; see `models/seedance25.md`). Only parts the user keeps are finalized, at the resolution chosen at kickoff. Never regenerate a kept Draft to "upgrade" it.
+Every part is blocked in **Seedance 2.5 Draft** (`draft: true`; see `references/models/seedance25.md`). Only parts the user keeps are finalized, at the resolution chosen at kickoff. Never regenerate a kept Draft to "upgrade" it.
 
 ## Estimate before the season (and before each episode)
 
@@ -38,7 +38,7 @@ Look at frames, not the prompt. Outside agents: `python scripts/micro-drama/shot
 
 ## Finals (only the keepers)
 
-1. The user picks the keepers (or approves the tight cut built from Drafts; see `edit-deliver.md`).
+1. The user picks the keepers (or approves the tight cut built from Drafts; see `references/workflows/micro-drama/edit-deliver.md`).
 2. For each keeper: `edit_video` with `operation: "draft_quote"`, the Draft's `video_url`, `project_id` and a resolution from the catalog's `final_resolutions` (Drafts expire after `lifetime_seconds`, 7 days as of 2026-10, so finalize within that window). Sum the quotes and show them with the cap.
 3. Only after the user explicitly says yes to that exact quoted credit amount: `edit_video` with `operation: "draft_enhance"` and the same source, project and resolution. Never in the same turn as the quote, never covered by the credit cap or any autonomy setting, never as a default step. Finals are expensive (a 1080p finalization costs about 4.4x the Draft of the same length as of 2026-10); say so when quoting. This renders the same Draft at full quality; it is not a new generation.
 4. If a Draft has expired or cannot be finalized, say so before proposing any new paid render.

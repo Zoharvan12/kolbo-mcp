@@ -26,7 +26,7 @@ Edit QA = all eleven, plus: no flash frames, every script line once and in order
 
 ## Kobi: build it in the Kolbo Video Editor
 
-Read `video-editor.md` and `get_video_editor_schema` first. One session per episode, in the series project, format from the kickoff.
+Read `references/workflows/video-editor.md` and `get_video_editor_schema` first. One session per episode, in the series project, format from the kickoff.
 
 - **Picture:** one `video` item per kept piece on a mixed track, laid end to end (`reorder_items`). `trimStart` / `trimEnd` are milliseconds removed from the clip's head and tail. Punch-in = item `scale` + `position` (anchored on the face). Mirror = `flipX`.
 - **L-cuts and seams:** mute the video items and put each piece's sound as an `audio` item (same clip URL, its own trims) on an audio track; extend a line's audio item under the next picture for an L-cut, and give every seam a short `audioEffects` fade in/out. Never change `volume` or `gain` to "even out" levels.

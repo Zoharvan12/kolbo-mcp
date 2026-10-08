@@ -1,6 +1,6 @@
 # Micro-drama — shots and Seedance 2.5 prompts
 
-One prompt per part, compiled as the Locked Intro in `models/seedance25.md` (read it and `models/seedance.md` first). Acting and blocking depth: `filmmaking/acting-direction.md`, `filmmaking/blocking-continuity.md`. This file adds what micro-drama parts need.
+One prompt per part, compiled as the Locked Intro in `references/models/seedance25.md` (read it and `references/models/seedance.md` first). Acting and blocking depth: `references/filmmaking/acting-direction.md`, `references/filmmaking/blocking-continuity.md`. This file adds what micro-drama parts need.
 
 ## Before writing a part
 
@@ -57,7 +57,7 @@ No music. No musical score. No stingers, no whooshes.
 - Name each speaker's accent in CAST and in every one of their lines; the voice sample alone does not hold it.
 - The part ends about 1 s after its last line. Between lines 0.5-1.2 s; one longer beat (≤2 s) only where a line must land.
 - AVOID adds: speaking the words of the reference audio, loud breathing, music.
-- Music is added in the edit only if the user asks (a montage beat can run on a track; see `edit-deliver.md`).
+- Music is added in the edit only if the user asks (a montage beat can run on a track; see `references/workflows/micro-drama/edit-deliver.md`).
 
 ## The call
 
@@ -71,6 +71,6 @@ No music. No musical score. No stingers, no whooshes.
 - FLOOR PLAN + AXIS present; furniture named only if it is in the location frame or placed relative to it; each shot's start = previous end.
 - Every eye-line has a target off one side; lines to someone shot over that person's shoulder.
 - Wardrobe in CAST matches the sheet's front panel; no CAST sentence contradicts a reference image.
-- Timecodes sum to `duration`; Total lines and Multishot header present (`models/seedance25.md`).
+- Timecodes sum to `duration`; Total lines and Multishot header present (`references/models/seedance25.md`).
 - Audio block lists lines in order with accents; timeline ends ≤1 s after the last line; "No music" present unless requested.
 - No famous names or IP; all ages 21+.
