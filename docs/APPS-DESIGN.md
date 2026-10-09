@@ -2,7 +2,10 @@
 
 Generation cards show a dedicated Template section with the selected preset name
 and an expandable thumbnail, followed by every reference in a wrapping References
-section. Image and video references open the shared lightbox; audio references
+section. Image and video references open the shared lightbox inside the chat card,
+without requesting host fullscreen or opening an external link. Reference paging,
+closing, and downloads remain available. Result previews still request fullscreen.
+Audio references
 have inline players. Local image generation/edit sources use the same uploaded CDN
 URLs in submission and widget payloads. Template settings survive status merges,
 blocking image batches, and legacy timeout recovery. A standalone status card

@@ -423,7 +423,7 @@ function referenceHTML(sc) {
   for (var i = 0; i < refs.length; i++) {
     var url = esc(refs[i].url);
     var title = 'Reference ' + refs[i].kind + ' ' + (i + 1) + ' of ' + refs.length;
-    var peek = ' data-peek="' + url + '" data-peek-kind="' + refs[i].kind + '" data-peek-cap="' + title + '"';
+    var peek = ' data-peek="' + url + '" data-peek-kind="' + refs[i].kind + '" data-peek-cap="' + title + '" data-peek-inline="true"';
     if (refs[i].kind === 'video') {
       // #t=0.1 so the poster is a real frame, not a black canvas.
       h += '<video class="k-ref-thumb k-peek-hit" src="' + url + '#t=0.1" muted playsinline preload="metadata" title="'

@@ -225,7 +225,11 @@ document.addEventListener('click', function (e) {
     list.push(it);
   });
   var at = peekItem(node);
-  openPeek(at.url, at.kind, at.cap, { list: list, time: +node.getAttribute('data-peek-time') || 0 });
+  openPeek(at.url, at.kind, at.cap, {
+    list: list,
+    time: +node.getAttribute('data-peek-time') || 0,
+    inline: node.getAttribute('data-peek-inline') === 'true'
+  });
 }, true);
 var peekList = [];
 var peekIndex = 0;
@@ -298,7 +302,9 @@ function openPeek(url, kind, cap, opts) {
   box.hidden = false;
   document.documentElement.classList.add('k-peek-open');
   if (window.kolbo && window.kolbo.notifySize) window.kolbo.notifySize();
-  if (peekWentFullscreen || !window.kolbo || !window.kolbo.requestDisplayMode) return;
+  // Reference previews stay in the chat card instead of handing placement to
+  // the host's fullscreen surface. Result previews keep their existing expand.
+  if (opts.inline || peekWentFullscreen || !window.kolbo || !window.kolbo.requestDisplayMode) return;
   try {
     window.kolbo.requestDisplayMode('fullscreen').then(function (res) {
       if (!(res && res.mode === 'fullscreen')) return;
