@@ -44,3 +44,29 @@ test('local edit source is uploaded once and its CDN URL reaches both API and wi
     fs.rmdirSync(dir);
   }
 });
+
+test('lipsync card shows the face source and audio, uploading local files first', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kolbo-lipsync-refs-'));
+  const video = path.join(dir, 'face.mp4');
+  const audio = path.join(dir, 'voice.mp3');
+  fs.writeFileSync(video, 'fixture');
+  fs.writeFileSync(audio, 'fixture');
+  let lipsync, submitted;
+  try {
+    registerGenerateTools({ tool(name, ...args) { if (name === 'generate_lipsync') lipsync = args.at(-1); } }, {
+      async get() { return { models: [] }; },
+      async postMultipart(route, form) { return { media: { url: `https://media.kolbo.ai/${form._streams.join('').includes('voice.mp3') ? 'voice.mp3' : 'face.mp4'}` } }; },
+      async post(route, body) { submitted = body; return { generation_id: 'lipsync-refs' }; },
+    }, { apps: true });
+    const fromVideo = await lipsync({ source: video, audio, model: 'pixverse-lipsync' });
+    assert.equal(submitted.source_url, 'https://media.kolbo.ai/face.mp4');
+    assert.deepEqual(fromVideo.structuredContent.reference_videos, ['https://media.kolbo.ai/face.mp4']);
+    assert.deepEqual(fromVideo.structuredContent.reference_audio, ['https://media.kolbo.ai/voice.mp3']);
+    assert.equal(fromVideo.structuredContent.reference_images, undefined);
+    const fromImage = await lipsync({ source: 'https://media.kolbo.ai/face.png', audio: 'https://media.kolbo.ai/a.mp3', model: 'pixverse-lipsync' });
+    assert.deepEqual(fromImage.structuredContent.reference_images, ['https://media.kolbo.ai/face.png']);
+    assert.deepEqual(fromImage.structuredContent.reference_audio, ['https://media.kolbo.ai/a.mp3']);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

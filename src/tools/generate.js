@@ -1950,6 +1950,18 @@ function registerGenerateTools(server, client, options = {}) {
       if (!source) throw new Error('source is required (URL or absolute local path to image/video)');
       if (!audio) throw new Error('audio is required (URL or absolute local path to audio file)');
 
+      // Upload local files first so the card can show the face source and the
+      // audio from the same CDN URLs the API receives (multipart left the card
+      // with no references at all).
+      ({ source, audio } = await rehostLocalPaths(client, { source, audio, project_id }, { allowLocalFiles: !options.remote }));
+      const isVideoUrl = (u) => /\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(u);
+      const httpRef = (u) => (typeof u === 'string' && /^https?:\/\//i.test(u) ? [u] : []);
+      const lipsyncRefs = {
+        reference_images: httpRef(source).filter((u) => !isVideoUrl(u)),
+        reference_videos: httpRef(source).filter(isVideoUrl),
+        reference_audio: httpRef(audio),
+      };
+
       const sourceIsUrl = typeof source === 'string' && /^https?:\/\//i.test(source);
       const audioIsUrl = typeof audio === 'string' && /^https?:\/\//i.test(audio);
 
@@ -2005,8 +2017,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       if (returnsImmediately()) return submittedResult({
         tool: 'generate_lipsync', kind: 'video', gen: startResponse, client, model,
-        prompt: text_prompt, settings: { mode: 'lipsync' },
-        reference_images: sourceIsUrl && !/\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? [source] : [],
+        prompt: text_prompt, settings: { mode: 'lipsync' }, ...lipsyncRefs,
       });
 
       const poll = await pollOrTimedOut(client, startResponse.generation_id, {
@@ -2018,9 +2029,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       return uiCompleted({
         tool: 'generate_lipsync', kind: 'video', gen: startResponse, client, model,
-        prompt: text_prompt, settings: { mode: 'lipsync' },
-        reference_images: sourceIsUrl && !/\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? [source] : [],
-        reference_videos: sourceIsUrl && /\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(source) ? [source] : [],
+        prompt: text_prompt, settings: { mode: 'lipsync' }, ...lipsyncRefs,
         urls: result.result?.urls || [],
         thumbnail_url: result.result?.thumbnail_url || null,
         duration: result.result?.duration || null,
