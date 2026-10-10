@@ -366,6 +366,9 @@ async function modelInfoMap(client) {
 const DISPLAY_ALIASES = {
   'flux-3-draft-enhance': { base: 'seedance-2-5', name: 'Seedance 2.5 Draft Enhance' },
   'video-draft-enhance': { base: 'seedance-2-5', name: 'Seedance 2.5 Draft Enhance' },
+  // Billing SKU every ElevenLabs CLONED voice reports; its version shows in the
+  // separate "Model V4/V3/V2" chip, so the model chip is just the provider.
+  'fal_elevenlabs_tts': { base: 'eleven_v4', name: 'ElevenLabs' },
 };
 // Operations whose engine is picked server-side when no model is passed.
 const OPERATION_ENGINES = { draft_enhance: 'flux-3-draft-enhance' };
@@ -530,10 +533,16 @@ async function resolveCatalogAspectRatio(client, modelId, requested, type) {
 
 // Same shape and TTL as the model catalog above: the voice catalog is stable,
 // and a per-generation /v1/voices round trip would be paid on every speech card.
-const voiceCache = new Map(); // apiBase → { at, byKey }
+// Keyed per caller, not per server: /v1/voices includes the caller's own cloned
+// voices, so one shared entry (the remote connector serves every user from one
+// process) left everyone else's clones unresolved for the whole TTL.
+const voiceCache = new Map(); // apiBase + key hash → { at, byKey }
 
 async function voiceInfoMap(client) {
-  const cacheKey = client.apiBase || 'default';
+  const keyHash = client.apiKey
+    ? crypto.createHash('sha256').update(String(client.apiKey)).digest('hex').slice(0, 16)
+    : 'anon';
+  const cacheKey = `${client.apiBase || 'default'}|${keyHash}`;
   const hit = voiceCache.get(cacheKey);
   if (hit && Date.now() - hit.at < ICON_TTL_MS) return hit.byKey;
   const byKey = new Map();

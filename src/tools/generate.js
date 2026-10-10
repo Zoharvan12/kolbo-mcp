@@ -1201,7 +1201,8 @@ function registerGenerateTools(server, client, options = {}) {
       // the card was labelling those "Smart Select", which is not even a text-to-
       // speech option, and naming the voice the caller typed rather than the one
       // that spoke. Same resolution addDisplayNames does for the polling path.
-      const ranVoice = (await voiceInfo(client, result.result?.voice).catch(() => null)) || voiceRecord;
+      const ranVoice = statusVoice(result.result)
+        || (await voiceInfo(client, result.result?.voice).catch(() => null)) || voiceRecord;
       return uiCompleted({
         tool: 'generate_speech', kind: 'audio', gen, client, prompt: text,
         model: result.result?.model || model,
@@ -1314,11 +1315,19 @@ function registerGenerateTools(server, client, options = {}) {
       r.model_name = (info && info.name) || r.model;
       r.model_icon = (info && info.icon) || null;
     }
-    if (r.voice) {
+    // The API names a cloned voice itself (voice_name/voice_thumbnail): clones
+    // are not reliably in the cached catalog, so keep the API's answer.
+    if (r.voice && !statusVoice(r)) {
       const v = await voiceInfo(client, r.voice).catch(() => null);
       r.voice_name = (v && v.name) || r.voice;
       r.voice_thumbnail = (v && v.thumbnail) || null;
     }
+  }
+
+  function statusVoice(r) {
+    if (!r || !r.voice_name) return null;
+    const id = /^custom_/i.test(String(r.requested_voice_id || '')) ? r.requested_voice_id : r.voice;
+    return { id, name: r.voice_name, thumbnail: r.voice_thumbnail || null };
   }
 
   // ─── get_generation_status ─────────────────────────────────
