@@ -113,11 +113,11 @@ function registerVoiceTools(server, client, options = {}) {
   // ─── clone_voice ───────────────────────────────────────────
   server.tool(
     'clone_voice',
-    'Clone a custom TTS voice from an audio sample (the user\'s voice or any voice they own the rights to). Costs credits (provider-dependent) — confirm with the user before firing. Providers: "elevenlabs" (recommended, 2s–180s sample) or "deepdub" (2s–300s). After cloning, the voice appears in `list_voices` and can be used with generate_speech. Free plan caps at 3 custom voices.',
+    'Clone a custom TTS voice from an audio sample (the user\'s voice or any voice they own the rights to). Costs credits (provider-dependent) — confirm with the user before firing. Providers: "elevenlabs" (recommended, 2s–180s sample), "deepdub" (2s–300s) or "heygen" (10s–180s). After cloning, the voice appears in `list_voices` and can be used with generate_speech. Free plan caps at 3 custom voices.',
     {
       audio: z.string().describe('URL or absolute local path of the voice sample audio (any common format; converted server-side).'),
       voice_name: z.string().describe('Name for the cloned voice.'),
-      provider: z.enum(['elevenlabs', 'deepdub']).optional().describe('Cloning provider. Default: elevenlabs (recommended).'),
+      provider: z.enum(['elevenlabs', 'deepdub', 'heygen']).optional().describe('Cloning provider. Default: elevenlabs (recommended).'),
       language: z.string().optional().describe('Optional language hint (auto-detected when omitted).'),
       project_id: z.string().optional().describe('Project to associate the voice with (from list_projects). Omit for the default project.')
     },
