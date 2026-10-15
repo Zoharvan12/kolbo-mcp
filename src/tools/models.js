@@ -115,6 +115,17 @@ const identifierRow = (m) => ({
   ...(m.new_model ? { new_model: true } : {}),
 });
 
+// upgrade_entry credits a purchase to the surface that sent the user (kolbo-map
+// markUpgradeEntryFromUrl). Set server-side so the card AND the text link carry it;
+// a tag already on the URL is kept.
+function withUpgradeEntry(raw, entry) {
+  try {
+    const u = new URL(raw);
+    if (!u.searchParams.has('upgrade_entry')) u.searchParams.set('upgrade_entry', entry);
+    return u.toString();
+  } catch { return raw; }
+}
+
 function registerModelTools(server, client, options = {}) {
   const ui = () => appsEnabled(server, options);
   // ─── list_models ───────────────────────────────────────────
@@ -516,7 +527,7 @@ function registerModelTools(server, client, options = {}) {
         current_plan: data?.current_plan || null,
         plans: data?.plans || [],
         credit_packs: data?.credit_packs || [],
-        pricing_url: data?.pricing_url || 'https://app.kolbo.ai/pricing',
+        pricing_url: withUpgradeEntry(data?.pricing_url || 'https://app.kolbo.ai/pricing', 'mcp_plans_card'),
       };
       // structuredContent SHADOWS the text on widget hosts, so everything the
       // agent needs to talk about pricing has to live in the object above.
@@ -533,4 +544,4 @@ function registerModelTools(server, client, options = {}) {
   );
 }
 
-module.exports = { registerModelTools };
+module.exports = { registerModelTools, withUpgradeEntry };
