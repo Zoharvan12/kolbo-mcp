@@ -84,7 +84,7 @@ function planCard(p, opts) {
   var note = p.promo_text ? '<div class="k-plan-note">' + esc(p.promo_text) + '</div>'
     : (opts.pack && p.is_subscriber && p.subscriber_price != null ? '<div class="k-plan-note">Subscriber price applied</div>' : '')
       + (!opts.pack && p.top_up_discount ? '<div class="k-plan-note">Cheaper credit packs included</div>' : '');
-  if (opts.lead) note += '<div class="k-plan-note">One-time top-up, no subscription' + (p.covers_shortfall ? ' · covers what you need' : '') + '</div>';
+  if (opts.lead) note += '<div class="k-plan-note">One-time top-up, no subscription</div>';
   var primary = opts.pack ? opts.lead : !state.recommended_pack;
   var cta = current ? '' : '<button class="k-btn ' + (primary ? 'primary' : 'ghost') + '" data-open="' + (opts.pack ? 'pack' : 'plan') + '">' + (opts.pack ? 'Buy pack' : 'Upgrade') + ' ' + ICONS.open + '</button>';
   return '<div class="k-plan' + (current ? ' current' : '') + '">' +
@@ -96,7 +96,7 @@ function planCard(p, opts) {
 function renderStage() {
   var plans = (state.plans || []).filter(function (p) { return p && (p.price != null || p.credits != null); });
   var lead = state.recommended_pack;
-  var packs = (state.credit_packs || []).filter(function (p) { return p && p.price != null && !(lead && p.key === lead.key); });
+  var packs = (state.credit_packs || []).filter(function (p) { return p && p.price != null && !(lead && lead.key != null && p.key === lead.key); });
   var monthly = plans.filter(function (p) { return !isAnnual(p); });
   var annual = plans.filter(isAnnual);
   var hasToggle = monthly.length && annual.length;

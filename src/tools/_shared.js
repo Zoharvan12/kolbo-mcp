@@ -1175,6 +1175,9 @@ function upgradeCardUrl(path, content, query = {}) {
     utm_medium: 'upgrade_card',
     utm_campaign: 'out_of_credits',
     utm_content: content,
+    // kolbo-map's stable funnel-join fields (ANALYTICS_ATTRIBUTION_KEYS).
+    attribution_link_id: `mcp_upgrade_card_${content}`,
+    attribution_trigger: 'mcp_insufficient_credits',
     upgrade_entry: 'mcp_upgrade_card',
   };
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
@@ -1254,7 +1257,9 @@ async function insufficientCreditsResult(client, err, options = {}) {
     // plans 17.5%. Plans stay below as the alternative.
     recommended_pack: pack ? {
       ...pack,
-      covers_shortfall: !(shortfall > 0) || pack.credits >= shortfall,
+      // Only when the shortfall is known (and `required` is the API's lower
+      // bound, so this is a floor, not a promise).
+      covers_shortfall: shortfall > 0 && pack.credits >= shortfall,
       url: pack_url,
     } : null,
     plans: data?.plans || [],

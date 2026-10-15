@@ -921,7 +921,10 @@ async function main() {
         const u = new URL(link);
         const q = Object.fromEntries(u.searchParams);
         if (u.origin !== 'https://app.kolbo.ai' || q.utm_source !== 'mcp' || q.utm_medium !== 'upgrade_card'
-          || q.utm_campaign !== 'out_of_credits' || q.upgrade_entry !== 'mcp_upgrade_card') {
+          || q.utm_campaign !== 'out_of_credits' || q.upgrade_entry !== 'mcp_upgrade_card'
+          || q.attribution_trigger !== 'mcp_insufficient_credits'
+          || q.attribution_link_id !== `mcp_upgrade_card_${q.utm_content}`
+          || !/^[\p{L}\p{N}._:-]+$/u.test(q.attribution_link_id)) {
           throw new Error(`untracked upgrade-card link: ${link}`);
         }
       }

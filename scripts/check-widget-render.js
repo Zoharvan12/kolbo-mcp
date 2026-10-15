@@ -178,7 +178,7 @@ const flush = () => new Promise((r) => setImmediate(r));
   const lead = stage.indexOf('Small pack');
   assert.ok(lead > -1 && lead < stage.indexOf('PLUS'), 'out-of-credits card must lead with the recommended pack');
   assert.ok(stage.indexOf('Large pack') > stage.indexOf('PLUS'), 'other packs follow the plans');
-  assert.equal(stage.split('Small pack').length, 2, 'recommended pack is listed twice');
+  assert.equal(stage.split('Small pack').length, 2, 'recommended pack must be listed exactly once');
   assert.ok(/k-btn primary" data-open="pack"/.test(stage), 'recommended pack is not the primary action');
   assert.ok(!/k-btn primary" data-open="plan"/.test(stage), 'plans compete with the pack as primary actions');
   w.click('btn-pricing');
