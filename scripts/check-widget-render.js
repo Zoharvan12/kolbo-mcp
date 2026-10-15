@@ -160,6 +160,31 @@ function mountWidget(src = genSrc) {
 
 const flush = () => new Promise((r) => setImmediate(r));
 
+// Out of credits: the card leads with the recommended credit pack (the primary
+// action, opening the pack tab), plans follow as the alternative, and the
+// "See all plans" button keeps the card's tagged pricing link.
+{
+  const w = mountWidget(blocks(widgetHtml(UI.plans)).slice(1).join('\n'));
+  const pack = { key: 'pack-s', name: 'Small pack', credits: 50, price: 5, covers_shortfall: true };
+  w.deliver({
+    widget: 'plans', reason: 'insufficient_credits', balance: 2, required: 8, shortfall: 6,
+    plans: [{ key: 'plus', name: 'PLUS', interval: 'month', credits: 1000, price: 39 }],
+    credit_packs: [pack, { key: 'pack-l', name: 'Large pack', credits: 500, price: 40 }],
+    recommended_pack: pack,
+    pricing_url: 'https://app.kolbo.ai/pricing?utm_content=plans',
+    pack_url: 'https://app.kolbo.ai/pricing?category=one_time&utm_content=credit_pack',
+  });
+  const stage = w.html('stage');
+  const lead = stage.indexOf('Small pack');
+  assert.ok(lead > -1 && lead < stage.indexOf('PLUS'), 'out-of-credits card must lead with the recommended pack');
+  assert.ok(stage.indexOf('Large pack') > stage.indexOf('PLUS'), 'other packs follow the plans');
+  assert.equal(stage.split('Small pack').length, 2, 'recommended pack is listed twice');
+  assert.ok(/k-btn primary" data-open="pack"/.test(stage), 'recommended pack is not the primary action');
+  assert.ok(!/k-btn primary" data-open="plan"/.test(stage), 'plans compete with the pack as primary actions');
+  w.click('btn-pricing');
+  assert.deepEqual(w.links, ['https://app.kolbo.ai/pricing?utm_content=plans']);
+}
+
 // Account balances must distinguish an actual zero from an unavailable field.
 {
   const w = mountWidget(blocks(widgetHtml(UI.credits)).slice(1).join('\n'));

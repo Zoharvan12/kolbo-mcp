@@ -239,8 +239,10 @@ function build() {
       widget: 'plans', reason: 'insufficient_credits', balance: 3, required: 12, shortfall: 9,
       current_plan: { name: 'Free' },
       plans: [{ name: 'Pro', price: 29, credits: 1500, url: 'https://app.kolbo.ai/pricing' }, { name: 'Studio', price: 99, credits: 6000 }],
-      credit_packs: [{ name: '500 credits', price: 9 }],
+      credit_packs: [{ key: 'small', name: '500 credits', price: 9, credits: 500 }, { key: 'large', name: '2,000 credits', price: 29, credits: 2000 }],
+      recommended_pack: { key: 'small', name: '500 credits', price: 9, credits: 500, covers_shortfall: true, url: 'https://app.kolbo.ai/pricing?category=one_time' },
       pricing_url: 'https://app.kolbo.ai/pricing',
+      pack_url: 'https://app.kolbo.ai/pricing?category=one_time',
     },
   });
 

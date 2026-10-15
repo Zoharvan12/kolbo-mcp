@@ -888,7 +888,11 @@ async function main() {
           credits: { total: 2 },
           current_plan: { key: 'free-plan', name: 'Free' },
           plans: [{ key: 'plus', name: 'PLUS', interval: 'year', credits: 1000, price: 468, currency: 'usd' }],
-          credit_packs: [],
+          credit_packs: [
+            { key: 'pack-l', name: 'Large', interval: 'one_time', credits: 500, price: 40, currency: 'usd' },
+            { key: 'pack-xs', name: 'Tiny', interval: 'one_time', credits: 5, price: 1, currency: 'usd' },
+            { key: 'pack-s', name: 'Small', interval: 'one_time', credits: 50, price: 5, currency: 'usd' },
+          ],
           pricing_url: 'https://app.kolbo.ai/pricing',
         }),
       };
@@ -902,6 +906,45 @@ async function main() {
       if (!sc.error || !/_hint/.test(JSON.stringify(Object.keys(sc)))) {
         throw new Error('upgrade card structuredContent omits the refusal reason — an agent reading it would think the generation ran');
       }
+      // Packs out-convert plans for users who just ran out (56% vs 17.5% on
+      // the web app): the card leads with the SMALLEST pack that covers the
+      // shortfall (6 → the 50-credit pack, not the 5 that falls short).
+      if (sc.recommended_pack?.key !== 'pack-s' || !sc.recommended_pack.covers_shortfall) {
+        throw new Error(`upgrade card should lead with the smallest covering pack, got ${JSON.stringify(sc.recommended_pack)}`);
+      }
+      if (!JSON.parse(card.content[0].text).recommended_pack?.url) {
+        throw new Error('text hosts do not see the recommended pack');
+      }
+      // Every link out of the card is attributable to it.
+      const links = [sc.pricing_url, sc.pack_url, sc.home_url, sc.recommended_pack.url];
+      for (const link of links) {
+        const u = new URL(link);
+        const q = Object.fromEntries(u.searchParams);
+        if (u.origin !== 'https://app.kolbo.ai' || q.utm_source !== 'mcp' || q.utm_medium !== 'upgrade_card'
+          || q.utm_campaign !== 'out_of_credits' || q.upgrade_entry !== 'mcp_upgrade_card') {
+          throw new Error(`untracked upgrade-card link: ${link}`);
+        }
+      }
+      // kolbo-map /pricing only understands ?category=month|annual|one_time.
+      if (new URL(sc.pack_url).searchParams.get('category') !== 'one_time') {
+        throw new Error(`pack link does not open the credit-pack tab: ${sc.pack_url}`);
+      }
+      // No pack covers it → the largest pack, flagged as not covering.
+      const big = new Error('Insufficient credits.');
+      big.code = 'INSUFFICIENT_CREDITS';
+      big.data = { balance: 0, required: 9000 };
+      const bigCard = await insufficientCreditsResult(fakeClient, big);
+      if (bigCard.structuredContent.recommended_pack?.key !== 'pack-l' || bigCard.structuredContent.recommended_pack.covers_shortfall) {
+        throw new Error('uncovered shortfall should fall back to the largest pack, marked as not covering');
+      }
+      // ChatGPT profile (commerce:false) must stay link- and price-free: OpenAI
+      // rejected the app for commerce surfaces (and for the pricing iframe).
+      const gpt = await insufficientCreditsResult(fakeClient, err, { commerce: false });
+      const gptJson = JSON.stringify(gpt);
+      if (gpt.structuredContent.widget !== 'generation' || /app.kolbo.ai|recommended_pack|utm_/.test(gptJson)) {
+        throw new Error('commerce:false out-of-credits card leaks pricing links or packs');
+      }
+      if (!gpt.structuredContent.error) throw new Error('commerce:false card lost the refusal reason');
       if (card._meta?.['ui/resourceUri'] !== UI.plans && !JSON.stringify(card).includes('plans.html')) {
         throw new Error('upgrade card does not point at the plans widget resource');
       }

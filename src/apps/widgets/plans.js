@@ -24,7 +24,11 @@ const { widgetPage } = require('../html');
  *   plans:        [{ key, name, interval, credits, price, original_price,
  *                    discount_percent, promo_text, currency, top_up_discount }],
  *   credit_packs: [{ …, subscriber_price, is_subscriber }],
- *   pricing_url
+ *   pricing_url,
+ *   // insufficient_credits only — leads the card (packs out-convert plans
+ *   // for users who just ran out); every URL carries MCP attribution tags:
+ *   recommended_pack: { …pack, covers_shortfall, url } | null,
+ *   pack_url, home_url
  * }
  */
 
@@ -52,11 +56,15 @@ var state = null;
 var interval = 'month';
 
 el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
-el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai'); };
+function homeUrl() { return (state && state.home_url) || 'https://app.kolbo.ai'; }
+el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink(homeUrl()); };
+// Own handler so the shared untagged logo link (html.js) never fires here.
+el('logo').onclick = function (e) { e.stopPropagation(); window.kolbo.openLink(homeUrl()); };
 
 function pricingUrl() {
   return (state && state.pricing_url) || 'https://app.kolbo.ai/pricing';
 }
+function packUrl() { return (state && state.pack_url) || pricingUrl(); }
 function money(v, currency) {
   if (v == null || isNaN(v)) return '';
   var sym = { usd: '$', eur: '\u20ac', gbp: '\u00a3', ils: '\u20aa' }[String(currency || 'usd').toLowerCase()] || '';
@@ -76,7 +84,9 @@ function planCard(p, opts) {
   var note = p.promo_text ? '<div class="k-plan-note">' + esc(p.promo_text) + '</div>'
     : (opts.pack && p.is_subscriber && p.subscriber_price != null ? '<div class="k-plan-note">Subscriber price applied</div>' : '')
       + (!opts.pack && p.top_up_discount ? '<div class="k-plan-note">Cheaper credit packs included</div>' : '');
-  var cta = current ? '' : '<button class="k-btn ' + (opts.pack ? 'ghost' : 'primary') + '" data-open="1">' + (opts.pack ? 'Buy pack' : 'Upgrade') + ' ' + ICONS.open + '</button>';
+  if (opts.lead) note += '<div class="k-plan-note">One-time top-up, no subscription' + (p.covers_shortfall ? ' · covers what you need' : '') + '</div>';
+  var primary = opts.pack ? opts.lead : !state.recommended_pack;
+  var cta = current ? '' : '<button class="k-btn ' + (primary ? 'primary' : 'ghost') + '" data-open="' + (opts.pack ? 'pack' : 'plan') + '">' + (opts.pack ? 'Buy pack' : 'Upgrade') + ' ' + ICONS.open + '</button>';
   return '<div class="k-plan' + (current ? ' current' : '') + '">' +
     '<div class="k-plan-top"><span class="k-plan-name">' + esc(p.name || p.key || 'Plan') + '</span>' + badge + '</div>' +
     (p.credits != null ? '<div class="k-plan-credits">' + ICONS.sparkle + ' ' + esc(fmtCredits(p.credits)) + ' credits' + (opts.pack ? '' : ' / ' + (isAnnual(p) ? 'year' : 'month')) + '</div>' : '') +
@@ -85,12 +95,17 @@ function planCard(p, opts) {
 
 function renderStage() {
   var plans = (state.plans || []).filter(function (p) { return p && (p.price != null || p.credits != null); });
-  var packs = (state.credit_packs || []).filter(function (p) { return p && p.price != null; });
+  var lead = state.recommended_pack;
+  var packs = (state.credit_packs || []).filter(function (p) { return p && p.price != null && !(lead && p.key === lead.key); });
   var monthly = plans.filter(function (p) { return !isAnnual(p); });
   var annual = plans.filter(isAnnual);
   var hasToggle = monthly.length && annual.length;
   var shown = hasToggle ? (interval === 'year' ? annual : monthly) : plans;
   var html = '';
+  if (lead) {
+    html += '<div class="k-pack-head">Quickest fix</div><div class="k-plan-grid">' + planCard(lead, { pack: true, lead: true }) + '</div>' +
+      '<div class="k-pack-head">Or upgrade your plan</div>';
+  }
   if (hasToggle) {
     html += '<div class="k-plan-toggle">' +
       '<button class="k-toggle-btn' + (interval === 'month' ? ' active' : '') + '" data-interval="month">Monthly</button>' +
@@ -98,7 +113,7 @@ function renderStage() {
   }
   if (shown.length) html += '<div class="k-plan-grid">' + shown.map(function (p) { return planCard(p, {}); }).join('') + '</div>';
   if (packs.length) {
-    html += '<div class="k-pack-head">Credit packs</div><div class="k-plan-grid">' +
+    html += '<div class="k-pack-head">' + (lead ? 'Other credit packs' : 'Credit packs') + '</div><div class="k-plan-grid">' +
       packs.map(function (p) { return planCard(p, { pack: true }); }).join('') + '</div>';
   }
   if (!html) html = '<div class="k-plan-note">Live plans and prices are on the Kolbo pricing page.</div>';
@@ -106,7 +121,7 @@ function renderStage() {
   var btns = el('stage').querySelectorAll('[data-interval]');
   for (var i = 0; i < btns.length; i++) btns[i].onclick = function () { interval = this.getAttribute('data-interval'); renderStage(); window.kolbo.notifySize(); };
   var opens = el('stage').querySelectorAll('[data-open]');
-  for (var j = 0; j < opens.length; j++) opens[j].onclick = function () { window.kolbo.openLink(pricingUrl()); };
+  for (var j = 0; j < opens.length; j++) opens[j].onclick = function () { window.kolbo.openLink(this.getAttribute('data-open') === 'pack' ? packUrl() : pricingUrl()); };
 }
 
 function boot(sc) {

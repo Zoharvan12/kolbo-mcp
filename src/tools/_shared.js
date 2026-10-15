@@ -1163,12 +1163,41 @@ function compactList(items, { fields, cap = 50, total, extra, note, maxChars = M
   return text;
 }
 
+// Every link out of the out-of-credits card carries the same tags so MCP
+// purchases are attributable. kolbo-map's /pricing reads only `category`
+// (month | annual | one_time) — no per-pack preselect exists, so the pack link
+// lands on the credit-pack tab.
+function upgradeCardUrl(path, content, query = {}) {
+  const url = new URL(path, APP_BASE_URL);
+  const params = {
+    ...query,
+    utm_source: 'mcp',
+    utm_medium: 'upgrade_card',
+    utm_campaign: 'out_of_credits',
+    utm_content: content,
+    upgrade_entry: 'mcp_upgrade_card',
+  };
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  return url.toString();
+}
+
+// Smallest pack that covers the shortfall; the largest when none does; the
+// smallest when the shortfall is unknown.
+function packForShortfall(packs, shortfall) {
+  const sized = (packs || [])
+    .filter((p) => p && Number.isFinite(p.credits) && p.price != null)
+    .sort((a, b) => a.credits - b.credits);
+  if (!sized.length) return null;
+  return sized.find((p) => !(shortfall > 0) || p.credits >= shortfall) || sized[sized.length - 1];
+}
+
 /**
  * Turn a 403 INSUFFICIENT_CREDITS into the plans/upgrade card.
  *
  * Without this the user just sees the raw API sentence and has to go find the
- * pricing page themselves. The card states the shortfall, shows live
- * promo-adjusted plans, and links to app.kolbo.ai/pricing.
+ * pricing page themselves. The card states the shortfall, leads with the
+ * credit pack that covers it, shows live promo-adjusted plans below, and links
+ * to app.kolbo.ai/pricing with MCP attribution tags.
  *
  * Returns null for any other error so callers can rethrow untouched. The plan
  * fetch is best-effort: if it fails we still return a card carrying the
@@ -1209,30 +1238,54 @@ async function insufficientCreditsResult(client, err, options = {}) {
 
   const balance = err.data?.balance ?? data?.credits?.total;
   const required = err.data?.required;
+  const shortfall = (Number.isFinite(balance) && Number.isFinite(required))
+    ? Math.max(0, required - balance) : undefined;
+  const credit_packs = data?.credit_packs || [];
+  const pack = packForShortfall(credit_packs, shortfall);
+  const pack_url = upgradeCardUrl('/pricing', 'credit_pack', { category: 'one_time' });
   const structured = {
     widget: 'plans',
     reason: 'insufficient_credits',
     balance,
     required,
-    shortfall: (Number.isFinite(balance) && Number.isFinite(required))
-      ? Math.max(0, required - balance) : undefined,
+    shortfall,
     current_plan: data?.current_plan || null,
+    // Leads the card: out of credits on the web app, packs convert 56% vs
+    // plans 17.5%. Plans stay below as the alternative.
+    recommended_pack: pack ? {
+      ...pack,
+      covers_shortfall: !(shortfall > 0) || pack.credits >= shortfall,
+      url: pack_url,
+    } : null,
     plans: data?.plans || [],
-    credit_packs: data?.credit_packs || [],
-    pricing_url: err.data?.pricing_url || data?.pricing_url || 'https://app.kolbo.ai/pricing',
+    credit_packs,
+    // MCP-tagged, not the API's sdk-tagged link: every way out of this card
+    // must be attributable to it.
+    pricing_url: upgradeCardUrl('/pricing', 'plans'),
+    pack_url,
+    home_url: upgradeCardUrl('/', 'home'),
   };
 
   // structuredContent shadows the text on widget hosts, so the refusal reason
   // has to be inside the object too — an agent that only reads structured
   // content must still understand that nothing was generated.
   structured.error = err.message;
-  structured._hint = 'The generation did NOT run and nothing was charged. An upgrade card is shown to the user. Tell them they are out of credits and point at the card; do not retry the generation, and do not attempt to purchase anything for them.';
+  structured._hint = 'The generation did NOT run and nothing was charged. An upgrade card is shown to the user. Tell them they are out of credits and point at the card; '
+    + (pack ? 'the quickest fix is the one-time credit pack it leads with (recommended_pack), with plans as the alternative; ' : '')
+    + 'do not retry the generation, and do not attempt to purchase anything for them.';
 
   const text = JSON.stringify({
     error: err.message,
     code: 'INSUFFICIENT_CREDITS',
     balance,
     required,
+    recommended_pack: structured.recommended_pack && {
+      name: pack.name,
+      credits: pack.credits,
+      price: pack.price,
+      currency: pack.currency,
+      url: pack_url,
+    },
     pricing_url: structured.pricing_url,
     _hint: structured._hint,
   }, null, 2);
