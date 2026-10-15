@@ -1234,7 +1234,7 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_sound ────────────────────────────────────────
   server.tool(
     'generate_sound',
-    'Generate sound effects (not music, not speech) from a text description using Kolbo AI. Use this for ambient sounds, foley, impacts, atmospheres, UI sounds, etc. For music use generate_music; for voice use generate_speech. Beyond the core prompt/duration, per-provider controls are available (Stable Audio guidance, Kie loop/tempo/key, Seed-Audio voice/speed/volume/pitch + reference audio/image); the engine ignores controls that do not apply to the chosen model. Returns the final audio URL when complete.',
+    'Generate sound effects (not music, not speech) from a text description using Kolbo AI. Use this for ambient sounds, foley, impacts, atmospheres, UI sounds, etc. For music use generate_music; for voice use generate_speech. Beyond the core prompt/duration, per-provider controls are available (Stable Audio guidance, Kie loop/tempo/key, Seed-Audio voice/speed/volume/pitch + reference audio/image, output audio_format, and Mirelo SFX 2.0 negative_prompt / num_samples / seed / audio_bitrate_kbps); the engine ignores controls that do not apply to the chosen model. Mirelo SFX 2.0 (model "mirelo-ai/sfx2.0/text-to-audio") makes up to 10 minutes of layered sound design and up to 4 variations per call (each variation is billed). Returns the final audio URL(s) when complete.',
     {
       prompt: z.string().describe('Text description of the sound effect (e.g., "thunder clap with rain", "door creaking open", "futuristic UI beep")'),
       model: z.string().optional().describe('Model identifier. Use list_models type="text_to_sound" to see options. Default: elevenlabs-sound-effects-v1'),
@@ -1253,21 +1253,30 @@ function registerGenerateTools(server, client, options = {}) {
       seed_pitch: z.number().optional().describe('FAL Seed-Audio: pitch shift in semitones.'),
       seed_reference_audio_urls: z.array(z.string()).optional().describe('FAL Seed-Audio: up to 3 reference audio URLs to condition the sound.'),
       seed_reference_image_url: z.string().optional().describe('FAL Seed-Audio: a reference image URL to condition the sound.'),
+      // ── Output format (models whose list_models entry has output_audio_formats) ──
+      audio_format: z.enum(['wav', 'mp3', 'aac', 'flac']).optional().describe('Output audio container/codec, for models that advertise output_audio_formats in list_models (Sonilo, Mirelo SFX 2.0).'),
+      // ── Mirelo SFX 2.0 (list_models: max_samples / supports_negative_prompt / supports_seed / supports_audio_bitrate) ──
+      negative_prompt: z.string().max(1000).optional().describe('Mirelo SFX 2.0: sounds to keep OUT of the result, e.g. "music, speech".'),
+      num_samples: z.number().int().min(1).max(4).optional().describe('Mirelo SFX 2.0: number of variations (1-4, default 1). Each variation is billed; all URLs are returned.'),
+      seed: z.number().int().min(-1).optional().describe('Mirelo SFX 2.0: seed for repeatable results (-1 or omit = random).'),
+      audio_bitrate_kbps: z.number().int().optional().describe('Mirelo SFX 2.0: bitrate for mp3 (32,40,48,56,64,80,96,112,128,160,192,224,256,320) or aac (32-256). Not allowed with wav/flac.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, model, duration, prompt_influence, cfg_strength, sound_loop, sound_tempo, sound_key, seed_voice, seed_speed, seed_volume, seed_pitch, seed_reference_audio_urls, seed_reference_image_url, project_id, session_id }) => {
+    async ({ prompt, model, duration, prompt_influence, cfg_strength, sound_loop, sound_tempo, sound_key, seed_voice, seed_speed, seed_volume, seed_pitch, seed_reference_audio_urls, seed_reference_image_url, audio_format, negative_prompt, num_samples, seed, audio_bitrate_kbps, project_id, session_id }) => {
       model = await canonicalModelId(client, model, 'text_to_sound'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/sound', {
         prompt, model, duration, prompt_influence,
         cfg_strength, sound_loop, sound_tempo, sound_key,
         seed_voice, seed_speed, seed_volume, seed_pitch,
-        seed_reference_audio_urls, seed_reference_image_url, project_id, session_id
+        seed_reference_audio_urls, seed_reference_image_url,
+        audio_format, negative_prompt, num_samples, seed, audio_bitrate_kbps,
+        project_id, session_id
       });
 
       if (returnsImmediately()) return submittedResult({
         tool: 'generate_sound', kind: 'audio', gen, client, model, prompt,
-        settings: { duration },
+        settings: { duration, ...(num_samples > 1 && { variations: num_samples }) },
         reference_images: seed_reference_image_url ? [seed_reference_image_url] : []
       });
 
@@ -1280,7 +1289,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       return uiCompleted({
         tool: 'generate_sound', kind: 'audio', gen, client, model, prompt,
-        settings: { duration },
+        settings: { duration, ...(num_samples > 1 && { variations: num_samples }) },
         reference_images: seed_reference_image_url ? [seed_reference_image_url] : [],
         urls: result.result.urls,
         playback_urls: result.result.playback_urls,
@@ -2391,6 +2400,10 @@ function registerGenerateTools(server, client, options = {}) {
   const editDetails = (op, a) => {
     const d = [];
     const has = (v) => v !== undefined && v !== null && v !== '';
+    if (op === 'generate_audio') {
+      if (a.num_samples > 1) d.push(`${a.num_samples} variations`);
+      if (a.preserve_speech === false) d.push('no dialogue');
+    }
     if (op === 'upscale' || op === 'split_upscale') {
       if (has(a.scale)) d.push(`${a.scale}×`);
       if (a.face_enhancement === false) d.push('no face enhance');
@@ -2678,7 +2691,7 @@ function registerGenerateTools(server, client, options = {}) {
         '"draft_quote" — check a saved draft’s supported final resolutions, expiry and exact credit cost without starting a render. Use this before draft_enhance.',
         '"upscale" — boost to 4K/2K resolution (use `scale` for factor, `resolution` for target, `target_fps` for frame rate). On model "blackforestlabs/flux-video-upscale" (Flux Video Upscale): `scale` is 1.5-3x (no named `resolution` target — billed on the OUTPUT tier it lands in), `mode` is "precise" (source-faithful, default) or "creative" (reimagines detail — a pricier tier), and `prompt` optionally guides the creative-mode enhancement. On model "bytedance-upscaler/upscale/video" (Bytedance Upscaler): `resolution` is "1080p" | "2k" | "4k" | "6k" | "8k" (OR `scale_ratio` 1.1-10, output ≤4K), plus `target_fps` (24-120), `enhancement_tier`, `enhancement_preset`, `fidelity`, `bit_depth` — see each field. Price = resolution tier (1080p 1 · 2k 2 · 4k 4 · 6k 8 · 8k 16 credits/s) × every started 30 fps (60 = 2×, 120 = 4×) × tier (fast 0.5×, pro 10×). Source-length caps: 6K 120s, 8K 60s, Pro 30s, otherwise 300s.',
         '"reframe" — change aspect ratio (requires `aspect_ratio`; use `grid_position_x`/`grid_position_y` to control where the original sits).',
-        '"generate_audio" — add AI-generated audio from `prompt`. Optionally split into `sound_effect_prompt` and `background_music_prompt`. Set `original_sound=true` to keep original audio alongside.',
+        '"generate_audio" — add AI-generated audio from `prompt`. Optionally split into `sound_effect_prompt` and `background_music_prompt`. Set `original_sound=true` to keep original audio alongside. On model "mirelo-ai/sfx2.0/video-to-video" (Mirelo SFX 2.0) the prompt is optional (it watches the clip and builds a full synced sound design, up to 10 minutes): `preserve_speech` keeps the dialogue (default true), `negative_prompt` keeps sounds out, `num_samples` returns 1-4 variations (each billed), `seed` repeats a result, and `duration` makes a shorter soundtrack by TRIMMING the video (omit for the whole clip).',
         '"remove_watermark" — AI-powered watermark removal.',
         '"face_swap" — replace the face in the video with the face from `image_url` (required).',
         '"extend" — lengthen the video at `mode` ("start" or "end") by `duration` seconds. Optional `prompt` and `context` guide the generated content.',
@@ -2742,6 +2755,15 @@ function registerGenerateTools(server, client, options = {}) {
         prompt: z.string()
       })).optional()
         .describe('Optional contiguous Sonilo sound-design ranges. The first start must be 0, each end must equal the next start, and the final end must not exceed the video duration. Omit to let Sonilo detect scenes automatically.'),
+      // Mirelo SFX 2.0 (list_models: max_samples / supports_negative_prompt / supports_seed / supports_preserve_speech)
+      negative_prompt: z.string().max(1000).optional()
+        .describe('Mirelo SFX 2.0 (operation="generate_audio"): sounds to keep out, as a short comma-separated list, e.g. "music, crowd noise".'),
+      preserve_speech: z.boolean().optional()
+        .describe('Mirelo SFX 2.0 (operation="generate_audio"): true (default) keeps the dialogue and builds the soundtrack around it; false makes sound effects only and suppresses speech.'),
+      num_samples: z.number().int().min(1).max(4).optional()
+        .describe('Mirelo SFX 2.0 (operation="generate_audio"): number of variations, 1-4 (default 1). Each is billed; all result URLs are returned.'),
+      seed: z.number().int().min(-1).optional()
+        .describe('Mirelo SFX 2.0 (operation="generate_audio"): seed for repeatable results (-1 or omit = random).'),
 
       // ── face_swap ──────────────────────────────────────────
       image_url: z.string().optional()
@@ -2749,7 +2771,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       // ── extend ─────────────────────────────────────────────
       duration: z.number().optional()
-        .describe('Seconds of content to generate. Used with "extend" (required) and "retake" (optional). Typical range: 1–20.'),
+        .describe('Seconds of content to generate. Used with "extend" (required) and "retake" (optional). Typical range: 1–20. With "generate_audio" on Mirelo SFX 2.0: seconds of sound (1-600) — the returned video is TRIMMED to this length; omit for the whole clip.'),
       mode: z.string().optional()
         .describe('Extension direction: "start" or "end". Used with "extend". For "retake": replacement mode (default: "replace_audio_and_video"). For "upscale" on model "blackforestlabs/flux-video-upscale": "precise" (source-faithful, default) or "creative" (reimagines detail — pricier). Default: "end".'),
       context: z.string().optional()
@@ -2790,6 +2812,7 @@ function registerGenerateTools(server, client, options = {}) {
       grid_position_x, grid_position_y,
       sound_effect_prompt, background_music_prompt, original_sound, cfg_strength,
       audio_format, segments,
+      negative_prompt, preserve_speech, num_samples, seed,
       refine_edges, subject_is_person,
       text_prompt, context,
       mask_video_url, object_prompt, video_strength,
@@ -2806,7 +2829,7 @@ function registerGenerateTools(server, client, options = {}) {
       // Validation
       if (operation === 'magic_edit'    && !prompt)      throw new Error('prompt is required for magic_edit');
       if (operation === 'generate_audio' && !prompt && !sound_effect_prompt && !background_music_prompt
-          && !(typeof model === 'string' && model.includes('sonilo'))) {
+          && !(typeof model === 'string' && (model.includes('sonilo') || model.includes('mirelo')))) {
         throw new Error('prompt is required for generate_audio unless dedicated sound/music prompts are provided or the selected model supports automatic captioning');
       }
       if (operation === 'reframe'       && !aspect_ratio)throw new Error('aspect_ratio is required for reframe');
@@ -2824,6 +2847,7 @@ function registerGenerateTools(server, client, options = {}) {
         grid_position_x, grid_position_y,
         sound_effect_prompt, background_music_prompt, original_sound, cfg_strength,
         audio_format, segments,
+        negative_prompt, preserve_speech, num_samples, seed,
         refine_edges, subject_is_person,
         text_prompt, context,
         mask_video_url, object_prompt, video_strength,
@@ -2840,7 +2864,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (operation === 'draft_quote') return { content: [{ type: 'text', text: JSON.stringify(gen, null, 2) }] };
       const cardSettings = {
         mode: operation, duration, aspect_ratio, resolution,
-        details: editDetails(operation, { scale, enhancement_model, target_fps, mode, enhancement_tier, enhancement_preset, bit_depth, scale_ratio }),
+        details: editDetails(operation, { scale, enhancement_model, target_fps, mode, enhancement_tier, enhancement_preset, bit_depth, scale_ratio, num_samples, preserve_speech }),
       };
       if (returnsImmediately()) return submittedResult({
         tool: 'edit_video', kind: 'video', gen, client, model,
