@@ -61,8 +61,14 @@ el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openL
 // Own handler so the shared untagged logo link (html.js) never fires here.
 el('logo').onclick = function (e) { e.stopPropagation(); window.kolbo.openLink(homeUrl()); };
 
+// upgrade_entry credits the purchase to this card (kolbo-map markUpgradeEntryFromUrl).
 function pricingUrl() {
-  return (state && state.pricing_url) || 'https://app.kolbo.ai/pricing';
+  var raw = (state && state.pricing_url) || 'https://app.kolbo.ai/pricing';
+  try {
+    var u = new URL(raw);
+    if (!u.searchParams.has('upgrade_entry')) u.searchParams.set('upgrade_entry', state && state.reason === 'insufficient_credits' ? 'mcp_out_of_credits_card' : 'mcp_plans_card');
+    return u.toString();
+  } catch (e) { return raw; }
 }
 function packUrl() { return (state && state.pack_url) || pricingUrl(); }
 function money(v, currency) {
