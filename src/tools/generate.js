@@ -1933,7 +1933,7 @@ function registerGenerateTools(server, client, options = {}) {
     {
       source: z.string().describe('URL or absolute local path to the source image or video (the face to animate). For lipsync-video: duration must fall within `min_video_duration`-`max_video_duration` from list_models.'),
       audio: z.string().describe('URL or absolute local path to the audio track (the voice to sync to). Duration must fall within `min_audio_duration`-`max_audio_duration` from list_models; format must be in `supported_audio_formats` (when set).'),
-      text_prompt: z.string().optional().describe('Optional text prompt (for performance-capable models). For Sync-3 this is the free-text emotion/acting prompt, e.g. "speaking with excitement, calm and serious".'),
+      text_prompt: z.string().optional().describe('Optional text prompt (for performance-capable models). For Sync-3 this is the free-text emotion/acting prompt, e.g. "speaking with excitement, calm and serious". For OmniHuman 2.0 (model "bytedance/omnihuman-2.0", lipsync-image: one photo + 4-300s of audio, native 720p) it directs the scene, gestures and camera, e.g. "she sings on a small stage, slow push-in, hands on the mic".'),
       model: z.string().optional().describe('Model identifier. Use list_models type="lipsync-image" or type="lipsync-video" to see options. Pick a SPECIFIC model — do NOT omit (omitting = Smart Select auto-pick, which we avoid); call list_models for this type and choose the model that best fits the user\'s intent.'),
       bounding_box_target: z.array(z.number()).optional().describe('Optional bounding box [x, y, w, h] for multi-face inputs (Hedra Character3 style). Leave empty for single-face.'),
       // Sync-3 (fal-ai/sync-lipsync/v3) only; ignored by other models.
