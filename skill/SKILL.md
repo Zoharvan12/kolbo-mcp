@@ -1,8 +1,19 @@
 ---
-version: 0.9.25
+version: 0.9.24
 name: kolbo
 description: |
-  Generate, edit, analyze, and direct creative media through Kolbo AI: images, video (Seedance, Veo, Kling, Hailuo), music, speech, sound, 3D, transcription, Visual DNA, Creative Director batches, marketing assets, HTML artifacts, and AI Docs, Flow node workflows and session/system prompts, and approved Blender scene control. Use for sophisticated AI filmmaking as well as individual media: scripts, production bibles, recurring characters and locations, acting, dialogue, music performance, blocking, physics, multi-shot continuity, connected scenes, prompt audits, feature-length production planning, end-to-end vertical micro-drama series (Micro-Drama Studio), and direct Blender scene building through the connected Kolbo Blender plugin. NOT for: unrelated standalone video editing / FFmpeg (use video-production), motion graphics (use remotion-best-practices), code editing, or general chat.
+  Generate, edit, analyze, and direct creative media through Kolbo AI: images,
+  video (Seedance, Veo, Kling, Hailuo), music, speech, sound, 3D, transcription,
+  Visual DNA, Creative Director batches, marketing assets, HTML artifacts, and
+  AI Docs, Flow node workflows and session/system prompts, and approved Blender scene control. Use for sophisticated AI
+  filmmaking as well as individual media:
+  scripts, production bibles, recurring characters and locations, acting,
+  dialogue, music performance, blocking, physics, multi-shot continuity,
+  connected scenes, prompt audits, feature-length production planning, end-to-end vertical micro-drama series (Micro-Drama Studio), and
+  direct Blender scene building through the connected Kolbo Blender plugin.
+
+  NOT for: unrelated standalone video editing / FFmpeg (use video-production), motion graphics
+  (use remotion-best-practices), code editing, or general chat.
 argument-hint: "[prompt-or-command] [--model <name>] [--image <path>] [--video <path>]"
 allowed-tools: Bash, Read, Write, Edit
 ---
@@ -269,7 +280,7 @@ Dependencies accumulate: narrative Elements work requires **Kolbo + filmmaking +
 
 ## ⚠️ Seedance / Elements prompt contract (HARD RULE)
 
-Mode wins over model family. **Frames** (`generate_video_from_image`) and **First/Last Frame** (`generate_first_last_frame`) use ordinary motion/camera/transition prose grounded in the supplied composition, including on Seedance 2.5. Do not add Elements CAST/LOCATION blocks, invent DNA names, or enable cuts because a template says so. An ordinary uploaded frame is `@Image1`, not a DNA; an end frame is `@Image2`. For **Elements / text-driven multi-shot** work, `generate_elements`, Seedance 2 / 2.5, WAN, MiniMax H3, Gemini, and reference-composed video share the Locked Intro in `references/models/seedance.md`. Load `elements-prompting` first (craft, exact `@ImageN` mapping, eight elements), then compile:
+`generate_elements`, Seedance 2 / 2.5, WAN, MiniMax H3, Gemini, and any Visual DNA video share **one** compile shape — the Locked Intro in `references/models/seedance.md`. Load `elements-prompting` first (craft, `@Image N` mapping, eight elements), then compile:
 
 `N connected cinematic shots, Xs total, AR, Multishot ON` → `Total: Xs / N shots / AR` → `[GLOBAL LOOK – LOCKED, APPLIES TO EVERY SHOT]` → `[CAST – IDENTICAL IN EVERY SHOT]` (each person is `@DNAName`) → `[LOCATION]` → LOCATION MAP / CONTINUITY / PHYSICS → `SHOT N — 0:00–0:02 — …` (ranges sum to Xs) → closing `Total: Xs / N shots / AR`. Pass MCP `duration: X` matching that Total. Omitting Total / Multishot is a failed compile — same contract as the Kolbo help widget.
 
@@ -329,16 +340,6 @@ A user-named tool — in any language — overrides every other rule. Recognized
 7. **Share the result** after success — per "⚠️ Generated URLs in Chat" and the no-fabricated-URLs rule in Limitations & Safety.
 
 Model types for `list_models`: `text_to_img`, `image_editing`, `text_to_video`, `img_to_video`, `draw_to_video`, `video_to_video`, `elements`, `firstlastgenerations`, `lipsync-image`, `lipsync-video`, `music_gen`, `text_to_speech`, `text_to_sound`, `stt`, `text`, `3d_text_to_model`, `3d_image_to_model`, `3d_multi_image_to_model`, `3d_world`.
-
-### Practical iteration and prompt diagnosis
-
-- Start from the final deliverable. For a video, intermediate stills need only serve their intended role. Elements references can establish identity, wardrobe, props, environment or style without fixing every camera angle. Frames are literal compositions to animate. Do not make the user perfect every intermediate still when the final video is what matters.
-- Keep the original prompt, original references, model and settings when available. Repeatedly editing an imperfect derivative can compound drift. When a major viewpoint or composition edit keeps failing, compare a different edit wording with a fresh generation from the original reference. Preserve an explicit request to edit rather than silently switching routes.
-- An image prompt describes one still moment. Remove video timelines from an image request and write the desired still. A video prompt describes visible motion, camera trajectory, timing and sound. For an unbroken take, write timed actions within one shot; do not turn intermediate poses into cuts or dissolves.
-- Use economical trials only within the authorized scope and budget. A couple of samples can distinguish random variation from a repeated failure; a few genuinely different prompt approaches can test different mechanisms. These are options, not required extra spending. When comparing models, keep the prompt, references/order, duration and ratio comparable. Ratio affects composition and behavior; preserve the intended output format.
-- Judge the actual result, not whether an LLM praised the prompt. Separate reference binding/delivery failures from a poor source, an unsuitable method, model behavior and mixed conversation context. When an unchanged method fails repeatedly, change the tested hypothesis rather than keep spending on it. Do not promise that a prompt rewrite guarantees success.
-- Use exact numbered upload tokens in attachment order. A title, filename or invented subject name never becomes a registered DNA. Retain a supplied/selected DNA name verbatim, including Hebrew; never invent a DNA to fill a template's CAST block.
-- Keep unrelated goals in separate sessions. When context becomes mixed, preserve a compact checkpoint with the accepted brief, source references, working prompts/settings and observed failures. Offer a supported fork/new session; do not claim to have moved or forked a session without a successful tool result.
 
 ## ⚠️ Generation lifecycle — source of truth, waiting, failures (HARD RULE — read this)
 

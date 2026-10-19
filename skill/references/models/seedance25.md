@@ -7,7 +7,7 @@
 
 Load this file when the user wants a **Seedance 2.5** video (they said "2.5" / "25", or they need longer than 15s, more than ~10 shots, or a large cast of references). Also load `models/seedance.md` for the shared craft layer.
 
-**Kolbo MCP routing:** preserve the selected mode. `generate_video` is text-to-video; `generate_elements` composes reference assets; `generate_video_from_image` animates an opening still; `generate_first_last_frame` connects supplied opening/landing frames. Discover the compatible Seedance 2.5 variant using that tool's model type. Frames use ordinary motion/transition prose, not the Elements Locked Intro. An uploaded frame is `@Image1` (landing frame `@Image2`), never an invented DNA name.
+**Kolbo MCP routing:** `generate_video` or `generate_elements` (refs / Visual DNA / first-last). Run `list_models({ type: "text_to_video" })` and pick the Seedance 2.5 variant by name.
 
 **Audio:** Seedance 2.5 emits real synced audio. `list_models` shows `sound_generation_type: none` only because there is no in-app toggle (`sound_baked_in: true`) — it does NOT mean the model is silent, and it is never a reason to reach for TTS. Quoted dialogue is PERFORMED (synced voices, lip movement, room tone) alongside the SFX named in AUDIO, so scene dialogue never goes through `generate_speech` or `generate_lipsync`; write the lines in quotes inside their shot beats.
 

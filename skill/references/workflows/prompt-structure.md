@@ -48,8 +48,6 @@ Rules that make it work rather than just look organised:
 
 ## 2. The reference contract — how an edit stops drifting
 
-For iterative work, retain the original source prompt and reference as the baseline. An edit request should preserve only the properties that must survive. If a major camera/viewpoint change repeatedly resists the same edit method, offer a materially different prompt approach or a fresh generation grounded in the original reference; do not keep chaining degraded outputs. Preserve an explicitly selected edit route unless the user accepts changing it. Diagnose with comparable, budgeted samples, not unbounded retries. Image prompts describe one still moment; video timing/action belongs in the video prompt.
-
 This is the highest-value pattern in the file. "Keep everything else the same" is too
 vague to hold, and it is why a chain of edits quietly turns a person into someone else.
 An edit prompt opens with an explicit contract:
