@@ -7,9 +7,11 @@
 
 Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) video. For any other video model, see `models/veo.md`, `models/prompt-copilot.md`, or generic video rules in `SKILL.md`.
 
-**Kolbo MCP routing:** Seedance is a video model — call `generate_video` (text-to-video) or `generate_elements` (when video references / Visual DNA / first-last frames are involved). Run `list_models({ type: "text_to_video" })` and pick a Seedance variant by name.
+**Kolbo MCP routing:** the selected inputs/mode choose the tool, not the Seedance name. Use `generate_video` for text-to-video, `generate_elements` for reference-composed scenes, `generate_video_from_image` to animate an opening still, and `generate_first_last_frame` for supplied opening/landing frames. Discover a matching variant and its constraints with the corresponding model type. First/last frames do not become Elements because they contain a recurring character.
 
 **Elements uses this same file.** `generate_elements` is not a second prompt language. Do not write `SCENE CONTEXT` / `OPTICS` / `ACTION` department packs for Elements or Seedance — those are filmmaking audit contracts, not the generation compile shape.
+
+**Frames format takes precedence:** on image-to-video or first/last-frame, write ordinary motion, camera and transition prose grounded in the supplied composition. Default to one continuous take; timed action beats are allowed. Omit Locked Intro/CAST/LOCATION blocks and multi-shot headers unless the user's selected route actually requires them. Use `@Image1` for the opening still and `@Image2` for a supplied landing still; never invent a DNA name or copy a placeholder identifier. Existing supplied DNA tags retain their exact spelling.
 
 ## Creative direction takes precedence
 
@@ -128,7 +130,7 @@ FORBIDDEN: omitting Total / Multishot; "same character throughout" as the only l
 
 ### 6. Reference-Anchored Cinematic Sequence (multi-character / named references — highest-fidelity format)
 
-Use whenever the user gives named characters, Visual DNAs, or multiple reference images (`@Image1`, `@Image2`, …). **This is always an Elements-mode prompt** (`generate_elements`). Structure:
+Use for **reference-composed Elements scenes** with named characters, Visual DNAs, or multiple reference assets (`@Image1`, `@Image2`, …). This is an Elements-mode prompt (`generate_elements`), not a replacement for explicitly selected Frames/first-last mode. Structure:
 
 1. **Locked Intro FIRST** (GLOBAL LOOK / CAST / LOCATION). CAST is one line per person: `@Exact_DNA_name` or `Name @ImageN — wardrobe, position, what they carry`. End CAST with "All must match their character references exactly." Never "the man on the LEFT" without an `@tag`.
 2. **REFERENCE CONSISTENCY block** — map every reference and pin what must NOT change: `@Zohar` / `Reference Image 1 is <X>. Preserve exact face, hair, anatomy, wardrobe, colors, props.`
