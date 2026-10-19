@@ -55,7 +55,7 @@ const PRIVATE_WRITE = [
   'upload_font', 'rename_font', 'create_font_upload_ticket', 'font_upload_widget',
   'create_video_editor_session',
   'media_upload_widget', 'create_upload_ticket', 'upload_media',
-  'favorite_media', 'unfavorite_media',
+  'favorite_media', 'unfavorite_media', 'dislike_media', 'undislike_media', 'rate_media', 'clear_media_rating',
   'create_media_folder', 'update_media_folder',
   'add_media_to_folder', 'remove_media_from_folder',
   'share_media_folder',

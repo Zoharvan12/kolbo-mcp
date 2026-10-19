@@ -304,7 +304,8 @@ src/tools/color_palettes.js — Color DNA CRUD (list, analyze, create, update, d
 src/tools/media.js       — Media library: media_upload_widget, create_upload_ticket, upload_media, list_media, get_media, delete_media, restore_media,
                             permanently_delete_media, move_media, bulk_delete_media, bulk_restore_media,
                             bulk_permanently_delete_media, bulk_move_media, get_media_stats,
-                            favorite_media, unfavorite_media, list_media_folders, create_media_folder,
+                            favorite_media, unfavorite_media, dislike_media, undislike_media, rate_media,
+                            clear_media_rating, list_media_folders, create_media_folder,
                             update_media_folder, delete_media_folder, add_media_to_folder,
                             remove_media_from_folder, move_folder_contents, share_media_folder,
                             unshare_media_folder
@@ -388,6 +389,9 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `unshare_media_folder` | `DELETE /v1/media/folders/:id/share/:user_id` | Revoke access (owner only) |
 | `favorite_media` | `POST /v1/media/:id/favorite` | Mark a media item as favorited (idempotent) |
 | `unfavorite_media` | `DELETE /v1/media/:id/favorite` | Remove a media item from favorites (idempotent) |
+| `dislike_media` | `POST /v1/media/:id/dislike` | Hide (generation `disliked_urls`) + record the caller's 👎 with `reason` chip / `reason_text` in GenerationFeedback — same as the app's Hide |
+| `undislike_media` | `DELETE /v1/media/:id/dislike` | Un-hide + clear the caller's 👎 |
+| `rate_media` / `clear_media_rating` | `POST/DELETE /v1/media/:id/rating` | 👍/👎 + reason without hiding. `list_media`/`get_media` return `is_disliked` + `feedback`; `list_media disliked:true` lists hidden items |
 | `get_media` | `GET /v1/media/:id` | Fetch one item by id (incl. full metadata) |
 | `delete_media` | `DELETE /v1/media/:id` | Soft-delete (30-day trash) |
 | `restore_media` | `POST /v1/media/:id/restore` | Restore from trash |

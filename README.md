@@ -212,6 +212,10 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 | `unshare_media_folder` | Revoke a user's access to a folder (owner only) |
 | `favorite_media` | Mark a media item as favorited (idempotent) — pass `media_id` from `list_media` |
 | `unfavorite_media` | Remove a media item from favorites (idempotent) — pass `media_id` from `list_media` |
+| `dislike_media` | Dislike (hide) a generated image/video and record why — optional `reason` chip + `reason_text` |
+| `undislike_media` | Remove a dislike (un-hide) and its thumbs-down |
+| `rate_media` | Thumbs-up/down with an optional reason, without hiding |
+| `clear_media_rating` | Remove a thumbs-up/down |
 | `get_media` | Fetch one media item's full details by id |
 | `delete_media` | Soft-delete a media item (30-day trash) |
 | `restore_media` | Restore a trashed item |
