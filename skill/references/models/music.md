@@ -8,6 +8,10 @@ Load this file when the user wants AI-generated **music** — full songs, lyrics
 
 **Kolbo MCP routing:** call `generate_music`. Suno is a model option — use `list_models({ type: "music_gen" })` to see versions. Pass `instrumental` and `duration` as separate params; pass the Style/Description text as `style` and the Lyrics as `lyrics`.
 
+**`prompt` is REQUIRED on every Suno call, instrumental included.** Sending only `style` (+ `instrumental: true`) is rejected with `prompt is required (or pass composition_plan for ElevenLabs Music v2.5)`, even though the tool schema does not mark `prompt` as required. Measured 2026-10-21: 5 parallel instrumental calls were all rejected, with nothing charged, then succeeded when re-sent. Put a one-sentence description of the track in `prompt` and the comma-separated descriptors in `style`.
+
+**Parallel calls: map results by `generation_id`, never by file name.** Without a `session_id`, parallel `generate_music` calls can land in one shared session (the API's daily session per project). On 2026-10-21 that also gave the files ANOTHER call's title ("House Lofi 02" and "04" saved as `House-Lofi-01-Warm-C-…mp3`); that naming bug is fixed, and each file now carries its own call's title. The session sharing is not: read each id's `urls` from `get_generation_status`, name local files yourself, and pass a `session_id` when the set must stay together.
+
 **Wants an EXISTING track, not a new song?** ("background music", "stock music", "royalty-free track") → don't generate. Use `search_stock_media` with `mediaType: "music"` (semantic vibe query — "tense cinematic pulse", "uplifting corporate background") → `get_stock_asset` for download URLs. Free, no credits. The older `*_music_library` tools are deprecated adapters over the stock library — prefer the stock tools.
 
 ## CRITICAL Kolbo Platform Rules
