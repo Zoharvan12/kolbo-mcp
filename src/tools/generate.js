@@ -852,7 +852,7 @@ function registerGenerateTools(server, client, options = {}) {
     {
       prompt: z.string().optional().describe('Text description of the music to generate (e.g., "upbeat electronic dance track with synthesizers"). Required unless composition_plan is passed (ElevenLabs Music v2.5 structured mode, which cannot be combined with prompt).'),
       model: z.string().optional().describe('Model identifier. Use list_models type="music_gen" to see options. Omit for Suno (default).'),
-      style: z.string().optional().describe('Music style / genre (e.g., "pop", "rock", "lo-fi", "electronic", "jazz")'),
+      style: z.string().optional().describe('Music style / genre (e.g., "pop", "rock", "lo-fi", "electronic", "jazz"). Does NOT replace `prompt`: a style-only call (instrumental included) is rejected.'),
       title: z.string().optional().describe('Song title. If omitted, one is generated.'),
       instrumental: z.boolean().optional().describe('Generate instrumental only, no vocals. Default: false'),
       lyrics: z.string().optional().describe('Custom lyrics for the song. If omitted, lyrics are generated automatically from the prompt unless instrumental is true.'),
