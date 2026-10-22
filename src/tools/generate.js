@@ -1389,7 +1389,13 @@ function registerGenerateTools(server, client, options = {}) {
         }
       };
 
+      const statusStarted = Date.now();
       const results = await Promise.all(ids.map(checkOne));
+      // One stderr line per status call. Hosts keep server stderr in their MCP
+      // logs (Claude Code: mcp-logs-kolbo), and widget polls are otherwise
+      // invisible there — only the model's own calls are logged. wait_seconds
+      // marks a widget poll.
+      process.stderr.write(`[kolbo] get_generation_status ids=${ids.length} wait=${wait ? (wait_seconds || WAIT_WINDOW_S) + 's' : 'no'}${wait_seconds ? ' (widget)' : ''} ${Date.now() - statusStarted}ms states=${results.map(r => r.state).join(',')}\n`);
       await Promise.all(results.map(addDisplayNames));
 
       const pending = results.filter(r => r.state !== 'completed' && r.state !== 'failed' && r.state !== 'cancelled');
