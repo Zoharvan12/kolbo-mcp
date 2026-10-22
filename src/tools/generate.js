@@ -770,6 +770,8 @@ function registerGenerateTools(server, client, options = {}) {
       model: z.string().optional().describe('Model identifier — pick a SPECIFIC model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). If the user already named a model/family (this turn or earlier), pass that name — a text-to-video id remaps to the family\'s image-to-video sibling. Do not substitute a cheaper default (named Grok Imagine → not Seedance). Only when no model was named: "seedance-2" or "veo3" are reasonable auto-picks; Kling is strongest for motion (list_models type="img_to_video" for exact ids).'),
       aspect_ratio: z.string().optional().describe(aspectRatioDescribe('16:9')),
       duration: z.number().optional().describe('Duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. Default: 5'),
+      last_frame_url: z.string().optional().describe('Kling 4 target last-frame HTTPS image URL; combined first/middle/last frames maximum 10.'),
+      keyframe_images: z.array(z.string()).max(9).optional().describe('Kling 4 ordered middle-frame HTTPS image URLs. These are ordered frames, not timestamped keyframes.'),
       enhance_prompt: z.boolean().optional().describe('Enhance the motion prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to maintain consistency with prior characters / styles. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false` the model ignores DNA entirely.**'),
       draft: z.boolean().optional().describe('Special Draft mode. True forces 480p Draft even if resolution says 1080p; false selects regular video. Only supported when list_models advertises draft capabilities. For Seedance 2.5 editing use model seedance-2-5-video-to-video with generate_video_from_video; the source duration and aspect ratio are preserved. Uses ordinary credits; finalize through draft_quote then draft_enhance.'),
@@ -779,14 +781,14 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ image_url, prompt, items, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, resolution, draft, sound_enabled, skip_color_palette, project_id, session_id }) => {
+    async ({ image_url, prompt, items, model, aspect_ratio, duration, last_frame_url, keyframe_images, enhance_prompt = false, visual_dna_ids, resolution, draft, sound_enabled, skip_color_palette, project_id, session_id }) => {
       if (!(items && items.length) && !(image_url && prompt)) throw new Error('Provide image_url + prompt, or items');
       if (draft === true) resolution = '480p-draft';
       else if (draft === false && resolution?.endsWith('-draft')) resolution = resolution.slice(0, -6);
       model = await canonicalModelId(client, model, 'img_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'img_to_video');
       const shared = {
-        model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, resolution, draft, sound_enabled, skip_color_palette, project_id, session_id
+        model, aspect_ratio, duration, last_frame_url, keyframe_images, enhance_prompt, visual_dna_ids, resolution, draft, sound_enabled, skip_color_palette, project_id, session_id
       };
 
       // Batch mode: N different stills, one widget owning all generation ids.
@@ -1649,13 +1651,14 @@ function registerGenerateTools(server, client, options = {}) {
         image_url: z.string().describe('Public URL of the keyframe image'),
         timestamp_seconds: z.number().describe('Moment on the OUTPUT timeline (seconds, 0 = first frame) where this image is pinned')
       })).optional().describe('Timeline-pinned keyframes for multi-keyframe models (e.g. "flux-3-keyframes", "luma-ray-3-2-storyboard"): the model generates the motion BETWEEN the pinned images. Only models with `supports_keyframes: true` in list_models accept this; cap = `max_keyframes` (FLUX 3: 10). Requires an explicit `duration` — timestamps beyond it are clamped. Ignored by ordinary elements models. OPTIONAL for flux-3-keyframes: if omitted, pass the images via reference_images instead — they are played through IN ORDER, timed from timing language in the prompt or spaced evenly. Pass explicit keyframes only when you need exact control.'),
+      keep_original_sound: z.boolean().optional().describe('Kling 4 reference generation: preserve a reference video soundtrack. Requires reference_videos. Omit for generated synchronized audio.'),
       multi_shots: z.boolean().optional().describe('Enable Multishot metadata/UI badge (and native provider flag when the model supportsMultiShot). Never rewrites or reshapes the prompt — craft shot structure yourself (`Multishot ON`, Total/SHOT lines). MCP default enhance_prompt=false keeps the prompt raw; multi_shots alone is badge/flag only. For crafted demos: enhance_prompt:false + multi_shots:true.'),
       multi_shot_count: z.number().optional().describe('Explicit shot count when multi_shots=true (e.g. 2). Clamped to ~2 shots/sec of duration.'),
       session_name: z.string().optional().describe('Short sidebar session title (max ~60 chars), e.g. "UGC — Hana bathroom light". When set, skips AI auto-naming from the prompt boilerplate.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt = '', model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, style_id, resolution, draft, sound_enabled, keyframes, multi_shots, multi_shot_count, session_name, project_id, session_id }) => {
+    async ({ prompt = '', model, reference_images, reference_videos, reference_audio_urls, audio_url, files, duration, aspect_ratio, motion, preset_id, enhance_prompt = false, visual_dna_ids, style_id, resolution, draft, sound_enabled, keyframes, keep_original_sound, multi_shots, multi_shot_count, session_name, project_id, session_id }) => {
       validateVideoPrompt({ prompt, duration, aspect_ratio, multi_shots, multi_shot_count });
       if (draft === true) resolution = '480p-draft';
       else if (draft === false && resolution?.endsWith('-draft')) resolution = resolution.slice(0, -6);
@@ -1702,7 +1705,7 @@ function registerGenerateTools(server, client, options = {}) {
         reference_videos: some(urlsOf('video')),
         reference_audio_urls: some(urlsOf('audio')),
         duration, aspect_ratio, motion, preset_id, enhance_prompt, visual_dna_ids, style_id,
-        resolution, draft, sound_enabled, keyframes, multi_shots, multi_shot_count,
+        resolution, draft, sound_enabled, keyframes, keep_original_sound, multi_shots, multi_shot_count,
         session_name, project_id, session_id
       };
 
@@ -2093,6 +2096,8 @@ function registerGenerateTools(server, client, options = {}) {
       }).optional().describe('VEED Subtitles only: style overrides. Any omitted field keeps the preset default. Best supported by Basic presets.'),
       enhancement_model: z.string().optional()
         .describe('Topaz Slow Motion only (model "topaz/interpolate/video"): retiming engine — "Apollo" (smooth motion, default), "Chronos" (complex motion and occlusion), or "Aion" (highest quality for extreme slow motion, and the most expensive).'),
+      keep_original_sound: z.boolean().optional().describe('Kling 4 video edit: preserve source audio (default true); false creates synchronized audio.'),
+      last_frame_url: z.string().optional().describe('Kling 4 video extend: optional target final-frame HTTPS image URL.'),
       target_fps: z.number().optional()
         .describe('Topaz Slow Motion only: frames per second of the OUTPUT (16-120, default 60). Higher rates generate more frames and cost proportionally more.'),
       slowdown_factor: z.number().optional()
@@ -2102,7 +2107,7 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ source_video, prompt, model, aspect_ratio, duration, enhance_prompt = false, visual_dna_ids, style_id, resolution, draft, sound_enabled, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, enhancement_model, target_fps, slowdown_factor, output_format, project_id, session_id }) => {
+    async ({ source_video, prompt, model, aspect_ratio, duration, keep_original_sound, last_frame_url, enhance_prompt = false, visual_dna_ids, style_id, resolution, draft, sound_enabled, reference_images, reference_videos, elements, preset, source_language, translation_language, srt_content, srt_file_url, vocabulary, customization, enhancement_model, target_fps, slowdown_factor, output_format, project_id, session_id }) => {
       if (draft === true) resolution = '480p-draft';
       else if (draft === false && resolution?.endsWith('-draft')) resolution = resolution.slice(0, -6);
       model = await canonicalModelId(client, model, 'video_to_video'); // lenient id resolution ("z-image" → "z-image/turbo")
@@ -2113,7 +2118,7 @@ function registerGenerateTools(server, client, options = {}) {
       let startResponse;
       if (isUrl) {
         startResponse = await client.post('/v1/generate/video-from-video', {
-          video_url: source_video, prompt, model, aspect_ratio, duration, enhance_prompt, visual_dna_ids, style_id, resolution, draft, sound_enabled,
+          video_url: source_video, prompt, model, aspect_ratio, duration, keep_original_sound, last_frame_url, enhance_prompt, visual_dna_ids, style_id, resolution, draft, sound_enabled,
           reference_images, reference_videos, elements, preset, source_language, translation_language,
           srt_content, srt_file_url, vocabulary, customization,
           enhancement_model, target_fps, slowdown_factor, output_format,
@@ -2143,6 +2148,8 @@ function registerGenerateTools(server, client, options = {}) {
         if (reference_images) form.append('reference_images', JSON.stringify(reference_images));
         if (reference_videos) form.append('reference_videos', JSON.stringify(reference_videos));
         if (elements) form.append('elements', JSON.stringify(elements));
+        if (keep_original_sound !== undefined) form.append('keep_original_sound', String(keep_original_sound));
+        if (last_frame_url) form.append('last_frame_url', last_frame_url);
         if (enhancement_model) form.append('enhancement_model', enhancement_model);
         if (target_fps !== undefined) form.append('target_fps', String(target_fps));
         if (slowdown_factor !== undefined) form.append('slowdown_factor', String(slowdown_factor));
