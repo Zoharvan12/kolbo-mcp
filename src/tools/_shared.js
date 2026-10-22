@@ -327,7 +327,7 @@ function guessContentType(filename) {
     '.mp4': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm',
     '.mkv': 'video/x-matroska', '.avi': 'video/x-msvideo',
     '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
-    '.m4a': 'audio/mp4', '.flac': 'audio/flac', '.aac': 'audio/aac'
+    '.m4a': 'audio/mp4', '.flac': 'audio/flac', '.aac': 'audio/aac', '.opus': 'audio/opus'
   };
   return map[ext] || 'application/octet-stream';
 }
