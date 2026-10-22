@@ -149,7 +149,11 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
   one server-side long-wait `get_generation_status(wait=true)` call in flight through
   the host bridge (Creative Director uses its dedicated wait-capable status tool).
   This is load-bearing: frequent widget `tools/call` polling floods host progress/context
-  streams and can amplify API rate limits. Pattern:
+  streams and can amplify API rate limits. Widget waits pass `wait_seconds: 45`:
+  host-bridged calls need not reset their 60s request timeout on progress ticks,
+  so the 180s stdio window timed out every widget poll (cards stuck on
+  Generating, then "Tracking paused"). Failed polls back off (1.5s doubling,
+  30s cap), and Check status resumes tracking in the card. Pattern:
   submit → `if (ui()) return uiGenerating({...})` → blocking-poll fallback. List tools:
   build text → `if (ui()) return uiResult(UI.mediaGrid, text, structured)`. The widget
   path must NEVER change the text payload.
