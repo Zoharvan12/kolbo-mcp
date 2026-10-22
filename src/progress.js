@@ -93,7 +93,7 @@ function untrackGeneration(id) {
 async function generation(id) {
   const extra = storage.getStore();
   const token = extra?._meta?.progressToken;
-  if (!id || token === undefined) return;
+  if (!id || token === undefined || !extra.__kolboGenerationNotice) return;
   // A progress notification is a courtesy — the generation is already submitted
   // and paid for. If the send fails (host cancelled the request, transport
   // already closed), swallowing it is mandatory: letting it reject would turn a

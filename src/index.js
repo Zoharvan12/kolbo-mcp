@@ -154,6 +154,11 @@ function createServer(opts = {}) {
     const handler = args[index];
     if (typeof handler !== 'function') return tool(...args);
     args[index] = (params, extra) => progress.run(extra, async () => {
+      // Only Kolbo Code (client "kolbo") reads the generation_id progress
+      // message. Claude Code's MCP client rejected it as an unknown progress
+      // token and dropped the whole stdio connection mid-session, killing
+      // every live widget's polling (3/3 logged drops, 2026-10-21..22).
+      if (extra) extra.__kolboGenerationNotice = server.server?.getClientVersion?.()?.name === 'kolbo';
       try {
         return await handler(params, extra);
       } catch (err) {

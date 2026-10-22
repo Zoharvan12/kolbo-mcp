@@ -572,6 +572,14 @@ async function main() {
       () => { throw new Error('poll should have timed out, not resolved'); },
       (err) => { if (!err.timedOut) throw new Error(`keepalive failure leaked out as: ${err.message}`); }
     );
+    // The generation_id notice is Kolbo Code-only: Claude Code's client treated
+    // it as an unknown progress token and dropped the whole stdio connection.
+    for (const notice of [false, true]) {
+      const got = [];
+      await progress.run({ _meta: { progressToken: 'g' }, __kolboGenerationNotice: notice, sendNotification: async (n) => { got.push(n); } },
+        () => progress.generation('gen-3'));
+      if (got.length !== (notice ? 1 : 0)) throw new Error(`generation notice sent=${got.length} with __kolboGenerationNotice=${notice}`);
+    }
     console.log('[smoke] long-wait keepalive OK');
   }
 
