@@ -55,10 +55,32 @@ const BRIDGE_JS = `
 
   function post(msg) { window.parent.postMessage(msg, '*'); }
 
+  // Longer than the 180s stdio status wait plus transport overhead.
+  // This bounds tracking only; it never cancels or resubmits a paid job.
+  var REQUEST_TIMEOUT_MS = 240000;
+  function timeoutError() {
+    var error = new Error('The host did not answer. Tracking paused; the job may still be running.');
+    error.code = 'KOLBO_HOST_TIMEOUT';
+    return error;
+  }
+  function boundedCall(run) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () { reject(timeoutError()); }, REQUEST_TIMEOUT_MS);
+      Promise.resolve().then(run).then(function (value) {
+        clearTimeout(timer); resolve(value);
+      }, function (error) { clearTimeout(timer); reject(error); });
+    });
+  }
+
   function request(method, params) {
     return new Promise(function (resolve, reject) {
       var id = nextId++;
-      pending[id] = { resolve: resolve, reject: reject };
+      var timer = setTimeout(function () {
+        delete pending[id];
+        queue = queue.filter(function (item) { return item.id !== id; });
+        reject(timeoutError());
+      }, REQUEST_TIMEOUT_MS);
+      pending[id] = { resolve: resolve, reject: reject, timer: timer };
       var msg = { jsonrpc: '2.0', id: id, method: method, params: params || {} };
       if (initialized || method === 'ui/initialize') post(msg);
       else queue.push(msg);
@@ -78,6 +100,7 @@ const BRIDGE_JS = `
       var p = pending[m.id];
       if (!p) return;
       delete pending[m.id];
+      clearTimeout(p.timer);
       if (m.error) p.reject(new Error(m.error.message || 'host error'));
       else p.resolve(m.result);
       return;
@@ -282,7 +305,7 @@ const BRIDGE_JS = `
     var oaCall = function (method) { return typeof oa[method] === 'function'; };
     window.kolbo.callTool = function (name, args) {
       if (!oaCall('callTool')) return Promise.reject(new Error('host cannot call tools'));
-      return Promise.resolve(oa.callTool(name, args || {})).then(function (r) {
+      return boundedCall(function () { return oa.callTool(name, args || {}); }).then(function (r) {
         // The SDK resolves with the CallToolResult (content + structuredContent);
         // some builds unwrap to the structured payload — normalise either.
         if (r && (r.structuredContent || r.content)) return r;

@@ -16,6 +16,26 @@ resolves the API's persisted `result.preset` through the preset catalog.
 > Desktop. Text-only clients (Claude Code, Codex CLI, Cursor, old cached
 > installs) see EXACTLY the behavior they see today. Everything here is additive.
 
+## Tracking recovery
+
+All widget tool calls have a 240-second host-response deadline, covering the
+180-second stdio status wait plus transport overhead. Both JSON-RPC and OpenAI
+host adapters reject stalled calls with `KOLBO_HOST_TIMEOUT`. Expired queued calls
+are removed and late JSON-RPC replies are ignored. This deadline affects tracking
+only; it does not cancel or resubmit the server job.
+
+Transcription and universal generation cards treat a host timeout like any
+other failed status call: they retry with exponential backoff (1.5s doubling,
+capped at 30s) and show **Tracking paused** and **Check status** only after 30
+consecutive failures (roughly a quarter hour). A fixed 1.5s retry used to burn
+the whole budget in ~45s while a busy host rejected calls, stranding finished
+generations behind a red card. The recovery action asks for the existing
+generation ID. Other widgets receive the same bounded tool-call promise
+through the shared bridge and retain their existing error handling.
+
+Regression gate: `node --test test/widget-host-timeout.test.js` plus
+`node scripts/check-widget-render.js`.
+
 ## Rendering targets
 
 ### Widget address compatibility

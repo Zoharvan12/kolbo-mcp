@@ -802,7 +802,10 @@ function schedulePoll(sc) {
   // (~45s over the remote connector — see WAIT_WINDOW_MS in tools/generate.js).
   // This short pause only separates successive wait windows — the FIRST call
   // goes out immediately, so a card revealed by scrolling resolves at once.
-  var delay = pollStart ? 1500 : 0;
+  // After failed calls, back off exponentially (capped at 30s): a host that
+  // rejects tools/call for a while (busy, rate-limited, reconnecting) used to
+  // burn all MAX_POLL_ERRORS retries in ~45s and strand finished generations.
+  var delay = pollStart ? Math.min(1500 * Math.pow(2, pollErrors), 30000) : 0;
   if (!pollStart) pollStart = Date.now();
   clearTimeout(pollTimer);
   pollTimer = setTimeout(function () { poll(sc); }, delay);
@@ -870,7 +873,7 @@ function poll(sc) {
       pollErrors = 0; // a valid in-progress response resets the failure streak
       schedulePoll(sc);
     }
-  }).catch(function () {
+  }).catch(function (error) {
     pollInFlight = false;
     if (cancelRequested || (state && (state.phase === 'completed' || state.phase === 'failed'))) return;
     if (++pollErrors >= MAX_POLL_ERRORS) return renderTrackingIssue('Tracking paused after repeated connection errors. The generation may still be running.');
@@ -1270,7 +1273,7 @@ function renderError(msg) {
 
 function renderTrackingIssue(msg) {
   clearTimeout(pollTimer);
-  setPhaseChip('Still working', false);
+  setPhaseChip('Tracking paused', false);
   el('stage').innerHTML = '<div class="k-error">' + ICONS.clock + ' ' + esc(msg) + '</div>';
   el('actions').innerHTML = '<button class="k-btn primary" id="status-btn">' + ICONS.clock + ' Check status</button>' +
     '<button class="k-btn ghost" id="tracking-open">Open in Kolbo ' + ICONS.open + '</button>';

@@ -54,6 +54,10 @@
 
 ## Overview
 
+### Remote Code sessions planning
+
+Canonical four-repository plan: `../kolbo-code/docs/remote-sessions-plan-2026-10-07.md`. Planning only; not implemented or published. Code conversations need an additive `code_*` family, separate from media `list_sessions` and related tools. Ordinary API keys/`kolbo` OAuth scope do not confer machine control. Embedded Kobi Act receives no control adapter or allowlist additions; permission approval remains in authenticated human UI. Update the canonical Code skill and tool/annotation/submission contracts when implementation lands.
+
 ### Personal fonts
 
 | Tools | Contract |
@@ -425,6 +429,7 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `list_visual_dnas` | `GET /v1/visual-dna` | — |
 | `get_visual_dna` | `GET /v1/visual-dna/:id` | — |
 | `delete_visual_dna` | `DELETE /v1/visual-dna/:id` | — |
+| `transfer_visual_dna` / `list_visual_dna_transfers` / `respond_visual_dna_transfer` | `POST/GET /v1/visual-dna-transfers`, `POST .../:id/accept\|decline`, `DELETE .../:id` | Recipient accepts a COPY (new ids in `copies`); `keep_sender_copy:false` trashes the sender's originals. Backend: kolbo-api `services/visualDnaTransfer.service.js` |
 
 **Moodboards** (`src/tools/moodboards.js`)
 | Tool | Route |

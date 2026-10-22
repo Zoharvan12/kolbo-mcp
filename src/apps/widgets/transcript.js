@@ -40,6 +40,7 @@ var state = null, pollTimer = null, originArgs = {};
 
 function boot(sc) {
   if (!sc) return;
+  clearTimeout(pollTimer);
   state = sc;
   el('credits').textContent = sc.credits_used != null ? fmtCredits(sc.credits_used) : '';
   if (sc.phase === 'generating') {
@@ -107,7 +108,8 @@ function poll() {
       } else if (s === 'failed' || s === 'cancelled') {
         boot(Object.assign({}, state, { phase: 'failed', error: st.error }));
       } else { pollErrors = 0; pollTimer = setTimeout(poll, pollDelay()); }
-    }).catch(function () {
+    }).catch(function (error) {
+      if (state && state.phase !== 'generating') return;
       if (++pollErrors >= MAX_POLL_ERRORS) return trackingIssue('Tracking paused after repeated connection errors. The transcription may still be running.');
       pollTimer = setTimeout(poll, pollDelay());
     });
@@ -115,14 +117,15 @@ function poll() {
 
 function pollDelay() {
   // The call itself long-waits server-side; only briefly back off between
-  // successive wait windows.
-  return 1500;
+  // successive wait windows; after failed calls, back off exponentially
+  // (capped at 30s) so a briefly unavailable host can't exhaust the retries.
+  return Math.min(1500 * Math.pow(2, pollErrors), 30000);
 }
 
 function trackingIssue(msg) {
   clearTimeout(pollTimer);
   el('phase-chip').style.display = '';
-  el('phase-chip').textContent = 'Still working';
+  el('phase-chip').textContent = 'Tracking paused';
   el('stage').classList.remove('k-empty');
   el('stage').innerHTML = '<div class="k-error">' + ICONS.clock + ' ' + esc(msg) + '</div>';
   el('actions').innerHTML = '<button class="k-btn primary" id="transcript-status">' + ICONS.clock + ' Check status</button>';
