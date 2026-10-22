@@ -315,6 +315,61 @@ function registerProjectTools(server, client) {
     }
   );
 
+  // ─── publish a project (public showcase link) ──────────────
+  const pubText = (r, hint) => ({ content: [{ type: 'text', text: JSON.stringify({ ...r, success: undefined, ...(hint ? { _hint: hint } : {}) }, null, 2) }] });
+
+  server.tool(
+    'publish_project',
+    'PUBLISH one of YOUR OWN projects as a public showcase page with a shareable link (the same as the app\'s Publish tab) and return the public `url`. Safe to call again: it never changes the URL, it only updates what you pass. In one call you can also set `allow_fork` (let viewers copy the project into their account), the public write-up `showcase_about`, and the project\'s FINAL VIDEO as the page hero. HERO VIDEO: the video must already be in THIS project — a generated video made with `project_id`, or a file you put there with `upload_media` (pass `project_id`; a local file is uploaded from disk). Then pass its media id as `hero_video_media_id` (or its Kolbo URL as `hero_video_url`). Anyone with the link can see the project\'s media, so ALWAYS confirm with the user before publishing, and consider `duplicate_project` first to publish a clean copy. Undo with `unpublish_project`.',
+    {
+      project_id: z.string().describe('ObjectId of a project you OWN (from list_projects).'),
+      allow_fork: z.boolean().optional().describe('Let viewers copy the project into their own account. Default true on first publish; omit to keep the current setting.'),
+      showcase_about: z.string().optional().describe('Public "About" write-up shown on the page (max 10000 chars, plain text). Omit on first publish and Kolbo drafts one for you; pass "" to clear.'),
+      hero_video_media_id: z.string().optional().describe('Media id (from upload_media / list_media) of a VIDEO already in this project, shown as the full-bleed hero of the public page.'),
+      hero_video_url: z.string().optional().describe('Alternative to hero_video_media_id: the Kolbo CDN URL of a video already in this project.')
+    },
+    async ({ project_id, allow_fork, showcase_about, hero_video_media_id, hero_video_url }) => {
+      const body = {};
+      if (allow_fork !== undefined) body.allow_fork = allow_fork;
+      if (showcase_about !== undefined) body.showcase_about = showcase_about;
+      if (hero_video_media_id) body.hero_video_media_id = hero_video_media_id;
+      if (hero_video_url) body.hero_video_url = hero_video_url;
+      const result = await client.post(`/v1/projects/${encodeURIComponent(project_id)}/publish`, body);
+      return pubText(result, 'Share `url` with the user — it is live now. To list it in the public catalog call `submit_project_to_catalog` (review is manual).');
+    }
+  );
+
+  server.tool(
+    'get_project_publication',
+    'Check whether a project is published and read its public `url`, allow_fork, showcase_about, hero video, catalog listing status (none / pending / approved / rejected) and fork count. Returns `{ published: false }` when it is not published.',
+    { project_id: z.string().describe('ObjectId of a project you OWN.') },
+    async ({ project_id }) => pubText(await client.get(`/v1/projects/${encodeURIComponent(project_id)}/publish`))
+  );
+
+  server.tool(
+    'unpublish_project',
+    'Take a published project OFFLINE: the public link stops working immediately. Copies other people already made stay theirs. Re-publishing with `publish_project` creates a new link. Confirm with the user first.',
+    { project_id: z.string().describe('ObjectId of a project you OWN.') },
+    async ({ project_id }) => pubText(await client.delete(`/v1/projects/${encodeURIComponent(project_id)}/publish`))
+  );
+
+  server.tool(
+    'submit_project_to_catalog',
+    'Submit a PUBLISHED project to Kolbo\'s public catalog (status becomes `pending`; a Kolbo admin approves it — you cannot approve your own). Pass `submit: false` to withdraw. Fails with NOT_PUBLISHED if `publish_project` has not been called.',
+    {
+      project_id: z.string().describe('ObjectId of a project you OWN.'),
+      submit: z.boolean().optional().describe('true (default) = submit for review, false = withdraw.')
+    },
+    async ({ project_id, submit }) => pubText(await client.post(`/v1/projects/${encodeURIComponent(project_id)}/publish/listing`, { submit: submit !== false }))
+  );
+
+  server.tool(
+    'remove_project_hero_video',
+    'Clear the hero video of a published project (the page falls back to a mosaic of the project\'s stills). The video file itself stays in the project\'s media.',
+    { project_id: z.string().describe('ObjectId of a project you OWN.') },
+    async ({ project_id }) => pubText(await client.delete(`/v1/projects/${encodeURIComponent(project_id)}/publish/hero-video`))
+  );
+
   // ─── project transfer (hand a project to another account) ──
   server.tool(
     'transfer_project',

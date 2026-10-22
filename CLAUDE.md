@@ -505,6 +505,7 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `get_session_usage` | see `src/tools/` — per-session usage stats |
 | `*_visual_dna_folder` (5 tools) | `GET/POST /v1/visual-dna/folders`, `PUT/DELETE /v1/visual-dna/folders/:folderId`, `PUT /v1/visual-dna/:id/folder` |
 | `create_project` / `get_project` / `update_project` / `archive_project` / `unarchive_project` | `POST /v1/projects`, `GET/PUT /v1/projects/:id`, archive/unarchive |
+| `publish_project` / `get_project_publication` / `unpublish_project` / `submit_project_to_catalog` / `remove_project_hero_video` | `POST/GET/DELETE /v1/projects/:id/publish`, `POST .../publish/listing`, `DELETE .../publish/hero-video` — public showcase link at `/project-link/:slug`; publish upserts allow_fork + showcase_about + hero video (must already be a video in THAT project). Owner-only; thin wraps over modules/publicProject |
 | `transfer_project` / `list_project_transfers` / `respond_project_transfer` | `POST /v1/projects/:id/transfer`, `GET /v1/project-transfers`, `POST /v1/project-transfers/:id/accept\|decline`, `DELETE /v1/project-transfers/:id` |
 | `list_project_assets` / `link_project_asset` / `unlink_project_asset` / `update_project_asset` | `GET/POST /v1/projects/:id/assets`, `PUT .../note`, `DELETE .../:type/:id` — project cast roster + DNA descriptions |
 | `list_sessions` | `GET /v1/sessions` |

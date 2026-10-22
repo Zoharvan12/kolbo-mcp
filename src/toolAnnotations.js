@@ -25,7 +25,7 @@ const READ_ONLY = [
   'list_color_palettes', 'analyze_color_palette',
   'list_media', 'list_media_folders', 'get_media', 'get_media_stats',
   'list_presets', 'list_cinematic_presets',
-  'list_projects', 'get_project', 'list_sessions', 'list_project_context', 'get_project_profile',
+  'list_projects', 'get_project', 'get_project_publication', 'list_sessions', 'list_project_context', 'get_project_profile',
   'list_project_assets',
   'list_project_transfers', 'list_visual_dna_transfers',
   'list_session_generations',
@@ -70,7 +70,7 @@ const PRIVATE_WRITE = [
   'split_session', 'undo_session_organization',
   'rename_session', 'restore_session',
   'create_project', 'duplicate_project', 'update_project',
-  'archive_project', 'unarchive_project', 'add_project_context',
+  'archive_project', 'unarchive_project', 'add_project_context', 'remove_project_hero_video',
   'link_project_asset', 'unlink_project_asset',
   'create_agent', 'create_skill',
   'create_doc',
@@ -129,6 +129,8 @@ const OPEN_WORLD_WRITE = [
   'download_media_from_url',
   'import_music_audio',
   'publish_html_artifact', 'create_review_share_link', 'blender_capture_viewport',
+  // Public showcase link for a project / catalog submission.
+  'publish_project', 'submit_project_to_catalog',
   // Adobe edits add bins, clips, sequences or caption tracks; none delete or overwrite.
   'adobe_import_media', 'adobe_place_on_timeline', 'adobe_create_sequence', 'adobe_import_captions',
   'adobe_capture_frame',
@@ -137,7 +139,7 @@ const OPEN_WORLD_WRITE = [
 ];
 
 const OPEN_WORLD_DESTRUCTIVE = [
-  'share_doc', 'revoke_review_share_link',
+  'share_doc', 'revoke_review_share_link', 'unpublish_project',
   'blender_apply_operations', 'blender_import_media', 'blender_render',
   'blender_undo', 'blender_file_operation', 'blender_execute_python',
   // Can delete layers; approved once per batch in the Kolbo panel.

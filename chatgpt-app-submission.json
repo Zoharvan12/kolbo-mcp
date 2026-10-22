@@ -536,6 +536,18 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
+    "get_project_publication": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "get_project_publication retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
     "list_sessions": {
       "annotations": {
         "readOnlyHint": true,
@@ -1686,6 +1698,18 @@
         "read_only_justification": "add_project_context creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
         "destructive_justification": "add_project_context does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "remove_project_hero_video": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "remove_project_hero_video creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
+        "destructive_justification": "remove_project_hero_video does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
     "link_project_asset": {
@@ -2888,6 +2912,30 @@
         "destructive_justification": "blender_capture_viewport does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
+    "publish_project": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "publish_project creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "publish_project can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "publish_project does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "submit_project_to_catalog": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "submit_project_to_catalog creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "submit_project_to_catalog can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "submit_project_to_catalog does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
     "adobe_import_media": {
       "annotations": {
         "readOnlyHint": false,
@@ -2994,6 +3042,18 @@
         "read_only_justification": "revoke_review_share_link changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "revoke_review_share_link can create, update, expose, or revoke content through a publicly accessible link.",
         "destructive_justification": "revoke_review_share_link can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "unpublish_project": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "unpublish_project changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "unpublish_project can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "unpublish_project can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
     "blender_apply_operations": {
