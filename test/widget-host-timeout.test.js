@@ -74,9 +74,12 @@ for (const kind of ['generation', 'transcript']) test(kind + ' backs off through
   const count = w.calls.length; w.drain(5000); await flush();
   assert.equal(w.calls.length, count, 'paused card must not resubmit or poll');
   w.status({ state: 'completed', result: { text: 'Recovered transcript', urls: ['https://cdn.kolbo.ai/test.png'] } });
-  w.deliver(live); w.drain(5000); await flush();
+  // Check status resumes tracking in the card itself — no chat round trip.
+  w.click(kind === 'generation' ? 'status-btn' : 'transcript-status'); w.drain(5000); await flush();
   assert.doesNotMatch(w.html('stage'), /Tracking paused/);
   if (kind === 'transcript') assert.match(w.html('stage'), /Recovered transcript/);
   assert.ok(w.calls.every(c => c.name === 'get_generation_status'));
+  // Every wait window fits a host request timeout that ignores progress ticks.
+  assert.ok(w.calls.every(c => c.args.wait_seconds === 45));
 });
 

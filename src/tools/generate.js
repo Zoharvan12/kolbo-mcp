@@ -604,16 +604,17 @@ function registerGenerateTools(server, client, options = {}) {
     'Check the status of a Creative Director batch (from generate_creative_director) by its generation_id. Returns overall state ("processing" until EVERY scene is terminal, then "completed"/"failed") plus each scene\'s number, title, per-scene status, and image_urls/video_urls. Set wait=true to block until the batch is terminal or the wait window closes, whichever comes first — a batch longer than one window returns state="processing" and you simply call again with wait=true. Prefer this over the generic get_generation_status for Creative Director ids — the generic tool now returns the same scene data (it delegates here), but this one is the direct route.',
     {
       generation_id: z.string().describe('The Creative Director generation_id returned by generate_creative_director.'),
-      wait: z.boolean().optional().describe(`If true, block until the batch is terminal, for at most ~${WAIT_WINDOW_S}s per call. A batch that outlives one window comes back state="processing" (not an error) — call again with wait=true until it is terminal. Always prefer this over polling with wait=false.`)
+      wait: z.boolean().optional().describe(`If true, block until the batch is terminal, for at most ~${WAIT_WINDOW_S}s per call. A batch that outlives one window comes back state="processing" (not an error) — call again with wait=true until it is terminal. Always prefer this over polling with wait=false.`),
+      wait_seconds: z.number().min(1).max(180).optional().describe('Optional cap on one wait=true window, in seconds (default and maximum: the transport window). Interactive cards pass 45 so each call fits a host 60s request timeout.')
     },
-    async ({ generation_id, wait }) => {
+    async ({ generation_id, wait, wait_seconds }) => {
       const statusUrl = `/v1/generate/creative-director/${encodeURIComponent(generation_id)}/status`;
       let status;
       if (wait) {
         try {
           status = await pollUntilDone(client, generation_id, {
             interval: 15000,
-            timeout: WAIT_WINDOW_MS,
+            timeout: wait_seconds ? Math.min(wait_seconds * 1000, WAIT_WINDOW_MS) : WAIT_WINDOW_MS,
             statusUrl
           });
         } catch (err) {
@@ -1348,14 +1349,20 @@ function registerGenerateTools(server, client, options = {}) {
     {
       generation_id: z.string().optional().describe('A single generation ID to check'),
       generation_ids: z.array(z.string()).max(MAX_STATUS_IDS).optional().describe(`Multiple generation IDs to check in ONE call (max ${MAX_STATUS_IDS}). Returns { all_done, pending, generations[] } — always prefer this over checking IDs one by one.`),
-      wait: z.boolean().optional().describe(`If true, block until every generation reaches a terminal state (completed/failed), for at most ~${WAIT_WINDOW_S}s per call, then return whatever state they are in. Anything still processing is reported, not errored — re-issue with wait=true and only the still-pending ids. This is always better than polling with wait=false.`)
+      wait: z.boolean().optional().describe(`If true, block until every generation reaches a terminal state (completed/failed), for at most ~${WAIT_WINDOW_S}s per call, then return whatever state they are in. Anything still processing is reported, not errored — re-issue with wait=true and only the still-pending ids. This is always better than polling with wait=false.`),
+      wait_seconds: z.number().min(1).max(180).optional().describe('Optional cap on one wait=true window, in seconds (default and maximum: the transport window). Interactive cards pass 45 so each call fits a host 60s request timeout.')
     },
-    async ({ generation_id, generation_ids, wait }) => {
+    async ({ generation_id, generation_ids, wait, wait_seconds }) => {
       const ids = (generation_ids && generation_ids.length > 0)
         ? [...new Set(generation_ids)]
         : (generation_id ? [generation_id] : []);
       if (ids.length === 0) throw new Error('Provide generation_id or generation_ids');
       if (ids.length > MAX_STATUS_IDS) throw new Error(`At most ${MAX_STATUS_IDS} generation IDs can be checked at once.`);
+      // Widget polls arrive through the host's iframe bridge, which (unlike the
+      // model's own calls) need not reset its request timeout on our progress
+      // ticks — a 180s stdio window there timed out every poll, stranding cards
+      // on Generating and then "Tracking paused". Widgets pass wait_seconds.
+      const windowMs = wait_seconds ? Math.min(wait_seconds * 1000, WAIT_WINDOW_MS) : WAIT_WINDOW_MS;
 
       // One status check (or blocking poll) per id. Never let one bad id
       // reject the whole batch — surface it as a failed entry instead.
@@ -1366,7 +1373,7 @@ function registerGenerateTools(server, client, options = {}) {
             // completion responsive without multiplying backend traffic for
             // every card left open in a host conversation. The window itself is
             // bounded by the transport — see WAIT_WINDOW_MS above.
-            const result = await pollUntilDone(client, id, { interval: 15000, timeout: WAIT_WINDOW_MS });
+            const result = await pollUntilDone(client, id, { interval: 15000, timeout: windowMs });
             return { generation_id: id, ...result };
           }
           const result = await client.get(`/v1/generate/${encodeURIComponent(id)}/status`);

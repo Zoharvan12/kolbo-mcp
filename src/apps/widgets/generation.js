@@ -816,6 +816,9 @@ function poll(sc) {
     return renderTrackingIssue('This is still running longer than the tracking window. Do not retry it — any completed result will appear in your Kolbo library.');
   }
   var args = sc.status_args || { generation_id: sc.generation_id, wait: true };
+  // Host-bridged calls may not reset their timeout on progress: keep each
+  // wait window inside the common 60s request timeout.
+  if (args.wait) args = Object.assign({}, args, { wait_seconds: 45 });
   pollInFlight = true;
   window.kolbo.callTool(sc.poll_tool || 'get_generation_status', args).then(function (res) {
     pollInFlight = false;
@@ -1277,9 +1280,14 @@ function renderTrackingIssue(msg) {
   el('stage').innerHTML = '<div class="k-error">' + ICONS.clock + ' ' + esc(msg) + '</div>';
   el('actions').innerHTML = '<button class="k-btn primary" id="status-btn">' + ICONS.clock + ' Check status</button>' +
     '<button class="k-btn ghost" id="tracking-open">Open in Kolbo ' + ICONS.open + '</button>';
+  // Resume tracking in place: the card re-checks the SAME generation ids
+  // (never a resubmit). A chat message alone left the card red even after
+  // the agent learned the job had finished.
   el('status-btn').onclick = function () {
-    window.kolbo.sendMessage('Check the existing Kolbo generation status without retrying it.' +
-      (state && state.generation_id ? '\\nGeneration ID: ' + state.generation_id : ''));
+    if (!state) return;
+    pollErrors = 0; pollStart = 0;
+    setPhaseChip('Checking', true);
+    schedulePoll(state);
   };
   el('tracking-open').onclick = function () {
     window.kolbo.openLink(kolboUrl(state));

@@ -94,6 +94,8 @@ function poll() {
     return trackingIssue('This transcription is still running longer than the tracking window. Do not retry it — any completed result will appear in your Kolbo library.');
   }
   var args = state.status_args || { generation_id: state.generation_id, wait: true };
+  // Keep each host-bridged wait inside the common 60s request timeout.
+  if (args.wait) args = Object.assign({}, args, { wait_seconds: 45 });
   window.kolbo.callTool(state.poll_tool || 'get_generation_status', args)
     .then(function (res) {
       var st = structured(res) || {};
@@ -129,9 +131,12 @@ function trackingIssue(msg) {
   el('stage').classList.remove('k-empty');
   el('stage').innerHTML = '<div class="k-error">' + ICONS.clock + ' ' + esc(msg) + '</div>';
   el('actions').innerHTML = '<button class="k-btn primary" id="transcript-status">' + ICONS.clock + ' Check status</button>';
+  // Resume tracking in place (same generation id, never a resubmit).
   el('transcript-status').onclick = function () {
-    window.kolbo.sendMessage('Check the existing Kolbo transcription status without retrying it.' +
-      (state && state.generation_id ? '\\nGeneration ID: ' + state.generation_id : ''));
+    if (!state) return;
+    pollErrors = 0;
+    el('actions').innerHTML = '';
+    boot(Object.assign({}, state, { phase: 'generating' }));
   };
   window.kolbo.notifySize();
 }

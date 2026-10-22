@@ -44,16 +44,17 @@ function registerPresetTools(server, client, options = {}) {
           : 'Pass search next time if you already know the name. Pass the chosen exact id as preset_id.',
       });
 
-      if (lookup) return { content: [{ type: 'text', text }] };
-
       // TOOL_WIDGETS declares mediaGrid for this tool, so hosts that mount from
-      // the declaration (Claude desktop) rendered a media grid fed a list-shaped
-      // 8-item page with no page_tool: a "Load more" that could never load. Ship
-      // the whole catalog (a few hundred small rows) to the grid it actually mounts.
+      // the declaration (Claude desktop) prepare a grid on EVERY call — the
+      // search lookup included. A text-only lookup left that grid guessing from
+      // the compact JSON: thumbnail-less file tiles under the UNFILTERED total.
+      // structuredContent also shadows the text on those hosts, so it carries
+      // the ids, total and note the agent needs.
+      const total = search && !result.search ? presets.length : (result.count || presets.length);
       return uiResult(UI.mediaGrid, text, {
         widget: 'mediaGrid',
         title: 'Presets' + (type ? ' — ' + type : ''),
-        items: presets.slice(0, 300).map(p => ({
+        items: presets.slice(0, lookup ? 8 : 300).map(p => ({
           id: p.id,
           title: p.name,
           subtitle: p.category,
@@ -63,8 +64,10 @@ function registerPresetTools(server, client, options = {}) {
           url: p.thumbnail_url || p.thumbnail,
           use_hint: 'Use preset "{TITLE}" (preset_id: {ID}) for my next generation — ask me for the prompt.'
         })),
-        total: result.count || presets.length,
-        has_more: presets.length > 300
+        total,
+        has_more: presets.length > (lookup ? 8 : 300),
+        ...(lookup ? { _lookup: true, note: 'Pick the closest id and pass it as preset_id.' } : {}),
+        ...(result.warning ? { warning: result.warning } : {}),
       });
     }
   );
