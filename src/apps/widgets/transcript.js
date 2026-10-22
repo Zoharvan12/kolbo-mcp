@@ -93,9 +93,9 @@ function poll() {
   if ((Date.now() - pollStart) > MAX_POLL_MS) {
     return trackingIssue('This transcription is still running longer than the tracking window. Do not retry it — any completed result will appear in your Kolbo library.');
   }
-  var args = state.status_args || { generation_id: state.generation_id, wait: true };
-  // Keep each host-bridged wait inside the common 60s request timeout.
-  if (args.wait) args = Object.assign({}, args, { wait_seconds: 45 });
+  // Quick status read; see schedulePoll in the generation widget for why.
+  var args = Object.assign({}, state.status_args || { generation_id: state.generation_id }, { wait: false });
+  delete args.wait_seconds;
   window.kolbo.callTool(state.poll_tool || 'get_generation_status', args)
     .then(function (res) {
       var st = structured(res) || {};
@@ -118,10 +118,9 @@ function poll() {
 }
 
 function pollDelay() {
-  // The call itself long-waits server-side; only briefly back off between
-  // successive wait windows; after failed calls, back off exponentially
-  // (capped at 30s) so a briefly unavailable host can't exhaust the retries.
-  return Math.min(1500 * Math.pow(2, pollErrors), 30000);
+  // Quick reads every 5s (transcripts run minutes); failures back off
+  // exponentially, capped at 30s, plus jitter so cards don't fire in lockstep.
+  return Math.min(5000 * Math.pow(2, pollErrors), 30000) + Math.floor(Math.random() * 1000);
 }
 
 function trackingIssue(msg) {

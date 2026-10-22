@@ -68,7 +68,7 @@ for (const kind of ['generation', 'transcript']) test(kind + ' backs off through
   // One error must NOT pause: the card keeps retrying.
   w.drain(0); await flush();
   assert.doesNotMatch(w.html('stage'), /Tracking paused/);
-  for (let i = 0; i < 40; i++) { w.drain(30000); await flush(); }
+  for (let i = 0; i < 40; i++) { w.drain(31000); await flush(); }
   assert.match(w.html('stage'), /Tracking paused after repeated connection errors/);
   assert.match(w.html('actions'), /Check status/);
   const count = w.calls.length; w.drain(5000); await flush();
@@ -79,7 +79,7 @@ for (const kind of ['generation', 'transcript']) test(kind + ' backs off through
   assert.doesNotMatch(w.html('stage'), /Tracking paused/);
   if (kind === 'transcript') assert.match(w.html('stage'), /Recovered transcript/);
   assert.ok(w.calls.every(c => c.name === 'get_generation_status'));
-  // Every wait window fits a host request timeout that ignores progress ticks.
-  assert.ok(w.calls.every(c => c.args.wait_seconds === 45));
+  // Cards make quick reads: no long wait holds a host slot.
+  assert.ok(w.calls.every(c => c.args.wait === false && c.args.wait_seconds === undefined));
 });
 

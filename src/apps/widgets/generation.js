@@ -798,14 +798,16 @@ function schedulePoll(sc) {
   if (cancelRequested) return;
   if (!sc.generation_id && !(sc.generation_ids && sc.generation_ids.length) && !sc.status_args) return;
   if (!seen) { whenSeenFns.push(function () { schedulePoll(sc); }); return; }
-  // The call itself long-waits server-side, for one transport-safe window
-  // (~45s over the remote connector — see WAIT_WINDOW_MS in tools/generate.js).
-  // This short pause only separates successive wait windows — the FIRST call
-  // goes out immediately, so a card revealed by scrolling resolves at once.
-  // After failed calls, back off exponentially (capped at 30s): a host that
-  // rejects tools/call for a while (busy, rate-limited, reconnecting) used to
-  // burn all MAX_POLL_ERRORS retries in ~45s and strand finished generations.
-  var delay = pollStart ? Math.min(1500 * Math.pow(2, pollErrors), 30000) : 0;
+  // Each poll is a QUICK status read (wait:false). Long server-side waits held
+  // one host slot per card for up to 45s, and a chat with a dozen-plus live
+  // cards (17 fired in one minute on 2026-10-22) left cards queued behind each
+  // other on Generating while their images were done. Quick reads cost the
+  // host nothing between polls whatever its concurrency. Cadence: 3s for the
+  // first minute, 6s to five minutes, then 12s, plus jitter so many cards do
+  // not fire in lockstep. Failures back off exponentially (capped at 30s).
+  var age = pollStart ? Date.now() - pollStart : 0;
+  var base = age < 60000 ? 3000 : age < 300000 ? 6000 : 12000;
+  var delay = pollStart ? Math.min(base * Math.pow(2, pollErrors), 30000) + Math.floor(Math.random() * 1000) : 0;
   if (!pollStart) pollStart = Date.now();
   clearTimeout(pollTimer);
   pollTimer = setTimeout(function () { poll(sc); }, delay);
@@ -815,10 +817,8 @@ function poll(sc) {
   if (pollStart && (Date.now() - pollStart) > MAX_POLL_MS) {
     return renderTrackingIssue('This is still running longer than the tracking window. Do not retry it — any completed result will appear in your Kolbo library.');
   }
-  var args = sc.status_args || { generation_id: sc.generation_id, wait: true };
-  // Host-bridged calls may not reset their timeout on progress: keep each
-  // wait window inside the common 60s request timeout.
-  if (args.wait) args = Object.assign({}, args, { wait_seconds: 45 });
+  var args = Object.assign({}, sc.status_args || { generation_id: sc.generation_id }, { wait: false });
+  delete args.wait_seconds;
   pollInFlight = true;
   window.kolbo.callTool(sc.poll_tool || 'get_generation_status', args).then(function (res) {
     pollInFlight = false;

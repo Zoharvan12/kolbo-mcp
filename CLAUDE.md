@@ -145,15 +145,15 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
   `server._registeredTools` post-registration — legacy `server.tool()` has no _meta
   param) AND the RESULT carries `_meta['ui/resourceUri']` + `structuredContent`.
   New widget tool ⇒ add it to the `TOOL_WIDGETS` map in `src/apps/index.js`.
-- **Generation tools on UI hosts return IMMEDIATELY** after submit; the widget keeps
-  one server-side long-wait `get_generation_status(wait=true)` call in flight through
-  the host bridge (Creative Director uses its dedicated wait-capable status tool).
-  This is load-bearing: frequent widget `tools/call` polling floods host progress/context
-  streams and can amplify API rate limits. Widget waits pass `wait_seconds: 45`:
-  host-bridged calls need not reset their 60s request timeout on progress ticks,
-  so the 180s stdio window timed out every widget poll (cards stuck on
-  Generating, then "Tracking paused"). Failed polls back off (1.5s doubling,
-  30s cap), and Check status resumes tracking in the card. Pattern:
+- **Generation tools on UI hosts return IMMEDIATELY** after submit; the widget then
+  polls with QUICK status reads (`wait:false`): 3s for the first minute, 6s to five
+  minutes, 12s after, plus jitter; failures back off (doubling, 30s cap); Check
+  status resumes in the card. Do NOT go back to long `wait=true` widget polls: each
+  held a host slot for up to 45-180s, and with a dozen-plus live cards in one chat
+  (17 fired in a minute, 2026-10-22) cards queued behind each other on Generating
+  while their images were done. Every `get_generation_status` call writes one
+  stderr line (`[kolbo] get_generation_status ...`), visible in Claude Code's
+  `mcp-logs-kolbo` — widget polls are otherwise absent from host logs. Pattern:
   submit → `if (ui()) return uiGenerating({...})` → blocking-poll fallback. List tools:
   build text → `if (ui()) return uiResult(UI.mediaGrid, text, structured)`. The widget
   path must NEVER change the text payload.
