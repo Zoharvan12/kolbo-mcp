@@ -786,6 +786,11 @@ const TOOL_WIDGETS = {
   generate_first_last_frame: UI.generation,
   generate_lipsync: UI.generation,
   generate_music: UI.generation,
+  // These return submittedResult/uiCompleted too, but hosts that mount from the
+  // tools/list declaration (claude.ai) showed no card without the entry here.
+  extend_music: UI.generation,
+  cover_music: UI.generation,
+  edit_music_section: UI.generation,
   generate_speech: UI.generation,
   generate_sound: UI.generation,
   generate_3d: UI.generation,
