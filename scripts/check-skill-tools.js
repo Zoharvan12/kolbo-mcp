@@ -67,8 +67,10 @@ function inspectServer() {
       let node = v;
       for (let depth = 0; node && node._def && depth < 6; depth++) {
         const d = node._def;
-        if (Array.isArray(d.values)) { for (const val of d.values) args.add(String(val)); break; }
-        node = d.innerType || d.type || d.schema || null;
+        // zod 4: enum values live on `.options`, arrays wrap in `_def.element`,
+        // and `_def.type` is the kind string, not the inner schema.
+        if (Array.isArray(node.options)) { for (const val of node.options) args.add(String(val)); break; }
+        node = d.innerType || d.element || d.schema || null;
       }
     }
   }

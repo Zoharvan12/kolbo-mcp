@@ -1,6 +1,6 @@
 {
   "name": "@kolbo/mcp",
-  "version": "1.122.0",
+  "version": "1.123.0",
   "description": "Kolbo AI MCP Server - Generate images, videos, music, speech, and sound effects from Claude Code",
   "main": "src/index.js",
   "bin": {
@@ -58,7 +58,7 @@
     "@modelcontextprotocol/sdk": "1.29.0",
     "form-data": "^4.0.6",
     "undici": "^6.28.0",
-    "zod": "^3.25.0"
+    "zod": "^4.6.7"
   },
   "overrides": {
     "hono": "^4.12.12",
