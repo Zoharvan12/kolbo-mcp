@@ -29,7 +29,8 @@ The shot list then describes behaviour that follows from it (fixes a sleeve that
 
 - Regular drama coverage: eye-level mediums, medium close-ups, over-the-shoulders, two-shots staged in depth (never two profiles across the narrow frame), one wide for movement or geography. 35-50 mm feel.
 - Vertical framing: tightest default is MCU chest-up; one close-up per part for the key beat. Face fully in frame on any speaking or reacting shot.
-- Camera: "shoulder-mounted handheld operated by a real person, gentle organic sway, small natural reframes; never shaky, never locked off".
+- Camera: for standalone social reels and glamour romance, "camera on a dolly or tripod: steady, slow push-ins only, no shake" (the format's best performers never go handheld). For gritty drama or thriller: "shoulder-mounted handheld operated by a real person, gentle organic sway, small natural reframes; never shaky, never locked off".
+- A prop that appears in an insert (a timer, a phone, a photo) gets its own reference image or an exact one-way description repeated in every part; otherwise the next part redraws it as a different object.
 - Lens and grade: vertical cannot be anamorphic. "Vintage spherical cinema lenses, round creamy bokeh, gentle halation around practicals, shallow depth of field" + the bible's grade word for word in every prompt.
 - 2-3 shots per 13 s of slow action; dialogue-driven parts can carry more. Cuts are motivated by dialogue (speaker or listener reaction), never to show a new action.
 - Whoever makes a sound (breath, laugh, gasp) is on screen when it happens. Every close shot has one visible change (eyes, breath, a swallow).

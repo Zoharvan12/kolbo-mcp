@@ -29,6 +29,10 @@ Then create a **Visual DNA** from the sheet (`references/workflows/visual-dna.md
 - A carried prop (bag, phone, briefcase) gets its own sheet of the character holding it as in the scene. State the side per panel ("front panel: his left shoulder is on the IMAGE'S RIGHT; back panel: on the IMAGE'S LEFT"). Naming a prop only in the video prompt loses it. A prop first created on screen (a photo found in a pocket in Part 3) becomes a reference too: grab a clean frame of it and pass it to every later part, or the next part redraws it (the strip became a square photo).
 - Fix from the original: when an edited image needs another fix, redo it from the ORIGINAL in one combined edit. Every stacked edit drifts the face.
 
+- **Split or torn props** (a torn photo, half a ticket): build the second piece from a clean frame grab of the episode where the first piece appeared, in one edit, and state "exactly the same width and paper as the first piece". Check the two pieces side by side before any video.
+- **Quote image costs first.** Sheet-quality edits are not cheap (high-quality GPT Image and 4K Nano Banana edits run 30-45 credits each; a Midjourney batch of 4 is a few credits). Read the rates from `list_models` and give the batch total before running it.
+- **Match the look from frames, not from the bible text.** Before writing a new location or look for a running series, pull a contact sheet of the latest approved episode and match what is actually on screen.
+
 ## Locations
 
 One location = one image: `nano-banana-pro`, 16:9, high resolution, **no people**. It is passed to video as the location AND grade reference.

@@ -47,7 +47,9 @@ Read `references/workflows/video-editor.md` and `get_video_editor_schema` first.
 | Platform episode | `python burn.py film <tight.mp4> <words-tight.srt> <ep.mp4>` (plain subtitles, max 4 words per row, 2 rows) or ship the clean master |
 | Social cutdown | `python burn.py social <short.mp4> <words-short.srt> <short-subbed.mp4> --hook "Line one|Line two"` |
 
-Burn at the delivery resolution: if the cut is upscaled, burn captions and hook after the upscale on the clean cut, never upscale burned text.
+**Finishing order (never upscale an edited cut):** finalize or upscale every raw clip the cut uses first, then rebuild the same cut (same `cut.json`) from the full-resolution clips, then burn captions and hook at that resolution. Review cuts can be built from the Drafts; the delivery cut is always re-cut from finished clips.
+
+**Hook placement:** the hook box fits its text tightly (no wide empty margins). Before burning, look at frames 0-3 s: if the box would cover the key visual (a face, the hero prop, the action that opens the scene), move it (above or below the action, or to the free side of the frame) and re-check.
 
 Re-transcribe the tight cut (and each short) before burning; word timings change after cutting. If the user wants to keep editing in the app, also build the Video Editor session.
 

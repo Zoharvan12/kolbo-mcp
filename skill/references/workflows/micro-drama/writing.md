@@ -9,6 +9,34 @@ Story craft comes from `references/filmmaking/scene-engine.md` (Goal → Obstacl
 - **Works with the sound off.** A viewer must follow the episode from the picture: glances, props, geography, reactions. Dialogue is sparse and sharp. Proven serials carry an episode on 4-10 short lines.
 - **Pace:** Episode 1 may breathe (longer takes for the meet or the setup). From Episode 2 the cut settles near 2 s per shot, with emotional beats on face close-ups and shot/reverse.
 
+## Standalone reels (Instagram / TikTok format)
+
+When the kickoff picks **standalone reels** instead of serial episodes, each post is one self-contained scene of 25-35 s. On social, one-scene stories that stand alone outperform numbered serial parts, which lose viewers part after part (measured on a leading 90s-glamour micro-drama account, Oct 2026). A viewer who never saw the previous post must still get it.
+
+| Time | Beat | Picture |
+|---|---|---|
+| 0-1 s | First line or action already mid-conflict, no setup shot | Two-shot: who and where |
+| 1-8 s | 2-4 short lines; one character is cold | Close-ups, 1.5-2.5 s each |
+| 8-18 s | SILENT stretch (room tone + foley only): a prop or physical action turns the scene | One wide + an insert + reaction close-ups |
+| 18-25 s | The flip: 2-3 lines, the cold one loses the upper hand | Tighter shot/reverse |
+| Last 3-5 s | Payoff: a smile or near-kiss, held long | Tight two-shot or one close-up |
+
+- About 15-17 shots per 30 s, close-ups for most of the runtime, one wide per reel.
+- Ends on a **payoff, not a cliffhanger**. A light callback (a prop, a gesture) links the reels.
+- The silent stretch is where the user's own song goes in the edit; keep it free of dialogue.
+- Title each reel with a short noun ("THE DOOR", "THE COAT"); number it only in the post caption.
+
+## Clarity rules (every format)
+
+- **One scene says the backstory out loud.** Somewhere in the series a character plainly states who they are, why they left, and what the key prop means ("I found the ring in your coat. I ran from a wedding once, back in Ohio. So I ran again."). Mystery by implication alone reads as confusing, not intriguing.
+- **Fill every gap the cut implies.** If a scene ends on "ten minutes", the audience wants those ten minutes. Write the scene that answers the obvious question before inventing a new location.
+- **Every joke or charged line needs its setup** on screen or in the hook. "Gave it to a woman who was cold" only lands if we know whose coat she is wearing.
+- **No hand-touch or finger "callback" gestures as the payoff** (palms raised to each other, fingertips meeting). They read as cringe. End on a face, a line, or a held look.
+- **Emotion builds; it never starts at the peak.** In a confession or speech, the first line is composed or defensive, the middle line cracks (voice drops, eyes away), and only the last line reaches tears or glassy eyes. Write the build into the prompt line by line; generate the speech as one continuous take so the performance can build.
+- **Cut to the listener during long lines.** A speech longer than about 2 s gets at least one reaction cutaway of the other person, with the speaker's voice continuing underneath (L-cut). Generate a silent listening shot of the other character for every key speech.
+- **Pleasing hook and pleasing ending.** The winning reel built tension from frame 1 (faces, a charged situation) and ended on a warm physical payoff held long. Open on faces in tension, never on an object; end on a physical action that resolves the scene.
+- Before approval, read the season as a stranger: for each reel, can you say in one sentence what is happening and why? If not, rewrite.
+
 ## Episode beat structure
 
 | Beat | Job |
