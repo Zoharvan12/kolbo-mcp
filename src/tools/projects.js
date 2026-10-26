@@ -379,14 +379,26 @@ function registerProjectTools(server, client) {
 
   server.tool(
     'get_project_story',
-    'Read the STORY of a project you own — its public page written as an ordered post (headings, text, media, workflow steps with their real prompts, before/after pairs) — plus `available_media`: every item the story may use (this project\'s generated results and the owner\'s own uploads), with media_id, type, prompt and model. Call this FIRST before writing or editing a story: you need the `version` (pass it back as `base_version`) and the media ids. Also returns whether the project is published and its listing status.',
-    { project_id: z.string().describe('ObjectId of a project you OWN.') },
-    async ({ project_id }) => pubText(await client.get(`/v1/projects/${encodeURIComponent(project_id)}/publish/story`))
+    'Read the STORY of a project you own — its public page written as an ordered post (headings, text, media, workflow steps with their real prompts, before/after pairs) — plus `available_media`: the items the story may use (this project\'s generated results and the owner\'s own uploads, newest 200). Each item is COMPACT by default: media_id, file name (generation ids are in it), type, model and the first 120 characters of its prompt. Narrow the list with `search` (file name or prompt text) or `media_type`; pass `media: "full"` only when you need urls and complete prompts, or `media: "none"` when you only need the version. Call this FIRST before writing or editing a story: you need the `version` (pass it back as `base_version`) and the media ids. Also returns whether the project is published and its listing status.',
+    {
+      project_id: z.string().describe('ObjectId of a project you OWN.'),
+      media: z.enum(['compact', 'full', 'none']).optional().describe('How to list available_media. compact (default) = id, file name, type, model, prompt opening. full = urls and complete prompts (large). none = leave the list out.'),
+      media_type: z.enum(['image', 'video', 'audio']).optional().describe('Only list this media type.'),
+      search: z.string().optional().describe('Only list items whose file name or prompt contains this text, e.g. a generation id.')
+    },
+    async ({ project_id, media, media_type, search }) => {
+      const q = new URLSearchParams();
+      if (media) q.set('media', media);
+      if (media_type) q.set('media_type', media_type);
+      if (search) q.set('search', search);
+      const qs = q.toString();
+      return pubText(await client.get(`/v1/projects/${encodeURIComponent(project_id)}/publish/story${qs ? `?${qs}` : ''}`));
+    }
   );
 
   server.tool(
     'update_project_story',
-    'REPLACE the story of a project you own (the public page\'s post) with the blocks you pass, in order. Read `get_project_story` first and pass its `version` as `base_version`: if the owner (or another agent) saved in between you get STORY_VERSION_CONFLICT — read again and re-apply. Blocks reference media by media_id from `available_media`; to use a NEW image or video, put it in the project first (`upload_media` with `project_id`, or generate with `project_id`). A `step` shows the generation\'s real prompt and model automatically — never retype them. Invalid blocks come back as `errors` with the block `index`; nothing is saved until all are valid. `warnings` are advice (missing captions, no steps). Good structure: hero media → short intro → "How it was made" heading → 3-8 steps in order → before/after where an upload became a result → one closing line. If the project is published the change is live at once, so confirm with the user before replacing a story they wrote.',
+    'REPLACE the story of a project you own (the public page\'s post) with the blocks you pass, in order. Read `get_project_story` first and pass its `version` as `base_version`: if the owner (or another agent) saved in between you get STORY_VERSION_CONFLICT — read again and re-apply. Blocks reference media by media_id from `available_media`; to use a NEW image or video, put it in the project first (`upload_media` with `project_id`, or generate with `project_id`). A `step` shows the generation\'s real prompt and model automatically — never retype them. Invalid blocks come back as `errors` with the block `index`; nothing is saved until all are valid. The saved story comes back compact (each block\'s media as id, file name and prompt opening); read the new `version` from it. `warnings` are advice (missing captions, no steps). Good structure: hero media → short intro → "How it was made" heading → 3-8 steps in order → before/after where an upload became a result → one closing line. If the project is published the change is live at once, so confirm with the user before replacing a story they wrote.',
     {
       project_id: z.string().describe('ObjectId of a project you OWN.'),
       blocks: z.array(storyBlock).describe('The whole story, in order (max 60 blocks). An empty array clears it.'),
