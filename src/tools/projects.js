@@ -335,7 +335,7 @@ function registerProjectTools(server, client) {
       if (hero_video_media_id) body.hero_video_media_id = hero_video_media_id;
       if (hero_video_url) body.hero_video_url = hero_video_url;
       const result = await client.post(`/v1/projects/${encodeURIComponent(project_id)}/publish`, body);
-      return pubText(result, 'Share `url` with the user — it is live now. To list it in the public catalog call `submit_project_to_catalog` (review is manual).');
+      return pubText(result, 'Share `url` with the user — it is live now. Kolbo drafts the page\'s story on first publish; read or rewrite it with get_project_story / update_project_story. To list it in the public catalog (and Google) call `submit_project_to_catalog` (review is manual).');
     }
   );
 
@@ -355,12 +355,68 @@ function registerProjectTools(server, client) {
 
   server.tool(
     'submit_project_to_catalog',
-    'Submit a PUBLISHED project to Kolbo\'s public catalog (status becomes `pending`; a Kolbo admin approves it — you cannot approve your own). Pass `submit: false` to withdraw. Fails with NOT_PUBLISHED if `publish_project` has not been called.',
+    'Submit a PUBLISHED project to Kolbo\'s public catalog (status becomes `pending`; a Kolbo admin approves it — you cannot approve your own). Only approved projects are listed and may appear in Google search; until then the page is reachable by link but not indexed. Pass `submit: false` to withdraw. Fails with NOT_PUBLISHED if `publish_project` has not been called.',
     {
       project_id: z.string().describe('ObjectId of a project you OWN.'),
       submit: z.boolean().optional().describe('true (default) = submit for review, false = withdraw.')
     },
     async ({ project_id, submit }) => pubText(await client.post(`/v1/projects/${encodeURIComponent(project_id)}/publish/listing`, { submit: submit !== false }))
+  );
+
+  // ─── project story (the public page as a post) ─────────────
+  const storyBlock = z.object({
+    type: z.enum(['heading', 'text', 'media', 'step', 'before_after']).describe('heading = section title, text = paragraph, media = an image/video with a caption, step = a generated result shown WITH its real prompt and model (how it was made), before_after = two items side by side.'),
+    text: z.string().optional().describe('heading (max 160 chars) / text (max 5000 chars). Plain text; blank lines separate paragraphs.'),
+    media_id: z.string().optional().describe('media / step: a media_id from get_project_story `available_media`. A step must be a GENERATED result.'),
+    media_url: z.string().optional().describe('Alternative to media_id: the Kolbo URL of media already in this project.'),
+    before_media_id: z.string().optional().describe('before_after: the "before" item (often an upload, e.g. a sketch or source photo).'),
+    after_media_id: z.string().optional().describe('before_after: the "after" item (the result).'),
+    caption: z.string().optional().describe('media / before_after: one line on what it shows (max 300 chars).'),
+    note: z.string().optional().describe('step: one or two sentences on what this step did and why (max 1000 chars).')
+  });
+
+  server.tool(
+    'get_project_story',
+    'Read the STORY of a project you own — its public page written as an ordered post (headings, text, media, workflow steps with their real prompts, before/after pairs) — plus `available_media`: every item the story may use (this project\'s generated results and the owner\'s own uploads), with media_id, type, prompt and model. Call this FIRST before writing or editing a story: you need the `version` (pass it back as `base_version`) and the media ids. Also returns whether the project is published and its listing status.',
+    { project_id: z.string().describe('ObjectId of a project you OWN.') },
+    async ({ project_id }) => pubText(await client.get(`/v1/projects/${encodeURIComponent(project_id)}/publish/story`))
+  );
+
+  server.tool(
+    'update_project_story',
+    'REPLACE the story of a project you own (the public page\'s post) with the blocks you pass, in order. Read `get_project_story` first and pass its `version` as `base_version`: if the owner (or another agent) saved in between you get STORY_VERSION_CONFLICT — read again and re-apply. Blocks reference media by media_id from `available_media`; to use a NEW image or video, put it in the project first (`upload_media` with `project_id`, or generate with `project_id`). A `step` shows the generation\'s real prompt and model automatically — never retype them. Invalid blocks come back as `errors` with the block `index`; nothing is saved until all are valid. `warnings` are advice (missing captions, no steps). Good structure: hero media → short intro → "How it was made" heading → 3-8 steps in order → before/after where an upload became a result → one closing line. If the project is published the change is live at once, so confirm with the user before replacing a story they wrote.',
+    {
+      project_id: z.string().describe('ObjectId of a project you OWN.'),
+      blocks: z.array(storyBlock).describe('The whole story, in order (max 60 blocks). An empty array clears it.'),
+      base_version: z.number().optional().describe('The `version` from get_project_story. Strongly recommended — without it you overwrite whatever is there.')
+    },
+    async ({ project_id, blocks, base_version }) => pubText(await client.put(
+      `/v1/projects/${encodeURIComponent(project_id)}/publish/story`,
+      { blocks, ...(base_version !== undefined ? { base_version } : {}) }
+    ), 'Saved. The project page shows it now if the project is published (get_project_publication for the url).')
+  );
+
+  server.tool(
+    'draft_project_story',
+    'Ask Kolbo to DRAFT a story for a project you own, by analysing the project\'s own media (prompts, models, sessions, which generation used which upload). Takes up to about a minute. Returns the draft `blocks` WITHOUT saving them — review or edit them, then save with `update_project_story`. Fails with STORY_DRAFT_UNAVAILABLE when the project has no generated media yet.',
+    { project_id: z.string().describe('ObjectId of a project you OWN.') },
+    async ({ project_id }) => pubText(
+      await client.post(`/v1/projects/${encodeURIComponent(project_id)}/publish/story/draft`, {}),
+      'Not saved yet. Edit if needed, then call update_project_story with these blocks and the version from get_project_story.'
+    )
+  );
+
+  server.tool(
+    'get_project_page_insights',
+    'Visitor analytics for the PUBLIC PAGE of a project you own (its "Page insights"): visitors, visits, average ACTIVE time (tab visible and in use), how many reached the story, scroll depth, clicks (media opened, recipes opened, project video played, "Use this project"), copies made, SIGN-UPS (new Kolbo accounts whose first visit was this page) with conversion rates, where visitors came from, countries, devices, a per-day series and the most-opened media. Anonymous first-party counts: no personal data, bots and the owner\'s own visits excluded, visitors deduped per day. Use it to tell the owner what works on their page (e.g. which step gets opened most) before editing the story.',
+    {
+      project_id: z.string().describe('ObjectId of a project you OWN.'),
+      days: z.union([z.literal(7), z.literal(30), z.literal(90)]).optional().describe('Window in days: 7, 30 (default) or 90.')
+    },
+    async ({ project_id, days }) => {
+      const qs = days ? `days=${days}` : '';
+      return pubText(await client.get(`/v1/projects/${encodeURIComponent(project_id)}/publish/insights${qs ? '?' + qs : ''}`));
+    }
   );
 
   server.tool(

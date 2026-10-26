@@ -26,6 +26,8 @@ const READ_ONLY = [
   'list_media', 'list_media_folders', 'get_media', 'get_media_stats',
   'list_presets', 'list_cinematic_presets',
   'list_projects', 'get_project', 'get_project_publication', 'list_sessions', 'list_project_context', 'get_project_profile',
+  // Returns a draft without saving it.
+  'get_project_story', 'draft_project_story', 'get_project_page_insights',
   'list_project_assets',
   'list_project_transfers', 'list_visual_dna_transfers',
   'list_session_generations',
@@ -140,6 +142,8 @@ const OPEN_WORLD_WRITE = [
 
 const OPEN_WORLD_DESTRUCTIVE = [
   'share_doc', 'revoke_review_share_link', 'unpublish_project',
+  // Replaces the whole story; live on the public page when the project is published.
+  'update_project_story',
   'blender_apply_operations', 'blender_import_media', 'blender_render',
   'blender_undo', 'blender_file_operation', 'blender_execute_python',
   // Can delete layers; approved once per batch in the Kolbo panel.

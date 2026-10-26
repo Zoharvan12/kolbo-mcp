@@ -322,6 +322,8 @@ Requires DaVinci Resolve Studio with the Kolbo plugin open (Workspace → Workfl
 | `list_visual_dna_folders` / `create_visual_dna_folder` / `update_visual_dna_folder` / `delete_visual_dna_folder` / `move_visual_dna_to_folder` | Organize Visual DNA characters into user folders (create/rename/recolor/delete + move DNAs in/out) |
 | `create_project` / `update_project` / `archive_project` / `unarchive_project` | Project lifecycle (create/rename/describe/archive; deletion stays in-app) |
 | `publish_project` / `get_project_publication` / `unpublish_project` / `submit_project_to_catalog` / `remove_project_hero_video` | Publish a project as a public showcase link, with write-up and final video as hero |
+| `get_project_page_insights` | Visitor analytics for a published project page: visitors, active time, scroll depth, story reach, clicks, copies, sources, countries, most-opened media |
+| `get_project_story` / `update_project_story` / `draft_project_story` | Write the published page as a post: headings, text, media, workflow steps (real prompt + model), before/after. AI draft from the project's own media |
 | `transfer_visual_dna` / `list_visual_dna_transfers` / `respond_visual_dna_transfer` | Send Visual DNAs you own to another Kolbo account (they accept a copy with new ids; optionally move instead of copy) |
 | `transfer_project` / `list_project_transfers` / `respond_project_transfer` | Hand a project you own to another Kolbo account (they accept; same ids; cast assets copied; payer history unchanged) |
 | `list_skills` / `create_skill` / `update_skill` / `delete_skill` | Skills — reusable named personas for the chat tool; `description` is the system instruction |
