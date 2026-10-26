@@ -320,17 +320,19 @@ function registerProjectTools(server, client) {
 
   server.tool(
     'publish_project',
-    'PUBLISH one of YOUR OWN projects as a public showcase page with a shareable link (the same as the app\'s Publish tab) and return the public `url`. Safe to call again: it never changes the URL, it only updates what you pass. In one call you can also set `allow_fork` (let viewers copy the project into their account), the public write-up `showcase_about`, and the project\'s FINAL VIDEO as the page hero. HERO VIDEO: the video must already be in THIS project — a generated video made with `project_id`, or a file you put there with `upload_media` (pass `project_id`; a local file is uploaded from disk). Then pass its media id as `hero_video_media_id` (or its Kolbo URL as `hero_video_url`). Anyone with the link can see the project\'s media, so ALWAYS confirm with the user before publishing, and consider `duplicate_project` first to publish a clean copy. Undo with `unpublish_project`.',
+    'PUBLISH one of YOUR OWN projects as a public showcase page with a shareable link (the same as the app\'s Publish tab) and return the public `url`. Safe to call again: it never changes the URL, it only updates what you pass. In one call you can also set `allow_fork` (let viewers copy the project into their account), `story_only` (publish a blog-style post without sharing the project: see below), the public write-up `showcase_about`, and the project\'s FINAL VIDEO as the page hero. HERO VIDEO: the video must already be in THIS project — a generated video made with `project_id`, or a file you put there with `upload_media` (pass `project_id`; a local file is uploaded from disk). Then pass its media id as `hero_video_media_id` (or its Kolbo URL as `hero_video_url`). Anyone with the link can see the project\'s media, so ALWAYS confirm with the user before publishing, and consider `duplicate_project` first to publish a clean copy. STORY ONLY: with `story_only: true` the page shows only the story (get_project_story / update_project_story) and the media inside it; the media library, sessions, chats/docs/flows, cast and credits are not served, and copying is refused whatever `allow_fork` says. Use it when the user wants a post about the work without sharing the project. Undo with `unpublish_project`.',
     {
       project_id: z.string().describe('ObjectId of a project you OWN (from list_projects).'),
-      allow_fork: z.boolean().optional().describe('Let viewers copy the project into their own account. Default true on first publish; omit to keep the current setting.'),
+      allow_fork: z.boolean().optional().describe('Let viewers copy the project into their own account. Default true on first publish; omit to keep the current setting. Has no effect while story_only is true.'),
+      story_only: z.boolean().optional().describe('true = the page shows only its story and the media in it (no library, sessions, chats, cast, credits, no copying). Default false on first publish; omit to keep the current setting.'),
       showcase_about: z.string().optional().describe('Public "About" write-up shown on the page (max 10000 chars, plain text). Omit on first publish and Kolbo drafts one for you; pass "" to clear.'),
       hero_video_media_id: z.string().optional().describe('Media id (from upload_media / list_media) of a VIDEO already in this project, shown as the full-bleed hero of the public page.'),
       hero_video_url: z.string().optional().describe('Alternative to hero_video_media_id: the Kolbo CDN URL of a video already in this project.')
     },
-    async ({ project_id, allow_fork, showcase_about, hero_video_media_id, hero_video_url }) => {
+    async ({ project_id, allow_fork, story_only, showcase_about, hero_video_media_id, hero_video_url }) => {
       const body = {};
       if (allow_fork !== undefined) body.allow_fork = allow_fork;
+      if (story_only !== undefined) body.story_only = story_only;
       if (showcase_about !== undefined) body.showcase_about = showcase_about;
       if (hero_video_media_id) body.hero_video_media_id = hero_video_media_id;
       if (hero_video_url) body.hero_video_url = hero_video_url;
@@ -341,7 +343,7 @@ function registerProjectTools(server, client) {
 
   server.tool(
     'get_project_publication',
-    'Check whether a project is published and read its public `url`, allow_fork, showcase_about, hero video, catalog listing status (none / pending / approved / rejected) and fork count. Returns `{ published: false }` when it is not published.',
+    'Check whether a project is published and read its public `url`, allow_fork, story_only, showcase_about, hero video, catalog listing status (none / pending / approved / rejected) and fork count. Returns `{ published: false }` when it is not published.',
     { project_id: z.string().describe('ObjectId of a project you OWN.') },
     async ({ project_id }) => pubText(await client.get(`/v1/projects/${encodeURIComponent(project_id)}/publish`))
   );
