@@ -10,6 +10,7 @@ Visual DNA profiles capture the visual "identity" of a character, style, product
 
 1. **Create** a profile with `create_visual_dna` — provide reference images (max 4 — if the user gives more, pick the 4 most representative or ask which to keep; never pass 5+), optionally video and audio.
 2. **Types**: `character` (default), `style`, `product`, `scene`, `environment`.
+   **References are one set, any mix:** up to 4 images, 1 video (3-10s), 1 voice clip (5-30s). Any one is enough. Video-only: frames are analyzed and a mid-clip frame is its face for image models. Voice-only: `character` only, and image models skip it. A sheet is just one of the images — uploaded sheets are recognized automatically; never call an ordinary photo a sheet. Remove a clip with `update_visual_dna` `video: ""` / `audio: ""`. To use a DNA's own clips in `generate_elements`, pass `videos[0].url` in `reference_videos` and `audio_clips[0].url` in `reference_audio_urls`, and tag them `@VideoN` / `@AudioN` — the server labels them as that character.
 3. **Use** the profile by passing its `id` in `visual_dna_ids` in: `generate_image`, `generate_creative_director`, `generate_elements`, `generate_video_from_image`, `generate_video_from_video`, `generate_first_last_frame`.
 4. **List/inspect** profiles with `list_visual_dnas` / `get_visual_dna`.
 

@@ -26,15 +26,15 @@ function registerVisualDnaTools(server, client, options = {}) {
   // ─── create_visual_dna ─────────────────────────────────────
   server.tool(
     'create_visual_dna',
-    'Create a Visual DNA profile from reference media. Each item in images/video/audio can be a public URL or an absolute local file path. Max 4 images, 1 video, 1 audio. Files capped at 25MB each. Those stills are ALL packed into later generations (every image slot the model has, or a white grid if only one leftover slot remains) — so they must share one identity and one vibe. Character DNA: only that person (anonymous crowd OK, no second hero). Environment/location DNA: the place only — empty or anonymous crowd, NEVER a main character or recognizable hero face. Product: only that product. Style: one art direction. Separate states (day/night, clean/bloody) = separate DNAs. For EVERY DNA type, a reference sheet dramatically improves consistency (character turnaround / product details / location angles / style board) — offer to generate one with `generate_character_sheet` (matching `sheet_type`) first, then pass its URL as `character_sheet_url` here (see that tool).',
+    'Create a Visual DNA profile from reference media: any mix of up to 4 images, 1 video (3-10s) and 1 voice clip (5-30s). ANY ONE of them is enough — a video-only DNA (its frames are analyzed and a mid-clip frame becomes its face) or a voice-only DNA (dna_type must be "character"; image models skip a DNA with no image or video). Each item can be a public URL or an absolute local file path. Files capped at 25MB each. Those stills are ALL packed into later generations (every image slot the model has, or a white grid if only one leftover slot remains) — so they must share one identity and one vibe. Character DNA: only that person (anonymous crowd OK, no second hero). Environment/location DNA: the place only — empty or anonymous crowd, NEVER a main character or recognizable hero face. Product: only that product. Style: one art direction. Separate states (day/night, clean/bloody) = separate DNAs. For EVERY DNA type, a reference sheet dramatically improves consistency (character turnaround / product details / location angles / style board) — offer to generate one with `generate_character_sheet` (matching `sheet_type`) first, then pass its URL as `character_sheet_url` here (see that tool). A sheet uploaded as one of the images is recognized automatically — never present an ordinary photo as a sheet. To use the DNA\'s own clips in a video generation, pass `videos[0].url` in reference_videos and `audio_clips[0].url` in reference_audio_urls (tag them @Video N / @Audio N); the server labels them as this character.',
     {
       name: z.string().describe('Name of the Visual DNA profile. **Pick a short, lowercase, no-space single token** (e.g. `maya`, `tokyo_neon`, `brand_red`, `esther_model`) — never names with spaces (`Sarah Johnson` ❌). The user/LLM types this as `@<name>` inside generation prompts, and the @ parser stops at the first space, so `@Sarah Johnson` matches only `Sarah` and the binding silently drops. Multi-word concepts should use underscores or be a single token. Names are case-insensitive on lookup, but **reserved** values rejected on creation: `Image1`, `Image2`, …, `Video1`, …, `Audio1`, … (any-language characters allowed; max 100 chars).'),
       dna_type: z.string().optional().describe('Type: "character", "style", "product", "scene", "environment". Default: "character"'),
       prompt_helper: z.string().optional().describe('Optional description/notes to guide DNA extraction'),
       description: z.string().optional().describe('Alias for `prompt_helper`. Accepted because every tool here REPORTS this field as `description`, so callers round-trip that name back in; without the alias zod stripped it and the notes were silently lost. Ignored when `prompt_helper` is also given.'),
       images: z.array(z.string()).optional().describe('Array of image sources (URLs or absolute local paths). Max 4. All of them can reach the model on later gens — same subject, same vibe only; no extra heroes on character DNAs, no main characters on environment DNAs.'),
-      video: z.string().optional().describe('Optional video source (URL or absolute local path)'),
-      audio: z.string().optional().describe('Optional audio source (URL or absolute local path) — the character\'s voice, 5-30s of clean speech. Stored on the DNA and used two ways: (1) as REFERENCE AUDIO in video generation — attaching this DNA to an image-to-video generation on a model with audio slots (Seedance 2.x, Wan 3.0) auto-attaches the clip and tells the model it is that character\'s voice; (2) as the source for a real speaking voice, but ONLY when you ask for one — see `voice_source`.'),
+      video: z.string().optional().describe('Optional 3-10s video of the subject (URL or absolute local path). Enough on its own: its frames are analyzed for identity.'),
+      audio: z.string().optional().describe('Optional audio source (URL or absolute local path) — the character\'s voice, 5-30s of clean speech. Stored on the DNA and used two ways: (1) as REFERENCE AUDIO in video generation — pass this DNA\'s `audio_clips[0].url` in reference_audio_urls on a model with audio slots (Seedance 2.x, Wan 3.0) and the server tells the model it is that character\'s voice (the web app attaches it for the user; over the API you pass it); (2) as the source for a real speaking voice, but ONLY when you ask for one — see `voice_source`.'),
       voice_source: z.enum(['none', 'clone', 'assign', 'design']).optional().describe('What to do about a SPEAKING voice. **Pass "none" when the audio is just a reference clip** (the usual case for video work) — the clip is stored and usable as video reference audio, and nothing else happens. "clone" mints an ElevenLabs voice from the uploaded audio, which consumes a voice slot and may EVICT another of the user\'s voices to free one; it also makes the DNA addressable as `dna_<id>` in text-to-speech. "assign" points at an existing voice (pass `assigned_voice_id`). "design" generates a voice from the character\'s look. ⚠️ Omitting this while passing `audio` keeps the legacy behaviour and CLONES — pass "none" explicitly unless the user asked for a voice.'),
       assigned_voice_id: z.string().optional().describe('Voice to attach when voice_source="assign" — a `custom_<id>` from the user\'s clones or a voice_id from `list_voices`.'),
       character_sheet_url: z.string().optional().describe('URL of a reference sheet (from `generate_character_sheet`, any sheet_type) to set as the DNA\'s primary reference. Works for ALL DNA types — character turnaround, product detail sheet, location sheet, or style board — and is the single biggest consistency booster. Omit only when the user declines.'),
@@ -201,7 +201,7 @@ function registerVisualDnaTools(server, client, options = {}) {
   // ─── update_visual_dna ─────────────────────────────────────
   server.tool(
     'update_visual_dna',
-    'Edit an existing Visual DNA in place — name, description, type, character sheet, stills, video, audio, or character attributes. NEVER delete and recreate a DNA to change any of those: the old id is what generations, sessions, and @Name bindings already point at. Providing `images` REPLACES the whole still set (max 4) and re-analyzes the profile. Omit images to keep current stills. Owner only; global presets cannot be edited (import first).',
+    'Edit an existing Visual DNA in place — name, description, type, character sheet, stills, video, audio, or character attributes. NEVER delete and recreate a DNA to change any of those: the old id is what generations, sessions, and @Name bindings already point at. Providing `images` REPLACES the whole still set (max 4) and re-analyzes the profile. Omit images to keep current stills. `video` / `audio` replace only that clip; pass "" to remove it (a voice-only DNA must stay a character). Owner only; global presets cannot be edited (import first).',
     {
       visual_dna_id: z.string().describe('Visual DNA id from list_visual_dnas / create_visual_dna.'),
       name: z.string().optional().describe('New name. Same no-space single-token rule as create_visual_dna — @Name binding stops at the first space.'),
@@ -209,8 +209,8 @@ function registerVisualDnaTools(server, client, options = {}) {
       prompt_helper: z.string().optional().describe('New description / intent notes. Replaces the old ones and re-synthesizes the DNA analysis when the text actually changes. Pass "" to clear.'),
       description: z.string().optional().describe('Alias for `prompt_helper`. Accepted because every tool here REPORTS this field as `description`, so callers round-trip that name back in; without the alias zod stripped it and the edit silently did nothing. Ignored when `prompt_helper` is also given.'),
       images: z.array(z.string()).optional().describe('Full replacement still set (URLs or absolute local paths). Max 4. Omit to keep current stills. Same purity rules as create: one identity, one vibe.'),
-      video: z.string().optional().describe('Replacement video source (URL or absolute local path).'),
-      audio: z.string().optional().describe('Replacement audio source (URL or absolute local path).'),
+      video: z.string().optional().describe('Replacement video source (URL or absolute local path). Pass "" to remove the DNA\'s video.'),
+      audio: z.string().optional().describe('Replacement audio source (URL or absolute local path). Pass "" to remove the DNA\'s voice clip.'),
       character_sheet_url: z.string().optional().describe('New reference sheet URL (from generate_character_sheet). Sets the DNA\'s primary sheet without replacing stills.'),
       remove_character_sheet: z.boolean().optional().describe('If true, clears the stored character sheet. Do not combine with character_sheet_url.'),
       gender: z.string().optional().describe('Character attribute (character DNAs).'),
@@ -231,8 +231,10 @@ function registerVisualDnaTools(server, client, options = {}) {
       const imageList = Array.isArray(images) ? images.filter(Boolean) : [];
       if (imageList.length > 4) throw new Error('Maximum 4 images allowed');
       const hasMedia = imageList.length > 0 || !!video || !!audio;
+      const removeVideo = video === '';
+      const removeAudio = audio === '';
       const hasMeta = name !== undefined || dna_type !== undefined || helper !== undefined
-        || character_sheet_url !== undefined || remove_character_sheet !== undefined
+        || character_sheet_url !== undefined || remove_character_sheet !== undefined || removeVideo || removeAudio
         || gender !== undefined || ethnicity !== undefined || body_type !== undefined
         || hair_color !== undefined || eye_color !== undefined || skin_tone !== undefined
         || age_range !== undefined || specific_age !== undefined;
@@ -259,6 +261,8 @@ function registerVisualDnaTools(server, client, options = {}) {
         if (helper !== undefined) body.prompt_helper = helper;
         if (character_sheet_url !== undefined) body.character_sheet_url = character_sheet_url;
         if (remove_character_sheet !== undefined) body.remove_character_sheet = remove_character_sheet;
+        if (removeVideo) body.remove_video = true;
+        if (removeAudio) body.remove_audio = true;
         const result = await client.put(path, body);
         return {
           content: [{
@@ -285,6 +289,8 @@ function registerVisualDnaTools(server, client, options = {}) {
       if (remove_character_sheet !== undefined) {
         form.append('removeCharacterSheet', remove_character_sheet ? 'true' : 'false');
       }
+      if (removeVideo) form.append('removeVideo', 'true');
+      if (removeAudio) form.append('removeAudio', 'true');
       for (const [k, v] of Object.entries(attrs)) form.append(k, String(v));
       for (const f of imageFiles) {
         form.append('images', f.buffer, { filename: f.filename, contentType: f.contentType });
