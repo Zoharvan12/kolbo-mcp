@@ -11,7 +11,9 @@ Story craft comes from `references/filmmaking/scene-engine.md` (Goal → Obstacl
 
 ## Standalone reels (Instagram / TikTok format)
 
-When the kickoff picks **standalone reels** instead of serial episodes, each post is one self-contained scene of 25-35 s. On social, one-scene stories that stand alone outperform numbered serial parts, which lose viewers part after part (measured on a leading 90s-glamour micro-drama account, Oct 2026). A viewer who never saw the previous post must still get it.
+When the kickoff picks **standalone reels** instead of serial episodes, each post is one self-contained scene of about 38-45 s (the approved reference, Wrong Number "Ten Minutes" v7, Oct 2026, runs 45 s; 30 s cuts with packed lines felt rushed).
+
+**Approved reference structure (Ten Minutes v7, 45 s, 8 lines):** 0.8 s sped-up prop insert → first line at 1 s on a two-shot → 3 quick exchanges (close-ups, about 2 s each) → the charged line → a 2-3 s SILENT reaction of the listener → the confession in 3 lines, each with a silent beat after it, emotion building to the last → the question and the answer → the prop turns the scene (a sound or a ring) → the payoff action in an over-the-shoulder insert → HIS reaction held → HER smile held to the end. Both faces react at the end; never end on one face only. On social, one-scene stories that stand alone outperform numbered serial parts, which lose viewers part after part (measured on a leading 90s-glamour micro-drama account, Oct 2026). A viewer who never saw the previous post must still get it.
 
 | Time | Beat | Picture |
 |---|---|---|
@@ -35,6 +37,9 @@ When the kickoff picks **standalone reels** instead of serial episodes, each pos
 - **Emotion builds; it never starts at the peak.** In a confession or speech, the first line is composed or defensive, the middle line cracks (voice drops, eyes away), and only the last line reaches tears or glassy eyes. Write the build into the prompt line by line; generate the speech as one continuous take so the performance can build.
 - **Cut to the listener during long lines.** A speech longer than about 2 s gets at least one reaction cutaway of the other person, with the speaker's voice continuing underneath (L-cut). Generate a silent listening shot of the other character for every key speech.
 - **Pleasing hook and pleasing ending.** The winning reel built tension from frame 1 (faces, a charged situation) and ended on a warm physical payoff held long. Open on faces in tension, never on an object; end on a physical action that resolves the scene.
+- **Leave breath between lines.** At most 3 lines per 12-15 s take, each followed by a written silent beat (a silent reaction shot or a held look), with the dialogue timings in the audio block spaced 2.5-4 s apart. Six lines packed into one 15 s take leave no pause to cut on, and the edit plays rushed.
+- **Hook on the prop in action, fast.** If a prop drives the scene (a timer, a key), open on a sub-second close insert of it in use (sped up if needed), then the first line within about 1 s.
+- **The ending action shows who does it and why.** A callback insert alone (a hand on the prop) reads as random; play it inside the scene: the line, the action in an over-the-shoulder insert with the other person in frame, then the other person's reaction held.
 - Before approval, read the season as a stranger: for each reel, can you say in one sentence what is happening and why? If not, rewrite.
 
 ## Episode beat structure

@@ -22,7 +22,13 @@ The edit is half the film. Build one **tight cut** per episode from the finals (
 10. **Sound seams:** about 0.3 s crossfade at every seam so room tone never jumps. Never normalize or re-level Seedance's audio.
 11. **Keep the bones:** the hook frame, every script line, and the last line with its hold.
 
-Edit QA = all eleven, plus: no flash frames, every script line once and in order (transcribe the cut), screen direction consistent, no silence over 1.5 s without a judged beat.
+12. **Hook in under a second.** If a prop drives the scene, open on its insert sped up (2-3x, about 0.8 s, sound sped with it) and land the first line within about 1 s. A real-time 2.5 s insert reads as boring.
+13. **Breath can only be cut, not made.** If lines in the source run back to back, the edit cannot add pauses; regenerate the part with written silent beats (see shots-prompts.md, Audio block) rather than freezing frames or patching in a shot from a differently staged take.
+14. **Remove a beat instead of rescuing it.** An awkward reaction, a laugh that does not fit, or an insert that needs explaining (a hand pulling a ring from a coat) goes. Cover a bad stretch inside a speech with a listener cutaway; avoid reusing the same listener take seen seconds earlier (generate a fresh reaction if needed).
+15. **Overlay windows end on a frame boundary.** After a cutaway overlay, run `flash_check.py`; a window ending one frame early or late leaves a 1-frame flash of the shot underneath. Nudge the end by 0.02 s until it reports 0 problems.
+16. **The ending plays inside the scene.** The payoff action happens in a shot where we see who does it and why (over the shoulder, the other person in frame) and ends on the other person's held reaction. A lone callback insert after the last line reads as random.
+
+Edit QA = all sixteen, plus: no flash frames, every script line once and in order (transcribe the cut), screen direction consistent, no silence over 1.5 s without a judged beat.
 
 ## Kobi: build it in the Kolbo Video Editor
 

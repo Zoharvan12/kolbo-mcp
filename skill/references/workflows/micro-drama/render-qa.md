@@ -34,7 +34,8 @@ Look at frames, not the prompt. Outside agents: `python scripts/micro-drama/shot
 - Props physically right (open bottle before pouring, the card in the same hand).
 - Dialogue: `transcribe_audio` the part; every scripted line present once, in order, no invented words, right speaker's lips moving. No music unless requested. An empty transcript on a part with one quiet line (a whisper, "Theo?") is a transcriber miss, not a missing line: re-run without voice-activity filtering or listen before re-rendering.
 - Shot detection also fires on fast micro-cuts Seedance puts inside an insert (three cuts in 0.5 s). Those are slivers for the edit to drop, not a render failure.
-- Pace: no rushed movement, no dead stretch the edit cannot remove.
+- Pace: no rushed movement, no dead stretch the edit cannot remove. Lines followed by real pauses where the prompt wrote them (run a silence detect; back-to-back speech is a FAIL for a reel).
+- Posture continuity: each character stands / sits / leans as at the end of the previous part (a standing character who is suddenly seated at the desk is a FAIL).
 
 ## Finals (only the keepers)
 
@@ -43,6 +44,8 @@ Look at frames, not the prompt. Outside agents: `python scripts/micro-drama/shot
 3. Only after the user explicitly says yes to that exact quoted credit amount: `edit_video` with `operation: "draft_enhance"` and the same source, project and resolution. Never in the same turn as the quote, never covered by the credit cap or any autonomy setting, never as a default step. Finals are expensive (a 1080p finalization costs about 4.4x the Draft of the same length as of 2026-10); say so when quoting. This renders the same Draft at full quality; it is not a new generation.
 4. If a Draft has expired or cannot be finalized, say so before proposing any new paid render.
 5. Re-check each final against its Draft (same shots, same audio); the edit uses finals only.
+
+Free path when the agent has a local upscaler: keep the 480p Drafts, upscale each raw clip the cut uses (never the edited cut), then re-cut and burn captions at the upscaled size. On a phone after social re-encoding, this looked the same as a paid 1080p finalization (Oct 2026).
 
 Cheaper path for long episodes: build and approve the tight cut from Drafts first, then finalize only the clips the cut actually uses.
 

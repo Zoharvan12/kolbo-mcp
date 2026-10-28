@@ -64,6 +64,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Build, inspect, animate, light, render, or edit a **Blender scene through Kolbo Blender MCP** | `references/workflows/blender-mcp.md` |
 | Generate a **Seedance 2.5** video | `skill` `elements-prompting` + `references/models/seedance25.md` + Locked Intro in `references/models/seedance.md`. For narrative/continuity also load `references/workflows/filmmaking.md` — but compile the prompt as Locked Intro, NOT the SCENE CONTEXT / OPTICS / ACTION pack |
 | Generate a **Seedance 2 / WAN / MiniMax H3 / Gemini / Elements** video (`generate_elements` or Visual DNA) | `skill` `elements-prompting` + `references/models/seedance.md` — same Locked Intro. Elements is NOT a different prompt language |
+| Make a **real person talk on camera from their Visual DNA** (AI avatar / talking host / "make me talk") | `references/workflows/talking-avatar-wan3.md`: Wan 3.0 Elements + DNA + 2 real face photos + their voice as `@Audio 1`, one take of 10 s or less per environment |
 | Generate a **GPT Image 2 / 2.5** image | `references/models/gpt-image.md` |
 | **No background / transparent PNG / cutout** on any image | `references/models/gpt-image.md` |
 | Generate a **Nano Banana / Gemini** image | `references/models/nano-banana.md` |
@@ -82,6 +83,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Generate **brand product imagery** (studio shot, lifestyle, Pinterest pin, hero banner, carousel, ad pack, virtual try-on, conceptual, restyle) | `references/workflows/product-photoshoot.md` |
 | Generate **marketplace listing cards** (Amazon main + secondary + A+ content) | `references/workflows/marketplace-cards.md` |
 | Apply a **preset** — a named look, sheet, thumbnail, grading, camera move, Seedance shot recipe, music style — or decide whether one fits what the user just asked for | `references/workflows/presets.md` |
+| Make a **very attractive / sexy / curvy woman** ("bigger bust", fully clothed, non-explicit) — figure wording, framing, model route, one-change fix | `references/workflows/attractive-characters.md` |
 | Use **Visual DNA** / character consistency / `@name` syntax | `references/workflows/visual-dna.md` |
 | Use **Color DNA** / brand palette grading | `references/workflows/color-dna.md` |
 | Start or continue a **multi-step production** (storyboard → scenes → final cut) | `references/workflows/production-log.md` |
@@ -89,6 +91,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | **Split a soundtrack into layers** — remove/isolate speech, strip narration, instrumental bed, stems for dubbing | `references/workflows/audio-stems.md` |
 | **Scrape brand/product info** before generating + persist as `.kolbo/brand-kits/<slug>.md` | `references/workflows/research-first.md` |
 | Browse, manage, or present existing **media library** items | `references/workflows/media-library.md` |
+| Write or edit a **published project's page / project story / showcase post** (headings, steps with real prompts, before/after) | `references/workflows/project-story.md` |
 | Upload, pick, or reuse a **personal font** (My Fonts / Font collection, `font_ids`) | `references/workflows/personal-fonts.md` |
 | Run a **client review / approval loop** — share a cut for feedback, timestamped comments, versions (v1→v2), approve / request-changes, guest links | `references/workflows/review-collections.md` |
 | Confirm **cost** or validate **resolution / aspect / duration** against model caps | `references/workflows/cost-and-validation.md` |
@@ -102,7 +105,6 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/src/config/systemPrompt.js` — same battle-tuned rules that power Kolbo's web-app help widget. Keep parity (see `packages/opencode/CLAUDE.md` "MCP & Skill Sync Rule").
 
 ## Available MCP Tools
-
 For music composition/reference/section edits, extensions and covers, Trends and Motion Library, Morphious Styles, Creative Director status, project copies and transfer responses, read `references/workflows/tool-operations.md`. For editable video timelines, read `references/workflows/video-editor.md`. Use `get_video_editor_schema`, `list_video_editor_sessions`, `get_video_editor_session`, `create_video_editor_session`, `update_video_editor_session`, and `export_video_editor_session`. Edit existing sessions in place using their saved revision; do not recreate them to rename or change clips.
 
 For personal font uploads, font selection, or reuse, read `references/workflows/personal-fonts.md`. Use the dedicated My Fonts tools; never the media-upload path or agent-rendered specimens.
@@ -153,6 +155,7 @@ Font tools (when exposed by the installed MCP): `list_fonts`, `get_font`, `uploa
 | `list_projects` / `get_project` / `move_session` | Projects: resolve a project NAME → the `project_id` you pass on generation/upload/doc calls (`get_project` returns the full description — list clips it); `move_session` relocates a whole session + its media. See "Projects — Where Work Lands" below. |
 | `create_project` / `update_project` / `archive_project` / `unarchive_project` / `list_sessions` / `rename_session` / `delete_session` / `restore_session` | Project lifecycle + session inventory. Edit name/description with `update_project` (read via `get_project` first); rename sessions with `rename_session` — never delete+recreate. `list_sessions` returns `project_id` + `types[]` on every row. |
 | `publish_project` / `get_project_publication` / `unpublish_project` / `submit_project_to_catalog` / `remove_project_hero_video` | Public showcase link for a project you own (the app's Publish tab). `publish_project` returns the public `url` and, in the same call, sets `allow_fork`, `showcase_about` and the FINAL VIDEO as page hero: first put the video in the project (`upload_media` with `project_id`, or generate with `project_id`), then pass its id as `hero_video_media_id`. Confirm with the user before publishing — anyone with the link sees the project's media. |
+| `get_project_story` / `update_project_story` / `draft_project_story` | The published page as a post: ordered blocks (heading, text, media, step, before_after) using this project's media ids. Read first, save with `base_version`; a `step` shows the generation's real prompt + model. Structure and voice: `workflows/project-story.md`. |
 | `bulk_move_sessions` / `list_session_generations` / `move_generations_to_session` / `split_session` / `undo_session_organization` | Reorganize many sessions or generations. `list_session_generations` is an inventory (not a live generation card). |
 | `add_project_context` / `list_project_context` / `delete_project_context` / `get_project_profile` / `regenerate_project_profile` | Project knowledge base (RAG): feed scripts/URLs/notes; `get_project_profile` = the living brief — read it to ground work in the project |
 | `list_project_assets` / `link_project_asset` / `unlink_project_asset` / `update_project_asset` | Project CAST roster: the Visual DNAs and moodboards tagged onto a project (`@Name` / `#Name`). `update_project_asset` writes each tagged DNA's identity description and/or its project-scoped purpose note. Never unlink+relink to edit. |
@@ -171,7 +174,6 @@ Font tools (when exposed by the installed MCP): `list_fonts`, `get_font`, `uploa
 | `resolve_list_sessions` / `resolve_get_project` / `resolve_get_timeline` / `resolve_import_media` / `resolve_edit_timeline` / `resolve_run_script` / `resolve_capture_frame` / `resolve_get_command_status` | Connected DaVinci Resolve Studio control through the Kolbo Resolve plugin: timeline edits, Fusion titles, scripts and frame checks. Every change needs the editor's approval in the plugin; read `workflows/davinci-resolve.md` before the first call. |
 
 ## ⚠️ Edit in place — never delete+recreate (HARD RULE — always on)
-
 Existing Kolbo objects keep a stable id. Generations, `@Name` / `#Name` bindings, share links, and teammates already point at that id. Deleting and making a new one orphans those links and throws away the stored analysis.
 
 | What changed | Tool |
@@ -188,7 +190,6 @@ Existing Kolbo objects keep a stable id. Generations, `@Name` / `#Name` bindings
 `delete_*` is only for objects the user asked to remove.
 
 ## ⚠️ Visual DNA `@Name` in the prompt (HARD RULE — always on)
-
 Passing `visual_dna_ids` is **not enough**. For every DNA in that array you MUST also write `@ExactStoredName` in the prompt text (the `name` from `list_visual_dnas` / `create_visual_dna`). The engine binds identity by parsing `@tags`. No `@tag` → the DNA is wasted.
 
 - Right: `visual_dna_ids: ["vdna_…"]` + prompt `@Zohar walks into frame`
@@ -277,6 +278,9 @@ Mode wins over model family. **Frames** (`generate_video_from_image`) and **Firs
 Write the beats at FULL DEPTH. The cap is 30,000 characters on Seedance 2.5 (10,000 on 2.0) — a 30s / 8+ shot compile should land around 4k–9k, and every beat carries its own camera move, a performance task for the speaker AND the listeners, prop/hand state, and the sound in that beat. A one-line shot beat is under-written; the structure alone is not the craft. Read `references/models/seedance25.md` before compiling.
 
 Do **not** default Elements to `SCENE CONTEXT` / `OPTICS` / `ACTION` / `ACTIVE REFERENCES` department packs (those live in filmmaking audit/contracts for other models). `elements-prompting` is the craft skill (formerly `seedance-2-prompting`); Locked Intro is the compile shape.
+
+## ⚠️ Get it yourself before asking (HARD RULE)
+User names a brand/site/domain ("my platform kolbo.ai") → open it yourself (kolbo.ai → https://kolbo.ai) with your best tool: a real browser (Kolbo Code `browser` incl. `record_start`/`record_stop`, Kobi `browse_website`, Claude in Chrome, Playwright MCP), else WebFetch. Take the real logo, screenshots, a scroll-through recording as footage; upload and attach them as references — never a text imitation of the brand. Never ask for a URL/logo/file you can fetch; ask only after a real attempt failed. Details: `references/workflows/research-first.md`.
 
 ## ⚠️ If the User Names a Tool, USE THAT TOOL (HARD RULE)
 
@@ -455,11 +459,8 @@ Skip frames-first only when the user says "go straight to video", single-shot qu
 ## ⚠️ Generated URLs in Chat (CRITICAL)
 
 Chat renders markdown natively. `![alt](url)` = inline image. `[label](url)` = labeled link with preview.
-
 - **Catalog-style replies** (numbered lists of characters / scenes / products): embed `![alt](url)` so each item shows inline.
-- **Conversational replies** ("4 shots ready"): keep prose short; Library already shows the gallery.
-
-Avoid bare URL dumps and HTML `<table>` grids — Library already provides a gallery.
+- **Conversational replies** ("4 shots ready"): keep prose short. Avoid bare URL dumps and HTML `<table>` grids — Library already provides a gallery.
 
 **After `generate_creative_director` completes** — share results as individual URLs, one per scene. Do NOT create an HTML grid artifact.
 
@@ -476,8 +477,6 @@ Avoid bare URL dumps and HTML `<table>` grids — Library already provides a gal
 
 HTML/SVG/Mermaid artifacts have a **Share** button in the preview toolbar that uploads the artifact and copies a permanent public URL (no login required to view). Or call `publish_html_artifact({ title, content })` directly.
 
----
-
 If at this point you still don't know which `references/` file to load, default to `references/models/prompt-copilot.md` for generation prompts or `references/workflows/cost-and-validation.md` for cost/validation questions, or just keep going with this core file's rules.
 
 ## Media selection preferences
@@ -485,8 +484,7 @@ Honor explicit models, presets, budget and inputs. Choose only eligible catalog 
 Default images and edits: GPT Image 2.5 Flare/Sunburst; medium for value, high for ordinary maximum quality. Reserve xhigh/max for exceptional dense or difficult multilingual text after medium/high prove insufficient; do not automatically spend on retries. Nano Banana 2 is secondary. Seedream 5.0 Pro favors cinematic aesthetics over complex instruction fidelity; Wan 2.7 Pro is another creative alternative. Z Image/P Image for cheap tests. Midjourney for artistic concepts only, never editing. Soul V2 for realistic people/UGC concepts; derive character sheets before registering finished Visual DNA. Mirage Film 2 for environments and cinematic inspiration.
 **Seedance 2.5 Draft:** explicitly pass `model: "seedance-2-5", draft: true` (or legacy `resolution: "480p-draft"`) on the matching video generation tool. Plain `480p` is regular video, never Draft. Use ordinary credits. Finalize a saved draft via `edit_video` `draft_quote` then authorized `draft_enhance`, with its video URL, original project and quoted supported resolution; do not regenerate the prompt. See `references/models/seedance25.md`.
 For Draft video editing, use `generate_video_from_video` with `model: "seedance-2-5-video-to-video", draft: true`. The source duration and aspect ratio are inherited. Draft uses regular edit 480p pricing; optional finalization uses regular edit 1080p pricing, both charging combined input/output seconds. Read the live catalog and quote rather than hardcoding prices. This app-credit/MCP route does not imply USD-wallet video-edit execution availability.
-
-Default video: Seedance 2.5 for general cinematic work (not Hebrew speech). Kling specializes in controlled single-image and first/last-frame shots. Wan 3.0 specializes in motion graphics and animated typography — native Hebrew speech is poor; attached-audio lip-sync works well. MiniMax H3 offers higher resolution and strong attached-audio lip-sync; H3 Max favors speed at lower resolution with the same audio lip-sync strength. **Native Hebrew dialogue:** Gemini Omni Flash 1.1 or Gemini Omni 1 (best). Seedance 2 / 2.5 do not speak Hebrew — use Latin transliteration in quotes on Seedance, or switch to Gemini Omni. Grok Imagine 1.5 and Seedance 2.0 are non-Hebrew alternatives. P Video/Draft for cheap fast tests. Use base, edit or extend variants only with their required inputs.
+Default video: Seedance 2.5 for general cinematic work (not Hebrew speech). Kling specializes in controlled single-image and first/last-frame shots. Wan 3.0 specializes in motion graphics and animated typography — native Hebrew speech is poor; attached-audio lip-sync works well. It is also the proven **talking-avatar tool**: a person's Visual DNA plus 2 real face photos plus their own voice as `@Audio 1` gives 0.99 voice sync, holds their identity and works in any environment (`references/workflows/talking-avatar-wan3.md`, 2026-10-28). MiniMax H3 offers higher resolution and strong attached-audio lip-sync; H3 Max favors speed at lower resolution with the same audio lip-sync strength. **Native Hebrew dialogue:** Gemini Omni Flash 1.1 or Gemini Omni 1 (best). Seedance 2 / 2.5 do not speak Hebrew — use Latin transliteration in quotes on Seedance, or switch to Gemini Omni. Grok Imagine 1.5 and Seedance 2.0 are non-Hebrew alternatives. P Video/Draft for cheap fast tests. Use base, edit or extend variants only with their required inputs.
 Existing-video lip-sync: Sync 3 for active-speaker handling; PixVerse for cartoons/2D and economical faster work. Portrait lip-sync: Veed Fabric or HeyGen Avatar; P Avatar for budget work. LTX Audio to Video for camera/environment motion with audio-driven performance.
 Default music: Suno v6. ElevenLabs Music is an alternative, especially for duration-directed scoring. Both accept custom duration requests; validate the selected tool schema and inspect actual output duration.
 

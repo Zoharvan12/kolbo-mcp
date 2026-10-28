@@ -24,6 +24,8 @@ The shot list then describes behaviour that follows from it (fixes a sleeve that
 8. **Movement at human pace:** calm walk ≈ 1 m/s, pick up / put down ≈ 1.5 s, turn ≈ 1 s. Budget each move in the part's timing.
 9. **One continuous moment per part.** No time or place jump inside a part; exits and new rooms get their own part, with a cause.
 10. Lying or seated characters: place the camera relative to the FACE.
+11. **Posture is locked like position.** Write each character's posture in CAST and in every shot heading ("standing, leaning back against the desk edge, arms folded"). "Nora at the desk" alone made Seedance sit her down in the next part, while the previous part had her standing.
+12. **A part that continues another part gets a frame of it.** Grab one clean frame of the previous part showing each character's posture and place, pass it as a reference image tagged "@ImageN shows the exact positions and postures at the start; keep them". Text continuity alone drifts.
 
 ## Coverage (default)
 
@@ -56,7 +58,8 @@ No music. No musical score. No stingers, no whooshes.
 ```
 
 - Name each speaker's accent in CAST and in every one of their lines; the voice sample alone does not hold it.
-- The part ends about 1 s after its last line. Between lines 0.5-1.2 s; one longer beat (≤2 s) only where a line must land.
+- The part ends about 1 s after its last line. Serial episodes: between lines 0.5-1.2 s; one longer beat (≤2 s) only where a line must land.
+- **Standalone reels and emotional scenes need breath:** at most 3 lines per 12-15 s part, timings spaced 2.5-4 s apart, and a written silent beat after each key line (a silent reaction shot, "then she holds his look in silence"). Add a `[PACE – LOCKED]` line: "Every line is followed by a real silent pause. Nobody rushes. HARD CUT between shots. Real-time speed, no slow motion." Six lines in one 15 s part played rushed with no pause to cut on (Wrong Number, Oct 2026).
 - AVOID adds: speaking the words of the reference audio, loud breathing, music.
 - Music is added in the edit only if the user asks (a montage beat can run on a track; see `references/workflows/micro-drama/edit-deliver.md`).
 
@@ -75,3 +78,6 @@ No music. No musical score. No stingers, no whooshes.
 - Timecodes sum to `duration`; Total lines and Multishot header present (`references/models/seedance25.md`).
 - Audio block lists lines in order with accents; timeline ends ≤1 s after the last line; "No music" present unless requested.
 - No famous names or IP; all ages 21+.
+- Every character's posture (standing / seated / leaning) stated and matching the previous part's last frame.
+- Body text never says "shot 3" or "shot 4" outside the headings (the pre-flight counts it as an extra heading and rejects the call); write "near the middle" or "at the end".
+- No injury words in positive text, even innocent ones ("the dial being wound" fails the blood check; write "turned").
