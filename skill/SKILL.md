@@ -280,7 +280,7 @@ Write the beats at FULL DEPTH. The cap is 30,000 characters on Seedance 2.5 (10,
 Do **not** default Elements to `SCENE CONTEXT` / `OPTICS` / `ACTION` / `ACTIVE REFERENCES` department packs (those live in filmmaking audit/contracts for other models). `elements-prompting` is the craft skill (formerly `seedance-2-prompting`); Locked Intro is the compile shape.
 
 ## ⚠️ Get it yourself before asking (HARD RULE)
-User names a brand/site/domain ("my platform kolbo.ai") → open it yourself (kolbo.ai → https://kolbo.ai) with your best tool: a real browser (Kolbo Code `browser` incl. `record_start`/`record_stop`, Kobi `browse_website`, Claude in Chrome, Playwright MCP), else WebFetch. Take the real logo, screenshots, a scroll-through recording as footage; upload and attach them as references — never a text imitation of the brand. Never ask for a URL/logo/file you can fetch; ask only after a real attempt failed. Details: `references/workflows/research-first.md`.
+User names a brand/site/domain ("my platform kolbo.ai") → open it yourself (kolbo.ai → https://kolbo.ai) with your best tool: a real browser (Kolbo Code `browser` incl. `record_start`/`record_stop`, Kobi **browse_website** (in-app, not MCP), Claude in Chrome, Playwright MCP), else WebFetch. Take the real logo, screenshots, a scroll-through recording as footage; upload and attach them as references — never a text imitation of the brand. Never ask for a URL/logo/file you can fetch; ask only after a real attempt failed. Details: `references/workflows/research-first.md`.
 
 ## ⚠️ If the User Names a Tool, USE THAT TOOL (HARD RULE)
 

@@ -34,7 +34,7 @@ WebFetch reads markup; it misses what JavaScript renders and cannot capture how 
 | Environment | Browser tool |
 |---|---|
 | Kolbo Code (CLI + desktop app) | `browser` — open/click/type/scroll, `screenshot`, `record_start` / `record_stop` (MP4 saved locally, path returned) |
-| Kobi in the Kolbo app | `browse_website` — one call: url + steps, returns screenshot URLs, optional MP4, text, links |
+| Kobi in the Kolbo app | **browse_website** (Kobi in-app tool, not MCP) — one call: url + steps, returns screenshot URLs, optional MP4, text, links |
 | Claude Code / other agents | Claude in Chrome or Playwright MCP, if connected |
 
 What to capture for creative work:
