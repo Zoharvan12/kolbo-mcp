@@ -806,11 +806,14 @@ function schedulePoll(sc) {
   // one host slot per card for up to 45s, and a chat with a dozen-plus live
   // cards (17 fired in one minute on 2026-10-22) left cards queued behind each
   // other on Generating while their images were done. Quick reads cost the
-  // host nothing between polls whatever its concurrency. Cadence: 3s for the
-  // first minute, 6s to five minutes, then 12s, plus jitter so many cards do
+  // host nothing between polls whatever its concurrency. Cadence: 5s for the
+  // first minute, 10s to five minutes, then 20s, plus jitter so many cards do
   // not fire in lockstep. Failures back off exponentially (capped at 30s).
+  // Slower than 3/6/12s since 2026-10-29: ChatGPT shares ONE token across every
+  // card, and a dozen live cards at 3s blew the 300/min credential limit, so
+  // the host got 429 on the widget fetch and showed "Couldn't display".
   var age = pollStart ? Date.now() - pollStart : 0;
-  var base = age < 60000 ? 3000 : age < 300000 ? 6000 : 12000;
+  var base = age < 60000 ? 5000 : age < 300000 ? 10000 : 20000;
   var delay = pollStart ? Math.min(base * Math.pow(2, pollErrors), 30000) + Math.floor(Math.random() * 1000) : 0;
   if (!pollStart) pollStart = Date.now();
   clearTimeout(pollTimer);
