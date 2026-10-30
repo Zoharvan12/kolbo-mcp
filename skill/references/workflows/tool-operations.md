@@ -9,6 +9,7 @@ Use these operations only when exposed by the connected MCP. Read its current sc
 - `edit_music_section` creates a new paid generation from a supported ElevenLabs source with a song id. Supply the source generation, start/end milliseconds and replacement text/styles. The region is 3 to 120 seconds. Preserve the original and poll the returned generation id.
 - `import_music_audio` imports a public audio URL for reuse by `extend_music` or `cover_music`. Upload local files first. Match the import type to the later operation. Set rights_confirmed only when the user has confirmed they hold the audio rights.
 - `extend_music` continues from the source end or continue_at seconds. `cover_music` re-records its musical identity in a new style. Both accept an imported upload id or a public audio URL with rights confirmation. Neither accepts a target duration; do not promise one. Obtain cost approval before generation.
+- Suno track operations on a finished Kolbo track (add vocals / instrumental, replace a section, WAV, music video, MIDI, timed lyrics, personas): see `models/music.md` "Suno track operations".
 
 ## Trends and Motion Library
 

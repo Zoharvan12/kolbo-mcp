@@ -17,7 +17,7 @@ Load this file when the user wants AI-generated **music** — full songs, lyrics
 ## CRITICAL Kolbo Platform Rules
 
 - **Model version, duration, and instrumental toggle are MCP-tool params.** Don't write `v4.5`, `30 seconds`, or `instrumental: true` inside the prompt fields themselves.
-- **Suno v6 is the current family**: `suno-v6` (the default music model), `suno-v6-mini`, `suno-v6-wild` — all **15 credits**, identical to the older Suno rows. `suno-v5.5` / `suno-v5` / `suno-v4.5plus` are still selectable, but the provider marks V4 / V4_5 / V4_5PLUS / V4_5ALL / V5 / V5_5 as discontinued upstream — a dead branch. Pick v6 unless the user asks for an older take.
+- **Suno v6 is the current family**: `suno-v6` (the default music model), `suno-v6-mini`, `suno-v6-wild` — all **15 credits**. `suno-v5.5` / `suno-v5` / `suno-v4.5plus` are hidden (discontinued upstream); do not offer them.
 - **Exact track length = `duration_seconds`** (clamped 5–300s on the tool). **Suno is length-controllable as of v6** — 10 seconds to 6 minutes, slider or an exact typed `m:ss`. **Auto is the default**, and on Auto Suno picks its own natural length exactly as it always did, so only pass a length when the user actually asked for one.
   - **Custom Mode only.** The provider returns a 422 if a duration arrives in Simple Mode, so length only lands alongside lyrics — the SDK/MCP path switches the request into Custom Mode automatically when `duration_seconds` is present.
   - **`suno-v6-mini` does NOT honour length.** Measured, not assumed: 20s / 30s / 60s requests all came back ~200–220s. Never promise length control on Mini. `suno-v6` and `suno-v6-wild` honour it.
@@ -26,6 +26,28 @@ Load this file when the user wants AI-generated **music** — full songs, lyrics
 - **Suno usually returns TWO tracks, and does not always apply the requested length to both** — one can land on target while the other runs long. Check each track before delivering; the first track's length is not authoritative.
 - Suno generations have **two separate input fields**: a **Style / Description** field (`style` param) and a **Lyrics** field (`lyrics` param). Output your prompt as **TWO separate fenced code blocks** so the user (and the tool call) know exactly what goes where.
 - Tell the user to run the prompt multiple times — Suno output varies significantly between generations, that's a feature. Use `num_generations` if the tool supports it, or fire 2–4 parallel `generate_music` calls.
+
+## Suno V6 extras on `generate_music`
+
+- `variety` (whole number 0–4, higher = more varied takes) and `persona_voice_id` (an id from `list_music_personas`, sings in that saved voice) switch the request to Custom Mode. `persona_voice_id` does not mix with `singing_dna_id` / `singing_voice_id`.
+- `reference_images` (≤5) / `reference_videos` (1, ≤241 s) / `reference_audios` (6 s–30 min) inspire the song from PUBLIC URLs (upload local files first). They switch to Simple Mode: `duration_seconds` is not honoured, and they cannot be combined with `variety` or `persona_voice_id`. At most 10 references in total, style and lyrics counting one each.
+- Every result lists `tracks[]` with `audio_id` — keep it with the `generation_id`; every track operation below needs both.
+
+## Suno track operations (work on a finished Kolbo track)
+
+Each creates a NEW generation (the source is untouched), runs in the source track's session, and is priced on its own. Quote the price and get approval like any paid call. Async ones return a `generation_id`; poll it like any generation.
+
+| Want | Tool | Credits | Notes |
+|---|---|---|---|
+| Sing over an instrumental / stem | `add_vocals` | 12 | Source = `generation_id` + `audio_id`, or own audio (`audio_url` + `rights_confirmed`, or an `upload_id` from `import_music_audio`). `style` = the vocal style. |
+| Backing track under a vocal / a cappella | `add_instrumental` | 12 | Same sources. `tags` = accompaniment style. |
+| Rewrite one part ("new second verse") | `replace_music_section` | 5 | `start`/`end` seconds: window ≥10 s and ≤50% of the track. Give `prompt` or `lyrics`. ElevenLabs tracks use `edit_music_section` instead. |
+| Make it longer | `extend_music` | 15 | Continues from the end or `continue_at`. |
+| Lossless file for mixing | `export_music_wav` | 1 | Returns `wav_url`; a repeat for the same track is free. |
+| Visualizer video (cover art + waveform) | `make_music_video` | 5 | One video per track; a repeat returns the existing one. Optional `author` / `domain_name` overlay. |
+| MIDI notes | `generate_music_midi` | 2 | Source must be a finished Suno 2- or 12-stem separation made in the Kolbo music tool (2 stems = 10 cr). `separate_audio_stems` results do NOT qualify. Returns `midi_data` (notes, not a .mid file). |
+| Karaoke / word timings | `get_timed_lyrics` | 1 | Synchronous. Paid once per track, cached and free after. Instrumentals return `instrumental: true`. |
+| Reuse a voice and style | `create_music_persona` → `list_music_personas` | 0 | Optional `vocal_start`/`vocal_end` (10–30 s window where the voice is clear). Then `generate_music` with `persona_voice_id`. |
 
 ## How Music Prompting Actually Works
 
