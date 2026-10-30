@@ -224,11 +224,13 @@ function build() {
     }),
   });
   scenarios.push({
-    tool: 'generate_image', title: 'completed — Visual DNA + moodboard + preset chips', args: { prompt: '@Kobi at the market', visual_dna_ids: ['dna-1'] },
+    tool: 'generate_image', title: 'completed — Visual DNA + moodboard + preset chips', args: { prompt: '@Kobi at the market, @Image 1 sets the light, #Tel_Aviv_Grit mood', visual_dna_ids: ['dna-1'] },
     result: Object.assign(baseGen('generate_image', 'image', 'img-dna'), {
       phase: 'completed', urls: [IMG], credits_used: 2,
-      visual_dnas: [{ id: 'dna-1', name: 'Kobi', thumbnail: IMG2 }],
-      moodboards: [{ id: 'mb-1', name: 'Tel Aviv Grit' }],
+      visual_dnas: [{ id: 'dna-1', name: 'Kobi', thumbnail: IMG2, images: [IMG2, IMG, IMG2, IMG] }],
+      reference_images: [IMG],
+      prompt: '@Kobi at the market, @Image 1 sets the light, #Tel_Aviv_Grit mood',
+      moodboards: [{ id: 'mb-1', name: 'Tel Aviv Grit', thumbnail: IMG }],
       settings: { aspect_ratio: '3:4', resolution: '2K', preset_id: 'p-1', preset_name: 'Street Doc', preset_thumbnail: IMG2 },
     }),
   });
@@ -277,7 +279,7 @@ function build() {
     calls: { [tool]: [{ structuredContent: { widget: 'list', items: [{ id: 'p-more-1', title: 'Loaded page 2 item', subtitle: 'via next_args' }], next_args: undefined }, content: [{ type: 'text', text: '{}' }] }] },
   });
   scenarios.push(list('list_projects', 'Projects — paged', [
-    { id: 'proj-1', title: 'Falafel Campaign', subtitle: 'Owner · 12 sessions', badge: 'owner', meta: 'today', open_url: 'https://app.kolbo.ai/' },
+    { id: 'proj-1', title: 'Falafel Campaign', subtitle: 'Owner · 12 sessions', badge: 'owner', meta: 'today', thumbnails: [IMG, IMG2, IMG2, IMG], open_url: 'https://app.kolbo.ai/' },
     { id: 'proj-2', title: 'API Generations', subtitle: 'auto-created', badge: 'default', meta: '2d ago' },
     { id: 'proj-3', title: 'Shared with me', subtitle: 'edit access', badge: 'shared' },
   ], { total: 7, page_tool: 'list_projects', next_args: { page: 2, limit: 3 } }));
@@ -475,6 +477,11 @@ window.addEventListener('message', (ev) => {
 const io = new IntersectionObserver((entries) => entries.forEach((e) => {
   if (e.isIntersecting && !e.target.dataset.mounted) { e.target.dataset.mounted = '1'; mount(e.target); }
 }), { rootMargin: '300px' });
+// ?only=<n> shows one card, ?dark=1 starts dark: one URL per card for fast review.
+const qs = new URLSearchParams(location.search);
+if (qs.get('dark') === '1') { theme = 'dark'; document.body.classList.add('dark'); }
+if (qs.get('only')) { const n = document.querySelector('nav'); if (n) n.style.display = 'none'; document.body.style.display = 'block'; const mn = document.querySelector('main'); if (mn) { mn.style.marginLeft = '0'; mn.style.maxWidth = '760px'; } }
+if (qs.get('only')) document.querySelectorAll('section.card').forEach((s) => { if (s.id !== 'card-' + qs.get('only')) s.style.display = 'none'; });
 document.querySelectorAll('section.card').forEach((s) => io.observe(s));
 document.getElementById('theme').onclick = () => {
   theme = theme === 'light' ? 'dark' : 'light';

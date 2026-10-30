@@ -134,7 +134,11 @@ function apply(result) {
 function itemHTML(item) {
   var i = state.items.indexOf(item);
   var clickable = !!item.id;
-  var avatar = item.thumbnail
+  var avatar = Array.isArray(item.thumbnails) && item.thumbnails.length > 1
+    ? '<span class="k-mosaic">' + item.thumbnails.slice(0, 4).map(function (u) {
+        return '<img src="' + esc(u) + '" alt="" loading="lazy" onerror="this.style.visibility=\\'hidden\\'">';
+      }).join('') + '</span>'
+    : item.thumbnail
     ? '<img class="k-audio-art k-peek-hit" src="' + esc(item.thumbnail) + '" alt="" loading="lazy"'
       + peekAttrs(item.thumbnail, 'image', item.title)
       + ' onerror="this.outerHTML=monogram(\\'' + esc(item.title || '?').replace(/'/g, '') + '\\')">'

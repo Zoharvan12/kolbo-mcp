@@ -37,6 +37,8 @@ function _svg(inner, o) {
     '" stroke-width="' + (o.w || 2) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
 }
 var ICONS = {
+  mute: _svg('<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M22 9l-6 6"/><path d="M16 9l6 6"/>'),
+  info: _svg('<circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v5h1"/>'),
   upload: _svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>'),
   download: _svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>'),
   play: _svg('<path d="M8 5v14l11-7z"/>', { fill: 'currentColor', w: 1 }),
@@ -128,10 +130,7 @@ function applyTheme(ctx) {
   } catch (e) {}
 }
 window.kolbo.ready(function (ctx) { applyTheme(ctx); window.kolbo.notifySize(); });
-// The header mark is the way into the app (the footer link is no longer shown).
-document.addEventListener('click', function (e) {
-  if (e.target && e.target.closest && e.target.closest('#logo')) window.kolbo.openLink('https://app.kolbo.ai');
-});
+// The header mark is a mark, not a link: "Open in Kolbo" is the one explicit way out.
 window.kolbo.onThemeChange(applyTheme);
 
 // Model chip: real icon when the API provided one, brand monogram fallback.
@@ -356,23 +355,66 @@ function wireVideoExpand(root) {
     var src = v.getAttribute('src');
     if (!src) return;
     v.setAttribute('data-expand', '1');
-    v.setAttribute('controlslist', 'nofullscreen');
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'k-vexpand';
-    b.title = 'Expand';
-    b.setAttribute('aria-label', 'Expand video');
-    b.innerHTML = ICONS.expand;
-    b.setAttribute('data-peek', src);
-    b.setAttribute('data-peek-kind', 'video');
-    var holder = v.parentNode.closest && v.parentNode.closest('[title]');
-    if (holder) b.setAttribute('data-peek-cap', holder.getAttribute('title'));
-    // Resume where the inline player was.
-    function mark() { b.setAttribute('data-peek-time', String(v.currentTime || 0)); }
-    b.addEventListener('pointerdown', mark);
-    b.addEventListener('keydown', mark);
-    v.addEventListener('dblclick', function (e) { e.preventDefault(); mark(); b.click(); });
-    v.parentNode.insertBefore(b, v.nextSibling);
+    // One player skin everywhere: native controls cannot be styled and their
+    // fullscreen button never works in a host iframe. Ours is a centre play
+    // button plus a bottom bar (track, playhead, time, mute, expand).
+    v.controls = false;
+    v.removeAttribute('controls');
+    var host = v.parentNode;
+    try { if (getComputedStyle(host).position === 'static') host.style.position = 'relative'; } catch (e) {}
+    var ui = document.createElement('div');
+    ui.className = 'k-vui';
+    ui.innerHTML = '<button type="button" class="k-vplay" aria-label="Play"></button>'
+      + '<div class="k-vbar"><div class="k-vtrack"><i class="k-vfill"></i><i class="k-vhead"></i></div>'
+      + '<span class="k-vtime">0:00</span>'
+      + '<button type="button" class="k-vmute" aria-label="Mute"></button>'
+      + '<button type="button" class="k-vexp" aria-label="Expand video"></button></div>';
+    var q = function (c) { return ui.querySelector(c); };
+    var play = q('.k-vplay'), track = q('.k-vtrack'), fill = q('.k-vfill'), head = q('.k-vhead');
+    var time = q('.k-vtime'), mute = q('.k-vmute'), exp = q('.k-vexp');
+    mute.innerHTML = ICONS.sound;
+    exp.innerHTML = ICONS.expand;
+    exp.setAttribute('data-peek', src);
+    exp.setAttribute('data-peek-kind', 'video');
+    var holder = host.closest && host.closest('[title]');
+    if (holder) exp.setAttribute('data-peek-cap', holder.getAttribute('title'));
+    function clock(t) { t = isFinite(t) ? Math.max(0, Math.floor(t)) : 0; return Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2); }
+    function paint() {
+      var d = v.duration, p = d > 0 ? Math.min(1, v.currentTime / d) : 0;
+      fill.style.width = (p * 100) + '%';
+      head.style.left = (p * 100) + '%';
+      time.textContent = clock(v.currentTime) + (d > 0 ? ' / ' + clock(d) : '');
+    }
+    function state() {
+      var on = !v.paused && !v.ended;
+      ui.classList.toggle('playing', on);
+      play.innerHTML = on ? ICONS.pause : ICONS.play;
+      play.setAttribute('aria-label', on ? 'Pause' : 'Play');
+    }
+    function toggle() { if (v.paused) { var r = v.play(); if (r && r.catch) r.catch(function () {}); } else v.pause(); }
+    play.onclick = function (e) { e.stopPropagation(); toggle(); };
+    v.addEventListener('click', toggle);
+    v.addEventListener('play', state); v.addEventListener('pause', state); v.addEventListener('ended', state);
+    v.addEventListener('timeupdate', paint); v.addEventListener('loadedmetadata', paint);
+    mute.onclick = function (e) { e.stopPropagation(); v.muted = !v.muted; mute.innerHTML = v.muted ? ICONS.mute : ICONS.sound; };
+    function mark() { exp.setAttribute('data-peek-time', String(v.currentTime || 0)); }
+    exp.addEventListener('pointerdown', mark);
+    exp.addEventListener('keydown', mark);
+    v.addEventListener('dblclick', function (e) { e.preventDefault(); mark(); exp.click(); });
+    function seekTo(e) {
+      var r = track.getBoundingClientRect();
+      var p = Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1)));
+      if (v.duration > 0) { v.currentTime = p * v.duration; paint(); }
+    }
+    track.onpointerdown = function (e) {
+      e.preventDefault(); e.stopPropagation();
+      try { track.setPointerCapture(e.pointerId); } catch (x) {}
+      seekTo(e);
+      track.onpointermove = seekTo;
+      track.onpointerup = track.onpointercancel = function () { track.onpointermove = null; };
+    };
+    host.insertBefore(ui, v.nextSibling);
+    paint(); state();
     guardPlayback(v);
   });
 }
@@ -411,9 +453,99 @@ function guardPlayback(v) {
     if ((q && q.totalVideoFrames === 0) || (v.readyState >= 2 && v.videoWidth === 0)) fail();
   });
 }
+// Every inline <audio controls> becomes: play button + waveform + time. The
+// bars come from the real audio when the host lets us decode it (fetch +
+// AudioContext, first play only, size-capped); until then they are a stable
+// shape derived from the url, so a row never changes height or jumps.
+function waveSeed(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function fakePeaks(src, n) {
+  var seed = waveSeed(src), out = [];
+  for (var i = 0; i < n; i++) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    var r = (seed >>> 8) / 16777216;
+    var env = 0.45 + 0.55 * Math.sin(Math.PI * (i + 1) / (n + 1));
+    out.push(Math.max(0.12, Math.min(1, (0.25 + r * 0.75) * env + 0.1)));
+  }
+  return out;
+}
+function realPeaks(src, n) {
+  return fetch(src, { mode: 'cors' }).then(function (r) {
+    var len = +r.headers.get('content-length') || 0;
+    if (len > 12000000) throw new Error('too big');
+    return r.arrayBuffer();
+  }).then(function (buf) {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    return new Promise(function (ok, no) { new Ctx().decodeAudioData(buf, ok, no); });
+  }).then(function (audio) {
+    var ch = audio.getChannelData(0), step = Math.max(1, Math.floor(ch.length / n)), out = [], max = 0.0001;
+    for (var i = 0; i < n; i++) {
+      var sum = 0, from = i * step, to = Math.min(ch.length, from + step), c = 0;
+      for (var j = from; j < to; j += Math.max(1, Math.floor(step / 64))) { sum += Math.abs(ch[j]); c++; }
+      var v = c ? sum / c : 0; out.push(v); if (v > max) max = v;
+    }
+    return out.map(function (v) { return Math.max(0.12, v / max); });
+  });
+}
+function wireAudioSkin(root) {
+  if (!root || !root.querySelectorAll) return;
+  var list = root.tagName === 'AUDIO' ? [root] : root.querySelectorAll('audio[controls]');
+  Array.prototype.forEach.call(list, function (a) {
+    if (a.getAttribute('data-wave') || !a.parentNode) return;
+    var src = a.getAttribute('src');
+    if (!src) return;
+    a.setAttribute('data-wave', '1');
+    a.controls = false; a.removeAttribute('controls'); a.style.display = 'none';
+    var N = 56;
+    var ui = document.createElement('div');
+    ui.className = 'k-wave';
+    ui.innerHTML = '<button type="button" class="k-wave-play" aria-label="Play"></button>'
+      + '<div class="k-wave-bars" role="slider" tabindex="0" aria-label="Seek"></div>'
+      + '<span class="k-wave-time">0:00</span>';
+    var btn = ui.querySelector('.k-wave-play'), bars = ui.querySelector('.k-wave-bars'), time = ui.querySelector('.k-wave-time');
+    function draw(peaks) {
+      bars.innerHTML = peaks.map(function (p) { return '<i style="height:' + Math.round(p * 100) + '%"></i>'; }).join('');
+      paint();
+    }
+    function clock(t) { t = isFinite(t) ? Math.max(0, Math.floor(t)) : 0; return Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2); }
+    function paint() {
+      var d = a.duration, p = d > 0 ? a.currentTime / d : 0;
+      var upto = Math.round(p * bars.children.length);
+      Array.prototype.forEach.call(bars.children, function (b, i) { b.classList.toggle('on', i < upto); });
+      time.textContent = clock(a.currentTime) + (d > 0 ? ' / ' + clock(d) : '');
+    }
+    function state() { btn.innerHTML = a.paused ? ICONS.play : ICONS.pause; btn.setAttribute('aria-label', a.paused ? 'Play' : 'Pause'); }
+    var decoded = false;
+    function toggle() {
+      if (a.paused) {
+        var r = a.play(); if (r && r.catch) r.catch(function () {});
+        if (!decoded) { decoded = true; try { realPeaks(src, N).then(draw).catch(function () {}); } catch (e) {} }
+      } else a.pause();
+    }
+    btn.onclick = function (e) { e.stopPropagation(); toggle(); };
+    a.addEventListener('play', state); a.addEventListener('pause', state); a.addEventListener('ended', state);
+    a.addEventListener('timeupdate', paint); a.addEventListener('loadedmetadata', paint);
+    function seekTo(e) {
+      var r = bars.getBoundingClientRect(), p = Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1)));
+      if (a.duration > 0) { a.currentTime = p * a.duration; paint(); }
+    }
+    bars.onpointerdown = function (e) {
+      e.preventDefault(); e.stopPropagation();
+      try { bars.setPointerCapture(e.pointerId); } catch (x) {}
+      seekTo(e); bars.onpointermove = seekTo;
+      bars.onpointerup = bars.onpointercancel = function () { bars.onpointermove = null; };
+    };
+    bars.onkeydown = function (e) {
+      if (e.key === 'ArrowRight') { a.currentTime = Math.min(a.duration || 0, a.currentTime + 5); paint(); }
+      else if (e.key === 'ArrowLeft') { a.currentTime = Math.max(0, a.currentTime - 5); paint(); }
+      else if (e.key === ' ') { e.preventDefault(); toggle(); }
+    };
+    a.parentNode.insertBefore(ui, a);
+    draw(fakePeaks(src, N)); state();
+  });
+}
 if (window.MutationObserver) {
   new MutationObserver(function (muts) {
-    muts.forEach(function (m) { Array.prototype.forEach.call(m.addedNodes, wireVideoExpand); });
+    muts.forEach(function (m) { Array.prototype.forEach.call(m.addedNodes, function (n) { wireVideoExpand(n); wireAudioSkin(n); }); });
   }).observe(document.documentElement, { childList: true, subtree: true });
 }
 // Pull structuredContent out of a tools/call result (host bridge shape).

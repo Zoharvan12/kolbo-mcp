@@ -29,7 +29,7 @@ const { widgetPage } = require('../html');
  */
 
 const BODY = `
-<div class="k-card" id="card">
+<div class="k-card k-gen" id="card">
   <div class="k-head">
     <span class="k-logo" id="logo"></span>
     <span class="k-title" id="tool-title"></span>
@@ -61,6 +61,9 @@ var pollTimer = null;
 var originTool = null;
 var originArgs = {};
 
+// Claim the card's first-paint height before any data arrives, so the thread
+// does not grow as each card boots.
+window.kolbo.notifySize();
 el('logo').innerHTML = KOLBO_LOGO + '<span>Kolbo</span>';
 el('action-cancel').innerHTML = ICONS.x;
 el('kolbo-link').onclick = function (e) { e.preventDefault(); window.kolbo.openLink('https://app.kolbo.ai'); };
@@ -205,13 +208,26 @@ function isListPayload(sc, toolName) {
   return Array.isArray(sc.items) && !sc.phase && !sc.generation_id;
 }
 
+// The canvas takes the requested aspect ratio (clamped to 3:4 .. 16:9) so results
+// fill it instead of floating in bands, and the card keeps one height throughout.
+function setCanvasRatio(ar) {
+  try {
+    var m = /^(\d+(?:\.\d+)?)\s*[:/x]\s*(\d+(?:\.\d+)?)$/.exec(String(ar || '').trim());
+    var stage = el('stage');
+    if (!stage || !stage.style) return;
+    if (!m || !(+m[1] > 0) || !(+m[2] > 0)) { stage.style.setProperty('--k-ar', ''); return; }
+    var r = Math.min(16 / 9, Math.max(0.75, +m[1] / +m[2]));
+    stage.style.setProperty('--k-ar', r.toFixed(4));
+  } catch (e) {}
+}
 function boot(sc) {
   if (!sc) return;
+  setCanvasRatio(sc.settings && sc.settings.aspect_ratio);
   if (isListPayload(sc, sc.tool)) return renderList(sc);
   sc = liveFromStatus(sc);
   state = sc;
   el('tool-title').textContent = TOOL_TITLES[sc.tool] || 'Generation';
-  setPrompt(sc.prompt ? promptHTML(sc.prompt) : '', sc.prompt);
+  setPrompt(sc.prompt ? promptHTML(sc.prompt, sc) : '', sc.prompt);
   renderChips(sc);
   el('credits').textContent = sc.credits_used != null ? fmtCredits(sc.credits_used) : '';
   // Every legitimate completed payload sets phase:'completed' explicitly
@@ -298,15 +314,31 @@ function speechChipsHTML(sc) {
 // keeps the thing that whitelist was really protecting: an email's "a@b.com"
 // has a word char before the @, so it still never lights up. (. and - are in
 // the set for the same reason: "file.name@host", "co-op@x".)
-var MENTION_RE = /(^|[^\\w@.-])([@#][A-Za-z][\\w-]*)/g;
+var MENTION_RE = /(^|[^\\w@.-])(@(?:Image|Video|Audio) \\d+|[@#][A-Za-z][\\w-]*)/g;
+// Tag -> thumbnail: DNA / moodboard by name, "@Image N" by reference position.
+// Keys drop case and punctuation so @Kobi_Run finds the DNA named "Kobi Run".
+function mentionKey(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function mentionThumbs(sc) {
+  var m = {};
+  if (!sc) return m;
+  (sc.visual_dnas || []).concat(sc.moodboards || []).forEach(function (d) {
+    if (d && d.thumbnail) m[mentionKey(d.name)] = d.thumbnail;
+  });
+  var refs = Array.isArray(sc.reference_images) ? sc.reference_images : (sc.reference_image ? [sc.reference_image] : []);
+  refs.forEach(function (u, i) { if (typeof u === 'string') m['image' + (i + 1)] = u; });
+  return m;
+}
 // #ff8800 / #fff are hex colors, and prompts are full of them. A moodboard tag
 // that happens to be 3 or 6 hex letters loses this coin flip; a grading note
 // mistaken for a moodboard is the worse read.
 var HEX_RE = /^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
-function promptHTML(text) {
+function promptHTML(text, sc) {
+  var thumbs = mentionThumbs(sc);
   return esc(text || '').replace(MENTION_RE, function (m, pre, tag) {
     if (HEX_RE.test(tag)) return m;
-    return pre + '<span class="k-mention">' + tag + '</span>';
+    var src = thumbs[mentionKey(tag)];
+    var face = src ? '<img class="k-mention-face" src="' + esc(src) + '" alt="" loading="lazy" onerror="this.style.display=\\'none\\'">' : '';
+    return pre + '<span class="k-mention">' + face + tag + '</span>';
   });
 }
 
@@ -376,7 +408,8 @@ function renderChips(sc) {
   // the ids were carried.
   h += dnaChipsHTML(sc, s);
   h += moodboardChipsHTML(sc, s);
-  if (s.preset_id || s.preset_name || s.preset) {
+  // The template section below already names the preset with its thumbnail.
+  if ((s.preset_id || s.preset_name || s.preset) && !templateHTML(sc)) {
     var presetName = s.preset_name || (typeof s.preset === 'string' && s.preset !== 'true' ? s.preset : '');
     var face = s.preset_thumbnail
       ? '<img src="' + esc(s.preset_thumbnail) + '" alt="" loading="lazy" onerror="this.style.display=\\'none\\'">'
@@ -479,6 +512,16 @@ function dnaFaceHTML(dna, cls) {
   }
   return '';
 }
+// A DNA is a set (reference sheet + up to 4 stills), not one face. Each still is
+// its own lightbox target, so a click pages through the whole set.
+function dnaFanHTML(dna) {
+  var imgs = Array.isArray(dna.images) && dna.images.length ? dna.images : (dna.thumbnail ? [dna.thumbnail] : []);
+  if (!imgs.length) return '';
+  return '<span class="k-dna-fan">' + imgs.slice(0, 4).map(function (u, i) {
+    return '<img class="k-dna-still" src="' + esc(u) + '" alt=""' + peekAttrs(u, 'image', dna.name + (imgs.length > 1 ? ' · ' + (i + 1) + '/' + imgs.length : ''))
+      + ' loading="lazy" onerror="this.style.display=\\'none\\'">';
+  }).join('') + '</span>';
+}
 function dnaChipsHTML(sc, s) {
   var dnas = Array.isArray(sc.visual_dnas) ? sc.visual_dnas : [];
   if (!dnas.length) {
@@ -491,9 +534,8 @@ function dnaChipsHTML(sc, s) {
   var h = '';
   if (dnas.length <= DNA_CHIP_MAX) {
     for (var i = 0; i < dnas.length; i++) {
-      h += '<span class="k-chip' + (dnas[i].thumbnail ? ' k-peek-hit' : '') + '" title="' + esc(dnas[i].id) + '"'
-        + peekAttrs(dnas[i].thumbnail, 'image', dnas[i].name) + '>'
-        + dnaFaceHTML(dnas[i], 'k-dna-face') + esc(dnas[i].name) + '</span>';
+      h += '<span class="k-chip k-dna-chip" title="' + esc(dnas[i].id) + '">'
+        + dnaFanHTML(dnas[i]) + esc(dnas[i].name) + '</span>';
     }
     return h;
   }
@@ -610,6 +652,41 @@ function capAt(sc, i) {
 // polled again: the user watched skeletons that would never fill while the
 // images landed in the library. Turn any such payload back into a LIVE card,
 // the same generating/polling path a fresh submit takes, cells filled per id.
+// Finished results by generation id, in this origin's localStorage (every call is
+// try/catch: private windows and blocked storage must change nothing).
+var DONE_PREFIX = 'kolbo:done:';
+var DONE_KEEP = 40;
+function doneKey(sc) {
+  var ids = sc && sc.generation_ids;
+  var id = (sc && sc.generation_id) || (ids && ids[0]);
+  return id ? DONE_PREFIX + id + (ids && ids.length > 1 ? ':' + ids.length : '') : '';
+}
+function cacheDone(done) {
+  try {
+    var key = doneKey(done);
+    var raw = key && JSON.stringify({ t: Date.now(), d: done });
+    if (!raw || raw.length > 200000) return;
+    localStorage.setItem(key, raw);
+    var rows = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf(DONE_PREFIX) === 0) {
+        var t = 0;
+        try { t = JSON.parse(localStorage.getItem(k)).t || 0; } catch (e) {}
+        rows.push({ k: k, t: t });
+      }
+    }
+    rows.sort(function (x, y) { return y.t - x.t; });
+    rows.slice(DONE_KEEP).forEach(function (r) { localStorage.removeItem(r.k); });
+  } catch (e) {}
+}
+function cachedDone(sc) {
+  try {
+    var key = doneKey(sc);
+    var o = key && JSON.parse(localStorage.getItem(key) || 'null');
+    return o && o.d && o.d.phase === 'completed' ? o.d : null;
+  } catch (e) { return null; }
+}
 function isTerminal(s) { return s === 'completed' || s === 'failed' || s === 'cancelled'; }
 function liveFromStatus(sc) {
   if (!sc || sc.phase !== 'completed' || !Array.isArray(sc.items) || !sc.items.length) return sc;
@@ -649,6 +726,16 @@ function itemsToGens(items) {
 }
 
 function renderGenerating(sc) {
+  el('card').classList.remove('k-done', 'k-details');
+  // A generation this widget origin already saw finish paints finished at once,
+  // not "Generating" until a poll gets through the host's queue.
+  var hit = cachedDone(sc);
+  if (hit) {
+    state = hit;
+    el('credits').textContent = hit.credits_used != null ? fmtCredits(hit.credits_used) : '';
+    renderResult(hit);
+    return;
+  }
   setPhaseChip('Generating', true);
   var n = Math.min(sc.count || 1, isBatch(sc) ? 8 : 4);
   var kind = displayKind(sc);
@@ -871,6 +958,7 @@ function poll(sc) {
         project_id: (sc && (sc.project_id || sc.projectId)) || r.project_id || st.project_id
       });
       state = done;
+      cacheDone(done);
       el('credits').textContent = done.credits_used != null ? fmtCredits(done.credits_used) : '';
       renderResult(done);
       // Let the model know the outcome without it having to poll.
@@ -955,6 +1043,7 @@ function handleBatchStatus(sc, st) {
     credits_used: haveCredits ? credits : sc.credits_used
   });
   state = done;
+  cacheDone(done);
   el('credits').textContent = done.credits_used != null ? fmtCredits(done.credits_used) : '';
   renderResult(done);
   // After renderResult — it resets the chip, so setting this first erased it.
@@ -1074,10 +1163,66 @@ function renderVideo(sc, urls) {
   // preload="none" behind a poster: the card shows the still until the user
   // hits play, instead of pulling the video header on mount.
   // PLAY the proxy when there is one; the download button below keeps urls[0] (master).
-  el('stage').innerHTML = '<div class="k-viewer"><video id="main-video" src="' + esc(playableAt(sc, urls, 0)) + '"' +
-    (sc.thumbnail_url ? ' poster="' + esc(sc.thumbnail_url) + '" preload="none"' : ' preload="metadata"') + ' controls playsinline></video>' +
-    dlBtnHTML(urls[0]) + '</div>';
+  // No native controls: the host iframe cannot honour them (fullscreen is dead) and
+  // they cannot be styled. The bar below is ours: thick track, a clear playhead.
+  var src = playableAt(sc, urls, 0);
+  el('stage').innerHTML = '<div class="k-viewer"><video id="main-video" src="' + esc(src) + '"' +
+    (sc.thumbnail_url ? ' poster="' + esc(sc.thumbnail_url) + '" preload="none"' : ' preload="metadata"') + ' playsinline></video>' +
+    dlBtnHTML(urls[0]) + '</div>' +
+    '<div class="k-player" id="player">' +
+    '<button type="button" class="k-pbtn" id="pl-play" aria-label="Play">' + ICONS.play + '</button>' +
+    '<div class="k-track" id="pl-track" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+    '<div class="k-track-fill" id="pl-fill"></div><div class="k-track-head" id="pl-head"></div></div>' +
+    '<span class="k-ptime" id="pl-time">0:00 / 0:00</span>' +
+    '<button type="button" class="k-pbtn" id="pl-mute" aria-label="Mute">' + ICONS.sound + '</button>' +
+    '<button type="button" class="k-pbtn" id="pl-expand" aria-label="Expand video"' + peekAttrs(src, 'video', sc.title || '') + '>' + ICONS.expand + '</button>' +
+    '</div>';
   wireDlButtons(el('stage'));
+  wirePlayer(el('main-video'));
+}
+function fmtClock(t) {
+  t = isFinite(t) ? Math.max(0, Math.floor(t)) : 0;
+  return Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2);
+}
+function wirePlayer(v) {
+  var play = el('pl-play'), track = el('pl-track'), fill = el('pl-fill'), head = el('pl-head');
+  var time = el('pl-time'), mute = el('pl-mute'), expand = el('pl-expand');
+  if (!v || !play || !track) return;
+  function paint() {
+    var d = v.duration, p = d > 0 ? Math.min(1, v.currentTime / d) : 0;
+    fill.style.width = (p * 100) + '%';
+    head.style.left = (p * 100) + '%';
+    track.setAttribute('aria-valuenow', String(Math.round(p * 100)));
+    time.textContent = fmtClock(v.currentTime) + ' / ' + fmtClock(d);
+  }
+  function icon() { play.innerHTML = v.paused ? ICONS.play : ICONS.pause; play.setAttribute('aria-label', v.paused ? 'Play' : 'Pause'); }
+  function toggle() { if (v.paused) { var r = v.play(); if (r && r.catch) r.catch(function () {}); } else v.pause(); }
+  play.onclick = toggle;
+  v.onclick = toggle;
+  v.onplay = v.onpause = v.onended = icon;
+  v.ontimeupdate = v.onloadedmetadata = v.ondurationchange = paint;
+  mute.onclick = function () { v.muted = !v.muted; mute.innerHTML = v.muted ? ICONS.mute : ICONS.sound; };
+  expand.addEventListener('pointerdown', function () { expand.setAttribute('data-peek-time', String(v.currentTime || 0)); });
+  function seekTo(e) {
+    var r = track.getBoundingClientRect();
+    var p = Math.min(1, Math.max(0, (e.clientX - r.left) / (r.width || 1)));
+    if (v.duration > 0) { v.currentTime = p * v.duration; paint(); }
+  }
+  track.onpointerdown = function (e) {
+    e.preventDefault();
+    try { track.setPointerCapture(e.pointerId); } catch (x) {}
+    track.classList.add('drag');
+    seekTo(e);
+    track.onpointermove = seekTo;
+    track.onpointerup = track.onpointercancel = function () { track.classList.remove('drag'); track.onpointermove = null; };
+  };
+  track.onkeydown = function (e) {
+    if (e.key === 'ArrowRight') { v.currentTime = Math.min(v.duration || 0, v.currentTime + 5); paint(); }
+    else if (e.key === 'ArrowLeft') { v.currentTime = Math.max(0, v.currentTime - 5); paint(); }
+    else if (e.key === ' ') { e.preventDefault(); toggle(); }
+  };
+  guardPlayback(v);
+  paint(); icon();
 }
 
 function renderAudio(sc, urls) {
@@ -1277,6 +1422,7 @@ function renderScenes(sc) {
 
 function renderError(msg) {
   clearTimeout(pollTimer);
+  el('card').classList.remove('k-done', 'k-details');
 
   setPhaseChip('Failed', false);
   el('stage').innerHTML = '<div class="k-error">' + ICONS.warn + ' ' + esc(msg) + '</div>';
@@ -1314,6 +1460,7 @@ function setPhaseChip(text, spinning) {
   var c = el('phase-chip');
   if (!text) { c.style.display = 'none'; return; }
   c.style.display = '';
+  c.setAttribute('data-bad', /fail/i.test(text) ? '1' : '');
   c.innerHTML = (spinning ? '<span class="k-spin"></span>' : '') + esc(text);
 }
 
@@ -1331,7 +1478,7 @@ function renderActions(sc) {
   }
   if (sc.kind === 'video') {
     a.push('<button class="k-btn primary" id="btn-download">' + ICONS.download + ' Download</button>');
-  } else if (hasSingleUrl && sc.kind !== 'audio') {
+  } else if (hasSingleUrl && sc.kind !== 'audio' && sc.kind !== '3d') {
     // Scenes (Creative Director) have no single "current" url — per-item hover
     // download buttons cover them instead. Audio has a visible download button
     // on every track so multi-output generations never download only track 1.
@@ -1464,6 +1611,7 @@ function bootPre(toolName, args) {
     return;
   }
   el('tool-title').textContent = TOOL_TITLES[toolName] || 'Generation';
+  setCanvasRatio(args && (args.aspect_ratio || args.aspectRatio));
   if (args && (args.prompt || args.text || (Array.isArray(args.prompts) && args.prompts.length))) {
     var raw = args.prompt || args.text || (args.prompts.length + ' prompts — ' + args.prompts.join(' · '));
     setPrompt(promptHTML(raw), raw);
@@ -1471,7 +1619,7 @@ function bootPre(toolName, args) {
   setPhaseChip('Preparing', true);
   renderChips(preRefSc(toolName, args || {}));
   if (!el('stage').innerHTML) {
-    el('stage').innerHTML = '<div class="k-gen-grid n1"><div class="k-skel video" style="min-height:100px;max-height:140px"></div></div>';
+    el('stage').innerHTML = '<div class="k-gen-grid n1"><div class="k-skel video"></div></div>';
   }
   window.kolbo.notifySize();
 }

@@ -141,7 +141,7 @@ function tileHTML(item) {
       + ' onerror="this.outerHTML=this.getAttribute(\\'data-fb\\')" data-fb="' + esc(fallback) + '">'
     : fallback;
   var cap = (item.title || item.subtitle)
-    ? '<div class="k-tile-cap">' +
+    ? '<div class="k-tile-cap' + (item.title && item.subtitle ? ' always' : '') + '">' +
       (item.title ? '<div class="k-tile-t">' + esc(item.title) + '</div>' : '') +
       (item.subtitle ? '<div class="k-tile-s">' + esc(item.subtitle) + '</div>' : '') +
       '</div>'
@@ -217,7 +217,7 @@ function wire() {
       var v = document.createElement('video');
       v.src = b.getAttribute('data-video-play');
       v.controls = true; v.autoplay = true; v.playsInline = true;
-      v.setAttribute('style', 'width:100%;height:100%;object-fit:contain;background:#000');
+      v.setAttribute('style', 'width:100%;height:100%;object-fit:contain;background:transparent');
       v.onclick = function (ev) { ev.stopPropagation(); };
       var img = tile.querySelector('img');
       if (img) tile.replaceChild(v, img); else tile.insertBefore(v, tile.firstChild);

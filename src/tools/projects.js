@@ -13,6 +13,26 @@ function blurb(text) {
   return s.slice(0, 96).replace(/\s+\S*$/, '') + '…';
 }
 
+// A project with no manual cover shows a mosaic of its latest images in the web app,
+// but the project list API sends nothing for it. Fetch up to 4 recent image urls for
+// the first few visible projects, cached, failures ignored: a missing mosaic falls back
+// to the letter monogram exactly as before.
+const _mosaicCache = new Map();
+const MOSAIC_TTL = 5 * 60 * 1000;
+const MOSAIC_MAX_PROJECTS = 12;
+async function projectMosaic(client, projectId) {
+  const hit = _mosaicCache.get(projectId);
+  if (hit && Date.now() - hit.t < MOSAIC_TTL) return hit.urls;
+  try {
+    const res = await client.get(`/v1/media?project_id=${encodeURIComponent(projectId)}&type=image&page_size=4`);
+    const urls = (res.media || res.items || []).map((m) => m.url || m.thumbnail_url).filter(Boolean).slice(0, 4);
+    _mosaicCache.set(projectId, { t: Date.now(), urls });
+    return urls;
+  } catch {
+    return [];
+  }
+}
+
 function registerProjectTools(server, client) {
   // ─── list_projects ─────────────────────────────────────────
   server.tool(
@@ -42,6 +62,11 @@ function registerProjectTools(server, client) {
         thumbnail_url: p.thumbnail_url || null,
         open_url: buildProjectUrl(p.id, { is_default: !!p.is_default })
       }));
+      const mosaics = {};
+      await Promise.all(projects
+        .filter((p) => !p.thumbnail_url)
+        .slice(0, MOSAIC_MAX_PROJECTS)
+        .map(async (p) => { mosaics[p.id] = await projectMosaic(client, p.id); }));
       const text = JSON.stringify({
         projects,
         count: projects.length,
@@ -56,7 +81,8 @@ function registerProjectTools(server, client) {
           id: p.id,
           title: p.name,
           subtitle: (p.description || p.role) + (p.is_default ? ' · default' : '') + (p.is_archived ? ' · archived' : ''),
-          thumbnail: p.thumbnail_url,
+          thumbnail: p.thumbnail_url || (mosaics[p.id] && mosaics[p.id].length === 1 ? mosaics[p.id][0] : null),
+          ...(mosaics[p.id] && mosaics[p.id].length > 1 ? { thumbnails: mosaics[p.id] } : {}),
           open_url: p.open_url,
           use_hint: 'Use my "{TITLE}" project (project_id: {ID}) for what I do next.'
         })),
@@ -392,7 +418,7 @@ function registerProjectTools(server, client) {
       if (media_type) q.set('media_type', media_type);
       if (search) q.set('search', search);
       const qs = q.toString();
-      return pubText(await client.get(`/v1/projects/${encodeURIComponent(project_id)}/publish/story${qs ? `?${qs}` : ''}`));
+      return pubText(await client.get(`/v1/projects/${encodeURIComponent(project_id)}/publish/story` + (qs ? `?${qs}` : '')));
     }
   );
 

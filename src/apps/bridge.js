@@ -325,7 +325,10 @@ const BRIDGE_JS = `
     window.kolbo.attachMedia = function () { return Promise.reject(new Error('unsupported')); };
     window.kolbo.updateModelContext = function () { return Promise.resolve(); };
     window.kolbo.requestDisplayMode = function (mode) {
-      if (!oaCall('requestDisplayMode')) return Promise.resolve({ mode: 'inline' });
+      // ChatGPT's fullscreen/pip lifts the widget out of the thread into a
+      // separate surface; users read it as "it opened a new window". The
+      // in-card lightbox already contains the media, so stay inline there.
+      if (mode !== 'inline' || !oaCall('requestDisplayMode')) return Promise.resolve({ mode: 'inline' });
       return Promise.resolve(oa.requestDisplayMode({ mode: mode })).then(function (r) { return { mode: (r && r.mode) || mode }; });
     };
     // Deferred: the widget's own script (which registers ready/onToolInput/

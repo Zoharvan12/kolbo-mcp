@@ -749,7 +749,13 @@ function rememberDna(row, fallbackId) {
   if (!row || typeof row !== 'object') return null;
   const id = String(row.id || row._id || fallbackId || '');
   if (!id) return null;
-  const rec = { id, name: row.name || id, thumbnail: dnaThumb(row) };
+  // Every image the DNA is made of (sheet first, then stills) so the card can
+  // show the whole set, not one face.
+  const stills = (Array.isArray(row.images) ? row.images : [])
+    .map((i) => (typeof i === 'string' ? i : i && i.url))
+    .filter((u) => typeof u === 'string' && u);
+  const images = [...new Set([row.sheet_url || row.characterSheet, ...stills].filter(Boolean))].slice(0, 5);
+  const rec = { id, name: row.name || id, thumbnail: dnaThumb(row), images };
   _dnaChipCache.set(id, rec);
   return rec;
 }

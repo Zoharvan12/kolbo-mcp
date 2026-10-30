@@ -55,7 +55,7 @@ assert.ok(/\.k-media img, \.k-media video\s*\{[^}]*object-fit:\s*contain/s.test(
   'generation media tiles do not preserve the full frame');
 assert.ok(/insertText\(String\(item.id\)\)/.test(mediaGridHtml),
   'media-grid Use must paste the item id, not send a prompt sentence');
-assert.ok(/object-fit:contain;background:#000/.test(mediaGridHtml),
+assert.ok(/object-fit:contain;background:transparent/.test(mediaGridHtml),
   'in-place media grid video playback is cropped');
 
 const listHtml = widgetHtml(UI.list);
