@@ -146,7 +146,13 @@ Without the optional skill, the config block alone already exposes every tool �
 | `generate_first_last_frame` | First frame + last frame → interpolated video |
 | `generate_lipsync` | Source image/video + audio → lipsynced video (Sync-3 adds active-speaker selection, emotion, model mode, temperature) |
 | `generate_creative_director` | One brief → N coordinated scenes (image or video) |
-| `generate_music` | Text (+ optional lyrics) → song. Style, title, negative tags, length, and Suno fine-controls (style weight, weirdness, audio weight, persona / singing voice) |
+| `generate_music` | Text (+ optional lyrics) → song. Style, title, negative tags, length, and Suno fine-controls (style weight, weirdness, audio weight, persona / singing voice); on Suno V6 also variety, your saved music personas and image/video/audio inspiration references |
+| `add_vocals` / `add_instrumental` | Sing over an instrumental, or build a backing track under a vocal (a Kolbo track/stem or your own audio) |
+| `replace_music_section` | Regenerate 10 s to half of a Suno track and keep the rest |
+| `export_music_wav` / `make_music_video` | Lossless WAV of a track / visualizer music video |
+| `generate_music_midi` | MIDI notes from a finished Suno stem separation |
+| `get_timed_lyrics` | Word-by-word karaoke timing for a track |
+| `create_music_persona` / `list_music_personas` | Save a track's voice and style, reuse it on generate_music |
 | `generate_speech` | Text + voice → spoken audio. `eleven_model` (eleven_v4 / eleven_v3 / eleven_multilingual_v2) picks which ElevenLabs model speaks an ElevenLabs voice (stock or own clone; omit = the voice's default; same price; `turbo` needs v4). Full expressive/style control: Google/Gemini named voice-direction presets (`style_instructions_preset_id`: warm/dramatic/whisper/…) or free-form `style_instructions`, preset styles + emotions (DeepDub / MiniMax / Cartesia), speed, accent/`language`, and per-provider voice settings (ElevenLabs stability/similarity/style/speaker boost/seed, `enforce_language`, `output_format` mp3/wav, `text_normalization`; DeepDub accent/variance/tempo, MiniMax pitch/volume/intensity/timbre), plus `audio_effect` (phone/radio/megaphone/small_room/hall/distant) + `audio_effect_strength` for any voice at no extra credits. Status returns the same fields for reuse. |
 | `generate_sound` | Text → sound effect. Duration, prompt influence, and per-provider controls (Stable Audio guidance, Kie loop/tempo/key, Seed-Audio voice/speed/volume/pitch + reference audio/image, output format, Mirelo SFX 2.0 negative prompt / variations / seed / bitrate) |
 | `generate_3d` | Text or reference images → 3D model (GLB/FBX/OBJ/USDZ) |
