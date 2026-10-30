@@ -123,7 +123,7 @@ Font tools (when exposed by the installed MCP): `list_fonts`, `get_font`, `uploa
 | `generate_elements` | Reference-driven video. **Primary route for DNA → video.** Prompt = Seedance Locked Intro (`Total` + `[GLOBAL LOOK]` / `[CAST]` / `[LOCATION]` + `SHOT N`). Every DNA in `visual_dna_ids` must also be `@Name` in that prompt. |
 | `generate_first_last_frame` | Keyframe interpolation between two frames. |
 | `generate_lipsync` | Lipsync an existing waveform onto a face. **Not the route for dialogue in a film you are generating** — write the line in the Seedance prompt instead. |
-| `generate_music` | Music generation (Suno + variants). |
+| `generate_music` | Music generation (Suno + variants). Work on a finished Suno track (`add_vocals`, `add_instrumental`, `replace_music_section`, `export_music_wav`, `make_music_video`, `generate_music_midi`, `get_timed_lyrics`, `create_music_persona` / `list_music_personas`): `references/models/music.md`. |
 | `generate_speech` | TTS for narration, voiceover and standalone audio. **NOT for scene dialogue** — Seedance 2/2.5 performs quoted lines itself. |
 | `generate_sound` | Sound effects. |
 | `generate_3d` | 3D models from text / single image / multi-view. Returns GLB/FBX/OBJ/USDZ. |

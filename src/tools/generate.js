@@ -294,6 +294,7 @@ function registerGenerateTools(server, client, options = {}) {
   const ui = () => appsEnabled(server, options);
   const returnsImmediately = () => ui() || !!options.asyncGenerations;
   const submittedResult = (params) => ui() ? uiGenerating(params) : asyncGenerating(params);
+  const jsonText = (value) => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
 
   // How long the STATUS tools may block inside one tool call before handing
   // back a non-terminal result the caller re-issues. Bounded by the transport,
@@ -851,7 +852,7 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_music ────────────────────────────────────────
   server.tool(
     'generate_music',
-    'Generate music from a text description using Kolbo AI. Supports instrumental mode, custom lyrics, style direction, vocal gender, negative tags, song length, and Suno fine-controls (style weight, weirdness, audio weight, persona/singing voice). Default model is Suno. Some controls are Suno-only; the engine ignores controls that do not apply to the chosen model. Returns the final audio URL when complete.',
+    'Generate music from a text description using Kolbo AI. Supports instrumental mode, custom lyrics, style direction, vocal gender, negative tags, song length, and Suno fine-controls (style weight, weirdness, audio weight, persona/singing voice), and on Suno V6 variety, saved music personas (persona_voice_id) and image/video/audio inspiration references. Default model is Suno. Some controls are Suno-only; the engine ignores controls that do not apply to the chosen model. Returns the final audio URL when complete.',
     {
       prompt: z.string().optional().describe('Text description of the music to generate (e.g., "upbeat electronic dance track with synthesizers"). Required unless composition_plan is passed (ElevenLabs Music v2.5 structured mode, which cannot be combined with prompt).'),
       model: z.string().optional().describe('Model identifier. Use list_models type="music_gen" to see options. Omit for Suno (default).'),
@@ -872,13 +873,19 @@ function registerGenerateTools(server, client, options = {}) {
       use_composition_plan: z.boolean().optional().describe('Suno: enable structured composition planning (verse/chorus structure).'),
       singing_dna_id: z.string().optional().describe('Visual DNA character id whose singing voice to use (must be owned by the caller).'),
       singing_voice_id: z.string().optional().describe('Custom cloned singing-voice id (must be owned by the caller).'),
+      // ── Suno V6 extras ──
+      variety: z.number().int().min(0).max(4).optional().describe('Suno V6 only: variety, whole number 0-4 (higher = more varied takes). Switches to custom mode; cannot be combined with reference_*.'),
+      persona_voice_id: z.string().optional().describe('Suno V6 only: id of one of YOUR music personas (list_music_personas / create_music_persona) to sing in that voice and style. Custom mode; not with singing_dna_id / singing_voice_id / reference_*.'),
+      reference_images: z.array(z.string()).max(5).optional().describe('Suno V6 only: up to 5 PUBLIC image URLs to inspire the song (mood, scene). Simple mode: lyrics ride along as an attachment and duration_seconds is not honoured. At most 10 references in total, style and lyrics counting one each.'),
+      reference_videos: z.array(z.string()).max(1).optional().describe('Suno V6 only: 1 PUBLIC video URL (<= 241 s) to inspire the song. Same simple-mode rules as reference_images.'),
+      reference_audios: z.array(z.string()).max(10).optional().describe('Suno V6 only: PUBLIC audio URLs (6 s - 30 min) to inspire the song. Same simple-mode rules as reference_images.'),
       // ── ElevenLabs Music v2.5 structured mode (mutually exclusive with `prompt`) ──
       composition_plan: z.array(MUSIC_CHUNK_SCHEMA).optional().describe('ElevenLabs Music v2.5 ONLY, model must resolve to the ElevenLabs music model: an ordered list of chunks instead of a prompt. A GENERATION chunk has text/duration_ms/positive_styles (optionally conditioning_ref+condition_strength to steer it off a stored song). An AUDIO-REFERENCE chunk has song_id/range and splices that stored slice in unchanged (used to keep part of an existing track — see edit_music_section for the common case of regenerating one section). Get a starter plan from create_music_composition_plan, or build one from a prior generate_music result\'s `song_id`. Cannot be combined with `prompt`.'),
       seed: z.number().optional().describe('ElevenLabs Music v2.5: random seed for reproducibility. Only valid together with composition_plan, never with prompt.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt = false, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, composition_plan, seed, project_id, session_id }) => {
+    async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt = false, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, variety, persona_voice_id, reference_images, reference_videos, reference_audios, composition_plan, seed, project_id, session_id }) => {
       if (!prompt && !composition_plan) throw new Error('prompt is required (or pass composition_plan for ElevenLabs Music v2.5)');
       model = await canonicalModelId(client, model, 'music_gen'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/music', {
@@ -886,6 +893,7 @@ function registerGenerateTools(server, client, options = {}) {
         duration_seconds, enhance_prompt, preset_id,
         style_weight, weirdness, audio_weight, persona_id, use_composition_plan,
         singing_dna_id, singing_voice_id,
+        variety, persona_voice_id, reference_images, reference_videos, reference_audios,
         ...(composition_plan ? { composition_plan: { chunks: composition_plan }, seed } : {}),
         project_id, session_id
       });
@@ -918,6 +926,8 @@ function registerGenerateTools(server, client, options = {}) {
         title: result.result.title,
         duration: result.result.duration,
         lyrics: result.result.lyrics,
+        // tracks[].audio_id feeds the Suno track tools (add_vocals, replace_music_section, export_music_wav, ...).
+        tracks: result.result.tracks,
         // ElevenLabs Music v2.5 only — reuse in a later composition_plan / edit_music_section.
         ...(result.result.song_id ? { song_id: result.result.song_id } : {}),
       }, null, 2));
@@ -1043,7 +1053,7 @@ function registerGenerateTools(server, client, options = {}) {
       const r = await client.post('/v1/generate/music/import', {
         audio_url, upload_type: upload_type || 'extend', rights_confirmed, confirmation_text, project_id, session_id
       });
-      return result(r);
+      return jsonText(r);
     }
   );
 
@@ -1097,6 +1107,178 @@ function registerGenerateTools(server, client, options = {}) {
     'Re-record an existing track in a new style, keeping its musical identity — a lo-fi cover of a rock song, an acoustic take on an electronic track. Pass audio_url (with rights_confirmed) or an upload_id from import_music_audio. There is NO target-length control here: a cover follows the length of its source, which is why duration_seconds is not accepted. Returns the final audio URL when complete.',
     { ...musicSourceFields },
     async (args) => runMusicSourceOp('/v1/generate/music/cover', 'cover_music', args)
+  );
+
+  // ─── Suno track operations ─────────────────────────────────
+  // Work on a track Kolbo already made: pass its generation_id plus the audio_id of ONE
+  // of its tracks (every music status result lists tracks[].audio_id). Each op is priced
+  // on its own and runs in the source track's session.
+  const sunoTrackFields = {
+    generation_id: z.string().describe('generation_id of the finished Suno track (from generate_music / extend_music / a stem separation, or list_session_generations).'),
+    audio_id: z.string().describe('Which track of that generation: tracks[].audio_id from its status result (a Suno generation usually holds 2 tracks; a stem separation holds one per stem).'),
+  };
+  const sunoFineFields = {
+    negative_tags: z.string().optional().describe('Styles / sounds to EXCLUDE, comma-separated.'),
+    vocal_gender: z.string().optional().describe('"male" or "female".'),
+    style_weight: z.number().min(0).max(1).optional().describe('How strongly the style is applied, 0-1.'),
+    weirdness: z.number().min(0).max(1).optional().describe('Creativity / weirdness, 0-1.'),
+    audio_weight: z.number().min(0).max(1).optional().describe('Influence of the source audio, 0-1.'),
+    variety: z.number().int().min(0).max(4).optional().describe('Suno V6 variety, whole number 0-4 (higher = more varied takes).'),
+  };
+
+  // Async Suno op: submit, then the generation card (UI hosts) or a blocking poll.
+  const runSunoOp = async (route, toolName, body, { kind = 'audio', prompt, label, widget = true } = {}) => {
+    const gen = await client.post(route, body);
+    if (returnsImmediately()) {
+      return (widget ? submittedResult : asyncGenerating)({ tool: toolName, kind, gen, client, model: label, prompt });
+    }
+    const poll = await pollOrTimedOut(client, gen.generation_id, { interval: (gen.poll_interval_hint || 8) * 1000, timeout: 150000 });
+    if (poll.timedOut) return poll.timedOut;
+    const res = poll.result;
+    const r = res.result || {};
+    const text = JSON.stringify({
+      ...creditFields(res),
+      generation_id: gen.generation_id,
+      session_id: gen.session_id,
+      urls: r.urls,
+      tracks: r.tracks,
+      title: r.title,
+      duration: r.duration,
+      ...(r.operation ? { operation: r.operation } : {}),
+      ...(r.source_generation_id ? { source_generation_id: r.source_generation_id } : {}),
+      ...(r.replace_window ? { replace_window: r.replace_window } : {}),
+      ...(r.wav_url ? { wav_url: r.wav_url } : {}),
+      ...(r.video_url ? { video_url: r.video_url } : {}),
+      ...(r.midi_data ? { midi_data: r.midi_data } : {}),
+    }, null, 2);
+    if (!widget) return { content: [{ type: 'text', text }] };
+    return uiCompleted({
+      tool: toolName, kind, gen, client, model: label, prompt,
+      urls: r.urls, playback_urls: r.playback_urls, tracks: r.tracks, title: r.title, duration: r.duration,
+      credits_used: creditFields(res).credits_used,
+    }, text);
+  };
+
+  const addLayerSchema = (vocals) => ({
+    generation_id: z.string().optional().describe('Source track: generation_id of a finished Suno track or stem separation. Pass with audio_id. Or use audio_url / upload_id for your own audio.'),
+    audio_id: z.string().optional().describe('With generation_id: tracks[].audio_id of the exact track or stem to build on.'),
+    audio_url: z.string().optional().describe('Your own audio instead of a Kolbo track: a PUBLIC URL (with rights_confirmed). Local file? Call upload_media first and pass the returned https:// URL.'),
+    upload_id: z.string().optional().describe('Your own audio instead of a Kolbo track: an upload_id from import_music_audio.'),
+    rights_confirmed: z.boolean().optional().describe('REQUIRED with audio_url: confirms you hold the rights to that audio.'),
+    title: z.string().max(80).describe('Title for the result.'),
+    ...(vocals
+      ? { style: z.string().max(1000).describe('Vocal style to sing in (e.g. "soulful female vocals, R&B").') }
+      : {
+        tags: z.string().max(1000).optional().describe('Accompaniment style (e.g. "acoustic guitar, soft piano, warm strings"). Required unless style is given.'),
+        style: z.string().max(1000).optional().describe('Alias of tags.'),
+      }),
+    lyrics: z.string().max(5000).optional().describe(vocals ? 'Lyrics to sing. Omit to have them written for you.' : 'Lyrics of the existing vocal, to guide the arrangement.'),
+    prompt: z.string().max(5000).optional().describe('Extra direction for the new layer.'),
+    ...sunoFineFields,
+    project_id: projectIdField,
+    session_id: sessionIdField,
+  });
+
+  server.tool(
+    'add_vocals',
+    'Sing new vocals over an instrumental: a finished Kolbo track or stem (generation_id + audio_id) or your own audio (audio_url with rights_confirmed, or upload_id). Creates a NEW track; the source is untouched. Returns the final audio when complete.',
+    addLayerSchema(true),
+    async (args) => runSunoOp('/v1/generate/music/add-vocals', 'add_vocals', args, { prompt: args.style, label: 'Suno' })
+  );
+
+  server.tool(
+    'add_instrumental',
+    'Build a backing track under a vocal or a cappella: a finished Kolbo track or vocal stem (generation_id + audio_id) or your own audio (audio_url with rights_confirmed, or upload_id). Creates a NEW track; the source is untouched. Returns the final audio when complete.',
+    addLayerSchema(false),
+    async (args) => {
+      if (!args.tags && !args.style) throw new Error('tags (the accompaniment style) is required');
+      return runSunoOp('/v1/generate/music/add-instrumental', 'add_instrumental', args, { prompt: args.tags || args.style, label: 'Suno' });
+    }
+  );
+
+  server.tool(
+    'replace_music_section',
+    'Regenerate one time range of a finished Suno track and keep the rest, e.g. "rewrite the second verse". The window must be at least 10 seconds and at most half the track. Creates a NEW track; the source is untouched. For ElevenLabs Music tracks use edit_music_section instead.',
+    {
+      ...sunoTrackFields,
+      start: z.number().min(0).describe('Start of the section to replace, in seconds.'),
+      end: z.number().min(0).describe('End of the section, in seconds. end - start must be >= 10 and <= 50% of the track.'),
+      prompt: z.string().max(3000).optional().describe('What the new section should be. Give this or lyrics.'),
+      lyrics: z.string().max(5000).optional().describe('Lyrics of the new section. Give this or prompt.'),
+      full_lyrics: z.string().max(10000).optional().describe('Whole-song lyrics after the edit. Default: the source lyrics.'),
+      tags: z.string().max(1000).optional().describe('Style for the section. Default: the source style.'),
+      title: z.string().max(80).optional().describe('Title for the result. Default: the source title.'),
+      ...sunoFineFields,
+    },
+    async (args) => {
+      if (!args.prompt && !args.lyrics) throw new Error('prompt or lyrics is required');
+      return runSunoOp('/v1/generate/music/replace-section', 'replace_music_section', args, { prompt: args.prompt || args.lyrics, label: 'Suno' });
+    }
+  );
+
+  server.tool(
+    'export_music_wav',
+    'Export one finished Suno track as a lossless WAV file (for mixing / mastering). A WAV already made for the same track is returned again without a new charge. Returns the WAV URL (wav_url) when complete.',
+    { ...sunoTrackFields },
+    async ({ generation_id, audio_id }) => runSunoOp(`/v1/music/${encodeURIComponent(generation_id)}/wav`, 'export_music_wav', { audio_id }, { prompt: 'WAV export', label: 'Suno' })
+  );
+
+  server.tool(
+    'make_music_video',
+    'Make a visualizer music video (cover art + animated waveform) for one finished Suno track. Returns the video URL (video_url) when complete.',
+    {
+      ...sunoTrackFields,
+      author: z.string().max(50).optional().describe('Artist name shown on the video.'),
+      domain_name: z.string().max(50).optional().describe('Website / brand watermark shown on the video.'),
+    },
+    async ({ generation_id, ...body }) => runSunoOp(`/v1/music/${encodeURIComponent(generation_id)}/video`, 'make_music_video', body, { kind: 'video', prompt: 'Music video', label: 'Suno' })
+  );
+
+  server.tool(
+    'generate_music_midi',
+    'Turn a finished Suno stem separation (2 or 12 stems, made in the Kolbo music tool; separate_audio_stems results do not qualify) into MIDI notes: pitch, start, end and velocity per instrument. Pass its generation_id, and optionally audio_id for one stem. Returns midi_data (notes, not a .mid file) when complete.',
+    {
+      generation_id: z.string().describe('generation_id of a COMPLETED Suno stem separation (2 or 12 stems).'),
+      audio_id: z.string().optional().describe('One stem: its tracks[].audio_id. Omit for all stems.'),
+    },
+    async ({ generation_id, audio_id }) => runSunoOp(`/v1/music/${encodeURIComponent(generation_id)}/midi`, 'generate_music_midi', { audio_id }, { prompt: 'MIDI', label: 'Suno', widget: false })
+  );
+
+  server.tool(
+    'get_timed_lyrics',
+    'Word-by-word timed lyrics (karaoke timing) for one finished Suno track: each word with start/end seconds, plus waveform data. Paid once per track (1 credit); later calls return the cached result free. Instrumentals return instrumental: true with no words.',
+    { ...sunoTrackFields },
+    async ({ generation_id, audio_id }) => jsonText(await client.get(`/v1/music/${encodeURIComponent(generation_id)}/timed-lyrics?audio_id=${encodeURIComponent(audio_id)}`))
+  );
+
+  server.tool(
+    'create_music_persona',
+    'Save the sound of one finished Suno track (its voice and style) as a reusable persona. Free. Then pass the returned persona id as persona_voice_id on generate_music to sing new songs in that voice (Suno V6, custom mode).',
+    {
+      ...sunoTrackFields,
+      name: z.string().max(80).describe('Persona name.'),
+      description: z.string().max(1000).describe('What the voice / style is like (e.g. "warm female alto, breathy, indie folk").'),
+      style: z.string().max(200).optional().describe('Short style tag line.'),
+      vocal_start: z.number().min(0).optional().describe('Start (seconds) of a 10-30 s window where the voice is clearly heard. Pass with vocal_end.'),
+      vocal_end: z.number().min(0).optional().describe('End (seconds) of that window.'),
+    },
+    async (args) => jsonText(await client.post('/v1/music/personas', args))
+  );
+
+  server.tool(
+    'list_music_personas',
+    'List your saved music personas (from create_music_persona). Pass a persona id as persona_voice_id on generate_music.',
+    {
+      page: z.number().int().min(1).optional().describe('Page number. Default 1.'),
+      limit: z.number().int().min(1).max(100).optional().describe('Items per page, 1-100. Default 50.'),
+    },
+    async ({ page, limit }) => {
+      const qs = new URLSearchParams();
+      if (page) qs.set('page', String(page));
+      if (limit) qs.set('limit', String(limit));
+      const q = qs.toString();
+      return jsonText(await client.get(`/v1/music/personas${q ? '?' + q : ''}`));
+    }
   );
 
 
