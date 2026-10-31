@@ -855,14 +855,14 @@ function registerGenerateTools(server, client, options = {}) {
     'Generate music from a text description using Kolbo AI. Supports instrumental mode, custom lyrics, style direction, vocal gender, negative tags, song length, and Suno fine-controls (style weight, weirdness, audio weight, persona/singing voice), and on Suno V6 variety, saved music personas (persona_voice_id) and image/video/audio inspiration references. Default model is Suno. Some controls are Suno-only; the engine ignores controls that do not apply to the chosen model. Returns the final audio URL when complete.',
     {
       prompt: z.string().optional().describe('Text description of the music to generate (e.g., "upbeat electronic dance track with synthesizers"). Required unless composition_plan is passed (ElevenLabs Music v2.5 structured mode, which cannot be combined with prompt).'),
-      model: z.string().optional().describe('Model identifier. Use list_models type="music_gen" to see options. Omit for Suno (default).'),
+      model: z.string().optional().describe('Model identifier. Use list_models type="music_gen" to see options (e.g. Mureka: mureka-v9-5, mureka-v9, mureka-v8 - lyrics-first songs or instrumental). Omit for Suno (default).'),
       style: z.string().optional().describe('Music style / genre (e.g., "pop", "rock", "lo-fi", "electronic", "jazz"). Does NOT replace `prompt`: a style-only call (instrumental included) is rejected.'),
       title: z.string().optional().describe('Song title. If omitted, one is generated.'),
       instrumental: z.boolean().optional().describe('Generate instrumental only, no vocals. Default: false'),
       lyrics: z.string().optional().describe('Custom lyrics for the song. If omitted, lyrics are generated automatically from the prompt unless instrumental is true.'),
       vocal_gender: z.string().optional().describe('Preferred vocal gender: "male" or "female". Only applies when instrumental is false.'),
       negative_tags: z.string().optional().describe('Styles / sounds to EXCLUDE, comma-separated (e.g. "heavy metal, screaming, distortion"). Suno.'),
-      duration_seconds: z.number().optional().describe('Target song length in seconds. Length-capable models: ElevenLabs Music (up to 600s) and Suno v6 / v6 Wild (10-360s, Custom Mode only). Suno v6 Mini does NOT honour it - it returns ~200s whatever you ask, so the control is not offered there. Omit for the model default (Suno picks its own natural length).'),
+      duration_seconds: z.number().optional().describe('Target song length in seconds. Length-capable models: ElevenLabs Music (up to 600s) Suno v6 / v6 Wild (10-360s, Custom Mode only) and Mureka V9.5 (120-300s). Suno v6 Mini does NOT honour it - it returns ~200s whatever you ask, so the control is not offered there. Omit for the model default (Suno picks its own natural length).'),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       preset_id: z.string().optional().describe('Preset ID from list_presets type="music" to apply a saved music style preset.'),
       // ── Suno fine controls ──
