@@ -118,6 +118,19 @@ function kolboUrl(sc) {
   return url;
 }
 
+// Open the exact session. A card that never learned its session (recovered from
+// a text-only result) asks the server once before falling back to the app home.
+function openInKolbo(sc) {
+  var url = kolboUrl(sc);
+  var gid = sc && (sc.generation_id || (sc.generation_ids && sc.generation_ids[0]));
+  if (url !== 'https://app.kolbo.ai' || !gid || !window.kolbo.callTool) { window.kolbo.openLink(url); return; }
+  window.kolbo.callTool('get_generation_status', { generation_id: gid }).then(function (r) {
+    var st = structured(r) || {};
+    if (st.open_url) { sc.open_url = st.open_url; window.kolbo.openLink(st.open_url); }
+    else window.kolbo.openLink(kolboUrl(Object.assign({}, sc, { session_id: st.session_id, project_id: st.project_id })));
+  }).catch(function () { window.kolbo.openLink(url); });
+}
+
 // Long text is clamped by CSS (.k-prompt 2 lines / .k-caption 1 line). Expand
 // lives on a separate button so the text itself stays selectable.
 function stripTools(node) {
@@ -1450,7 +1463,7 @@ function renderTrackingIssue(msg) {
     schedulePoll(state);
   };
   el('tracking-open').onclick = function () {
-    window.kolbo.openLink(kolboUrl(state));
+    openInKolbo(state);
   };
   window.kolbo.notifySize();
 }
@@ -1489,7 +1502,7 @@ function renderActions(sc) {
   el('actions').innerHTML = a.join('');
 
   bind('btn-download', function () { window.kolbo.openLink(downloadUrl(currentUrl())); });
-  bind('btn-open', function () { window.kolbo.openLink(kolboUrl(state)); });
+  bind('btn-open', function () { openInKolbo(state); });
   bind('btn-recreate', function () {
     window.kolbo.sendMessage('Recreate this with the same settings' +
       (state.settings && state.settings.mode ? '\\nOperation: ' + state.settings.mode : '') +

@@ -173,6 +173,10 @@ body {
    used to clip the media to a sliver. The card grows while it is open and
    notifySize() asks the host for the height. */
 html.k-peek-open .k-card { min-height: 460px; }
+/* Inline (host refused fullscreen): the card becomes the lightbox, so it opens
+   where the user is looking, not at the top of a tall card scrolled out of view. */
+html.k-peek-open:not(.k-peek-fs) .k-card > :not(.k-peek) { display: none !important; }
+html.k-peek-open:not(.k-peek-fs) .k-peek { position: relative; height: 480px; }
 .k-peek-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; min-height: 44px; }
 .k-peek-cap { flex: 1; min-width: 0; font-size: 12px; color: rgba(255,255,255,0.78);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
