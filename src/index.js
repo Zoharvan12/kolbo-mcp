@@ -87,6 +87,7 @@ const { registerVideoInspectionTools } = require('./tools/video_inspection');
 const { registerBlenderTools } = require('./tools/blender');
 const { registerAdobeTools } = require('./tools/adobe');
 const { registerResolveTools } = require('./tools/resolve');
+const { registerSocialTools } = require('./tools/social');
 const { registerApps, attachToolWidgetMeta } = require('./apps');
 const { attachToolAnnotations } = require('./toolAnnotations');
 
@@ -239,6 +240,10 @@ function createServer(opts = {}) {
   // Declaration-level `_meta['ui/resourceUri']` on every widget-carrying tool —
   // claude.ai prepares the widget iframe from tools/list, not from the result.
   attachToolWidgetMeta(server);
+  // Social Planner: on by default (the API decides which platforms each account may use and
+  // 404s for none). The hosted connector passes socialPlanner:false for accounts with no open
+  // platform; stdio users can hide the tools with KOLBO_SOCIAL_PLANNER=0.
+  if (opts.socialPlanner !== false && process.env.KOLBO_SOCIAL_PLANNER !== '0') registerSocialTools(server, client);
 
   return server;
 }

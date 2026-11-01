@@ -43,6 +43,7 @@ const EXTRA_ROUTE_SOURCES = [
   { file: path.join(KOLBO_API, 'src', 'modules', 'blender', 'index.js'), mountPath: '/v1/blender' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'adobe', 'index.js'), mountPath: '/v1/adobe' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'resolve', 'index.js'), mountPath: '/v1/resolve' },
+  { file: path.join(KOLBO_API, 'src', 'modules', 'socialPlanner', 'sdk.js'), mountPath: '/v1/social' },
 ];
 const MCP_TOOLS_DIR = path.join(MCP_REPO, 'src', 'tools');
 
