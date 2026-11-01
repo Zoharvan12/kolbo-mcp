@@ -42,6 +42,9 @@ const READ_ONLY = [
   'get_stock_collections', 'get_stock_asset', 'analyze_script_for_stock',
   // Free (no credits, no DB write) — returns a scratch composition plan for the caller to edit.
   'create_music_composition_plan',
+  // Social Planner reads of our own queue, automations and posts.
+  'list_social_accounts', 'get_social_capabilities', 'get_social_queue', 'get_social_best_times',
+  'list_social_automations', 'get_social_automation_hits', 'list_social_posts',
 ];
 
 const OPEN_WORLD_READ_ONLY = [
@@ -51,6 +54,9 @@ const OPEN_WORLD_READ_ONLY = [
   'blender_get_command_status',
   'adobe_list_sessions', 'adobe_get_project', 'adobe_get_timeline', 'adobe_get_command_status',
   'resolve_list_sessions', 'resolve_get_project', 'resolve_get_timeline', 'resolve_get_command_status',
+  // Social Planner reads that call the platform (account health, comments, inbox, metrics).
+  'check_social_account', 'get_tiktok_creator_info', 'list_social_comments', 'list_social_conversations',
+  'get_social_conversation', 'get_social_post', 'get_social_post_metrics', 'get_social_account_metrics',
 ];
 
 const PRIVATE_WRITE = [
@@ -143,6 +149,10 @@ const OPEN_WORLD_WRITE = [
   'adobe_capture_frame',
   // Resolve imports add Media Pool items; captures add a Kolbo library image.
   'resolve_import_media', 'resolve_capture_frame',
+  // Social Planner: posts, replies and messages go out on the user's own accounts.
+  'create_social_calendar_feed', 'connect_social_account', 'publish_social_post', 'cross_post_social',
+  'retry_social_post', 'reply_social_comment', 'set_social_queue', 'send_social_message',
+  'create_social_automation', 'update_social_automation', 'update_social_post',
 ];
 
 const OPEN_WORLD_DESTRUCTIVE = [
@@ -155,7 +165,13 @@ const OPEN_WORLD_DESTRUCTIVE = [
   'adobe_edit_composition', 'adobe_run_script',
   // Can delete timeline clips; approved once per batch in the Kolbo plugin.
   'resolve_edit_timeline', 'resolve_run_script',
+  // Social Planner: removes posts, comments, connections or automations.
+  'revoke_social_calendar_feed', 'disconnect_social_account', 'delete_published_social_post',
+  'moderate_social_comment', 'delete_social_automation', 'cancel_social_post',
 ];
+
+const SOCIAL_TOOLS = [READ_ONLY, OPEN_WORLD_READ_ONLY, OPEN_WORLD_WRITE, OPEN_WORLD_DESTRUCTIVE]
+  .flat().filter((name) => /social|tiktok_creator/.test(name));
 
 const CONTRACT_GROUPS = [
   [READ_ONLY, { readOnlyHint: true, openWorldHint: false, destructiveHint: false }],
@@ -187,7 +203,8 @@ function attachToolAnnotations(server) {
   // Tools a server PROFILE may legitimately leave unregistered. show_plans is
   // dropped under `commerce: false` (the ChatGPT app profile — OpenAI forbids
   // selling digital goods there); its contract row stays for every other host.
-  const PROFILE_OPTIONAL = new Set(['show_plans']);
+  // The Social Planner tools are dropped under `socialPlanner: false` (accounts with no open platform).
+  const PROFILE_OPTIONAL = new Set(['show_plans', ...SOCIAL_TOOLS]);
   const stale = contractNames.filter((name) => !registered[name] && !PROFILE_OPTIONAL.has(name));
   if (missing.length || stale.length) {
     throw new Error(

@@ -4,8 +4,7 @@
  * (and its account limit) and answers 404 when it has none. The hosted connector passes
  * `socialPlanner: false` for those accounts; stdio users can hide the tools with KOLBO_SOCIAL_PLANNER=0.
  *
- * These tools are registered AFTER the public annotation contract is checked, so they carry their
- * own annotations here and stay out of tool-contract.json until the feature launches.
+ * Their safety hints live in src/toolAnnotations.js with every other tool (the ANN values below match it).
  */
 const { z } = require('zod');
 
