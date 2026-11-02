@@ -318,6 +318,7 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
 .k-gen #stage { order: 1; }
 .k-gen #chips { order: 2; margin: 12px 2px 6px; gap: 6px 14px; }
 .k-gen #prompt { order: 3; margin-top: 2px; font-size: 13px; line-height: 1.5; -webkit-line-clamp: 2; }
+.k-gen #prompt.expanded { -webkit-line-clamp: unset; }
 .k-gen #prompt + .k-text-tools { order: 3; }
 .k-gen #prompt-row { order: 4; }
 .k-gen #actions { order: 5; }
@@ -379,6 +380,11 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
 .k-gen:has(#stage > .k-gen-grid.n1) #prompt + .k-text-tools .k-text-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.12); }
 .k-gen:has(#stage > .k-gen-grid.n1) #actions { grid-row: 5; }
 .k-gen:has(#stage > .k-gen-grid.n1) #prompt-row { grid-row: 6; }
+/* Expanded prompt on the canvas: the canvas grows with the text instead of the text spilling below it. */
+.k-gen:has(#prompt.expanded) #stage { align-self: stretch; }
+/* Keep the status pill clear of the text, and give the text room: text sits clear of it. */
+.k-gen:has(#stage > .k-gen-grid.n1):has(#prompt.expanded) .k-body { grid-template-rows: minmax(56px, 1fr) auto auto auto auto auto; }
+.k-gen:has(#prompt.expanded) #stage > .k-gen-grid.n1 { aspect-ratio: auto; max-height: none; height: 100%; min-height: 380px; }
 /* Failed: same canvas, red glow. */
 .k-gen #stage > .k-error { min-height: 220px; align-items: flex-end; border-radius: 20px;
   background: radial-gradient(120% 80% at 50% -10%, rgba(239, 68, 68, 0.18), transparent 70%), var(--panel); }

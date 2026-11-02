@@ -154,7 +154,9 @@ const BRIDGE_JS = `
     // that no amount of growing could clear. The host clamps too, so this is
     // only a sanity ceiling.
     var ceiling = (window.screen && window.screen.availHeight) || 1200;
-    height = Math.min(height, Math.max(ceiling, 500));
+    // x4: an expanded prompt (Seedance ones run to thousands of chars) must be able to
+    // outgrow one screen; the host still applies its own cap.
+    height = Math.min(height, Math.max(ceiling, 500) * 4);
     notify('ui/notifications/size-changed', {
       width: document.documentElement.scrollWidth, height: height
     });
