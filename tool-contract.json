@@ -118,6 +118,7 @@
     "export_video_editor_session",
     "extend_music",
     "favorite_media",
+    "finish_large_upload",
     "font_upload_widget",
     "generate_3d",
     "generate_character_sheet",

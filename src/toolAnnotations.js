@@ -96,6 +96,8 @@ const DESTRUCTIVE_WRITE = [
   'run_flow_session', 'cancel_flow_run', 'retry_flow_run',
   'run_trend', 'cancel_trend_run',
   'cancel_download',
+  // Can cancel (delete) an unfinished large upload.
+  'finish_large_upload',
   'extend_music', 'cover_music',
   // Suno track ops: each spends credits (timed lyrics once per track).
   'add_vocals', 'add_instrumental', 'replace_music_section', 'export_music_wav',
