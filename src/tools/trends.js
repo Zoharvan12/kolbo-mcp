@@ -14,8 +14,8 @@ const { UI, uiResult } = require('../apps');
 
 const slugField = z.string().min(1).max(200).regex(/^[\w-]+(\/[\w-]+)?$/)
   .describe('Trend slug from list_trends, e.g. "vanish" or "motion/kolbo-urban-dance-glide".');
-const inputsField = z.record(z.string(), z.union([z.string().max(2048), z.array(z.string().max(2048)).min(1).max(3)]))
-  .describe('Values for the trend\'s declared inputs, keyed by input `key` from get_trend. Media inputs take an https URL (upload local files with upload_media / create_upload_ticket first); a photo input with max_images > 1 also takes an ARRAY of up to that many photos of the same subject (more angles = better likeness). Text inputs take plain text.');
+const inputsField = z.record(z.string(), z.union([z.string().max(2048), z.array(z.string().max(2048)).min(1).max(10)]))
+  .describe('Values for the trend\'s declared inputs, keyed by input `key` from get_trend. Media inputs take an https URL (upload local files with upload_media / create_upload_ticket first); a photo input with max_images > 1 also takes an ARRAY of up to that many photos of the same subject (more angles = better likeness). An input with sequence: true (Growing Up workflow trends) takes min_images to max_images photos of ONE person or pet IN LIFE ORDER, youngest first; each neighbouring pair becomes one transition clip, so order matters and the price scales with the photo count. Text inputs take plain text.');
 const dnaField = z.record(z.string(), z.string().regex(/^[a-f0-9]{24}$/i)).optional()
   .describe('Use a saved Visual DNA for a photo input: { input key: visual DNA id } (ids from list_visual_dnas). The DNA\'s own character sheet and photos are used for that input, so leave that key out of inputs.');
 const previewField = z.boolean().optional()
@@ -99,7 +99,7 @@ function registerTrendTools(server, client) {
       const summary = trends.map(t => ({
         slug: t.slug, name: t.name, description: t.description, family: t.family, output_type: t.output_type,
         estimated_credits: t.estimated_credits, free_trial: t.free_trial, badges: t.badges,
-        inputs: (t.inputs || []).map(i => ({ key: i.key, kind: i.kind, role: i.role, label: i.label, required: i.required, ...(i.max_images && { max_images: i.max_images }) })),
+        inputs: (t.inputs || []).map(i => ({ key: i.key, kind: i.kind, role: i.role, label: i.label, required: i.required, ...(i.min_images && { min_images: i.min_images }), ...(i.max_images && { max_images: i.max_images }), ...(i.sequence && { sequence: true }) })),
         ...(t.preview && { preview: t.preview }),
       }));
       return uiResult(UI.mediaGrid, JSON.stringify({ trends: summary, count: summary.length, free_trials_left: baseData.free_trials_left ?? null }, null, 2), {
@@ -114,7 +114,7 @@ function registerTrendTools(server, client) {
 
   server.tool(
     'get_trend',
-    'Get one trend: description, the exact inputs it needs (key, kind: image/video/audio/text/choice, role: what the input is (character/pet/product/location/video/text) - a character input also takes a Visual DNA image URL, required, options), output type/aspect ratio, estimated credits, example results and whether a free trial is available.',
+    'Get one trend: description, the exact inputs it needs (key, kind: image/video/audio/text/choice, role: what the input is (character/pet/product/location/video/text) - a character input also takes a Visual DNA image URL, required, options; min_images/max_images for multi-photo inputs, and sequence: true when the photos are an ordered life sequence, youngest first), output type/aspect ratio, estimated credits, example results and whether a free trial is available.',
     { slug: slugField },
     async ({ slug }) => text(unwrap(await client.get(`/v1/trends/${slugPath(slug)}`)))
   );
