@@ -326,7 +326,10 @@ function registerGenerateTools(server, client, options = {}) {
       resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolution_multipliers on the same model to predict credit cost. Omit to use the model default.'),
       quality: z.string().optional().describe('Quality tier for models that support it (e.g. "low", "medium", "high", "xhigh", "max", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
       background: z.enum(['auto', 'opaque', 'transparent']).optional().describe('Output background. Before passing "transparent", call list_models for the chosen image model and require supports_transparent_background=true. Use PNG or WebP (PNG is selected by default when omitted). Kolbo forwards the setting and appends the exact phrase "no background" once to the effective prompt; prompt wording alone is not sufficient.'),
-      output_format: z.enum(['png', 'jpeg', 'webp']).optional().describe('Output file format on supported OpenAI image models. Default: png.'),
+      output_format: z.enum(['png', 'jpeg', 'webp', 'gif', 'svg']).optional().describe('Output file format on supported OpenAI image models. Default: png. "gif" (animated, prompt or edit) and "svg" (vector, text-to-image only, one image, always billed and rendered at 1K, quality low/medium/high) exist only on GPT Image 2.6: check list_models -> supported_output_formats. A GIF is one grid of frames, so `resolution` is the size of the WHOLE sheet and each frame is smaller (2K with 9 frames = 512px frames).'),
+      complexity: z.enum(['low', 'medium', 'high']).optional().describe('GPT Image 2.6 only (list_models -> supports_complexity): how much the model plans the composition before drawing. Default high. "low" roughly halves latency and suits simple prompts and focused edits; "high" helps dense text and complex layouts. Same price at every level; separate from `quality`.'),
+      frame_count: z.number().int().optional().describe('GIF only (output_format="gif"): number of frames, 9 or 16 (list_models -> supported_gif_frame_counts). Default 9.'),
+      frame_duration_ms: z.number().int().min(20).max(2000).optional().describe('GIF only: milliseconds per frame (rounded to 10). Default 200.'),
       output_compression: z.number().int().min(0).max(100).optional().describe('JPEG/WebP output compression quality (0-100); not applicable to PNG.'),
       moderation: z.enum(['auto', 'low']).optional().describe('Moderation setting on supported OpenAI image models. Default: auto.'),
       mask_image_url: z.string().url().optional().describe('Optional public PNG mask URL for supported OpenAI edits with source/reference images. Transparent regions indicate areas to edit.'),
@@ -336,13 +339,13 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
+    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'text_to_img'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'text_to_img');
       const shared = await rehostLocalPaths(client, {
         model, aspect_ratio, enhance_prompt, font_ids,
-        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id
+        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, preset_id, cinematic, skip_color_palette, project_id, session_id
       }, { allowLocalFiles: !options.remote });
       reference_images = [...(shared.reference_images || []), shared.mask_image_url].filter(Boolean);
 
@@ -418,23 +421,27 @@ function registerGenerateTools(server, client, options = {}) {
       resolution: z.string().optional().describe('Image resolution tier: "1K" / "2K" / "3K" / "4K". Model-dependent — call list_models and read supported_resolutions. Default: "1K" for most edit models.'),
       quality: z.string().optional().describe('Quality tier for edit models that support it (e.g. "low", "medium", "high", "xhigh", "max", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
       background: z.enum(['auto', 'opaque', 'transparent']).optional().describe('Output background. Before passing "transparent", call list_models for the chosen image-edit model and require supports_transparent_background=true. Use PNG or WebP (PNG is selected by default when omitted). Kolbo forwards the setting and appends the exact phrase "no background" once to the effective prompt; prompt wording alone is not sufficient.'),
-      output_format: z.enum(['png', 'jpeg', 'webp']).optional().describe('Output file format on supported OpenAI image models. Default: png.'),
+      output_format: z.enum(['png', 'jpeg', 'webp', 'gif', 'svg']).optional().describe('Output file format on supported OpenAI image models. Default: png. "gif" (animated, prompt or edit) and "svg" (vector, text-to-image only, one image, always billed and rendered at 1K, quality low/medium/high) exist only on GPT Image 2.6: check list_models -> supported_output_formats. A GIF is one grid of frames, so `resolution` is the size of the WHOLE sheet and each frame is smaller (2K with 9 frames = 512px frames).'),
+      complexity: z.enum(['low', 'medium', 'high']).optional().describe('GPT Image 2.6 only (list_models -> supports_complexity): how much the model plans the composition before drawing. Default high. "low" roughly halves latency and suits simple prompts and focused edits; "high" helps dense text and complex layouts. Same price at every level; separate from `quality`.'),
+      frame_count: z.number().int().optional().describe('GIF only (output_format="gif"): number of frames, 9 or 16 (list_models -> supported_gif_frame_counts). Default 9.'),
+      frame_duration_ms: z.number().int().min(20).max(2000).optional().describe('GIF only: milliseconds per frame (rounded to 10). Default 200.'),
       output_compression: z.number().int().min(0).max(100).optional().describe('JPEG/WebP output compression quality (0-100); not applicable to PNG.'),
       moderation: z.enum(['auto', 'low']).optional().describe('Moderation setting on supported OpenAI image models. Default: auto.'),
       mask_image_url: z.string().url().optional().describe('Optional public PNG mask URL for supported OpenAI edits with source/reference images. Transparent regions indicate areas to edit.'),
+      markup_image_url: z.string().optional().describe('GPT Image 2.6 edit models only (list_models -> supports_markup_edit): URL or absolute local path of a TRANSPARENT PNG containing only the annotations (circles, arrows, notes) that guide the edit of the FIRST source image. It must have exactly the first source image\'s pixel dimensions, must not contain the photo itself, and cannot be combined with mask_image_url. Describe in `prompt` what each mark means. The mark is not drawn into the result.'),
       preset_id: z.string().optional().describe('Exact preset ID from list_presets type="image_edit" to apply an image-editing preset. If the user requests a preset, resolve and pass it; do not silently omit it.'),
       cinematic: CINEMATIC_SCHEMA,
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one edit ungraded.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, source_images, reference_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
+    async ({ prompt, prompts, model, source_images, reference_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, markup_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'image_editing'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'image_editing');
       const shared = await rehostLocalPaths(client, {
         model, source_images, reference_images, aspect_ratio, enhance_prompt, font_ids,
-        visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id
+        visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, markup_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id
       }, { allowLocalFiles: !options.remote });
       source_images = shared.source_images;
       reference_images = [...(shared.reference_images || []), shared.mask_image_url].filter(Boolean);

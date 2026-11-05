@@ -223,6 +223,11 @@ function registerModelTools(server, client, options = {}) {
         const isImageEdit = types.includes('image_editing');
         const isImage = types.includes('text_to_img') || isImageEdit;
         if (isImage) parts.push('supports_transparent_background: ' + (m.supports_transparent_background === true));
+        // GPT Image 2.6 options (additive; absent on every other model)
+        if (isImage && Array.isArray(m.supported_output_formats) && m.supported_output_formats.length) parts.push('supported_output_formats: ' + m.supported_output_formats.join('/'));
+        if (isImage && m.supports_complexity === true) parts.push('supports_complexity: true (complexity low/medium/high)');
+        if (isImage && m.supports_markup_edit === true) parts.push('supports_markup_edit: true (markup_image_url on generate_image_edit)');
+        if (isImage && Array.isArray(m.supported_gif_frame_counts) && m.supported_gif_frame_counts.length) parts.push('supported_gif_frame_counts: ' + m.supported_gif_frame_counts.join('/'));
 
         if (Array.isArray(m.supported_resolutions) && m.supported_resolutions.length) {
           const mult = m.resolution_multipliers || {};
