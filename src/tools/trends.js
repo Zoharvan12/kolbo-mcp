@@ -14,8 +14,8 @@ const { UI, uiResult } = require('../apps');
 
 const slugField = z.string().min(1).max(200).regex(/^[\w-]+(\/[\w-]+)?$/)
   .describe('Trend slug from list_trends, e.g. "vanish" or "motion/kolbo-urban-dance-glide".');
-const inputsField = z.record(z.string(), z.union([z.string().max(2048), z.array(z.string().max(2048)).min(1).max(10)]))
-  .describe('Values for the trend\'s declared inputs, keyed by input `key` from get_trend. Media inputs take an https URL (upload local files with upload_media / create_upload_ticket first); a photo input with max_images > 1 also takes an ARRAY of up to that many photos of the same subject (more angles = better likeness). An input with sequence: true (Growing Up workflow trends) takes min_images to max_images photos of ONE person or pet IN LIFE ORDER, youngest first; each neighbouring pair becomes one transition clip, so order matters and the price scales with the photo count. Text inputs take plain text.');
+const inputsField = z.record(z.string(), z.union([z.string().max(2048), z.array(z.string().max(2048)).min(1).max(20)]))
+  .describe('Values for the trend\'s declared inputs, keyed by input `key` from get_trend. Media inputs take an https URL (upload local files with upload_media / create_upload_ticket first); a photo input with max_images > 1 also takes an ARRAY of photos of the same subject. The photo limit is set PER TREND: read min_images / max_images for that input from get_trend (or list_trends) and send a count between them; the server rejects anything outside. Without a sequence flag, more photos = better likeness. An input with sequence: true (Growing Up workflow trends) is an ordered life sequence of ONE person or pet: send the photos IN LIFE ORDER, youngest first; each neighbouring pair becomes one transition clip, so order matters and the price scales with the photo count. Text inputs take plain text.');
 const dnaField = z.record(z.string(), z.string().regex(/^[a-f0-9]{24}$/i)).optional()
   .describe('Use a saved Visual DNA for a photo input: { input key: visual DNA id } (ids from list_visual_dnas). The DNA\'s own character sheet and photos are used for that input, so leave that key out of inputs.');
 const previewField = z.boolean().optional()
@@ -121,14 +121,14 @@ function registerTrendTools(server, client) {
 
   server.tool(
     'estimate_trend_run',
-    'Quote a trend run before spending: returns total_credits for these exact inputs (video trends are priced by the source clip length). Free — no credits spent.',
+    'Quote a trend run before spending: returns total_credits for these exact inputs (video trends are priced by the source clip length; sequence trends by the photo count). Read min_images / max_images of every photo input from get_trend first. Free — no credits spent.',
     { slug: slugField, inputs: inputsField, dna: dnaField, preview: previewField, project_id: projectField, resolution: resolutionField },
     async ({ slug, inputs, dna, preview, project_id, resolution }) => text(unwrap(await client.post(`/v1/trends/${slugPath(slug)}/estimate`, { inputs, ...(dna && { dna }), ...(preview && { preview: true }), ...(project_id && { project_id }), ...(resolution && { resolution }) })))
   );
 
   server.tool(
     'run_trend',
-    'Run a trend. SPENDS CREDITS (quote with estimate_trend_run first and confirm with the user unless they already agreed). Returns one final result; intermediate steps are private. Waits up to wait_seconds for the result, then returns the run so you can keep checking with get_trend_run. Reuse the same idempotency_key after an uncertain response — a new key starts (and charges) a new run.',
+    'Run a trend. SPENDS CREDITS (quote with estimate_trend_run first and confirm with the user unless they already agreed). Send each photo input between its min_images and max_images from get_trend, in life order (youngest first) for sequence: true inputs. Returns one final result; intermediate steps are private. Waits up to wait_seconds for the result, then returns the run so you can keep checking with get_trend_run. Reuse the same idempotency_key after an uncertain response — a new key starts (and charges) a new run.',
     {
       slug: slugField,
       inputs: inputsField,
