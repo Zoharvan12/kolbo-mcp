@@ -377,6 +377,12 @@ async function modelInfo(client, modelName) {
   if (!modelName) return { icon: null, eta: null, name: null };
   const alias = DISPLAY_ALIASES[String(modelName).toLowerCase()];
   if (alias) return { ...(await modelInfo(client, alias.base)), name: alias.name };
+  // Provider endpoint ids ("fal-ai/creatify/aurora") wrap the catalog id
+  // ("creatify/aurora"); without this the chip showed the raw fal path.
+  if (/^fal-ai\//i.test(modelName)) {
+    const bare = await modelInfo(client, String(modelName).replace(/^fal-ai\//i, ''));
+    if (bare.name) return bare;
+  }
   const catalog = await modelCatalog(client);
   const exact = catalog.byKey.get(String(modelName).toLowerCase());
   if (exact) return exact;

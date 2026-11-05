@@ -958,6 +958,11 @@ function poll(sc) {
     if (stateName === 'completed') {
       pollErrors = 0;
       var r = st.result || st;
+      // A status result with no model (lipsync reports none) arrives as the
+      // 'Generations' placeholder; merged as-is it wiped the submit-time chip.
+      if (!r.model || r.model === 'Generations') {
+        r = Object.assign({}, r, { model: sc.model, model_name: sc.model_name, model_icon: sc.model_icon });
+      }
 
       var done = Object.assign({}, sc, r, {
         phase: 'completed',
