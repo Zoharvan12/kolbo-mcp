@@ -151,7 +151,7 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'quote_avatar_video',
-    'Price an avatar video before making it (no credits spent): returns estimated_seconds, credits (includes the background removal when remove_background is true), remove_background_credits (what removing the background adds; null when not available) and max_seconds for the mode.',
+    'Price an avatar video before making it (no credits spent): returns estimated_seconds (length of the spoken video), estimated_wait_seconds (how long making it takes), credits (includes the background removal when remove_background is true), remove_background_credits (what removing the background adds; null when not available) and max_seconds for the mode.',
     {
       avatar_id: z.string().min(1).max(64),
       mode: MODE,
@@ -165,7 +165,7 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'create_avatar_video',
-    'Make the avatar say a script (any language) or lip-sync an audio file. Pick mode: omni (acts naturally in the scene, up to 60 s), photo (fast, from a still in the scene, up to 3 min), twin (the person\'s own footage, up to 3 min; needs a video on the avatar). Omni/photo use scene_id (from the avatar) or preset_key (default home-studio). Returns video_id at once — poll get_avatar_video until status is completed. Pass session_id to keep several videos in one session; otherwise it goes to project_id (or the API Generations project). remove_background: true delivers it with a transparent background (talking heads to place on anything); quote first, it costs extra.',
+    'Make the avatar say a script (any language) or lip-sync an audio file. Pick mode: omni (acts naturally in the scene, up to 60 s), photo (fast, from a still in the scene, up to 3 min), twin (the person\'s own footage, up to 3 min; needs a video on the avatar). Omni/photo use scene_id (from the avatar) or preset_key (default home-studio). Returns video_id at once — poll get_avatar_video until status is completed; its estimated_wait_seconds says how long to expect. Pass session_id to keep several videos in one session; otherwise it goes to project_id (or the API Generations project). remove_background: true delivers it with a transparent background (talking heads to place on anything); quote first, it costs extra.',
     {
       avatar_id: z.string().min(1).max(64),
       mode: MODE,
