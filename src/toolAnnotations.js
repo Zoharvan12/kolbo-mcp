@@ -13,6 +13,7 @@ const READ_ONLY = [
   'get_flow_schema', 'list_flow_sessions', 'get_flow_session', 'validate_flow_session',
   'estimate_flow_run', 'get_flow_run', 'list_flow_runs',
   'list_morphious_styles',
+  'list_avatars', 'get_avatar', 'list_avatar_scene_presets', 'get_avatar_video', 'list_avatar_stock_voices', 'quote_avatar_video',
   'list_trends', 'get_trend', 'estimate_trend_run', 'get_trend_run', 'list_trend_runs',
   'get_download_status',
   'get_video_editor_schema', 'list_video_editor_sessions', 'get_video_editor_session',
@@ -74,6 +75,7 @@ const PRIVATE_WRITE = [
   'create_visual_dna', 'create_visual_dna_folder', 'update_visual_dna_folder',
   'move_visual_dna_to_folder',
   'create_moodboard', 'create_morphious_style',
+  'create_avatar', 'add_avatar_scene', 'create_avatar_video', 'regenerate_avatar_portraits', 'remove_avatar_video_background',
   'create_music_persona',
   'create_color_palette', 'activate_color_palette', 'deactivate_color_palette',
   'move_session', 'bulk_move_sessions', 'move_generations_to_session',
@@ -122,6 +124,7 @@ const DESTRUCTIVE_WRITE = [
   // Deletes and whole-value replacement updates are conservatively destructive.
   'delete_voice', 'update_visual_dna', 'delete_visual_dna', 'delete_visual_dna_folder',
   'update_moodboard', 'delete_moodboard', 'delete_morphious_style',
+  'update_avatar', 'delete_avatar', 'remove_avatar_scene', 'pick_avatar_portrait',
   'update_color_palette', 'delete_color_palette',
   'delete_media_folder', 'delete_media', 'permanently_delete_media',
   'bulk_delete_media', 'bulk_permanently_delete_media',

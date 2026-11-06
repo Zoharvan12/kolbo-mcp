@@ -424,6 +424,32 @@ async function main() {
     console.log('[smoke] session_id round-trips on every single-output generation tool OK');
   }
 
+  // ── Avatars: remove_background reaches the API, the finished-video action posts to its route ──
+  {
+    const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
+    const { registerAvatarTools } = require(path.join(PKG_ROOT, 'src', 'tools', 'avatars'));
+    const calls = [];
+    const client = {
+      post: async (url, body) => { calls.push({ url, body }); return { video: { video_id: 'v2' }, credits: 1 }; },
+      get: async () => ({}), put: async () => ({}), delete: async () => ({}),
+    };
+    const server = new McpServer({ name: 'avatars-smoke', version: '1.0.0' });
+    registerAvatarTools(server, client);
+    const tools = server._registeredTools;
+    for (const name of ['quote_avatar_video', 'create_avatar_video']) {
+      if (!tools[name].inputSchema.shape.remove_background) throw new Error(`${name} has no remove_background arg`);
+      calls.length = 0;
+      await tools[name].handler({ avatar_id: 'a1', mode: 'omni', script: 'hi', remove_background: true });
+      if (calls[0]?.body?.remove_background !== true) throw new Error(`${name} did not send remove_background`);
+    }
+    calls.length = 0;
+    await tools.remove_avatar_video_background.handler({ video_id: 'v1' });
+    if (calls[0]?.url !== '/v1/avatars/videos/v1/remove-background') throw new Error(`remove_avatar_video_background posted to ${calls[0]?.url}`);
+    const described = JSON.stringify(Object.values(tools).map(t => t.description)).toLowerCase();
+    for (const engine of [/\bbria\b/, /\bfal\b/, /\bveed\b/]) if (engine.test(described)) throw new Error(`avatar tools name an engine: ${engine}`);
+    console.log('[smoke] OK — avatar remove_background args and action reach the API.');
+  }
+
   // ── Media sources route by WHAT they are, not which arg carried them ──────
   // A public URL must reach the API as a URL. Downloading one only to re-upload
   // it costs the round-trip, risks the route's own upload ceiling, and

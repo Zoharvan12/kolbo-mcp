@@ -71,6 +71,7 @@ const { registerEditorTools } = require('./tools/editor');
 const { registerFlowTools } = require('./tools/flow');
 const { registerTrendTools } = require('./tools/trends');
 const { registerMorphiousStyleTools } = require('./tools/morphious_styles');
+const { registerAvatarTools } = require('./tools/avatars');
 const { registerMediaTools } = require('./tools/media');
 const { registerPresetTools } = require('./tools/presets');
 const { registerArtifactTools } = require('./tools/artifacts');
@@ -206,6 +207,7 @@ function createServer(opts = {}) {
   registerFlowTools(server, client);
   registerTrendTools(server, client);
   registerMorphiousStyleTools(server, client);
+  registerAvatarTools(server, client);
   registerAnalyzeTools(server, client, toolOptions);
   registerVideoInspectionTools(server, client);
   registerMediaTools(server, client, toolOptions);
