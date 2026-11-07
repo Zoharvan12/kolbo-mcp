@@ -83,7 +83,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Generate **brand product imagery** (studio shot, lifestyle, Pinterest pin, hero banner, carousel, ad pack, virtual try-on, conceptual, restyle) | `references/workflows/product-photoshoot.md` |
 | Generate **marketplace listing cards** (Amazon main + secondary + A+ content) | `references/workflows/marketplace-cards.md` |
 | Apply a **preset** — a named look, sheet, thumbnail, grading, camera move, Seedance shot recipe, music style — or decide whether one fits what the user just asked for | `references/workflows/presets.md` |
-| Make a **very attractive / sexy / curvy woman** ("bigger bust", fully clothed, non-explicit) — figure wording, framing, model route, one-change fix | `references/workflows/attractive-characters.md` |
+| Make a **very attractive / sexy / curvy woman** ("bigger bust", fully clothed or swimwear, non-explicit) — figure wording, framing, model route, Midjourney swimwear-editorial wording and prompt length, one-change fix | `references/workflows/attractive-characters.md` |
 | Use **Visual DNA** / character consistency / `@name` syntax | `references/workflows/visual-dna.md` |
 | Use **Color DNA** / brand palette grading | `references/workflows/color-dna.md` |
 | Start or continue a **multi-step production** (storyboard → scenes → final cut) | `references/workflows/production-log.md` |
