@@ -1058,6 +1058,9 @@ async function uiCompleted(p, textPayload, extraContent) {
     thumbnail_url: p.thumbnail_url,
     title: p.title,
     duration: p.duration,
+    // Per-track title / length / cover art. Omitted when absent so a status
+    // payload merged over a live card cannot wipe them.
+    ...(Array.isArray(p.tracks) && p.tracks.length ? { tracks: p.tracks } : {}),
     scenes: p.scenes,
     // Independent per-item results (get_generation_status checking several ids
     // at once) — each one carries its OWN state/media, unlike `scenes`/`urls`

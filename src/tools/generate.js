@@ -177,6 +177,8 @@ function preferOwned(urls) {
 }
 
 const isUrlSource = (source) => typeof source === 'string' && /^https?:\/\//i.test(source);
+// Browser-loadable refs for the card; a local path is dropped, not rendered dead.
+const httpUrls = (v) => [].concat(v || []).filter(isUrlSource);
 
 // Which multipart kind a LOCAL file should upload as. mediaKind answers for the
 // card; the upload routes only know these three, and the kind decides the
@@ -905,9 +907,11 @@ function registerGenerateTools(server, client, options = {}) {
         project_id, session_id
       });
 
+      const musicRefs = { reference_images: httpUrls(reference_images), reference_videos: httpUrls(reference_videos), reference_audio: httpUrls(reference_audios) };
       if (returnsImmediately()) return submittedResult({
         tool: 'generate_music', kind: 'audio', gen, client, model: model || 'Suno', prompt,
         settings: { mode: instrumental ? 'instrumental' : (style || undefined), preset_id },
+        ...musicRefs,
       });
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {
@@ -920,8 +924,10 @@ function registerGenerateTools(server, client, options = {}) {
       return uiCompleted({
         tool: 'generate_music', kind: 'audio', gen, client, model: model || 'Suno', prompt,
         settings: { mode: instrumental ? 'instrumental' : (style || undefined), preset_id },
+        ...musicRefs,
         urls: result.result.urls,
         playback_urls: result.result.playback_urls,
+        tracks: result.result.tracks,
         title: result.result.title,
         duration: result.result.duration,
         credits_used: creditFields(result).credits_used,
@@ -1070,9 +1076,12 @@ function registerGenerateTools(server, client, options = {}) {
     const model = await canonicalModelId(client, rawModel, 'music_gen');
     const gen = await client.post(route, { ...rest, model, ...(continue_at !== undefined ? { continue_at } : {}) });
 
+    // An upload_id has no URL here; the status result names that source.
+    const reference_audio = httpUrls(rest.audio_url);
     if (returnsImmediately()) return submittedResult({
       tool: toolName, kind: 'audio', gen, client, model: model || 'Suno', prompt: rest.prompt,
       settings: { mode: rest.instrumental ? 'instrumental' : (rest.style || undefined) },
+      reference_audio,
     });
 
     const poll = await pollOrTimedOut(client, gen.generation_id, {
@@ -1085,6 +1094,7 @@ function registerGenerateTools(server, client, options = {}) {
     return uiCompleted({
       tool: toolName, kind: 'audio', gen, client, model: model || 'Suno', prompt: rest.prompt,
       settings: { mode: rest.instrumental ? 'instrumental' : (rest.style || undefined) },
+      reference_audio,
       urls: res.result.urls,
       playback_urls: res.result.playback_urls,
       tracks: res.result.tracks,
@@ -1136,8 +1146,9 @@ function registerGenerateTools(server, client, options = {}) {
   // Async Suno op: submit, then the generation card (UI hosts) or a blocking poll.
   const runSunoOp = async (route, toolName, body, { kind = 'audio', prompt, label, widget = true } = {}) => {
     const gen = await client.post(route, body);
+    const reference_audio = httpUrls(body.audio_url);
     if (returnsImmediately()) {
-      return (widget ? submittedResult : asyncGenerating)({ tool: toolName, kind, gen, client, model: label, prompt });
+      return (widget ? submittedResult : asyncGenerating)({ tool: toolName, kind, gen, client, model: label, prompt, reference_audio });
     }
     const poll = await pollOrTimedOut(client, gen.generation_id, { interval: (gen.poll_interval_hint || 8) * 1000, timeout: 150000 });
     if (poll.timedOut) return poll.timedOut;
@@ -1160,7 +1171,7 @@ function registerGenerateTools(server, client, options = {}) {
     }, null, 2);
     if (!widget) return { content: [{ type: 'text', text }] };
     return uiCompleted({
-      tool: toolName, kind, gen, client, model: label, prompt,
+      tool: toolName, kind, gen, client, model: label, prompt, reference_audio,
       urls: r.urls, playback_urls: r.playback_urls, tracks: r.tracks, title: r.title, duration: r.duration,
       credits_used: creditFields(res).credits_used,
     }, text);
@@ -1655,6 +1666,11 @@ function registerGenerateTools(server, client, options = {}) {
           error: single.state === 'failed' ? single.error : undefined,
           urls: done ? urls : undefined,
           thumbnail_url: res.thumbnail_url,
+          // Music: the real song title and per-track covers. Without these the
+          // finished card fell back to the tool label ("Generations — Track 1")
+          // and a generic note glyph.
+          tracks: done ? res.tracks : undefined,
+          title: res.title || undefined,
           // Transcription results ride the same status tool as media
           // generations; without these the transcript widget merges a payload
           // with no transcript in it and renders "(empty transcript)".

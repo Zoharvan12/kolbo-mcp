@@ -102,6 +102,15 @@ function build() {
   });
 
   const scenarios = [];
+  const COVER = 'https://musicfile.kie.ai/ZmYxNjdlMTktZDVhZC00ZWI0LWE1NzUtMThjNTVjYzM2MTc4.jpeg';
+  scenarios.push({
+    tool: 'cover_music', title: 'music cover: track art + source audio', args: { prompt: PROMPT, audio_url: AUD, model: 'suno-v6' },
+    result: {
+      ...baseGen('cover_music', 'audio', 'cover-1'), phase: 'completed', model: 'suno-v6', model_name: 'Suno v6',
+      title: 'Last Call Amore', reference_audio: [AUD], urls: [AUD, AUD], credits_used: 15,
+      tracks: [{ title: 'Last Call Amore', duration: 40, thumbnail_url: COVER }, { title: 'Last Call Amore', duration: 39, thumbnail_url: 'https://broken.invalid/x.jpeg' }],
+    },
+  });
   for (const phase of ['generating', 'completed']) scenarios.push({
     tool: 'generate_image_edit', title: 'template and all references: ' + phase,
     args: { prompt: 'Create a character sheet', preset_id: 'gallery-template', source_images: [IMG, IMG2] },

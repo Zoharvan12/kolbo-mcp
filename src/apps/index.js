@@ -141,6 +141,10 @@ const WIDGET_CSP = {
     'https://storage.googleapis.com',
     'https://api.us.elevenlabs.io',
 
+    // Suno track covers (MusicGeneration audio_url[].image) stay on the provider
+    // host; img-src blocking them would leave every music card on the note glyph.
+    'https://musicfile.kie.ai',
+
     // Default SYNCI catalog project. Any production override must be reviewed
     // and added here as an exact hostname before deployment.
     'https://gfbpxdkripkbbrcvoyeh.supabase.co',
