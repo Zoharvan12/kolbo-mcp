@@ -233,12 +233,12 @@ function build() {
     }),
   });
   scenarios.push({
-    tool: 'generate_image', title: 'completed — Visual DNA + moodboard + preset chips', args: { prompt: '@Kobi at the market, @Image 1 sets the light, #Tel_Aviv_Grit mood', visual_dna_ids: ['dna-1'] },
+    tool: 'generate_image', title: 'completed — Visual DNA + moodboard + preset chips', args: { prompt: '@Kobi at the market, @Image1 sets the light, #Tel_Aviv_Grit mood', visual_dna_ids: ['dna-1'] },
     result: Object.assign(baseGen('generate_image', 'image', 'img-dna'), {
       phase: 'completed', urls: [IMG], credits_used: 2,
       visual_dnas: [{ id: 'dna-1', name: 'Kobi', thumbnail: IMG2, images: [IMG2, IMG, IMG2, IMG] }],
       reference_images: [IMG],
-      prompt: '@Kobi at the market, @Image 1 sets the light, #Tel_Aviv_Grit mood',
+      prompt: '@Kobi at the market, @Image1 sets the light, #Tel_Aviv_Grit mood',
       moodboards: [{ id: 'mb-1', name: 'Tel Aviv Grit', thumbnail: IMG }],
       settings: { aspect_ratio: '3:4', resolution: '2K', preset_id: 'p-1', preset_name: 'Street Doc', preset_thumbnail: IMG2 },
     }),

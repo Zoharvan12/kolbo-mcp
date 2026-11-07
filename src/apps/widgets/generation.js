@@ -327,8 +327,8 @@ function speechChipsHTML(sc) {
 // keeps the thing that whitelist was really protecting: an email's "a@b.com"
 // has a word char before the @, so it still never lights up. (. and - are in
 // the set for the same reason: "file.name@host", "co-op@x".)
-var MENTION_RE = /(^|[^\\w@.-])(@(?:Image|Video|Audio) \\d+|[@#][A-Za-z][\\w-]*)/g;
-// Tag -> thumbnail: DNA / moodboard by name, "@Image N" by reference position.
+var MENTION_RE = /(^|[^\\w@.-])(@(?:Image|Video|Audio) ?\\d+|[@#][A-Za-z][\\w-]*)/g;
+// Tag -> thumbnail: DNA / moodboard by name, "@ImageN" by reference position.
 // Keys drop case and punctuation so @Kobi_Run finds the DNA named "Kobi Run".
 function mentionKey(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function mentionThumbs(sc) {
