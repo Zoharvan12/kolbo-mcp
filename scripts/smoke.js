@@ -448,6 +448,28 @@ async function main() {
     const described = JSON.stringify(Object.values(tools).map(t => t.description)).toLowerCase();
     for (const engine of [/\bbria\b/, /\bfal\b/, /\bveed\b/]) if (engine.test(described)) throw new Error(`avatar tools name an engine: ${engine}`);
     console.log('[smoke] OK — avatar remove_background args and action reach the API.');
+
+    // A preset makes the scene first, and the preview then runs on that scene.
+    const shaped = { post: async (url, body) => {
+      calls.push({ url, body });
+      if (/\/preview$/.test(url)) return { status: 'ready', preview_url: 'https://x/s.jpg', tries_left: 4 };
+      if (/\/scenes$/.test(url)) return { scene: { scene_id: 's1' } };
+      if (/\/videos$/.test(url)) return { video: { video_id: 'v3' } };
+      return { avatar: { avatar_id: 'a9' } };
+    }, get: async () => ({}), put: async () => ({}), delete: async () => ({}) };
+    const flows = new McpServer({ name: 'avatars-flows-smoke', version: '1.0.0' });
+    registerAvatarTools(flows, shaped);
+    const flowTools = flows._registeredTools;
+    calls.length = 0;
+    const shown = JSON.parse((await flowTools.preview_avatar_scene.handler({ avatar_id: 'a1', preset_key: 'office' })).content[0].text);
+    if (calls[0].url !== '/v1/avatars/a1/scenes' || calls[1].url !== '/v1/avatars/a1/scenes/s1/preview' || shown.scene_id !== 's1' || !shown.preview_url) throw new Error('preview_avatar_scene did not make the scene, then the image');
+    calls.length = 0;
+    const made = JSON.parse((await flowTools.animate_photo.handler({ photo_url: 'https://x/me.jpg', consent: true, audio_url: 'https://x/a.mp3' })).content[0].text);
+    if (calls[0].body.quick !== true || calls[1].body.as_is !== true || calls[2].body.mode !== 'photo' || calls[2].body.scene_id !== 's1' || calls[2].body.audio_url !== 'https://x/a.mp3' || made.video_id !== 'v3') throw new Error('animate_photo did not run quick avatar, as-is scene, Photo video');
+    calls.length = 0;
+    await flowTools.animate_photo.handler({ photo_url: 'https://x/me.jpg', consent: true, script: 'hi' }).then(() => { throw new Error('animate_photo took a script with no voice'); }, (e) => { if (!/needs a voice/.test(e.message)) throw e; });
+    if (calls.length) throw new Error('animate_photo saved an avatar before refusing the input');
+    console.log('[smoke] OK — avatar preview and animate_photo reach the API in order.');
   }
 
   // ── Media sources route by WHAT they are, not which arg carried them ──────

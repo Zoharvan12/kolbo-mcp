@@ -13,7 +13,7 @@ const READ_ONLY = [
   'get_flow_schema', 'list_flow_sessions', 'get_flow_session', 'validate_flow_session',
   'estimate_flow_run', 'get_flow_run', 'list_flow_runs',
   'list_morphious_styles',
-  'list_avatars', 'get_avatar', 'list_avatar_scene_presets', 'get_avatar_video', 'list_avatar_stock_voices', 'quote_avatar_video',
+  'list_avatars', 'get_avatar', 'list_avatar_scene_presets', 'get_avatar_video', 'list_avatar_stock_voices', 'list_avatar_lipsync_models', 'quote_avatar_video',
   'list_trends', 'get_trend', 'estimate_trend_run', 'get_trend_run', 'list_trend_runs',
   'get_download_status',
   'get_video_editor_schema', 'list_video_editor_sessions', 'get_video_editor_session',
@@ -76,6 +76,7 @@ const PRIVATE_WRITE = [
   'move_visual_dna_to_folder',
   'create_moodboard', 'create_morphious_style',
   'create_avatar', 'add_avatar_scene', 'create_avatar_video', 'regenerate_avatar_portraits', 'remove_avatar_video_background',
+  'preview_avatar_scene', 'preview_avatar_speech', 'animate_photo',
   'create_music_persona',
   'create_color_palette', 'activate_color_palette', 'deactivate_color_palette',
   'move_session', 'bulk_move_sessions', 'move_generations_to_session',
@@ -108,7 +109,7 @@ const DESTRUCTIVE_WRITE = [
   // These actions spend credits, enqueue irreversible work, or cancel it.
   'generate_image', 'generate_image_edit', 'generate_creative_director',
   'generate_video', 'generate_video_from_image', 'generate_music',
-  'generate_speech', 'generate_sound', 'cancel_generation',
+  'generate_speech', 'generate_sound', 'cancel_generation', 'cancel_avatar_video',
   // Both spend credits — reference-audio upload is billed by ElevenLabs like a generation,
   // section edit creates a new billed track.
   'create_music_reference_audio', 'edit_music_section',
