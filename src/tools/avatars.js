@@ -59,7 +59,7 @@ function registerAvatarTools(server, client) {
       voice_url: z.string().url().optional().describe('30-60 s of the person speaking, https.'),
       stock_voice_id: z.string().max(80).optional().describe('A library voice instead of cloning (see GET /v1/avatars/stock-voices).'),
       video_url: z.string().url().optional().describe('60 s+ of the person talking to camera; unlocks twin.'),
-      visual_dna_id: z.string().max(64).optional().describe('Convert one of the user\'s own Visual DNAs into an avatar.'),
+      visual_dna_id: z.string().max(64).optional().describe('Convert one of the user\'s own character Visual DNAs into an avatar: its images, sheet and voice are copied.'),
     },
     async ({ visual_dna_id, ...body }) => {
       const r = visual_dna_id
@@ -108,7 +108,7 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'add_avatar_scene',
-    'Add a scene to an avatar: a preset_key, or a custom scene from a room photo (photo_url), a description (prompt) and/or reference images. The avatar is placed in the scene the first time a video uses it.',
+    'Add a scene to an avatar: a preset_key, or a custom scene from a room photo (photo_url), a description (prompt) and/or reference images. For a location Visual DNA, pass its image as photo_url. The avatar is placed in the scene the first time a video uses it.',
     {
       avatar_id: z.string().min(1).max(64),
       preset_key: z.string().max(40).optional(),
@@ -189,6 +189,13 @@ function registerAvatarTools(server, client) {
     'Status of an avatar video: pending / processing (with progress) / completed (video_url) / failed (error; credits are returned on failure). A transparent video has transparent: true and download_url (editing master); remove_background_credits is the price to remove the background of this finished video (null = not available); notice explains a skipped step.',
     { video_id: z.string().min(1).max(64) },
     async ({ video_id }) => text((await client.get(`/v1/avatars/videos/${encodeURIComponent(video_id)}`))?.video)
+  );
+
+  server.tool(
+    'cancel_avatar_video',
+    'Stop an avatar video that is still pending or processing. Its credits are returned. Refused when the video has already finished.',
+    { video_id: z.string().min(1).max(64).describe('The video_id from create_avatar_video.') },
+    async ({ video_id }) => text((await client.post(`/v1/avatars/videos/${encodeURIComponent(video_id)}/cancel`, {}))?.video)
   );
 
   server.tool(
