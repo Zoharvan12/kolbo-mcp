@@ -29,19 +29,19 @@ Use a **custom subset** of the asset list below when the user wants a non-standa
 
 | Asset | Purpose | Aspect ratio | Model preference |
 |---|---|---|---|
-| `main_image` | Marketplace thumbnail — strict compliance: pure white bg, product fills 85% of frame, no text, no props | `1:1` | Nano Banana 2 (clean studio render) |
-| `infographic` | Feature callouts with text labels and product hero | `1:1` or `4:5` | **GPT Image 2** (dense on-image text) |
-| `multi_angle` | 4-up grid showing front / back / sides of product | `1:1` | Nano Banana 2 |
-| `detail_shot` | Macro shot of texture / material / mechanism | `1:1` | Nano Banana 2 |
-| `lifestyle` | Product in use in real environment | `1:1` or `4:5` | Nano Banana 2 |
-| `whats_in_box` | Flat-lay showing the product + accessories laid out neatly | `1:1` | Nano Banana 2 |
-| `aplus_hero_banner` | Wide A+ header — brand identity hit | `3:1` | GPT Image 2 |
-| `aplus_pain_points` | 3-up grid showing the problem this product solves | `16:9` | GPT Image 2 (text) |
-| `aplus_features` | 3-up or 4-up feature breakdown with labels | `16:9` | GPT Image 2 |
-| `aplus_ingredients` | Ingredients / materials breakdown (skincare, food, supplements) | `16:9` | GPT Image 2 |
-| `aplus_efficacy` | Before/after, % stats, clinical results — proof block | `16:9` | GPT Image 2 (charts + text) |
-| `aplus_how_to_use` | Numbered step-by-step usage instructions | `16:9` | GPT Image 2 |
-| `aplus_endorsement` | Founder story, brand mission, testimonial-style | `16:9` | Nano Banana 2 (people) + GPT Image 2 (text overlay) |
+| `main_image` | Marketplace thumbnail — strict compliance: pure white bg, product fills 85% of frame, no text, no props | `1:1` | Nano Banana 2.1 (clean studio render) |
+| `infographic` | Feature callouts with text labels and product hero | `1:1` or `4:5` | **GPT Image 2.6 Sunburst** (dense on-image text) |
+| `multi_angle` | 4-up grid showing front / back / sides of product | `1:1` | Nano Banana 2.1 |
+| `detail_shot` | Macro shot of texture / material / mechanism | `1:1` | Nano Banana 2.1 |
+| `lifestyle` | Product in use in real environment | `1:1` or `4:5` | Nano Banana 2.1 |
+| `whats_in_box` | Flat-lay showing the product + accessories laid out neatly | `1:1` | Nano Banana 2.1 |
+| `aplus_hero_banner` | Wide A+ header — brand identity hit | `3:1` | GPT Image 2.6 |
+| `aplus_pain_points` | 3-up grid showing the problem this product solves | `16:9` | GPT Image 2.6 (text) |
+| `aplus_features` | 3-up or 4-up feature breakdown with labels | `16:9` | GPT Image 2.6 |
+| `aplus_ingredients` | Ingredients / materials breakdown (skincare, food, supplements) | `16:9` | GPT Image 2.6 |
+| `aplus_efficacy` | Before/after, % stats, clinical results — proof block | `16:9` | GPT Image 2.6 (charts + text) |
+| `aplus_how_to_use` | Numbered step-by-step usage instructions | `16:9` | GPT Image 2.6 |
+| `aplus_endorsement` | Founder story, brand mission, testimonial-style | `16:9` | Nano Banana 2.1 (people) + GPT Image 2.6 (text overlay) |
 
 ## Kolbo MCP Routing
 
@@ -98,7 +98,7 @@ A+ modules tell a story below the fold. Standard 7-module flow:
 6. `aplus_how_to_use` — usage steps
 7. `aplus_endorsement` — founder story / mission / testimonial
 
-For dense-text modules (`aplus_features`, `aplus_pain_points`, `aplus_efficacy`, `aplus_how_to_use`): always recommend **GPT Image 2** at `resolution: "2K"` or `"4K"` (text needs the higher tier to stay sharp).
+For dense-text modules (`aplus_features`, `aplus_pain_points`, `aplus_efficacy`, `aplus_how_to_use`): always recommend **GPT Image 2.6 Sunburst** at `resolution: "2K"` or `"4K"` (text needs the higher tier to stay sharp).
 
 ## Brand Kit Reuse
 
@@ -141,6 +141,6 @@ If the user already has an approved `main_image` from a prior session and wants 
 1. **Always ask which marketplace** — compliance rules vary.
 2. **Strict compliance prompts on main_image** — explicit NO text / NO props / NO models / NO borders.
 3. **Always reuse brand kit** — Read `.kolbo/brand-kits/<slug>.md` first; pass palette + fonts to every A+ module.
-4. **Recommend GPT Image 2 + 2K/4K for dense-text A+ modules** — Nano Banana renders text well but GPT Image 2 wins at multi-line technical layouts.
+4. **Recommend GPT Image 2.6 Sunburst + 2K/4K for dense-text A+ modules** — Nano Banana renders text well but GPT Image wins at multi-line technical layouts.
 5. **For bundles, always use `generate_creative_director`** — never fire 13 parallel `generate_image` calls.
 6. **Log everything to `.kolbo/production.md`** — marketplace listings get updated quarterly; reuse beats regenerate.

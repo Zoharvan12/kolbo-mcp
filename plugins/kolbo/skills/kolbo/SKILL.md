@@ -63,7 +63,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | If the user wants to… | Read first |
 |---|---|
 | Generate a **Seedance 2** video | `references/models/seedance.md` |
-| Generate a **GPT Image 2** image | `references/models/gpt-image.md` |
+| Generate a **GPT Image** image (latest 2.6), an **animated GIF**, or an **SVG / vector** logo or icon | `references/models/gpt-image.md` |
 | Generate a **Nano Banana / Gemini** image | `references/models/nano-banana.md` |
 | Generate a **Veo 3 / 3.1** video | `references/models/veo.md` |
 | Build a **multi-scene set** (Creative Director, storyboard, campaign batch, 4+ angles) | `references/models/creative-director.md` |
