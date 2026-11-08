@@ -46,7 +46,7 @@ operation. Do not assume Seedance 2.0 supports this flow.
 - **MCP `duration` must match the Total line.** Pass `duration: X` (whole seconds) on `generate_video` / `generate_elements` / `generate_video_from_image` equal to the `Xs` in `Total: Xs / …`. Mismatch = wrong-length clip.
 - **Then the Locked Intro** — `[GLOBAL LOOK]` / `[CAST]` / `[LOCATION]` (+ LOCATION MAP / CONTINUITY / PHYSICS for multi-shot) — before any shot. A one-liner `same character throughout` is not a character lock.
 - **Inside each shot:** make the camera trajectory, subject action and timing easy to find. Put a requested signature camera move in the heading. Do not restack GLOBAL LOOK style inside the shot.
-- **Prompt length**: simple single-idea pieces ~120–280 words. Locked-intro cinematic typically 400–900 words. These are examples, not minimum lengths. Do not pad. The selected model catalog cap wins; Seedance 2.5 uses its own adapter.
+- **Prompt length**: a simple single-idea piece can be short (~120–280 words). A cinematic multi-shot scene is written in full detail up to the model cap: on Seedance 2.5 use the whole 30,000 characters, and a 25–30 s scene under ~6,000 characters is too thin (see `models/seedance25.md` and `filmmaking/directing-document.md`). Depth means more direction per shot, never filler or new contradictions.
 - **Shot count is user-directed.** If the user asks for N shots, deliver exactly N in one prompt unless they ask to split.
 - **Describe the camera behavior requested for each shot.** Preserve intentional static shots; do not replace requested dynamic moves with static dialogue coverage.
 - **Tell Seedance what the camera is NOT doing** (e.g. `no cuts, no zoom, natural head movement`) — this is what locks POV.
