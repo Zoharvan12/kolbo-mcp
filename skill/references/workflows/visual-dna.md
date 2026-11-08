@@ -270,7 +270,7 @@ When exposed by the connected MCP, use `transfer_visual_dna` for 1 to 50 owned r
 Custom instructions live on the **image preset**. Resolve it silently, then generate:
 
 1. `list_presets({ type: "image", search: "headless" | "bible" | "character sheet" | "location" | "product" })`
-2. Pass the exact `id` as `preset_id` on `generate_image` (2K or 4K, never 1K; 4K for bible / high-detail / when named)
+2. Pass the exact `id` as `preset_id` on `generate_image` (2K, never 1K; 4K only when the user asks)
 3. Show the sheet → GATE → `create_visual_dna { name, images, character_sheet_url }` (or `update_visual_dna` with `character_sheet_url` when the DNA already exists)
 
 | Search | When |

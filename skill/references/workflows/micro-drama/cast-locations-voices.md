@@ -15,7 +15,7 @@ Men: "calm, closed-mouth, contained expression, eyes just past the lens; a worki
 
 ### 2. Character sheet
 
-`nano-banana-pro/edit`, 16:9, highest resolution offered (pass it explicitly), source = the approved still:
+`nano-banana-2.1` edit, 16:9, 2K (pass it explicitly), source = the approved still:
 
 > Make a character reference sheet of this exact person from @Image1, unchanged. Three photos side by side on a plain light-gray studio background: full body from the front, full body from the back, and a close-up of the face. Same face, same hair, same body, same clothes exactly as in @Image1 - <garment continues to ..., shoes>. Real photograph, natural matte skin. No text.
 
@@ -35,7 +35,7 @@ Then create a **Visual DNA** from the sheet (`references/workflows/visual-dna.md
 
 ## Locations
 
-One location = one image: `nano-banana-pro`, 16:9, high resolution, **no people**. It is passed to video as the location AND grade reference.
+One location = one empty image: the latest image model (GPT Image 2.6 or Nano Banana 2.1), 16:9, 2K, **no people**. It is passed to video as the location AND grade reference.
 
 ```
 Real photograph, a frame from a high-end <genre> feature film. <Room/place, time of day>. No people.

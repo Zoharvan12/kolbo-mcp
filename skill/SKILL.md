@@ -233,19 +233,18 @@ A URL from `generate_*`, `list_media`, `get_media`, or a prior `upload_media` is
 
 Pick the cheapest route that actually controls what the brief needs. Do not invent a pipeline.
 
-**1. Recurring identity (cast / product / location must match across shots)**
-Map → Visual DNA sheets → Confirm → `generate_elements` (or DNA-locked Multishot). Asset sheets earn their cost here.
+**1. Any scene with a character, location or product (the default for story, ad and product video)**
+Visual DNA for each (a character sheet = ONE preset image; a location = ONE empty interior/exterior image) → a written prompt per scene on `generate_elements` (Seedance 2.5, Wan 3.0, Kling). The DNAs and the prompt carry identity and staging; the model stages the scene.
 
-**2. Composition must be locked before motion** (deliberate framing, Pixar-like kids beats, specific staging, hero product plate, user-approved look)
-Generate the needed keyframe still(s) first, then animate with `generate_video_from_image` / first-last / Elements **using those images as real inputs**. Stills without attaching them to the video call are waste.
+**2. A still the user gave you or asked for**
+Animate it with `generate_video_from_image` / first-last. Never make keyframes, "opening stills" or scene stills yourself as a step toward video, and never animate a still you made unasked.
 
-**3. Pure text-to-video / Multishot Locked Intro — only when keyframes are 100% unnecessary**
-Use for generic b-roll, ambient motion, simple stock-like scenes, or any brief where the video model inventing composition is fine and stills would not improve control. If you are not sure keyframes add nothing, prefer route 2.
+**3. Pure text-to-video / Multishot Locked Intro**
+Only for generic b-roll, ambient motion or stock-like scenes with no recurring cast, never the user's own business or person.
 
 **Anti-patterns (HARD)**
-- Do not generate N stills and then run a Multishot T2V that never attaches them.
-- Do not default every "make a video" to keyframes (generic b-roll does not need them).
-- Do not default every narration-only brief to T2V when the user asked for tightly designed cute/controlled shots — those often need keyframes.
+- Do not generate scene stills or keyframes before video. Video = DNAs + prompt on Elements.
+- Do not generate stills and then run a Multishot T2V that never attaches them.
 
 Scene dialogue is **never** `generate_speech` or `generate_lipsync` on a Seedance shoot. Seedance 2 / 2.5 perform quoted lines written into the shot beat — English or Latin transliteration of Hebrew (`"shalom"`), never Hebrew script. For native Hebrew speech, prefer Gemini Omni Flash 1.1 or Gemini Omni 1. Full flow: `references/workflows/production-planning.md`.
 
@@ -446,15 +445,14 @@ For MiniMax H3 Max Recast, use its exact live catalog identifier: one 5–30 sec
 
 **Motion-control / animate-move models invert the inputs**: `reference_images[0]` = the CHARACTER IMAGE to animate, `source_video` = the driving/reference video whose motion is transferred. Omitting the character image returns a `MOTION_CONTROL_INPUTS` error. **Do NOT** decompose into frames. **Do NOT** re-fire if the first call returned URLs.
 
-## ⚠️ Character-Driven Video — Frames First, Then Animate (CRITICAL)
+## ⚠️ Character-Driven Video — DNAs + Prompts on Elements (CRITICAL)
 
-For any ad / story / scene-based video **created from scratch** featuring a Visual DNA character (NOT v2v edits):
+For any ad / story / scene-based video **created from scratch** featuring a Visual DNA character, location or product (NOT v2v edits):
 
-1. **Generate the shot frames first** via `generate_creative_director` with `scene_count` + `visual_dna_ids` (image mode). DNA is strongest in image gen; user can approve cheaply.
-2. **Confirm the frames** if >3 shots.
-3. **Animate each frame** with `generate_video_from_image`, fired in parallel.
+1. Attach the cast, location and product DNAs to `generate_elements` (Seedance 2.5, Wan 3.0, Kling).
+2. Write one prompt per scene: action, camera, dialogue. Fire independent scenes in parallel.
 
-Skip frames-first only when the user says "go straight to video", single-shot quick experiments, or the user supplies approved frames. Full rules: `references/models/creative-director.md`.
+Never generate shot frames or keyframes first and animate them (founder rule, 2026-11-08). Frames come into it only when the user supplies them or asks for images.
 
 ## ⚠️ Generated URLs in Chat (CRITICAL)
 
