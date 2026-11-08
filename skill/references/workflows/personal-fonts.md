@@ -24,7 +24,7 @@ Check the connected tool inventory first. Older MCP installations may not expose
 
 ## Generate
 
-Verify `supports_custom_fonts: true` in current `list_models` JSON for the actual image creation/editing model, even if the user named it. GPT Image 2 is initially supported, but do not hardcode the pipeline to that name. Missing capability means unsupported; never silently drop fonts or swap a named model.
+Verify `supports_custom_fonts: true` in current `list_models` JSON for the actual image creation/editing model, even if the user named it. GPT Image 2.6 (latest), 2.5 and 2 support it, but do not hardcode the pipeline to that name. Missing capability means unsupported; never silently drop fonts or swap a named model.
 
 Pass up to three ready family IDs as `font_ids` to `generate_image`, `generate_image_edit`, or image-mode `generate_creative_director`. Batch prompts share the selected families. Keep `visual_dna_ids`, exact DNA @names, and project/session bindings as normal.
 
@@ -42,7 +42,7 @@ it — nothing installs the font — so these are the levers that decide how clo
 
 - **Model choice is the biggest one.** GPT Image 2 reproduced the uploaded letterforms
   clearly better than GPT Image 2.5 Sunburst / Flare, which drift toward a default bold
-  Hebrew in that test. This is historical evidence, not a standing recommendation: choose from current catalog typography strengths and supported font inputs.
+  Hebrew in that test. GPT Image 2.6 was not in that test: start with 2.6 Sunburst and fall back to GPT Image 2 only if the letterforms drift. This is historical evidence, not a standing recommendation: choose from current catalog typography strengths and supported font inputs.
 - **Quality does not compensate.** 2K + `high` on GPT Image 2 beat both 2.5 rows at
   `max`. Do not sell a higher tier as a fix for typography.
 - **Weight words in the prompt beat the specimen.** "bold", "medium weight", "very large

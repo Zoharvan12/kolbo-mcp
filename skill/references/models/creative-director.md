@@ -85,7 +85,7 @@ A great batch isn't 8 random shots — it's a sequence with intent. Pick one str
 - Final scenes in ONE fenced code block in `Scene N:` format. **No model names, no resolutions, no aspect ratios inside scenes.**
 - When summarizing the call to the user, state separately:
   - **Mode:** Photo Auto Pilot / Video Auto Pilot / Cinema Manual — one-line why
-  - **Recommended model:** (Nano Banana 2 / Nano Banana Pro / GPT Image 2 for photo; Veo / Seedance 2 / Kling for video) — one-line why
+  - **Recommended model:** (Nano Banana 2.1 / Nano Banana Pro / GPT Image 2.6 for photo; Veo / Seedance 2 / Kling for video) — one-line why
   - **Aspect / Resolution preset:** what to pass — one-line why
   - **Visual DNA / Moodboard:** recommend if applicable, or "—" if not
   - **Why this arc works:** 1 line on the narrative choice

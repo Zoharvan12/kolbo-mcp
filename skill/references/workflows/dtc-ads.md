@@ -93,7 +93,7 @@ See `workflows/visual-dna.md` for the full tagging system.
 
 **Pick the right Kolbo MCP tool based on output count:**
 
-- **Single ad image** → `generate_image` with `model: "<from list_models>"`. Use Nano Banana 2 for character/lifestyle, GPT Image 2 for layouts with dense on-image text or infographics, Nano Banana Pro for hero/brand-final assets.
+- **Single ad image** → `generate_image` with `model: "<from list_models>"`. Use Nano Banana 2.1 for character/lifestyle, GPT Image 2.6 Sunburst for layouts with dense on-image text or infographics, Nano Banana Pro for hero/brand-final assets. A cutout, sticker or animated asset: GPT Image 2.6 with `background: "transparent"` or `output_format: "gif"`.
 - **Multi-variant set** (3–8 variants of the same ad concept with different palettes / angles / hooks) → `generate_creative_director` with `scene_count`. The director plans each variant's prompt internally.
 - **Identical prompt, just different seeds** (rare for ads — usually you want varied direction) → `generate_image` with `num_images: 1–4`.
 

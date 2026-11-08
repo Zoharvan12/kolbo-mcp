@@ -4,9 +4,9 @@
 
 # Nano Banana — Prompt Rules
 
-Load this file when the user wants a **Nano Banana 2 (Gemini 3.1 Flash Image)** or **Nano Banana Pro (Gemini 3 Pro Image)** image. For other image models see `models/gpt-image.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
+Load this file when the user wants a **Nano Banana** image: **Nano Banana 2.1** (latest Flash, `nano-banana-2.1`, edits `nano-banana-2.1/edit`), Nano Banana Pro (Gemini 3 Pro Image), or the older Nano Banana 2 (Gemini 3.1 Flash Image). For other image models see `models/gpt-image.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
 
-**Kolbo MCP routing:** call `generate_image` or `generate_image_edit`. Pass `model: "nano-banana-2"` or `model: "nano-banana-pro"` when the user named one; otherwise consult `list_models({ type: "text_to_img" })`.
+**Kolbo MCP routing:** call `generate_image` or `generate_image_edit`. Pass the exact identifier the user named. Otherwise use the latest Flash row, `nano-banana-2.1` (sharper images, stronger text and reference consistency, up to 14 references), after confirming it in `list_models({ type: "text_to_img" })`. Use `nano-banana-2` only when the user names it. Nano Banana has no transparent output: for no background use GPT Image 2.6 (`models/gpt-image.md`).
 
 ## CRITICAL Kolbo Platform Rules
 
@@ -44,7 +44,7 @@ Two modes:
 - **Conversational / inpaint (no new references)**: call `generate_image_edit` with a single `source_image`. Surgical edit, explicit preserve list. Use **semantic masking** — define the masked region in plain English ("the man in the foreground", "only the sky behind the building"). Always say what to keep exactly the same. Example: `Remove the man from @image1. Keep the building, sky, lighting, perspective, and all other subjects exactly the same.`
 - **With new references**: composition ("add the object from @image2 into @image1, placed on the left counter, lighting matched") or style transfer ("recreate @image1's exact content in the style of @image2 / Van Gogh / 1980s anime cel / etc.").
 
-### 4. Real-time web-search grounding (Nano Banana 2 strength)
+### 4. Real-time web-search grounding (Nano Banana Flash strength)
 Instead of describing a fictional scene, instruct the model to retrieve real-world data and then visualize it.
 **Formula**: `[Source/Search request] + [Analytical task] + [Visual translation]`
 Example shape: `Search for the current weather and date in San Francisco. Analytically, use this data to modify the scene (e.g., if raining, make it look grey and rainy). Visualize this in a miniature city-in-a-cup concept embedded within a realistic, modern smartphone UI.`
@@ -90,7 +90,7 @@ Layer these onto any framework to lift good → breathtaking.
 - Pass the prompt as the `prompt` field on `generate_image` / `generate_image_edit`.
 - **NEVER** include resolution / size / aspect / "9:16" / "2K" inside the prompt body.
 - When summarizing the call to the user, state separately:
-  - **Model:** Nano Banana 2 (Flash) or Nano Banana Pro — with a one-line why
+  - **Model:** Nano Banana 2.1 (Flash) or Nano Banana Pro — with a one-line why
   - **Aspect / Resolution preset:** `<1:1 | 3:2 | 2:3 | 4:3 | 3:4 | 4:5 | 5:4 | 9:16 | 16:9 | 21:9 | 1:4 | 4:1 | 1:8 | 8:1>` + `<1K | 2K | 4K | 512px>` — one-line why
   - **Why this works:** 1 line on the key creative-director choice (lens / lighting / material / framework)
 - For follow-up tweaks, write a short conversational edit prompt rather than re-doing the whole thing.

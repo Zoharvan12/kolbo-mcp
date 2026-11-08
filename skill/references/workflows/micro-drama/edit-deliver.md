@@ -87,7 +87,7 @@ Re-transcribe the tight cut (and each short) before burning; word timings change
 | Title | ~2.25 s | the series title card on the score's big hit |
 | End card | ~3 s | the creator's / brand's sign-off on the stinger |
 
-- **Title and card lettering:** `nano-banana-pro` (or `gpt-image-2.5-*` with `font_ids` for a brand font), 16:9, "title lettering only, on pure flat black, exactly N centered lines: <text>, <lettering and material from the world>, each word exactly once, nothing else". Check spelling and stray punctuation, then key out the black.
+- **Title and card lettering:** `nano-banana-pro` (or `gpt-image-2.6-*` with `font_ids` for a brand font; with `background: "transparent"` there is no black to key out), 16:9, "title lettering only, on pure flat black, exactly N centered lines: <text>, <lettering and material from the world>, each word exactly once, nothing else". Check spelling and stray punctuation, then key out the black.
 - **Card background:** a short moving motif from the world, no people, no text (a Veo or Seedance clip, sound off).
 - **Score:** `generate_music` with a structured plan: restrained intro under dialogue → build → one big hit on the first beat (title) → hush (button) → final stinger. Measure where the hit and the stinger really land before cutting; generated scores rarely follow plan timings.
 - **SFX:** one world-native object sound plus one tension sound under the button (`generate_sound`).
@@ -96,7 +96,7 @@ Re-transcribe the tight cut (and each short) before burning; word timings change
 
 ## Key art
 
-- **Poster (3:4) and covers:** `gpt-image-2.5-sunburst` with every character's Visual DNA tagged in the prompt and all typography in the same generation (series title in its lettering, tagline). Name the title exactly or the model swaps it. Leads face the camera, figure in frame, eyes open.
+- **Poster (3:4) and covers:** `gpt-image-2.6-sunburst` with every character's Visual DNA tagged in the prompt and all typography in the same generation (series title in its lettering, tagline). Name the title exactly or the model swaps it. Leads face the camera, figure in frame, eyes open.
 - **Banners / headers:** generate at the model's widest ratio with the poster as a source image, then fit the platform size with `edit_image` reframe / zoom-out. Never assemble key art in code; code may only crop or resize a finished image.
 - QA: faces match the sheets, every word spelled right, characters clearly adult, no real-person likeness.
 

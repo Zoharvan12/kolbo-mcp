@@ -79,11 +79,13 @@ Generate the reference imagery, then register it as a Visual DNA.
 | Asset | Model | Why |
 |---|---|---|
 | Cinematic environments; invented / original characters | **`mirage-film-2`** (MIRAGE FILM 2, 3cr) | cinematic look at a third the cost — the default for anything being invented from scratch |
-| Assets needing reference fidelity, legible text, or editing | **`nano-banana-2`** (10cr) or **`gpt-image-2`** (12cr) | stronger reference adherence and text; GPT Image 2 when the asset carries readable words |
+| Assets needing reference fidelity, legible text, or editing | **`nano-banana-2.1`** (15cr) or **`gpt-image-2.6-flare`** / **`-sunburst`** (7cr at 1K medium) | stronger reference adherence and text; GPT Image 2.6 when the asset carries readable words or needs no background |
+
+`generate_character_sheet` still runs only GPT Image 2.5 / 2 and Nano Banana 2 (it maps newer ids to those). For a sheet on GPT Image 2.6 or Nano Banana 2.1, call `generate_image` / `generate_image_edit` with the sheet preset (`list_presets({ type: "image", search: "character sheet" })`).
 
 Read the matching prompt reference before writing an asset prompt:
 `references/models/nano-banana.md` for Nano Banana, `references/models/gpt-image.md`
-for GPT Image 2. There is no Mirage reference file — prompt it as a plain cinematic
+for GPT Image. There is no Mirage reference file — prompt it as a plain cinematic
 still.
 
 Resolve the sheet **preset** (custom instructions live there):
