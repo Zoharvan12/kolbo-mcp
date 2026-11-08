@@ -274,7 +274,7 @@ Mode wins over model family. **Frames** (`generate_video_from_image`) and **Firs
 
 `N connected cinematic shots, Xs total, AR, Multishot ON` → `Total: Xs / N shots / AR` → `[GLOBAL LOOK – LOCKED, APPLIES TO EVERY SHOT]` → `[CAST – IDENTICAL IN EVERY SHOT]` (each person is `@DNAName`) → `[LOCATION]` → LOCATION MAP / CONTINUITY / PHYSICS → `SHOT N — 0:00–0:02 — …` (ranges sum to Xs) → closing `Total: Xs / N shots / AR`. Pass MCP `duration: X` matching that Total. Omitting Total / Multishot is a failed compile — same contract as the Kolbo help widget.
 
-Write the beats at FULL DEPTH. The cap is 30,000 characters on Seedance 2.5 (10,000 on 2.0) — a 30s / 8+ shot compile should land around 4k–9k, and every beat carries its own camera move, a performance task for the speaker AND the listeners, prop/hand state, and the sound in that beat. A one-line shot beat is under-written; the structure alone is not the craft. Read `references/models/seedance25.md` before compiling.
+Write the beats at FULL DEPTH. The cap is 30,000 characters on Seedance 2.5 (10,000 on 2.0) — use as much of it as the shots need (founder: no reason to be lazy; under ~6k for a 30s / 8+ shot compile is too thin), and every beat carries its own camera move, a performance task for the speaker AND the listeners, prop/hand state, and the sound in that beat. A one-line shot beat is under-written; the structure alone is not the craft. Read `references/models/seedance25.md` before compiling.
 
 Do **not** default Elements to `SCENE CONTEXT` / `OPTICS` / `ACTION` / `ACTIVE REFERENCES` department packs (those live in filmmaking audit/contracts for other models). `elements-prompting` is the craft skill (formerly `seedance-2-prompting`); Locked Intro is the compile shape.
 
