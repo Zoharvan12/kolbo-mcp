@@ -94,6 +94,8 @@ A one-line shot beat is UNDER-WRITTEN. If a 30s / 8+ shot compile lands under ~6
 - Object actions in one medium shot, correct for the camera side: from outside, an inward door is pushed.
 - References must agree with each other and with the prompt. A location image holds no story props. Items that differ (three bowl sizes) need one reference that shows them together. Never "matching" and "different sizes" in one line.
 - The header's N equals the number of SHOT lines. Count them.
+- Every `@Name` used in a SHOT line is declared in CAST / LOCATION / PRODUCTS. An undeclared location tag gives the model no image to bind.
+- Fewer, fuller shots beat many 1-2 s fragments: about 3-9 cuts in 25-30 s, each shot long enough to act in. A "long hold" needs at least 3 s.
 
 ## Feature-Block (optional, UNDER the Locked Intro)
 
