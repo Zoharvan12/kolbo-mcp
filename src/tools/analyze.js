@@ -30,7 +30,9 @@ function registerAnalyzeTools(server, client) {
         ...(prompt ? { prompt } : {}),
         ...(quality ? { quality } : {}),
         ...(project_id ? { project_id } : {}),
-      });
+        // The server holds this request for the whole analysis (up to 10 min, sdkLongRunning).
+        // The 120 s default cut a 2.5 min analysis off after the server had charged for it.
+      }, { timeoutMs: 10 * 60 * 1000 });
       return {
         content: [{
           type: 'text',
