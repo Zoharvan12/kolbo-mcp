@@ -4,10 +4,12 @@
  * new OPTIONAL args only. Full rules: ../index.js top-of-file and CLAUDE.md. */
 
 const { z } = require('zod');
+const fs = require('fs');
 const FormData = require('form-data');
 const { resolveToBuffer, DEFAULT_MAX_FILE_MB, compactList } = require('./_shared');
 const { ownedUrl } = require('./owned-url');
 const { UI, uiResult, listResult } = require('../apps');
+const { LARGE_PURPOSES, startLargeUpload, uploadLargeFromPath, registerLargeUploadTools } = require('./large-upload');
 
 // Server pagination bounds the page. Never slice it again: both text readers
 // and the widget advance by the server's page size and would skip hidden rows.
@@ -30,6 +32,9 @@ async function mintUploadTicket(client) {
 // and a batch uploader that only learns that from the 41st POST has already
 // stalled halfway through. kolbo-api sends the real numbers in `rate_limit`;
 // this fallback covers an older deployment that predates that field.
+// Above this a local file goes through the large (multipart, 5 GB) path.
+const MAX_DIRECT_BYTES = 500 * 1024 * 1024;
+
 const DEFAULT_UPLOAD_RATE = { max_uploads: 40, per_seconds: 60 };
 
 function uploadTicketPayload(ticket) {
@@ -64,6 +69,7 @@ function uploadTicketPayload(ticket) {
 }
 
 function registerMediaTools(server, client, options = {}) {
+  registerLargeUploadTools(server, client);
 
   server.tool('download_media_from_url',
     'Download a public YouTube, Instagram, TikTok, Facebook, X or other supported media page through Kolbo servers. Use this for social page URLs; upload_media is for existing files or direct file URLs. Returns an asynchronous download job, NOT a finished file. Call get_download_status with job_id until terminal; do not use get_generation_status or resubmit while pending. Completed video output is one MP4 with its expected audio, audio output is MP3, maximum 500 MB. Returns a cloud URL, not a local filesystem path. Private/login-restricted or unavailable media may fail.',
@@ -155,11 +161,27 @@ function registerMediaTools(server, client, options = {}) {
   );
 
   // ─── create_upload_ticket ──────────────────────────────────
+  // Optional large-file args (filename + size_bytes + purpose) switch it to the
+  // presigned multipart path: up to 5 GB, straight to storage, resumable.
+  const largeArgs = {
+    purpose: z.enum(LARGE_PURPOSES).optional().describe('LARGE FILES (over 500 MB, up to 5 GB, e.g. a 4K video): what the file is for. social-publish = publish-only (temp: never in the media library, deleted 7 days after the post; pass the upload_id to publish_social_post). review / shorts-source / transcription / video-tool = persistent media library item counted in the user\'s storage. Setting it (with filename + size_bytes) returns presigned part URLs instead of a ticket.'),
+    retention: z.enum(['temp', 'persistent']).optional().describe('Optional check on purpose: temp alone means social-publish; persistent needs a purpose.'),
+    filename: z.string().max(255).optional().describe('Large upload: original filename with extension.'),
+    size_bytes: z.number().int().positive().optional().describe('Large upload: exact file size in bytes.'),
+    review_asset_id: z.string().optional().describe('purpose review: add the file as a new version of this review asset.'),
+    review_asset_name: z.string().max(500).optional().describe('purpose review: create a new review asset with this name (needs project_id).'),
+    project_id: z.string().optional().describe('purpose review (new asset): the project it lives in.'),
+    review_collection_id: z.string().optional().describe('purpose review: folder for the new asset.'),
+    note: z.string().max(1000).optional().describe('purpose review: version note.'),
+  };
   server.tool(
     'create_upload_ticket',
-    'Get a short-lived ticket for uploading LOCAL files straight into the user\'s Kolbo media library, with NO upload card and no user interaction. ' + ticketRouting + ' Why it exists: when the server cannot read the caller\'s disk, the only other ways in are making the user click an upload card (`media_upload_widget`) or inlining the file as base64 via `upload_media` — base64 is slow and burns context in proportion to file size, so do not use it for anything but a tiny file. Returns `upload_url` + `token`; POST each file as multipart field `file` with header `Authorization: Bearer <token>` and read the CDN URL from `media.url` in the response. One POST per file; the ticket is reusable until it expires. The endpoint is RATE LIMITED (the exact cap and window come back in the ticket\'s `rate_limit` field — currently 40 uploads/minute): pace a batch bigger than that rather than firing every file at once, and on HTTP 429 honour the `Retry-After` header / `retry_after_seconds` body field instead of guessing a backoff. Then pass those URLs to any generation tool (transcribe_audio, generate_image_edit, generate_video_from_image, generate_lipsync, visual DNA, …).',
-    {},
-    async () => {
+    'Get a short-lived ticket for uploading LOCAL files straight into the user\'s Kolbo media library, with NO upload card and no user interaction. ' + ticketRouting + ' Why it exists: when the server cannot read the caller\'s disk, the only other ways in are making the user click an upload card (`media_upload_widget`) or inlining the file as base64 via `upload_media` — base64 is slow and burns context in proportion to file size, so do not use it for anything but a tiny file. Returns `upload_url` + `token`; POST each file as multipart field `file` with header `Authorization: Bearer <token>` and read the CDN URL from `media.url` in the response. One POST per file; the ticket is reusable until it expires. The endpoint is RATE LIMITED (the exact cap and window come back in the ticket\'s `rate_limit` field — currently 40 uploads/minute): pace a batch bigger than that rather than firing every file at once, and on HTTP 429 honour the `Retry-After` header / `retry_after_seconds` body field instead of guessing a backoff. Then pass those URLs to any generation tool (transcribe_audio, generate_image_edit, generate_video_from_image, generate_lipsync, visual DNA, …). FILES OVER 500 MB (up to 5 GB, e.g. a 4K YouTube video): pass purpose + filename + size_bytes instead; you get presigned part URLs to PUT the file to directly, then call finish_large_upload.',
+    largeArgs,
+    async (args = {}) => {
+      if (args.purpose || args.retention || args.size_bytes) {
+        return { content: [{ type: 'text', text: JSON.stringify(await startLargeUpload(client, args), null, 2) }] };
+      }
       const ticket = await mintUploadTicket(client);
       return {
         content: [{
@@ -182,10 +204,26 @@ function registerMediaTools(server, client, options = {}) {
       source_base64: z.string().optional().describe('Raw file content as base64 (no data: prefix) — fallback for hosts with no filesystem or public URL (e.g. small images on claude.ai when the upload widget is unavailable). Requires `filename`. Keep under ~10MB; for larger files use media_upload_widget.'),
       filename: z.string().optional().describe('Original filename WITH extension (e.g. photo.png) — required with source_base64; the extension determines the media type.'),
       description: z.string().optional().describe('Optional description / caption for the uploaded media'),
-      project_id: z.string().optional().describe('Project ObjectId to file the upload into. Call `list_projects` to resolve a name → id. When the user is working in a named project, pass it here too — omitting it files the upload outside that project.')
+      project_id: z.string().optional().describe('Project ObjectId to file the upload into. Call `list_projects` to resolve a name → id. When the user is working in a named project, pass it here too — omitting it files the upload outside that project.'),
+      purpose: largeArgs.purpose,
+      retention: largeArgs.retention,
+      review_asset_id: largeArgs.review_asset_id,
+      review_asset_name: largeArgs.review_asset_name,
     },
-    async ({ source, source_base64, filename, description, project_id }) => {
+    async ({ source, source_base64, filename, description, project_id, purpose, retention, review_asset_id, review_asset_name }) => {
       if (!source && !source_base64) throw new Error('Provide source (URL or absolute local path) OR source_base64 (+ filename)');
+
+      // A local file over the direct cap, or any upload with a large-upload purpose, goes
+      // straight to storage in parts (up to 5 GB). Only a local install can read the path.
+      const local = !options.remote && source && !/^https?:\/\//i.test(source) && fs.existsSync(source);
+      if (local && (purpose || retention || fs.statSync(source).size > MAX_DIRECT_BYTES)) {
+        const out = await uploadLargeFromPath(client, source, {
+          purpose: purpose || (retention ? undefined : 'video-tool'), retention, filename,
+          review_asset_id, review_asset_name, project_id,
+        });
+        const hint = out.retention === 'temp' ? { hint: 'Pass upload_id in media_ids of publish_social_post. Not in the media library; deleted 7 days after the post.' } : {};
+        return { content: [{ type: 'text', text: JSON.stringify({ ...out, ...hint }, null, 2) }] };
+      }
 
       if (source && ownedUrl(source)) {
         return {

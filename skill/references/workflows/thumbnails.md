@@ -121,17 +121,17 @@ primary US YouTube device in Feb 2025. **Export at 4K; design for 168px.** **[A]
 
 ## Model choice
 
-Text fidelity is the constraint. `gpt-image-2` is the strongest for type — use
-**quality: medium** (its sweet spot) or high, and it handles **Hebrew** notably better
-than the alternatives. `nano-banana-2` is strong on cinematic people but weak on text.
+Text fidelity is the constraint. Use the latest rows: GPT Image 2.6 (`gpt-image-2.6-sunburst`)
+is the strongest for type — **quality: medium** or high — and GPT Image handles **Hebrew** notably better
+than the alternatives. Nano Banana 2.1 (`nano-banana-2.1`) is strong on cinematic people; older Nano Banana was weak on long text.
 For a text-free plate, either is fine and the cheaper one wins.
 
-**Field result (Aug 2026, head-to-head, same prompt/refs/1K):** `nano-banana-2` beat
+**Field result (Aug 2026, older rows `nano-banana-2` vs `gpt-image-2`, same prompt/refs/1K; rerun the comparison with 2.1 vs 2.6):** `nano-banana-2` beat
 `gpt-image-2` on BOTH photorealism (looked like a real studio photo, not a render) and
 reference-mark fidelity — and rendered a short Hebrew headline + Latin badge cleanly.
 The "weak on text" caveat applies to long/dense copy, not a 3-word headline. When a
 thumbnail is a photographic person + short text + referenced logos, run both models
-once and pick — do not assume gpt-image-2 wins by default.
+once and pick — do not assume GPT Image wins by default.
 
 Lock the host with a **character Visual DNA** (`workflows/visual-dna.md`) so every
 thumbnail in a series is the same person — and check you are using the DNA of the person
@@ -170,7 +170,7 @@ it per-prompt.
 | A second aspect ratio (e.g. 9:16 Shorts after a 16:9 main) | **Generate it natively at that aspect ratio**, do not crop/recompose the other one in HTML. Reuse the same brief, DNA, and reference logo files; write a fresh detailed prompt sized for the new canvas |
 
 **Default workflow, one shot:** `generate_image` (or `_edit`) at **`quality: high`**,
-native target resolution (1024-class for GPT Image 2), passing every real logo file the
+native target resolution (1024-class for GPT Image), passing every real logo file the
 comp needs as `reference_images` plus the matching `@Name`/`#Name` tags in the prompt
 text, and the correct Visual DNA id. Ask for **3 concept variations in the same call
 batch** per the ladder below rather than iterating one image through many small manual
@@ -184,7 +184,7 @@ by the centre-square-crop test below. State this explicitly in the prompt ("gene
 margin on both sides, nothing touches the left/right edge") rather than fixing it after
 generation.
 
-**Multi-element layout recipe that shipped (Aug 2026, nano-banana-2):** when a comp
+**Multi-element layout recipe that shipped (Aug 2026, made on nano-banana-2; applies to 2.1):** when a comp
 carries 4+ graphic elements (headline, badge, app tile, still cards, brand chip), three
 prompt clauses turned a cluttered mess into an approved final:
 - **Glassmorphism containers** — put every element in its own "frosted translucent

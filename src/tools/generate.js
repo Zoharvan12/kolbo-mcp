@@ -177,6 +177,8 @@ function preferOwned(urls) {
 }
 
 const isUrlSource = (source) => typeof source === 'string' && /^https?:\/\//i.test(source);
+// Browser-loadable refs for the card; a local path is dropped, not rendered dead.
+const httpUrls = (v) => [].concat(v || []).filter(isUrlSource);
 
 // Which multipart kind a LOCAL file should upload as. mediaKind answers for the
 // card; the upload routes only know these three, and the kind decides the
@@ -315,7 +317,7 @@ function registerGenerateTools(server, client, options = {}) {
       prompt: z.string().optional().describe('Text description of the image to generate. Required unless `prompts` is provided.'),
       prompts: promptsField('images'),
       font_ids: z.array(z.string().regex(/^[a-f0-9]{24}$/i)).max(3).optional().describe('Ready family IDs from My Fonts (list_fonts/upload_font). Requires supports_custom_fonts=true. State exact text/language/weight in prompt; server prepares private references. Applies to every prompt in a batch.'),
-      model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults: "nano-banana-2" (versatile, text rendering, multilingual) or "gpt-image-2" (photoreal, infographics). Call list_models type="text_to_img" to see all options and pick per the user\'s intent.'),
+      model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Strong current defaults are the LATEST rows: "gpt-image-2.6-flare" (fast everyday) or "gpt-image-2.6-sunburst" (precise detail, dense text, infographics), and "nano-banana-2.1" (versatile, multilingual, up to 14 references). Older gpt-image-2 / gpt-image-2.5-* / nano-banana-2 only when the user names them. For no background, an animated GIF or an SVG, use GPT Image 2.6 with background="transparent" / output_format="gif" / output_format="svg" — never fake them with prompt words. Call list_models type="text_to_img" to see all options and pick per the user\'s intent.'),
       aspect_ratio: z.string().optional().describe(aspectRatioDescribe('1:1')),
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt for better results. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       num_images: z.number().optional().describe('Number of images to generate in one call. Default: 1. Models with a fixed `images_per_request` in list_models IGNORE this: Midjourney ALWAYS returns 4 images per prompt (one call = 4 variations, billed as one request). So for "4 options" send ONE Midjourney prompt, never 4 calls or 4 entries in `prompts`; 2 prompts = 8 images.'),
@@ -326,7 +328,10 @@ function registerGenerateTools(server, client, options = {}) {
       resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolution_multipliers on the same model to predict credit cost. Omit to use the model default.'),
       quality: z.string().optional().describe('Quality tier for models that support it (e.g. "low", "medium", "high", "xhigh", "max", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
       background: z.enum(['auto', 'opaque', 'transparent']).optional().describe('Output background. Before passing "transparent", call list_models for the chosen image model and require supports_transparent_background=true. Use PNG or WebP (PNG is selected by default when omitted). Kolbo forwards the setting and appends the exact phrase "no background" once to the effective prompt; prompt wording alone is not sufficient.'),
-      output_format: z.enum(['png', 'jpeg', 'webp']).optional().describe('Output file format on supported OpenAI image models. Default: png.'),
+      output_format: z.enum(['png', 'jpeg', 'webp', 'gif', 'svg']).optional().describe('Output file format on supported OpenAI image models. Default: png. "gif" (animated, prompt or edit) and "svg" (vector, text-to-image only, one image, always billed and rendered at 1K, quality low/medium/high) exist only on GPT Image 2.6: check list_models -> supported_output_formats. A GIF is one grid of frames, so `resolution` is the size of the WHOLE sheet and each frame is smaller (2K with 9 frames = 512px frames).'),
+      complexity: z.enum(['low', 'medium', 'high']).optional().describe('GPT Image 2.6 only (list_models -> supports_complexity): how much the model plans the composition before drawing. Default high. "low" roughly halves latency and suits simple prompts and focused edits; "high" helps dense text and complex layouts. Same price at every level; separate from `quality`.'),
+      frame_count: z.number().int().optional().describe('GIF only (output_format="gif"): number of frames, 9 or 16 (list_models -> supported_gif_frame_counts). Default 9.'),
+      frame_duration_ms: z.number().int().min(20).max(2000).optional().describe('GIF only: milliseconds per frame (rounded to 10). Default 200.'),
       output_compression: z.number().int().min(0).max(100).optional().describe('JPEG/WebP output compression quality (0-100); not applicable to PNG.'),
       moderation: z.enum(['auto', 'low']).optional().describe('Moderation setting on supported OpenAI image models. Default: auto.'),
       mask_image_url: z.string().url().optional().describe('Optional public PNG mask URL for supported OpenAI edits with source/reference images. Transparent regions indicate areas to edit.'),
@@ -336,13 +341,13 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
+    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'text_to_img'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'text_to_img');
       const shared = await rehostLocalPaths(client, {
         model, aspect_ratio, enhance_prompt, font_ids,
-        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id
+        reference_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, preset_id, cinematic, skip_color_palette, project_id, session_id
       }, { allowLocalFiles: !options.remote });
       reference_images = [...(shared.reference_images || []), shared.mask_image_url].filter(Boolean);
 
@@ -401,12 +406,12 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_image_edit ──────────────────────────────────
   server.tool(
     'generate_image_edit',
-    'THE tool for ANY prompt-driven / content edit of an existing image — changing the scene ("make it night", "change the sky to sunset"), adding/removing/replacing objects, restyling, recoloring, compositing, or any "edit this image to…" request. This is the image-editing equivalent of generate_image and runs on strong dedicated editing models (nano-banana-2, gpt-image-2). Provide the source image URL(s) in `source_images` and the instruction in `prompt`. Supports Visual DNA profiles, moodboards, and Kolbo image-editing presets. PRESET CONTRACT: if the user requests a preset, call list_presets type="image_edit" and pass its exact id as `preset_id`; never silently omit it. Do NOT use `edit_image` for these — that tool is only for mechanical enhancements (upscale/reframe/remove-background/skin). For a brand-new image from scratch, use generate_image. Returns the edited image URL(s) when complete.',
+    'THE tool for ANY prompt-driven / content edit of an existing image — changing the scene ("make it night", "change the sky to sunset"), adding/removing/replacing objects, restyling, recoloring, compositing, or any "edit this image to…" request. This is the image-editing equivalent of generate_image and runs on strong dedicated editing models (latest: gpt-image-2.6-flare / gpt-image-2.6-sunburst, nano-banana-2.1). Provide the source image URL(s) in `source_images` and the instruction in `prompt`. Supports Visual DNA profiles, moodboards, and Kolbo image-editing presets. PRESET CONTRACT: if the user requests a preset, call list_presets type="image_edit" and pass its exact id as `preset_id`; never silently omit it. Do NOT use `edit_image` for these — that tool is only for mechanical enhancements (upscale/reframe/remove-background/skin). For a brand-new image from scratch, use generate_image. Returns the edited image URL(s) when complete.',
     {
       prompt: z.string().optional().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset"). Required unless `prompts` is provided.'),
       prompts: promptsField('edits of the SAME source images'),
       font_ids: z.array(z.string().regex(/^[a-f0-9]{24}$/i)).max(3).optional().describe('Ready My Fonts family IDs. Requires supports_custom_fonts=true. Describe requested typography changes; unrelated text is preserved. Applies to every batch edit.'),
-      model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Many text-to-image ids double as editors: the server auto-routes a base id to its editing variant when source_images is present (e.g. "gpt-image-2" → gpt-image-2/edit, "nano-banana-2" → nano-banana-2-image-editing) — passing the bare id is fine, no need to hunt for the "/edit" suffix yourself. BUT this only works for models that actually have a registered edit variant. For prompt-driven photoreal photo edits (object removal, keep-this-person/remove-the-rest, crowd cleanup, inpainting) the ONLY auto-pick defaults are "nano-banana-2" or "gpt-image-2" (use GPT Image 2 when the image needs readable text). Do NOT auto-pick Flux 2 / flux-2/edit / Flux Klein — those are generate-from-scratch / style models; use them only if the user names Flux. If unsure, confirm the model appears in `list_models type="image_editing"` and choose by the strengths summary — Flux edit variants are named-only.'),
+      model: z.string().optional().describe('Model identifier — REQUIRED in practice: pick a specific model, do NOT omit (omitting = Smart Select auto-pick, which we avoid). Many text-to-image ids double as editors: the server auto-routes a base id to its editing variant when source_images is present (e.g. "gpt-image-2.6-sunburst" → gpt-image-2.6-sunburst/edit, "nano-banana-2.1" → nano-banana-2.1/edit) — passing the bare id is fine, no need to hunt for the "/edit" suffix yourself. BUT this only works for models that actually have a registered edit variant. For prompt-driven photoreal photo edits (object removal, keep-this-person/remove-the-rest, crowd cleanup, inpainting) the ONLY auto-pick defaults are the latest GPT Image ("gpt-image-2.6-flare" / "gpt-image-2.6-sunburst"; Sunburst when the image needs readable text or must not drift) or "nano-banana-2.1". For mask-based inpainting (mask_image_url) pick a row whose list_models type includes inpaint (today gpt-image-2.5-*/edit, gpt-image-2/edit, nano-banana-2-image-editing). Do NOT auto-pick Flux 2 / flux-2/edit / Flux Klein — those are generate-from-scratch / style models; use them only if the user names Flux. If unsure, confirm the model appears in `list_models type="image_editing"` and choose by the strengths summary — Flux edit variants are named-only.'),
       source_images: z.array(z.string()).describe('PIXEL-ACCURATE compositing. Array of source images (URLs or absolute local paths) whose pixel content is composited into the output. **Cap: pass at most `max_reference_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.** Three modes the model auto-detects from input shape: (1) Single image → edit/transform that image. (2) Multiple images, one base + others → composite the others into the base. (3) Multiple images with no clear base → generate a new scene that pixel-accurately embeds the supplied images at positions described in the prompt. Mode 3 is the canonical pattern for thumbnails / branded compositions where exact-pixel logo + face fidelity matter. Refer to source images in the prompt by ordinal position ("FIRST source image", "SECOND source image") or use @image1/@image2 tags. Add "composite AS-IS, do not redraw or restyle" to lock pixels.'),
       reference_images: z.array(z.string()).optional().describe('STYLE/COMPOSITION inspiration, alongside `source_images` on the same call — does NOT embed reference pixels. Use when the edit should follow a look sampled from other images ("re-light this shot like these references"). The pixels that must survive the edit go in `source_images`; these only steer the look. **Cap: `source_images` + `reference_images` together must not exceed `max_reference_images` from list_models for the chosen model.**'),
       aspect_ratio: z.string().optional().describe(aspectRatioDescribe('1:1')),
@@ -418,23 +423,27 @@ function registerGenerateTools(server, client, options = {}) {
       resolution: z.string().optional().describe('Image resolution tier: "1K" / "2K" / "3K" / "4K". Model-dependent — call list_models and read supported_resolutions. Default: "1K" for most edit models.'),
       quality: z.string().optional().describe('Quality tier for edit models that support it (e.g. "low", "medium", "high", "xhigh", "max", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
       background: z.enum(['auto', 'opaque', 'transparent']).optional().describe('Output background. Before passing "transparent", call list_models for the chosen image-edit model and require supports_transparent_background=true. Use PNG or WebP (PNG is selected by default when omitted). Kolbo forwards the setting and appends the exact phrase "no background" once to the effective prompt; prompt wording alone is not sufficient.'),
-      output_format: z.enum(['png', 'jpeg', 'webp']).optional().describe('Output file format on supported OpenAI image models. Default: png.'),
+      output_format: z.enum(['png', 'jpeg', 'webp', 'gif', 'svg']).optional().describe('Output file format on supported OpenAI image models. Default: png. "gif" (animated, prompt or edit) and "svg" (vector, text-to-image only, one image, always billed and rendered at 1K, quality low/medium/high) exist only on GPT Image 2.6: check list_models -> supported_output_formats. A GIF is one grid of frames, so `resolution` is the size of the WHOLE sheet and each frame is smaller (2K with 9 frames = 512px frames).'),
+      complexity: z.enum(['low', 'medium', 'high']).optional().describe('GPT Image 2.6 only (list_models -> supports_complexity): how much the model plans the composition before drawing. Default high. "low" roughly halves latency and suits simple prompts and focused edits; "high" helps dense text and complex layouts. Same price at every level; separate from `quality`.'),
+      frame_count: z.number().int().optional().describe('GIF only (output_format="gif"): number of frames, 9 or 16 (list_models -> supported_gif_frame_counts). Default 9.'),
+      frame_duration_ms: z.number().int().min(20).max(2000).optional().describe('GIF only: milliseconds per frame (rounded to 10). Default 200.'),
       output_compression: z.number().int().min(0).max(100).optional().describe('JPEG/WebP output compression quality (0-100); not applicable to PNG.'),
       moderation: z.enum(['auto', 'low']).optional().describe('Moderation setting on supported OpenAI image models. Default: auto.'),
       mask_image_url: z.string().url().optional().describe('Optional public PNG mask URL for supported OpenAI edits with source/reference images. Transparent regions indicate areas to edit.'),
+      markup_image_url: z.string().optional().describe('GPT Image 2.6 edit models only (list_models -> supports_markup_edit): URL or absolute local path of a TRANSPARENT PNG containing only the annotations (circles, arrows, notes) that guide the edit of the FIRST source image. It must have exactly the first source image\'s pixel dimensions, must not contain the photo itself, and cannot be combined with mask_image_url. Describe in `prompt` what each mark means. The mark is not drawn into the result.'),
       preset_id: z.string().optional().describe('Exact preset ID from list_presets type="image_edit" to apply an image-editing preset. If the user requests a preset, resolve and pass it; do not silently omit it.'),
       cinematic: CINEMATIC_SCHEMA,
       skip_color_palette: z.boolean().optional().describe('Opt this single call OUT of the account\'s active Color DNA palette (see list_color_palettes / activate_color_palette). By default, if the user has an active palette it strict-grades every generation automatically — pass true only when the user explicitly wants this one edit ungraded.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, source_images, reference_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
+    async ({ prompt, prompts, model, source_images, reference_images, aspect_ratio, enhance_prompt = false, num_images, visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, markup_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'image_editing'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'image_editing');
       const shared = await rehostLocalPaths(client, {
         model, source_images, reference_images, aspect_ratio, enhance_prompt, font_ids,
-        visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id
+        visual_dna_ids, moodboard_id, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, markup_image_url, preset_id, cinematic, skip_color_palette, project_id, session_id
       }, { allowLocalFiles: !options.remote });
       source_images = shared.source_images;
       reference_images = [...(shared.reference_images || []), shared.mask_image_url].filter(Boolean);
@@ -898,9 +907,11 @@ function registerGenerateTools(server, client, options = {}) {
         project_id, session_id
       });
 
+      const musicRefs = { reference_images: httpUrls(reference_images), reference_videos: httpUrls(reference_videos), reference_audio: httpUrls(reference_audios) };
       if (returnsImmediately()) return submittedResult({
         tool: 'generate_music', kind: 'audio', gen, client, model: model || 'Suno', prompt,
         settings: { mode: instrumental ? 'instrumental' : (style || undefined), preset_id },
+        ...musicRefs,
       });
 
       const poll = await pollOrTimedOut(client, gen.generation_id, {
@@ -913,8 +924,10 @@ function registerGenerateTools(server, client, options = {}) {
       return uiCompleted({
         tool: 'generate_music', kind: 'audio', gen, client, model: model || 'Suno', prompt,
         settings: { mode: instrumental ? 'instrumental' : (style || undefined), preset_id },
+        ...musicRefs,
         urls: result.result.urls,
         playback_urls: result.result.playback_urls,
+        tracks: result.result.tracks,
         title: result.result.title,
         duration: result.result.duration,
         credits_used: creditFields(result).credits_used,
@@ -1063,9 +1076,12 @@ function registerGenerateTools(server, client, options = {}) {
     const model = await canonicalModelId(client, rawModel, 'music_gen');
     const gen = await client.post(route, { ...rest, model, ...(continue_at !== undefined ? { continue_at } : {}) });
 
+    // An upload_id has no URL here; the status result names that source.
+    const reference_audio = httpUrls(rest.audio_url);
     if (returnsImmediately()) return submittedResult({
       tool: toolName, kind: 'audio', gen, client, model: model || 'Suno', prompt: rest.prompt,
       settings: { mode: rest.instrumental ? 'instrumental' : (rest.style || undefined) },
+      reference_audio,
     });
 
     const poll = await pollOrTimedOut(client, gen.generation_id, {
@@ -1078,6 +1094,7 @@ function registerGenerateTools(server, client, options = {}) {
     return uiCompleted({
       tool: toolName, kind: 'audio', gen, client, model: model || 'Suno', prompt: rest.prompt,
       settings: { mode: rest.instrumental ? 'instrumental' : (rest.style || undefined) },
+      reference_audio,
       urls: res.result.urls,
       playback_urls: res.result.playback_urls,
       tracks: res.result.tracks,
@@ -1129,8 +1146,9 @@ function registerGenerateTools(server, client, options = {}) {
   // Async Suno op: submit, then the generation card (UI hosts) or a blocking poll.
   const runSunoOp = async (route, toolName, body, { kind = 'audio', prompt, label, widget = true } = {}) => {
     const gen = await client.post(route, body);
+    const reference_audio = httpUrls(body.audio_url);
     if (returnsImmediately()) {
-      return (widget ? submittedResult : asyncGenerating)({ tool: toolName, kind, gen, client, model: label, prompt });
+      return (widget ? submittedResult : asyncGenerating)({ tool: toolName, kind, gen, client, model: label, prompt, reference_audio });
     }
     const poll = await pollOrTimedOut(client, gen.generation_id, { interval: (gen.poll_interval_hint || 8) * 1000, timeout: 150000 });
     if (poll.timedOut) return poll.timedOut;
@@ -1153,7 +1171,7 @@ function registerGenerateTools(server, client, options = {}) {
     }, null, 2);
     if (!widget) return { content: [{ type: 'text', text }] };
     return uiCompleted({
-      tool: toolName, kind, gen, client, model: label, prompt,
+      tool: toolName, kind, gen, client, model: label, prompt, reference_audio,
       urls: r.urls, playback_urls: r.playback_urls, tracks: r.tracks, title: r.title, duration: r.duration,
       credits_used: creditFields(res).credits_used,
     }, text);
@@ -1648,6 +1666,11 @@ function registerGenerateTools(server, client, options = {}) {
           error: single.state === 'failed' ? single.error : undefined,
           urls: done ? urls : undefined,
           thumbnail_url: res.thumbnail_url,
+          // Music: the real song title and per-track covers. Without these the
+          // finished card fell back to the tool label ("Generations — Track 1")
+          // and a generic note glyph.
+          tracks: done ? res.tracks : undefined,
+          title: res.title || undefined,
           // Transcription results ride the same status tool as media
           // generations; without these the transcript widget merges a payload
           // with no transcript in it and renders "(empty transcript)".
@@ -1825,11 +1848,11 @@ function registerGenerateTools(server, client, options = {}) {
     'generate_elements',
     'Generate a video from reference elements (images, videos, and/or audio) + a text prompt. Use when the user wants to animate specific uploaded/referenced assets — e.g. "animate this product", "put these 3 characters into a scene". PRIMARY ROUTE FOR A DNA-ANCHORED MULTI-SHOT FILM: one call can carry the whole sequence — seedance-2-5 takes 4-30s, up to 30 shots and 20 Visual DNAs in a SINGLE generation (seedance-2: 4-15s, 9 DNAs) — instead of a stack of separate clips. DIALOGUE IS PERFORMED NATIVELY: quoted dialogue in the prompt comes back as synced voices with lip movement, room tone and the SFX named in the AUDIO block — never route scene dialogue to generate_speech or generate_lipsync. Write dialogue in ENGLISH or Latin transliteration of Hebrew ("shalom"), never Hebrew script — Seedance does not speak Hebrew; prefer Gemini Omni Flash 1.1 or Gemini Omni 1 for native Hebrew. COST: resolution is a multiplier. When list_models publishes `video_input_credit` and this call carries videos, charge that rate against nominal input seconds + nominal output seconds; MP4 padding within 0.15s of an integer snaps to that integer and larger fractions round up. Otherwise use the normal output-second rate. PROMPT CONTRACT (Seedance / Elements): Locked Intro only — Total line, then [GLOBAL LOOK] / [CAST] / [LOCATION] / SHOT N. Do NOT write SCENE CONTEXT / OPTICS / ACTION department packs. Every Visual DNA in visual_dna_ids MUST also appear in the prompt as @ExactDNAName (e.g. "@Zohar walks…") — never "Zohar\'s" or "the man on the left" as a substitute. IMPORTANT: different models accept different numbers and durations of inputs — call list_models type="elements" and read elements_max_images / elements_max_videos / elements_max_audio plus min_video_duration / max_video_duration before generating. For text-only → video use generate_video instead. For animating a single still image use generate_video_from_image. Returns the final video URL when complete.' + MORPHIOUS_GUIDE,
     {
-      prompt: z.string().optional().describe('Optional ONLY for kolbo-morphious-* and higgsfield-genjutsu-* models (the server analyzes the media). For other models, Locked Intro prompt (Seedance/Elements): Total line, [GLOBAL LOOK], [CAST] with @ExactDNAName for every visual_dna_ids entry, [LOCATION], then SHOT N. Not SCENE CONTEXT/OPTICS/ACTION packs. Never substitute "the left man" or "Zohar\'s" for @Name. EVERY attached reference must also be tagged by its 1-based array position — `@Image 1`/`@Image 2` (reference_images), `@Video 1` (reference_videos), `@Audio 1` (reference_audio_urls) — and its job stated ("@Image 1 defines the character\'s face and wardrobe", "@Video 1 defines the camera move"). An untagged attachment is ignored by the engine even though it was uploaded and billed.'),
+      prompt: z.string().optional().describe('Optional ONLY for kolbo-morphious-* and higgsfield-genjutsu-* models (the server analyzes the media). For other models, Locked Intro prompt (Seedance/Elements): Total line, [GLOBAL LOOK], [CAST] with @ExactDNAName for every visual_dna_ids entry, [LOCATION], then SHOT N. Not SCENE CONTEXT/OPTICS/ACTION packs. Never substitute "the left man" or "Zohar\'s" for @Name. EVERY attached reference must also be tagged by its 1-based array position — `@Image1`/`@Image2` (reference_images), `@Video1` (reference_videos), `@Audio1` (reference_audio_urls) — and its job stated ("@Image1 defines the character\'s face and wardrobe", "@Video1 defines the camera move"). An untagged attachment is ignored by the engine even though it was uploaded and billed.'),
       model: z.string().optional().describe('Model identifier. If the user already named a family (Grok / Kling / Veo / Seedance / …), pass THAT family — never default to Seedance because Elements often uses it. Use list_models type="elements" for exact ids and elements_max_* caps. Do NOT omit (omitting = Smart Select).'),
-      reference_images: z.array(z.string()).optional().describe('Array of image references (product shots, character references, etc.). Tag each one in the prompt text by its 1-based position here — item 1 is `@Image 1`, item 2 is `@Image 2` — or the engine ignores it. Accepts a public URL (forwarded as-is; if the API rejects an external URL as untrusted, it is auto-rehosted into the media library and retried once) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
-      reference_videos: z.array(z.string()).optional().describe('Array of reference videos for models that accept video inputs. Tag each one in the prompt text by its 1-based position here — `@Video 1`, `@Video 2` — stating what it defines (motion, camera move, pacing), or the engine ignores it. Accepts a public URL (forwarded as-is; if the API rejects an external URL as untrusted, it is auto-rehosted into the media library and retried once) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_videos` URLs and keep every clip within `min_video_duration`-`max_video_duration` from list_models. When `elements_max_video_seconds_total` is set, all clips COMBINED must stay within it (Wan 3.0: 15s total). When `elements_input_plus_output_max_seconds` is set, reference-video seconds + `duration` must stay within it (Wan 3.0: 30s — e.g. 10s of refs leaves at most 20s of output). Exceeding either is a deterministic 400.** If `video_input_credit` is present, every attached video contributes its nominal duration to combined-second billing: encoder padding within 0.15s of an integer snaps to it; larger fractions round up.'),
-      reference_audio_urls: z.array(z.string()).optional().describe('Array of reference audio tracks for models that accept audio inputs. Tag each one in the prompt text by its 1-based position here — `@Audio 1`, `@Audio 2` — stating what it carries (dialogue, ambience, music), or the engine ignores it. Accepts a public URL (forwarded as-is; if the API rejects an external URL as untrusted, it is auto-rehosted into the media library and retried once) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_audio` URLs from list_models; when `elements_max_audio_seconds_total` is set, all audio clips COMBINED must stay within it (Wan 3.0: 15s total). Audio does NOT reduce the output-duration budget — only reference VIDEO does.** `audio_url` remains supported as the legacy single-track form.'),
+      reference_images: z.array(z.string()).optional().describe('Array of image references (product shots, character references, etc.). Tag each one in the prompt text by its 1-based position here — item 1 is `@Image1`, item 2 is `@Image2` — or the engine ignores it. Accepts a public URL (forwarded as-is; if the API rejects an external URL as untrusted, it is auto-rehosted into the media library and retried once) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_images` URLs from list_models for the chosen model — exceeding it is a deterministic 400.**'),
+      reference_videos: z.array(z.string()).optional().describe('Array of reference videos for models that accept video inputs. Tag each one in the prompt text by its 1-based position here — `@Video1`, `@Video2` — stating what it defines (motion, camera move, pacing), or the engine ignores it. Accepts a public URL (forwarded as-is; if the API rejects an external URL as untrusted, it is auto-rehosted into the media library and retried once) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_videos` URLs and keep every clip within `min_video_duration`-`max_video_duration` from list_models. When `elements_max_video_seconds_total` is set, all clips COMBINED must stay within it (Wan 3.0: 15s total). When `elements_input_plus_output_max_seconds` is set, reference-video seconds + `duration` must stay within it (Wan 3.0: 30s — e.g. 10s of refs leaves at most 20s of output). Exceeding either is a deterministic 400.** If `video_input_credit` is present, every attached video contributes its nominal duration to combined-second billing: encoder padding within 0.15s of an integer snaps to it; larger fractions round up.'),
+      reference_audio_urls: z.array(z.string()).optional().describe('Array of reference audio tracks for models that accept audio inputs. Tag each one in the prompt text by its 1-based position here — `@Audio1`, `@Audio2` — stating what it carries (dialogue, ambience, music), or the engine ignores it. Accepts a public URL (forwarded as-is; if the API rejects an external URL as untrusted, it is auto-rehosted into the media library and retried once) OR an absolute local path, which is uploaded for you. **Cap: pass at most `elements_max_audio` URLs from list_models; when `elements_max_audio_seconds_total` is set, all audio clips COMBINED must stay within it (Wan 3.0: 15s total). Audio does NOT reduce the output-duration budget — only reference VIDEO does.** `audio_url` remains supported as the legacy single-track form.'),
       audio_url: z.string().optional().describe('A single reference audio track — legacy form of reference_audio_urls. Accepts a public URL (forwarded as-is; if the API rejects an external URL as untrusted, it is auto-rehosted into the media library and retried once) OR an absolute local path, which is uploaded for you. **Audio constraints: `elements_max_audio` from list_models gates whether audio is accepted at all; audio duration must fall within `min_audio_duration`-`max_audio_duration`; format must be in `supported_audio_formats` (if specified).**'),
       files: z.array(z.string()).optional().describe('Untyped catch-all for mixed media — images, videos AND audio, each a URL or an absolute local path. The kind is detected from the file extension and the item is routed to the matching reference list, so a local .mp4 is sent as a video and a local .mp3 as audio. Prefer the typed lists (reference_images / reference_videos / reference_audio_urls) when you already know the kind; they accept local paths too. URLs given here are forwarded as URLs, never re-uploaded. **Caps still apply per kind: `elements_max_images` / `elements_max_videos` / `elements_max_audio` from list_models. Local uploads are capped at 200MB each.**'),
       duration: z.number().optional().describe('Output duration in seconds. Must be in `supported_durations` from list_models, OR within `min_output_duration`-`max_output_duration`. When the model publishes `elements_input_plus_output_max_seconds` AND the call carries reference_videos, the effective max is that cap minus the combined reference-video seconds (Wan 3.0: cap 30 — 12s of refs → duration ≤ 18). Default: 5'),

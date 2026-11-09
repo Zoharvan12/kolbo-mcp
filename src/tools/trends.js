@@ -14,8 +14,8 @@ const { UI, uiResult } = require('../apps');
 
 const slugField = z.string().min(1).max(200).regex(/^[\w-]+(\/[\w-]+)?$/)
   .describe('Trend slug from list_trends, e.g. "vanish" or "motion/kolbo-urban-dance-glide".');
-const inputsField = z.record(z.string(), z.union([z.string().max(2048), z.array(z.string().max(2048)).min(1).max(3)]))
-  .describe('Values for the trend\'s declared inputs, keyed by input `key` from get_trend. Media inputs take an https URL (upload local files with upload_media / create_upload_ticket first); a photo input with max_images > 1 also takes an ARRAY of up to that many photos of the same subject (more angles = better likeness). Text inputs take plain text.');
+const inputsField = z.record(z.string(), z.union([z.string().max(2048), z.array(z.string().max(2048)).min(1).max(20)]))
+  .describe('Values for the trend\'s declared inputs, keyed by input `key` from get_trend. Media inputs take an https URL (upload local files with upload_media / create_upload_ticket first); a photo input with max_images > 1 also takes an ARRAY of photos of the same subject. The photo limit is set PER TREND: read min_images / max_images for that input from get_trend (or list_trends) and send a count between them; the server rejects anything outside. Without a sequence flag, more photos = better likeness. An input with sequence: true (Growing Up workflow trends) is an ordered life sequence of ONE person or pet: send the photos IN LIFE ORDER, youngest first; each neighbouring pair becomes one transition clip, so order matters and the price scales with the photo count. Text inputs take plain text.');
 const dnaField = z.record(z.string(), z.string().regex(/^[a-f0-9]{24}$/i)).optional()
   .describe('Use a saved Visual DNA for a photo input: { input key: visual DNA id } (ids from list_visual_dnas). The DNA\'s own character sheet and photos are used for that input, so leave that key out of inputs.');
 const previewField = z.boolean().optional()
@@ -99,7 +99,7 @@ function registerTrendTools(server, client) {
       const summary = trends.map(t => ({
         slug: t.slug, name: t.name, description: t.description, family: t.family, output_type: t.output_type,
         estimated_credits: t.estimated_credits, free_trial: t.free_trial, badges: t.badges,
-        inputs: (t.inputs || []).map(i => ({ key: i.key, kind: i.kind, role: i.role, label: i.label, required: i.required, ...(i.max_images && { max_images: i.max_images }) })),
+        inputs: (t.inputs || []).map(i => ({ key: i.key, kind: i.kind, role: i.role, label: i.label, required: i.required, ...(i.min_images && { min_images: i.min_images }), ...(i.max_images && { max_images: i.max_images }), ...(i.sequence && { sequence: true }) })),
         ...(t.preview && { preview: t.preview }),
       }));
       return uiResult(UI.mediaGrid, JSON.stringify({ trends: summary, count: summary.length, free_trials_left: baseData.free_trials_left ?? null }, null, 2), {
@@ -114,21 +114,21 @@ function registerTrendTools(server, client) {
 
   server.tool(
     'get_trend',
-    'Get one trend: description, the exact inputs it needs (key, kind: image/video/audio/text/choice, role: what the input is (character/pet/product/location/video/text) - a character input also takes a Visual DNA image URL, required, options), output type/aspect ratio, estimated credits, example results and whether a free trial is available.',
+    'Get one trend: description, the exact inputs it needs (key, kind: image/video/audio/text/choice, role: what the input is (character/pet/product/location/video/text) - a character input also takes a Visual DNA image URL, required, options; min_images/max_images for multi-photo inputs, and sequence: true when the photos are an ordered life sequence, youngest first), output type/aspect ratio, estimated credits, example results and whether a free trial is available.',
     { slug: slugField },
     async ({ slug }) => text(unwrap(await client.get(`/v1/trends/${slugPath(slug)}`)))
   );
 
   server.tool(
     'estimate_trend_run',
-    'Quote a trend run before spending: returns total_credits for these exact inputs (video trends are priced by the source clip length). Free — no credits spent.',
+    'Quote a trend run before spending: returns total_credits for these exact inputs (video trends are priced by the source clip length; sequence trends by the photo count). Read min_images / max_images of every photo input from get_trend first. Free — no credits spent.',
     { slug: slugField, inputs: inputsField, dna: dnaField, preview: previewField, project_id: projectField, resolution: resolutionField },
     async ({ slug, inputs, dna, preview, project_id, resolution }) => text(unwrap(await client.post(`/v1/trends/${slugPath(slug)}/estimate`, { inputs, ...(dna && { dna }), ...(preview && { preview: true }), ...(project_id && { project_id }), ...(resolution && { resolution }) })))
   );
 
   server.tool(
     'run_trend',
-    'Run a trend. SPENDS CREDITS (quote with estimate_trend_run first and confirm with the user unless they already agreed). Returns one final result; intermediate steps are private. Waits up to wait_seconds for the result, then returns the run so you can keep checking with get_trend_run. Reuse the same idempotency_key after an uncertain response — a new key starts (and charges) a new run.',
+    'Run a trend. SPENDS CREDITS (quote with estimate_trend_run first and confirm with the user unless they already agreed). Send each photo input between its min_images and max_images from get_trend, in life order (youngest first) for sequence: true inputs. Returns one final result; intermediate steps are private. Waits up to wait_seconds for the result, then returns the run so you can keep checking with get_trend_run. Reuse the same idempotency_key after an uncertain response — a new key starts (and charges) a new run.',
     {
       slug: slugField,
       inputs: inputsField,

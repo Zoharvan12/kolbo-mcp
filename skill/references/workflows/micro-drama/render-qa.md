@@ -49,7 +49,7 @@ Free path when the agent has a local upscaler: keep the 480p Drafts, upscale eac
 
 Cheaper path for long episodes: build and approve the tight cut from Drafts first, then finalize only the clips the cut actually uses.
 
-Budget alternative: upscale the approved Draft cut instead of re-rendering it. `edit_video` `operation: "upscale"` with the Bytedance upscaler and `enhancement_preset: "short_series"` (made for short dramas) costs a small fraction of a Draft finalization (read the live rate from `list_models type="video_upscale"`). It enlarges the 480p Draft rather than re-rendering it, so detail stays closer to the Draft; say that when offering it. Same rule: quote, explicit yes, then run.
+Budget alternative: upscale the approved Draft cut instead of re-rendering it. `edit_video` `operation: "upscale"` with the Bytedance upscaler and `enhancement_preset: "short_series"` (made for short dramas) costs a small fraction of a Draft finalization (read the live rate from `list_models type="video_upscale"`). It enlarges the 480p Draft rather than re-rendering it, so detail stays closer to the Draft. Run it only when the user asks for a finished or higher-resolution version: quote, explicit yes, then run. Never offer it unasked.
 
 ## Bookkeeping and learning
 

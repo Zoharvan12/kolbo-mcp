@@ -504,6 +504,49 @@ async function completedCardNamesWhatActuallyRan() {
   assert.ok(stage.includes('Google TTS'), 'audio row did not show the clean model name');
 }
 
+// A finished music card shows each track's own cover and title, and the audio a
+// cover/extend was built from. The status tool used to drop tracks and title, and
+// its tool name overwrote the card's, so rows read "Generations — Track 1".
+async function musicCardShowsCoversAndSource() {
+  const COVERS = ['https://musicfile.kie.ai/one.jpeg', 'https://musicfile.kie.ai/two.jpeg'];
+  const SOURCE = 'https://media.kolbo.ai/uploads/source.mp3';
+  const w = mountWidget();
+  w.status({
+    state: 'completed',
+    result: {
+      tool: 'get_generation_status', model: 'suno-v6', model_name: 'Suno v6',
+      urls: ['https://media.kolbo.ai/a.mp3', 'https://media.kolbo.ai/b.mp3'],
+      tracks: [{ title: 'Amore', thumbnail_url: COVERS[0] }, { title: 'Amore', thumbnail_url: COVERS[1] }],
+      reference_audio: [SOURCE],
+    },
+  });
+  w.deliver({
+    phase: 'generating', widget: 'generation', kind: 'audio', tool: 'cover_music',
+    generation_id: 'gen-cover', poll_tool: 'get_generation_status',
+    status_args: { generation_id: 'gen-cover', wait: true },
+    model: 'suno-v6', model_name: 'Suno v6', prompt: 'A lo-fi cover',
+  });
+  w.scrollIntoView();
+  w.drain();
+  await flush();
+
+  const stage = w.html('stage');
+  COVERS.forEach((u) => assert.ok(stage.includes(u), 'music row lost its cover art: ' + u));
+  assert.ok(stage.includes('Amore'), 'music row lost its track title');
+  assert.ok(!stage.includes('Generations'), 'music row used the status tool label as its title');
+  const chips = w.html('chips');
+  assert.ok(chips.includes(SOURCE), 'cover card did not show its source audio');
+  assert.ok(chips.includes('Source audio'), 'cover card did not label the source audio');
+}
+
+// The server half: uiCompleted whitelists keys, so tracks must survive it.
+async function uiCompletedKeepsTracks() {
+  const { uiCompleted } = require('../src/tools/_shared');
+  const tracks = [{ title: 'Amore', thumbnail_url: 'https://musicfile.kie.ai/one.jpeg' }];
+  const out = await uiCompleted({ tool: 'generate_music', kind: 'audio', client: {}, gen: {}, urls: ['https://media.kolbo.ai/a.mp3'], tracks }, '{}');
+  assert.deepStrictEqual(out.structuredContent.tracks, tracks, 'uiCompleted dropped tracks');
+}
+
 // generate_speech settings are chips on BOTH cards. Submitted card: what the
 // caller asked for. Finished card: what the API reports it APPLIED (status
 // result voice_settings / output_format / ...), which beats the request. A WAV
@@ -896,6 +939,8 @@ async function openInKolboOpensTheSession() {
   await batchStaysOneGrid({ kind: 'image', tool: 'generate_image', ext: 'png' });
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();
+  await musicCardShowsCoversAndSource();
+  await uiCompletedKeepsTracks();
   await speechCardShowsItsSettings();
   cardShowsEveryReferenceImage();
   preRenderShowsTheInputRefs();

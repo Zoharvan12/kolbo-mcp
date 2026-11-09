@@ -48,16 +48,16 @@ The mode determines which Kolbo MCP tool to call and what defaults to use.
 
 | Mode | Primary tool | Model preference | aspect_ratio | Count default |
 |---|---|---|---|---|
-| `product_shot` | `generate_image` | GPT Image 2 (clean studio look + dense label text) | `1:1` | 1 or `num_images: 3` for variants |
-| `lifestyle_scene` | `generate_image` | Nano Banana 2 (best lifestyle realism) | `1:1` or `4:5` | 1 or `num_images: 3` |
-| `closeup_product_with_person` | `generate_image` | Nano Banana 2 | `1:1` or `4:5` | 1 |
-| `moodboard_pin` | `generate_image` | Nano Banana 2 | **`2:3`** (Pinterest native) | 1 or `num_images: 3` |
-| `hero_banner` | `generate_image` | GPT Image 2 (large format + brand text) | `16:9` or `3:1` | 1 |
-| `social_carousel` | **`generate_creative_director`** with `scene_count: 3–10` | Nano Banana 2 | `1:1` (IG) or `4:5` | `scene_count` |
-| `ad_creative_pack` | **`generate_creative_director`** with `scene_count: 4–8` | GPT Image 2 or Nano Banana 2 | Mixed per ad placement (`1:1`, `9:16`, `1.91:1`) — fire one director call per aspect | `scene_count` |
+| `product_shot` | `generate_image` | GPT Image 2.6 Sunburst (clean studio look + dense label text; `background: "transparent"` for a cutout) | `1:1` | 1 or `num_images: 3` for variants |
+| `lifestyle_scene` | `generate_image` | Nano Banana 2.1 (best lifestyle realism) | `1:1` or `4:5` | 1 or `num_images: 3` |
+| `closeup_product_with_person` | `generate_image` | Nano Banana 2.1 | `1:1` or `4:5` | 1 |
+| `moodboard_pin` | `generate_image` | Nano Banana 2.1 | **`2:3`** (Pinterest native) | 1 or `num_images: 3` |
+| `hero_banner` | `generate_image` | GPT Image 2.6 Sunburst (large format + brand text) | `16:9` or `3:1` | 1 |
+| `social_carousel` | **`generate_creative_director`** with `scene_count: 3–10` | Nano Banana 2.1 | `1:1` (IG) or `4:5` | `scene_count` |
+| `ad_creative_pack` | **`generate_creative_director`** with `scene_count: 4–8` | GPT Image 2.6 or Nano Banana 2.1 | Mixed per ad placement (`1:1`, `9:16`, `1.91:1`) — fire one director call per aspect | `scene_count` |
 | `virtual_model_tryout` | `generate_image_edit` with character Visual DNA + product source | Nano Banana Pro (identity-sensitive edits) | `1:1`, `4:5`, or `9:16` | 1–3 |
-| `conceptual_product` | `generate_image` | Nano Banana 2 or GPT Image 2 | `1:1` or `2:3` | 1–4 |
-| `restyle` | `generate_image_edit` with `source_images: [existing]` | Same model that produced the original (or Nano Banana 2 for safe re-render) | Inherit from source | 1–3 |
+| `conceptual_product` | `generate_image` | Nano Banana 2.1 or GPT Image 2.6 | `1:1` or `2:3` | 1–4 |
+| `restyle` | `generate_image_edit` with `source_images: [existing]` | Same model that produced the original (or Nano Banana 2.1 for safe re-render) | Inherit from source | 1–3 |
 
 **For multi-output modes** (`social_carousel`, `ad_creative_pack`), always use `generate_creative_director` — never fire ≥2 `generate_image` calls in a loop. See `models/creative-director.md`.
 

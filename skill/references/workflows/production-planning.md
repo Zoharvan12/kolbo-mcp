@@ -9,11 +9,9 @@ starts here, **before** a single video credit is spent. Most users do not know
 this flow exists; they ask for a film and expect a film. Walk them through it
 rather than jumping to a prompt.
 
-**Skip asset mapping** only when keyframes and DNA are **100% unnecessary**: generic b-roll,
-ambient motion, simple stock-like scenes where the video model inventing composition is fine.
-For tightly designed kids/educational beats, Pixar-like staging, or any brief where composition
-must be locked, generate keyframes (or DNA) first and attach them to the video call — do not
-invent stills and then run a Multishot T2V that ignores them.
+**Skip asset mapping** only for generic b-roll, ambient motion or stock-like scenes with no
+recurring cast. Everything else is Visual DNA (cast, location, product) plus a written prompt per
+scene on `generate_elements`. Never generate keyframes or scene stills as a step toward video.
 
 ## The order is not negotiable (when cast/product identity must lock)
 
@@ -79,11 +77,13 @@ Generate the reference imagery, then register it as a Visual DNA.
 | Asset | Model | Why |
 |---|---|---|
 | Cinematic environments; invented / original characters | **`mirage-film-2`** (MIRAGE FILM 2, 3cr) | cinematic look at a third the cost — the default for anything being invented from scratch |
-| Assets needing reference fidelity, legible text, or editing | **`nano-banana-2`** (10cr) or **`gpt-image-2`** (12cr) | stronger reference adherence and text; GPT Image 2 when the asset carries readable words |
+| Assets needing reference fidelity, legible text, or editing | **`nano-banana-2.1`** (15cr) or **`gpt-image-2.6-flare`** / **`-sunburst`** (7cr at 1K medium) | stronger reference adherence and text; GPT Image 2.6 when the asset carries readable words or needs no background |
+
+`generate_character_sheet` still runs only GPT Image 2.5 / 2 and Nano Banana 2 (it maps newer ids to those). For a sheet on GPT Image 2.6 or Nano Banana 2.1, call `generate_image` / `generate_image_edit` with the sheet preset (`list_presets({ type: "image", search: "character sheet" })`).
 
 Read the matching prompt reference before writing an asset prompt:
 `references/models/nano-banana.md` for Nano Banana, `references/models/gpt-image.md`
-for GPT Image 2. There is no Mirage reference file — prompt it as a plain cinematic
+for GPT Image. There is no Mirage reference file — prompt it as a plain cinematic
 still.
 
 Resolve the sheet **preset** (custom instructions live there):
@@ -96,8 +96,7 @@ pass `search`.
 - `character sheet` — simple supporting role
 - `location` / `product` — matching DNA type
 
-Sheets are **2K or 4K** (never 1K). Default 2K; 4K for bible / high-detail / when
-the user names 4K or GPT Image 2.
+Sheets are **2K** (never 1K). 4K only when the user asks for it.
 
 Do not skip the sheet and `create_visual_dna` from a portrait. The sheet is the
 asset; the DNA stores it.
@@ -157,9 +156,9 @@ Only now compile shots. Defaults:
 - Every DNA in `visual_dna_ids` must also appear as `@ExactName` in the prompt.
 - Dialogue in quotes inside its shot beat — English only, never TTS or lipsync.
   See `models/seedance25.md`.
-- **First pass at 480p.** Resolution is a credit multiplier (480p ×0.44 vs 720p,
-  1080p ×2.25). Block, approve, then re-run the approved cut at delivery
-  resolution.
+- **Cheapest supported resolution** unless the user chose one. Resolution is a credit
+  multiplier (480p ×0.44 vs 720p, 1080p ×2.25). Re-render at a higher tier only when the
+  user asks.
 
 ## What this replaces
 

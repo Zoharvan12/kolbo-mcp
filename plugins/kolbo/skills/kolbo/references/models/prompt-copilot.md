@@ -10,7 +10,7 @@
 
 Load this file when the user wants help writing or improving a prompt for an AI generation model that **doesn't have a dedicated reference file** — Flux, Midjourney, Kling, Sora, Hailuo, Grok Imagine, ElevenLabs, DeepDub, any other image/video/music/TTS model.
 
-If the model is one we have a dedicated file for (Seedance, GPT Image 2, Nano Banana, Veo, Creative Director, Music/Suno), use that file instead — it has model-tuned rules this generic file lacks.
+If the model is one we have a dedicated file for (Seedance, GPT Image, Nano Banana, Veo, Creative Director, Music/Suno), use that file instead — it has model-tuned rules this generic file lacks.
 
 **Kolbo MCP routing:** route by media type:
 - Image → `generate_image` / `generate_image_edit`
@@ -123,7 +123,7 @@ If during the conversation it becomes clear the user is actually working with on
 | User mentions / asks for | Switch to |
 |---|---|
 | Seedance / Seedance 2 / Bytedance video | `models/seedance.md` |
-| GPT Image 2 / gpt-image-2 / OpenAI image | `models/gpt-image.md` |
+| GPT Image (2.6 / 2.5 / 2) / OpenAI image / transparent PNG / GIF / SVG | `models/gpt-image.md` |
 | Nano Banana / Gemini image / Gemini 3 Pro Image | `models/nano-banana.md` |
 | Veo / Veo 3 / Veo 3.1 / Google video | `models/veo.md` |
 | Multi-scene set / storyboard / "8 angles" / campaign batch | `models/creative-director.md` |

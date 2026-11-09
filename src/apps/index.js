@@ -141,6 +141,10 @@ const WIDGET_CSP = {
     'https://storage.googleapis.com',
     'https://api.us.elevenlabs.io',
 
+    // Suno track covers (MusicGeneration audio_url[].image) stay on the provider
+    // host; img-src blocking them would leave every music card on the note glyph.
+    'https://musicfile.kie.ai',
+
     // Default SYNCI catalog project. Any production override must be reviewed
     // and added here as an exact hostname before deployment.
     'https://gfbpxdkripkbbrcvoyeh.supabase.co',
@@ -377,6 +381,12 @@ async function modelInfo(client, modelName) {
   if (!modelName) return { icon: null, eta: null, name: null };
   const alias = DISPLAY_ALIASES[String(modelName).toLowerCase()];
   if (alias) return { ...(await modelInfo(client, alias.base)), name: alias.name };
+  // Provider endpoint ids ("fal-ai/creatify/aurora") wrap the catalog id
+  // ("creatify/aurora"); without this the chip showed the raw fal path.
+  if (/^fal-ai\//i.test(modelName)) {
+    const bare = await modelInfo(client, String(modelName).replace(/^fal-ai\//i, ''));
+    if (bare.name) return bare;
+  }
   const catalog = await modelCatalog(client);
   const exact = catalog.byKey.get(String(modelName).toLowerCase());
   if (exact) return exact;

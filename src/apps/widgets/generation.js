@@ -327,8 +327,8 @@ function speechChipsHTML(sc) {
 // keeps the thing that whitelist was really protecting: an email's "a@b.com"
 // has a word char before the @, so it still never lights up. (. and - are in
 // the set for the same reason: "file.name@host", "co-op@x".)
-var MENTION_RE = /(^|[^\\w@.-])(@(?:Image|Video|Audio) \\d+|[@#][A-Za-z][\\w-]*)/g;
-// Tag -> thumbnail: DNA / moodboard by name, "@Image N" by reference position.
+var MENTION_RE = /(^|[^\\w@.-])(@(?:Image|Video|Audio) ?\\d+|[@#][A-Za-z][\\w-]*)/g;
+// Tag -> thumbnail: DNA / moodboard by name, "@ImageN" by reference position.
 // Keys drop case and punctuation so @Kobi_Run finds the DNA named "Kobi Run".
 function mentionKey(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function mentionThumbs(sc) {
@@ -474,6 +474,8 @@ function collectRefs(sc) {
   push(sc.reference_audio, 'audio');
   return out;
 }
+// These tools build on the attached audio, so it is the source, not a reference.
+var SOURCE_AUDIO_TOOLS = { cover_music: 1, extend_music: 1, add_vocals: 1, add_instrumental: 1 };
 function referenceHTML(sc) {
   var refs = collectRefs(sc);
   var h = '';
@@ -486,7 +488,7 @@ function referenceHTML(sc) {
       h += '<video class="k-ref-thumb k-peek-hit" src="' + url + '#t=0.1" muted playsinline preload="metadata" title="'
         + title + '"' + peek + ' onerror="this.style.display=\\'none\\'"></video>';
     } else if (refs[i].kind === 'audio') {
-      h += '<span class="k-ref-audio" title="' + title + '">' + ICONS.sound + ' audio ref<audio controls preload="none" src="' + url + '"></audio></span>';
+      h += '<span class="k-ref-audio" title="' + title + '"><span>' + ICONS.sound + (SOURCE_AUDIO_TOOLS[sc.tool] ? ' Source audio' : ' audio ref') + '</span><audio controls preload="none" src="' + url + '"></audio></span>';
     } else {
       h += '<img class="k-ref-thumb k-peek-hit" src="' + url + '" alt="" loading="lazy" title="' + title + '"'
         + peek + ' onerror="this.style.display=\\'none\\'">';
@@ -958,9 +960,16 @@ function poll(sc) {
     if (stateName === 'completed') {
       pollErrors = 0;
       var r = st.result || st;
+      // A status result with no model (lipsync reports none) arrives as the
+      // 'Generations' placeholder; merged as-is it wiped the submit-time chip.
+      if (!r.model || r.model === 'Generations') {
+        r = Object.assign({}, r, { model: sc.model, model_name: sc.model_name, model_icon: sc.model_icon });
+      }
 
       var done = Object.assign({}, sc, r, {
         phase: 'completed',
+        // r.tool is 'get_generation_status'; the card stays the tool that made it.
+        tool: sc.tool || r.tool,
         settings: Object.assign({}, sc.settings || {}, r.settings || {}),
         urls: r.urls || st.urls || [],
         credits_used: st.credits_used != null ? st.credits_used : sc.credits_used,
@@ -1239,6 +1248,7 @@ function wirePlayer(v) {
 }
 
 function renderAudio(sc, urls) {
+  var placeholder = sc.tool === 'generate_speech' ? ICONS.mic : ICONS.audio;
   el('stage').innerHTML = urls.map(function (u, i) {
     var track = (sc.tracks && sc.tracks[i]) || {};
     var titleBase = track.title || sc.title || (TOOL_TITLES[sc.tool] || 'Audio');
@@ -1247,9 +1257,8 @@ function renderAudio(sc, urls) {
     // The voice's own portrait is the artwork for speech — a generic note glyph
     // told the user nothing about the one thing that defines the take.
     var artwork = track.thumbnail_url || sc.thumbnail_url || sc.voice_thumbnail;
-    var placeholder = sc.tool === 'generate_speech' ? ICONS.mic : ICONS.audio;
     return '<div class="k-audio-row k-generated-audio">' +
-      (artwork ? '<img class="k-audio-art" src="' + esc(artwork) + '" alt="" loading="lazy" onerror="this.style.display=\\'none\\'">' :
+      (artwork ? '<img class="k-audio-art" src="' + esc(artwork) + '" alt="" loading="lazy">' :
         '<div class="k-audio-art k-audio-placeholder">' + placeholder + '</div>') +
       '<div class="k-audio-meta"><div class="k-audio-title">' + esc(title) + '</div>' +
       // Voice FIRST where there is one — on a speech row, who is speaking is the
@@ -1264,6 +1273,15 @@ function renderAudio(sc, urls) {
       '<audio class="k-audio-player" src="' + esc(u) + '" controls preload="none" aria-label="Play ' +
       esc(title) + '"></audio></div>';
   }).join('');
+  // A dead cover falls back to the glyph so the row keeps its layout.
+  Array.prototype.forEach.call(el('stage').querySelectorAll('img.k-audio-art'), function (img) {
+    img.onerror = function () {
+      var glyph = document.createElement('div');
+      glyph.className = 'k-audio-art k-audio-placeholder';
+      glyph.innerHTML = placeholder;
+      img.parentNode.replaceChild(glyph, img);
+    };
+  });
   Array.prototype.forEach.call(el('stage').querySelectorAll('[data-audio-download]'), function (b) {
     b.onclick = function () {
       window.kolbo.openLink(downloadUrl(b.getAttribute('data-audio-download')));
@@ -1554,7 +1572,7 @@ var PRE_IMAGE_KEYS = ['source_images', 'reference_images', 'image_url', 'mask_im
   'elements', 'files', 'keyframes', 'source', 'first_frame_url', 'last_frame_url',
   'texture_image_url', 'background_reference_image'];
 var PRE_VIDEO_KEYS = ['source_video', 'video_url', 'mask_video_url', 'reference_videos'];
-var PRE_AUDIO_KEYS = ['audio', 'audio_url', 'reference_audio_urls', 'seed_reference_audio_urls'];
+var PRE_AUDIO_KEYS = ['audio', 'audio_url', 'reference_audio_urls', 'reference_audios', 'seed_reference_audio_urls'];
 
 // The card mounts the moment the tool is CALLED, so the only thing it knows is
 // the raw tool input — and for an edit/elements call the submit that follows is

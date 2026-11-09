@@ -85,7 +85,7 @@ A great batch isn't 8 random shots — it's a sequence with intent. Pick one str
 - Final scenes in ONE fenced code block in `Scene N:` format. **No model names, no resolutions, no aspect ratios inside scenes.**
 - When summarizing the call to the user, state separately:
   - **Mode:** Photo Auto Pilot / Video Auto Pilot / Cinema Manual — one-line why
-  - **Recommended model:** (Nano Banana 2 / Nano Banana Pro / GPT Image 2 for photo; Veo / Seedance 2 / Kling for video) — one-line why
+  - **Recommended model:** (Nano Banana 2.1 / Nano Banana Pro / GPT Image 2.6 for photo; Veo / Seedance 2 / Kling for video) — one-line why
   - **Aspect / Resolution preset:** what to pass — one-line why
   - **Visual DNA / Moodboard:** recommend if applicable, or "—" if not
   - **Why this arc works:** 1 line on the narrative choice
@@ -95,9 +95,9 @@ A great batch isn't 8 random shots — it's a sequence with intent. Pick one str
 
 **Share results as individual URLs, one per scene. Do NOT create an HTML grid artifact or any combined layout.** Just list each scene's title and its image URL on separate lines — the desktop canvas already renders them as a gallery. See SKILL.md "Generated URLs in chat".
 
-## Character-Driven Video — Frames First
+## Character-Driven Video
 
-SKILL.md's frames-first rule applies. The Creative Director deltas: generate the frames via `generate_creative_director` with `workflow_type: "image"` (+ `scene_count`, `visual_dna_ids`), then animate each approved frame with `generate_video_from_image`, passing it as `image_url`.
+Not a Creative Director job. Story video = the cast, location and product Visual DNAs plus a written prompt per scene on `generate_elements` (SKILL.md "Character-Driven Video"). Use Creative Director image mode only when the user asks for images.
 
 ## UGC sets and thumbnail sets
 

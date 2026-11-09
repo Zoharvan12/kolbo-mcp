@@ -14,7 +14,7 @@ Visual DNA profiles capture the visual "identity" of a character, style, product
 3. **Use** the profile by passing its `id` in `visual_dna_ids` in: `generate_image`, `generate_creative_director`, `generate_elements`, `generate_video_from_image`, `generate_video_from_video`, `generate_first_last_frame`.
 4. **List/inspect** profiles with `list_visual_dnas` / `get_visual_dna`.
 
-**Server-side auto-routing:** passing `visual_dna_ids` is enough — the server expands the DNA's reference images and auto-routes the selected text-to-image model to its image-editing variant (e.g. `nano-banana-2` → `nano-banana-2-image-editing`). You do NOT need to also pass `reference_images` when using DNA. If the chosen model has no edit variant at all, the server falls back to using the DNA's images as style references on the t2i model. DNA payloads are never silently dropped.
+**Server-side auto-routing:** passing `visual_dna_ids` is enough — the server expands the DNA's reference images and auto-routes the selected text-to-image model to its image-editing variant (e.g. `nano-banana-2.1` → `nano-banana-2.1/edit`, `gpt-image-2.6-sunburst` → `gpt-image-2.6-sunburst/edit`). You do NOT need to also pass `reference_images` when using DNA. If the chosen model has no edit variant at all, the server falls back to using the DNA's images as style references on the t2i model. DNA payloads are never silently dropped.
 
 ## ⚠️ Pre-flight: Verify the Visual DNA Exists Before Using It (MANDATORY)
 

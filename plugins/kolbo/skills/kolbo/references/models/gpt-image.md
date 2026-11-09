@@ -2,16 +2,29 @@
      kolbo-api/src/config/systemPrompt.js (lines ~858–965).
      When that function changes, update this file in the same session. -->
 
-# GPT Image 2 — Prompt Rules
+# GPT Image (latest: 2.6) — Prompt Rules
 
-Load this file when the user wants a **GPT Image 2 / gpt-image-2** image (OpenAI). For other image models see `models/nano-banana.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
+Load this file when the user wants a **GPT Image** image (OpenAI, any version; latest is GPT Image 2.6), a transparent image, an animated GIF or an SVG. For other image models see `models/nano-banana.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
 
-**Kolbo MCP routing:** call `generate_image` (text-to-image) or `generate_image_edit` (edits with `source_images`). Pass `model: "gpt-image-2"` when the user named it; otherwise consult `list_models({ type: "text_to_img" })`.
+**Kolbo MCP routing:** call `generate_image` (text-to-image) or `generate_image_edit` (edits with `source_images`). Pass the exact identifier the user named; otherwise use the latest family (`gpt-image-2.6-flare` / `gpt-image-2.6-sunburst`) after confirming it in `list_models({ type: "text_to_img" })`.
+
+## Latest model and its native outputs (GPT Image 2.6)
+
+**Default to the latest GPT Image family**: `gpt-image-2.6-flare` (fastest everyday creation and editing) or `gpt-image-2.6-sunburst` (precise detail, most consistent edits); edits use their `/edit` rows. GPT Image 2.5 and 2 are older rows: use them only when the user names them. When a newer version appears in `list_models`, it replaces 2.6 here.
+
+GPT Image 2.6 does natively what older rows could not. Never fake these with prompt wording, an HTML render or a separate tool:
+
+- **No background / transparent PNG or WebP**: `background: "transparent"` (gate on `supports_transparent_background: true`). Use it for stickers, logos, product cutouts, title lettering and anything to be keyed or layered, instead of "pure black, then key it out".
+- **Animated GIF**: `output_format: "gif"` on create or edit, `frame_count` 9 or 16 (`supported_gif_frame_counts`), optional `frame_duration_ms`. The GIF is one grid of frames, so `resolution` is the size of the WHOLE sheet (2K with 9 frames = about 512 px frames). Use it for loops, reactions, stickers, simple animated icons and UI micro-animations.
+- **SVG (vector)**: `output_format: "svg"`, text-to-image only, one image per call, rendered and billed at 1K, quality `low` / `medium` / `high`. Use it for logos, icons, flat illustrations and anything that must scale or be edited as vectors.
+- **`complexity`** `low` / `medium` / `high` (`supports_complexity`): how much the model plans before drawing. Default high. `low` roughly halves latency for simple prompts and focused edits; `high` helps dense text and complex layouts. Same price at every level; it is separate from `quality`.
+
+Check `supported_output_formats` on the chosen row before passing `gif` or `svg` (the `/edit` rows have GIF but not SVG). Personal fonts (`font_ids`) work on 2.6.
 
 ## CRITICAL Kolbo Platform Rules
 
 - **Resolution and aspect ratio are MCP-tool params** (`aspect_ratio`, `resolution`) — NEVER include `size=`, `1024x1536`, aspect-ratio tags, or any resolution syntax inside the `prompt` field.
-- Pass aspect / resolution as separate tool parameters. Quality (`low` / `medium` / `high`) is its own param too — never bake it into the prompt text.
+- Pass aspect / resolution as separate tool parameters. Quality (`low` / `medium` / `high`, plus `xhigh` / `max` where supported), `output_format` and `complexity` are their own params too — never bake it into the prompt text.
 - Do not write Python, `client.images.generate`, OpenAI SDK code, or `size=` keyword arguments. The user is generating through Kolbo's MCP tools.
 
 ## Universal Prompting Rules (apply to EVERY prompt)

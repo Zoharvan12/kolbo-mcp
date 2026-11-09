@@ -72,7 +72,7 @@ Total: Xs / N shots / AR
 
 Full acting / continuity craft: `models/seedance.md`. Do not skip the Total lines or the three look/cast/location blocks. Do not restack GLOBAL LOOK inside shots.
 
-2.5 is where this format earns its keep: 15 shots timed to 30s, ~5k characters, one locked look so every cut matches camera / grade / cast.
+2.5 is where this format earns its keep: 15 shots timed to 30s, written in full detail, one locked look so every cut matches camera / grade / cast.
 
 ## OUTPUT CONTRACT (WINS — mirror of help widget)
 
@@ -81,13 +81,25 @@ FORBIDDEN: "same character throughout" as the only lock; one fence per shot; cla
 
 ## Prompt length
 
-Simple ≤15s ~120–280 words. Locked-intro cinematic 15s typically 400–900 words. Full 30s / 15+ shots typically 700–1200 words / ~4k–9k chars. Hard cap 30,000 characters. Never split into part 1 / part 2.
+The whole 30,000 characters is yours (founder 2026-11-08: "no reason to be lazy"). Length is not a cost. Write every shot in full detail: rig, lens, move, action beat by beat, performance for the speaker AND the listeners, prop and hand state, light, atmosphere, sound. Never shorten a prompt to save space. Never split into part 1 / part 2.
 
-A one-line shot beat is UNDER-WRITTEN. At 30s / 8+ shots you have ~15k characters to work with and a thin prompt wastes them: every beat carries its own camera move, performance task for BOTH the speaker and the listeners, prop/hand state, and the sound in that beat. If a 30s compile lands under ~4k characters, it is too thin — go back and direct it.
+A one-line shot beat is UNDER-WRITTEN. If a 30s / 8+ shot compile lands under ~6k characters, it is too thin: go back and direct it. Detail must stay consistent: more words never mean new contradictions (re-read the references and the locks before adding).
+
+## Live action reads as filmed footage (founder 2026-11-08)
+
+- Never "static", "locked-off" or a global "slow steady camera" for live action unless the user asks. Default: handheld, operator breathing, small drift and micro-shake, one motivated move per shot.
+- Every shot carries atmosphere in depth: haze or dust in the light, snow or breath vapour, practical light flicker, a dark foreground edge passing through frame.
+- Something alive happens from frame one. An empty set with steam and a slow push-in renders as an animated still.
+- No extreme macro of skin or eyes (blotches, wax skin). The closest shot is a face close-up.
+- Object actions in one medium shot, correct for the camera side: from outside, an inward door is pushed.
+- References must agree with each other and with the prompt. A location image holds no story props. Items that differ (three bowl sizes) need one reference that shows them together. Never "matching" and "different sizes" in one line.
+- The header's N equals the number of SHOT lines. Count them.
+- Every `@Name` used in a SHOT line is declared in CAST / LOCATION / PRODUCTS. An undeclared location tag gives the model no image to bind.
+- Fewer, fuller shots beat many 1-2 s fragments: about 3-9 cuts in 25-30 s, each shot long enough to act in. A "long hold" needs at least 3 s.
 
 ## Feature-Block (optional, UNDER the Locked Intro)
 
-Reach for extra department passes only when the user wants "their best possible 30 seconds" AND the 15k budget still has room after GLOBAL LOOK / CAST / LOCATION. Never replace the Locked Intro.
+Reach for extra department passes only when the user wants "their best possible 30 seconds" and the 30k budget still has room after GLOBAL LOOK / CAST / LOCATION. Never replace the Locked Intro.
 
 May add above GLOBAL LOOK: **EMOTIONAL INTENT** + **SIGNATURE MOMENT**.
 May add under the shot list: CAMERA timecode pass, SOUND timestamps, PHYSICS contract, EDITING/CONTINUITY, DIRECTORIAL NOTES.

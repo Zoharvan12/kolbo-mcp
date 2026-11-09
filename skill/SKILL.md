@@ -1,5 +1,5 @@
 ---
-version: 0.9.25
+version: 0.9.26
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images, video (Seedance, Veo, Kling, Hailuo), music, speech, sound, 3D, transcription, Visual DNA, Creative Director batches, marketing assets, HTML artifacts, and AI Docs, Flow node workflows and session/system prompts, and approved Blender scene control. Use for sophisticated AI filmmaking as well as individual media: scripts, production bibles, recurring characters and locations, acting, dialogue, music performance, blocking, physics, multi-shot continuity, connected scenes, prompt audits, feature-length production planning, end-to-end vertical micro-drama series (Micro-Drama Studio), and direct Blender scene building through the connected Kolbo Blender plugin. NOT for: unrelated standalone video editing / FFmpeg (use video-production), motion graphics (use remotion-best-practices), code editing, or general chat.
@@ -65,7 +65,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Generate a **Seedance 2.5** video | `skill` `elements-prompting` + `references/models/seedance25.md` + Locked Intro in `references/models/seedance.md`. For narrative/continuity also load `references/workflows/filmmaking.md` — but compile the prompt as Locked Intro, NOT the SCENE CONTEXT / OPTICS / ACTION pack |
 | Generate a **Seedance 2 / WAN / MiniMax H3 / Gemini / Elements** video (`generate_elements` or Visual DNA) | `skill` `elements-prompting` + `references/models/seedance.md` — same Locked Intro. Elements is NOT a different prompt language |
 | Make a **real person talk on camera from their Visual DNA** (AI avatar / talking host / "make me talk") | `references/workflows/talking-avatar-wan3.md`: Wan 3.0 Elements + DNA + 2 real face photos + their voice as `@Audio 1`, one take of 10 s or less per environment |
-| Generate a **GPT Image 2 / 2.5** image | `references/models/gpt-image.md` |
+| Generate a **GPT Image** image (latest 2.6), an **animated GIF**, or an **SVG / vector** logo or icon | `references/models/gpt-image.md` |
 | **No background / transparent PNG / cutout** on any image | `references/models/gpt-image.md` |
 | Generate a **Nano Banana / Gemini** image | `references/models/nano-banana.md` |
 | Generate a **Veo 3 / 3.1** video | `references/models/veo.md` |
@@ -83,7 +83,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Generate **brand product imagery** (studio shot, lifestyle, Pinterest pin, hero banner, carousel, ad pack, virtual try-on, conceptual, restyle) | `references/workflows/product-photoshoot.md` |
 | Generate **marketplace listing cards** (Amazon main + secondary + A+ content) | `references/workflows/marketplace-cards.md` |
 | Apply a **preset** — a named look, sheet, thumbnail, grading, camera move, Seedance shot recipe, music style — or decide whether one fits what the user just asked for | `references/workflows/presets.md` |
-| Make a **very attractive / sexy / curvy woman** ("bigger bust", fully clothed, non-explicit) — figure wording, framing, model route, one-change fix | `references/workflows/attractive-characters.md` |
+| Make a **very attractive / sexy / curvy woman** ("bigger bust", fully clothed or swimwear, non-explicit) — figure wording, framing, model route, Midjourney swimwear-editorial wording and prompt length, one-change fix | `references/workflows/attractive-characters.md` |
 | Use **Visual DNA** / character consistency / `@name` syntax | `references/workflows/visual-dna.md` |
 | Use **Color DNA** / brand palette grading | `references/workflows/color-dna.md` |
 | Start or continue a **multi-step production** (storyboard → scenes → final cut) | `references/workflows/production-log.md` |
@@ -233,19 +233,18 @@ A URL from `generate_*`, `list_media`, `get_media`, or a prior `upload_media` is
 
 Pick the cheapest route that actually controls what the brief needs. Do not invent a pipeline.
 
-**1. Recurring identity (cast / product / location must match across shots)**
-Map → Visual DNA sheets → Confirm → `generate_elements` (or DNA-locked Multishot). Asset sheets earn their cost here.
+**1. Any scene with a character, location or product (the default for story, ad and product video)**
+Visual DNA for each (a character sheet = ONE preset image; a location = ONE empty interior/exterior image) → a written prompt per scene on `generate_elements` (Seedance 2.5, Wan 3.0, Kling). The DNAs and the prompt carry identity and staging; the model stages the scene.
 
-**2. Composition must be locked before motion** (deliberate framing, Pixar-like kids beats, specific staging, hero product plate, user-approved look)
-Generate the needed keyframe still(s) first, then animate with `generate_video_from_image` / first-last / Elements **using those images as real inputs**. Stills without attaching them to the video call are waste.
+**2. A still the user gave you or asked for**
+Animate it with `generate_video_from_image` / first-last. Never make keyframes, "opening stills" or scene stills yourself as a step toward video, and never animate a still you made unasked.
 
-**3. Pure text-to-video / Multishot Locked Intro — only when keyframes are 100% unnecessary**
-Use for generic b-roll, ambient motion, simple stock-like scenes, or any brief where the video model inventing composition is fine and stills would not improve control. If you are not sure keyframes add nothing, prefer route 2.
+**3. Pure text-to-video / Multishot Locked Intro**
+Only for generic b-roll, ambient motion or stock-like scenes with no recurring cast, never the user's own business or person.
 
 **Anti-patterns (HARD)**
-- Do not generate N stills and then run a Multishot T2V that never attaches them.
-- Do not default every "make a video" to keyframes (generic b-roll does not need them).
-- Do not default every narration-only brief to T2V when the user asked for tightly designed cute/controlled shots — those often need keyframes.
+- Do not generate scene stills or keyframes before video. Video = DNAs + prompt on Elements.
+- Do not generate stills and then run a Multishot T2V that never attaches them.
 
 Scene dialogue is **never** `generate_speech` or `generate_lipsync` on a Seedance shoot. Seedance 2 / 2.5 perform quoted lines written into the shot beat — English or Latin transliteration of Hebrew (`"shalom"`), never Hebrew script. For native Hebrew speech, prefer Gemini Omni Flash 1.1 or Gemini Omni 1. Full flow: `references/workflows/production-planning.md`.
 
@@ -275,7 +274,7 @@ Mode wins over model family. **Frames** (`generate_video_from_image`) and **Firs
 
 `N connected cinematic shots, Xs total, AR, Multishot ON` → `Total: Xs / N shots / AR` → `[GLOBAL LOOK – LOCKED, APPLIES TO EVERY SHOT]` → `[CAST – IDENTICAL IN EVERY SHOT]` (each person is `@DNAName`) → `[LOCATION]` → LOCATION MAP / CONTINUITY / PHYSICS → `SHOT N — 0:00–0:02 — …` (ranges sum to Xs) → closing `Total: Xs / N shots / AR`. Pass MCP `duration: X` matching that Total. Omitting Total / Multishot is a failed compile — same contract as the Kolbo help widget.
 
-Write the beats at FULL DEPTH. The cap is 30,000 characters on Seedance 2.5 (10,000 on 2.0) — a 30s / 8+ shot compile should land around 4k–9k, and every beat carries its own camera move, a performance task for the speaker AND the listeners, prop/hand state, and the sound in that beat. A one-line shot beat is under-written; the structure alone is not the craft. Read `references/models/seedance25.md` before compiling.
+Write the beats at FULL DEPTH. The cap is 30,000 characters on Seedance 2.5 (10,000 on 2.0) — use as much of it as the shots need (founder: no reason to be lazy; under ~6k for a 30s / 8+ shot compile is too thin), and every beat carries its own camera move, a performance task for the speaker AND the listeners, prop/hand state, and the sound in that beat. A one-line shot beat is under-written; the structure alone is not the craft. Read `references/models/seedance25.md` before compiling.
 
 Do **not** default Elements to `SCENE CONTEXT` / `OPTICS` / `ACTION` / `ACTIVE REFERENCES` department packs (those live in filmmaking audit/contracts for other models). `elements-prompting` is the craft skill (formerly `seedance-2-prompting`); Locked Intro is the compile shape.
 
@@ -308,7 +307,7 @@ A user-named tool — in any language — overrides every other rule. Recognized
 | "Modify THIS one image" — change bg, remove object, recolor | `generate_image_edit` | ❌ Not for multi-output |
 | "4 angles / poses / views of this character" / "variations of this character" | `generate_creative_director` with `visual_dna_ids` | ❌ Don't loop `generate_image_edit` |
 | "4 variations of THIS exact image" (same prompt, different seeds) | `generate_image` with `num_images=4` (Midjourney: one call already returns 4 — omit `num_images`) | ❌ Not `generate_image_edit` |
-| "No background" / transparent PNG / cutout, **בלי רקע** / **רקע שקוף** — new image or existing one | `generate_image` / `generate_image_edit` with `background: "transparent"` on a GPT Image 2 / 2.5 model (gate on `supports_transparent_background: true`) | ❌ Prompt wording alone — it returns an opaque image. ❌ `edit_image` `removebg` unless they want a purely mechanical cutout of an existing photo |
+| "No background" / transparent PNG / cutout, **בלי רקע** / **רקע שקוף** — new image or existing one | `generate_image` / `generate_image_edit` with `background: "transparent"` on the latest GPT Image model, `gpt-image-2.6-flare` / `-sunburst` (gate on `supports_transparent_background: true`) | ❌ Prompt wording alone — it returns an opaque image. ❌ `edit_image` `removebg` unless they want a purely mechanical cutout of an existing photo |
 
 ## Core Workflow
 
@@ -446,15 +445,14 @@ For MiniMax H3 Max Recast, use its exact live catalog identifier: one 5–30 sec
 
 **Motion-control / animate-move models invert the inputs**: `reference_images[0]` = the CHARACTER IMAGE to animate, `source_video` = the driving/reference video whose motion is transferred. Omitting the character image returns a `MOTION_CONTROL_INPUTS` error. **Do NOT** decompose into frames. **Do NOT** re-fire if the first call returned URLs.
 
-## ⚠️ Character-Driven Video — Frames First, Then Animate (CRITICAL)
+## ⚠️ Character-Driven Video — DNAs + Prompts on Elements (CRITICAL)
 
-For any ad / story / scene-based video **created from scratch** featuring a Visual DNA character (NOT v2v edits):
+For any ad / story / scene-based video **created from scratch** featuring a Visual DNA character, location or product (NOT v2v edits):
 
-1. **Generate the shot frames first** via `generate_creative_director` with `scene_count` + `visual_dna_ids` (image mode). DNA is strongest in image gen; user can approve cheaply.
-2. **Confirm the frames** if >3 shots.
-3. **Animate each frame** with `generate_video_from_image`, fired in parallel.
+1. Attach the cast, location and product DNAs to `generate_elements` (Seedance 2.5, Wan 3.0, Kling).
+2. Write one prompt per scene: action, camera, dialogue. Fire independent scenes in parallel.
 
-Skip frames-first only when the user says "go straight to video", single-shot quick experiments, or the user supplies approved frames. Full rules: `references/models/creative-director.md`.
+Never generate shot frames or keyframes first and animate them (founder rule, 2026-11-08). Frames come into it only when the user supplies them or asks for images.
 
 ## ⚠️ Generated URLs in Chat (CRITICAL)
 
@@ -481,7 +479,7 @@ If at this point you still don't know which `references/` file to load, default 
 
 ## Media selection preferences
 Honor explicit models, presets, budget and inputs. Choose only eligible catalog candidates with all required capabilities. Use requested presets; otherwise use fitting presets when useful. For video generation, editing and lip-sync, when the user has not explicitly selected an output resolution, use the cheapest supported output resolution from the live catalog and pass it explicitly; do not inherit an expensive provider default. Preserve explicit user-selected resolution/settings. Finish fully, cinematic, professional, final, production and available credits are NOT permission to increase resolution. Never infer output resolution from reference media or export settings. A budget is a ceiling, not a spending target. Do not upscale or regenerate at a higher tier without explicit user authorization. If pricing or supported resolutions cannot be verified, inspect the catalog before dispatch; never invent a tier. Models with fixed output resolution use their native output. Never treat a policy refusal as a technical failure or route around safeguards.
-Default images and edits: GPT Image 2.5 Flare/Sunburst; medium for value, high for ordinary maximum quality. Reserve xhigh/max for exceptional dense or difficult multilingual text after medium/high prove insufficient; do not automatically spend on retries. Nano Banana 2 is secondary. Seedream 5.0 Pro favors cinematic aesthetics over complex instruction fidelity; Wan 2.7 Pro is another creative alternative. Z Image/P Image for cheap tests. Midjourney for artistic concepts only, never editing. Soul V2 for realistic people/UGC concepts; derive character sheets before registering finished Visual DNA. Mirage Film 2 for environments and cinematic inspiration.
+Default images and edits: the latest GPT Image, now GPT Image 2.6 Flare (fast, everyday) / Sunburst (precise detail, consistent edits); medium for value, high for ordinary maximum quality. Older GPT Image 2.5 / 2 only when named. For no background, animated GIF or SVG use 2.6 natively (`background: "transparent"`, `output_format: "gif"` / `"svg"`); never fake them with prompt words or HTML. Reserve xhigh/max for exceptional dense or difficult multilingual text after medium/high prove insufficient; do not automatically spend on retries. Nano Banana 2.1 (latest Flash; Nano Banana 2 only when named) is secondary. Seedream 5.0 Pro favors cinematic aesthetics over complex instruction fidelity; Wan 2.7 Pro is another creative alternative. Z Image/P Image for cheap tests. Midjourney for artistic concepts only, never editing. Soul V2 for realistic people/UGC concepts; derive character sheets before registering finished Visual DNA. Mirage Film 2 for environments and cinematic inspiration.
 **Seedance 2.5 Draft:** explicitly pass `model: "seedance-2-5", draft: true` (or legacy `resolution: "480p-draft"`) on the matching video generation tool. Plain `480p` is regular video, never Draft. Use ordinary credits. Finalize a saved draft via `edit_video` `draft_quote` then authorized `draft_enhance`, with its video URL, original project and quoted supported resolution; do not regenerate the prompt. See `references/models/seedance25.md`.
 For Draft video editing, use `generate_video_from_video` with `model: "seedance-2-5-video-to-video", draft: true`. The source duration and aspect ratio are inherited. Draft uses regular edit 480p pricing; optional finalization uses regular edit 1080p pricing, both charging combined input/output seconds. Read the live catalog and quote rather than hardcoding prices. This app-credit/MCP route does not imply USD-wallet video-edit execution availability.
 Default video: Seedance 2.5 for general cinematic work (not Hebrew speech). Kling specializes in controlled single-image and first/last-frame shots. Wan 3.0 specializes in motion graphics and animated typography — native Hebrew speech is poor; attached-audio lip-sync works well. It is also the proven **talking-avatar tool**: a person's Visual DNA plus 2 real face photos plus their own voice as `@Audio 1` gives 0.99 voice sync, holds their identity and works in any environment (`references/workflows/talking-avatar-wan3.md`, 2026-10-28). MiniMax H3 offers higher resolution and strong attached-audio lip-sync; H3 Max favors speed at lower resolution with the same audio lip-sync strength. **Native Hebrew dialogue:** Gemini Omni Flash 1.1 or Gemini Omni 1 (best). Seedance 2 / 2.5 do not speak Hebrew — use Latin transliteration in quotes on Seedance, or switch to Gemini Omni. Grok Imagine 1.5 and Seedance 2.0 are non-Hebrew alternatives. P Video/Draft for cheap fast tests. Use base, edit or extend variants only with their required inputs.
