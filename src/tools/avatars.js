@@ -154,7 +154,7 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'preview_avatar_speech',
-    'Hear a script in the avatar\'s voice before making a video (no credits). Returns speech_url and its seconds: pass speech_url with the same script to quote_avatar_video and create_avatar_video so the video speaks exactly this take. Changing the words or the voice needs a new preview.',
+    'OPTIONAL: hear a script in the avatar\'s voice before making a video (costs a few credits per take; quote_avatar_video returns listen_credits). Skip it to generate straight away: create_avatar_video with only the script voices it itself. Returns speech_url and its seconds: pass speech_url with the same script to quote_avatar_video and create_avatar_video so the video speaks exactly this take. Changing the words or the voice needs a new preview.',
     {
       avatar_id: z.string().min(1).max(64),
       mode: MODE,
@@ -167,9 +167,9 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'list_avatar_lipsync_models',
-    'Models that can move the lips in a Photo avatar video, with credits per second and the longest clip each takes. Pass an id as lipsync_model on quote_avatar_video and create_avatar_video. The default suits most videos.',
-    {},
-    async () => text(await client.get('/v1/avatars/lipsync-models'))
+    'Models that can move the lips in a Photo avatar video (from the photo) or a Twin avatar video (from the footage), with credits per second and the longest clip each takes. Pass an id as lipsync_model on quote_avatar_video and create_avatar_video with the same mode. The default suits most videos.',
+    { mode: z.enum(['photo', 'twin']).optional().describe('photo (default) lists image lipsync models, twin lists video lipsync models.') },
+    async ({ mode }) => text(await client.get(`/v1/avatars/lipsync-models${mode ? `?mode=${mode}` : ''}`))
   );
 
   server.tool(
@@ -182,7 +182,7 @@ function registerAvatarTools(server, client) {
       audio_url: z.string().url().optional(),
       resolution: z.enum(['480p', '720p', '1080p', '4k']).optional(),
       speech_url: z.string().optional().describe('The speech_url from preview_avatar_speech for this exact script: the video then speaks what was heard, at its exact length and price. Send it together with the script.'),
-      lipsync_model: z.string().optional().describe('Photo mode only: a model id from list_avatar_lipsync_models. Omit for the default. The price follows that model.'),
+      lipsync_model: z.string().optional().describe('Photo and Twin modes: a model id from list_avatar_lipsync_models for that mode. Omit for the default. The price follows that model.'),
       remove_background: z.boolean().optional().describe('Also remove the background: the video comes back transparent (video_url = webm with alpha, download_url = editing master). Costs extra per second (see remove_background_credits); up to 1080p and 60 s.'),
     },
     async ({ avatar_id, ...body }) => text(await client.post(`/v1/avatars/${encodeURIComponent(avatar_id)}/videos/quote`, body))
@@ -204,7 +204,7 @@ function registerAvatarTools(server, client) {
       resolution: z.enum(['480p', '720p', '1080p', '4k']).optional(),
       language: z.string().max(10).optional().describe('auto (default) or a code like he, en, es.'),
       speech_url: z.string().optional().describe('The speech_url from preview_avatar_speech for this exact script: the video then speaks what was heard, at its exact length and price. Send it together with the script.'),
-      lipsync_model: z.string().optional().describe('Photo mode only: a model id from list_avatar_lipsync_models. Omit for the default. The price follows that model.'),
+      lipsync_model: z.string().optional().describe('Photo and Twin modes: a model id from list_avatar_lipsync_models for that mode. Omit for the default. The price follows that model.'),
       remove_background: z.boolean().optional().describe('Also remove the background: the video comes back transparent (video_url = webm with alpha, download_url = editing master). Costs extra per second (see remove_background_credits); up to 1080p and 60 s.'),
       session_id: z.string().max(64).optional(),
       project_id: z.string().max(64).optional(),
