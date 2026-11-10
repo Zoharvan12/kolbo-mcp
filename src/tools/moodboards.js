@@ -82,13 +82,15 @@ function registerMoodboardTools(server, client, options = {}) {
       name: z.string().describe('Moodboard name (1–100 chars).'),
       image_urls: z.array(z.string()).min(1).max(15).describe('1–15 public image URLs. For local files, get URLs first via the LOCAL FILE route in this tool\'s description.'),
       style_guide: z.string().optional().describe('Optional style notes (max 500 chars) that steer the analysis, e.g. "focus on the color grading, not the subjects".'),
+      midjourney_codes: z.array(z.string().regex(/^[a-z0-9]{5,32}$/i)).max(5).optional().describe('Optional Midjourney moodboard / personalization codes (the code after --p). Applied whenever this moodboard is used with a Midjourney model.'),
       project_id: z.string().optional().describe('Create the moodboard inside this project so every teammate with edit access can list, fetch and use it as #Name (pass the same project_id to list_moodboards / get_moodboard). Requires edit access; otherwise it is created private.')
     },
-    async ({ name, image_urls, style_guide, project_id }) => {
+    async ({ name, image_urls, style_guide, midjourney_codes, project_id }) => {
       const body = {
         name,
         images: image_urls.map(u => ({ type: 'url', url: u })),
         ...(style_guide ? { style_guide } : {}),
+        ...(midjourney_codes?.length ? { midjourney_codes } : {}),
         ...(project_id ? { project_id } : {})
       };
       const result = await client.post('/v1/moodboards', body);
@@ -104,12 +106,14 @@ function registerMoodboardTools(server, client, options = {}) {
       moodboard_id: z.string().describe('Moodboard id (from list_moodboards).'),
       name: z.string().optional().describe('New name.'),
       style_guide: z.string().optional().describe('New style notes (empty string clears them).'),
+      midjourney_codes: z.array(z.string().regex(/^[a-z0-9]{5,32}$/i)).max(5).optional().describe('Replace the Midjourney --p codes ([] clears them).'),
       image_urls: z.array(z.string()).min(1).max(15).optional().describe('Full replacement image set (1–15 URLs). Omit to keep current images.')
     },
-    async ({ moodboard_id, name, style_guide, image_urls }) => {
+    async ({ moodboard_id, name, style_guide, midjourney_codes, image_urls }) => {
       const body = {};
       if (name !== undefined) body.name = name;
       if (style_guide !== undefined) body.style_guide = style_guide;
+      if (midjourney_codes !== undefined) body.midjourney_codes = midjourney_codes;
       if (image_urls) body.images = image_urls.map(u => ({ type: 'url', url: u }));
       const result = await client.put(`/v1/moodboards/${encodeURIComponent(moodboard_id)}`, body);
       return { content: [{ type: 'text', text: JSON.stringify(result.moodboard, null, 2) }] };
