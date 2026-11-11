@@ -27,7 +27,7 @@ const BODY = `
     <div class="k-actions" id="actions"></div>
   </div>
   <div class="k-footer">
-    <span>ElevenLabs Scribe v2 · <a href="#" id="kolbo-link">Kolbo.AI</a></span>
+    <span>ElevenLabs Scribe v3 · <a href="#" id="kolbo-link">Kolbo.AI</a></span>
     <span class="k-credits" id="credits"></span>
   </div>
 </div>

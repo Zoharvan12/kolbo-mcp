@@ -64,7 +64,7 @@ For media >30 min (past the transcription cap), split with ffmpeg into ~25-min c
 - Returns:
   - `text` — full transcript, plain.
   - `srt_url` — grouped SRT (~12 words per line, up to 2 lines per subtitle). Use this for normal subtitle delivery.
-  - `word_by_word_srt_url` — one word per cue with millisecond-precise start/end (ElevenLabs Scribe v2). Use **only** when downstream is animation (Remotion captions, after-effects karaoke, precise speech-aligned cuts). Noise for normal subtitle workflows.
+  - `word_by_word_srt_url` — one word per cue with millisecond-precise start/end (ElevenLabs Scribe v3). Use **only** when downstream is animation (Remotion captions, after-effects karaoke, precise speech-aligned cuts). Noise for normal subtitle workflows.
   - `txt_url` — plain text file.
   - `duration` — seconds.
 - Cost: per-minute (`model.credit × duration_minutes`). Run `check_credits` before transcribing very long files.
