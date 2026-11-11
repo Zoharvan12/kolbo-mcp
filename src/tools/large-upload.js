@@ -18,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const { z } = require('zod');
+const { assertLocalPathAllowed } = require('../localPathPolicy');
 
 const LARGE_PURPOSES = ['social-publish', 'review', 'shorts-source', 'transcription', 'video-tool'];
 const PART_PAGE = 25;
@@ -71,7 +72,7 @@ async function startLargeUpload(client, args) {
   };
 }
 
-function putPart(url, file, start, end) {
+function putPart(url, fd, start, end) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const req = https.request({ method: 'PUT', hostname: u.hostname, path: u.pathname + u.search, headers: { 'Content-Length': end - start + 1 }, timeout: 600000 }, (res) => {
@@ -80,7 +81,7 @@ function putPart(url, file, start, end) {
     });
     req.on('timeout', () => req.destroy(new Error('part upload timed out')));
     req.on('error', reject);
-    fs.createReadStream(file, { start, end }).on('error', reject).pipe(req);
+    fs.createReadStream(null, { fd, start, end, autoClose: false }).on('error', reject).pipe(req);
   });
 }
 
@@ -90,7 +91,14 @@ function putPart(url, file, start, end) {
  * re-asked from the server's missing list with fresh URLs before giving up.
  */
 async function uploadLargeFromPath(client, filePath, args = {}) {
-  const size = fs.statSync(filePath).size;
+  assertLocalPathAllowed(filePath);
+  // One descriptor for the whole upload: re-opening the path per part would follow a symlink swapped in after the policy check.
+  const fd = fs.openSync(filePath, 'r');
+  try { return await uploadLargeFromFd(client, fd, filePath, args); } finally { fs.closeSync(fd); }
+}
+
+async function uploadLargeFromFd(client, fd, filePath, args) {
+  const size = fs.fstatSync(fd).size;
   const r = await client.post('/v1/uploads/large', startBody(args, args.filename || path.basename(filePath), size));
   const u = r.data || r;
   const range = (n) => [(n - 1) * u.part_size, Math.min(n * u.part_size, size) - 1];
@@ -100,7 +108,7 @@ async function uploadLargeFromPath(client, filePath, args = {}) {
     await Promise.all(Array.from({ length: PARALLEL_PARTS }, async () => {
       for (let p; (p = queue.shift());) {
         for (let attempt = 1; ; attempt++) {
-          try { await putPart(p.url, filePath, ...range(p.part_number)); break; } catch (e) {
+          try { await putPart(p.url, fd, ...range(p.part_number)); break; } catch (e) {
             if (attempt >= PART_RETRIES) { failed.push(p.part_number); break; }
             await new Promise(res => setTimeout(res, 1000 * 2 ** attempt));
           }

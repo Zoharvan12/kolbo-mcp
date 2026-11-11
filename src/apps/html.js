@@ -137,10 +137,17 @@ window.kolbo.onThemeChange(applyTheme);
 function modelChipHTML(name, iconUrl) {
   if (!name) return '';
   var inner = iconUrl
-    ? '<img src="' + esc(iconUrl) + '" onerror="this.outerHTML=monogram(\\'' + esc(name).replace(/'/g, '') + '\\')" alt="">'
+    ? '<img src="' + esc(iconUrl) + '" data-mono="' + esc(name) + '" alt="">'
     : monogram(name);
   return '<span class="k-chip brand">' + inner + esc(name) + '</span>';
 }
+// Broken-image fallback. Names ride in a data attribute (esc() is attribute-safe) and
+// this listener reads them as plain text; never splice a name into an inline JS handler,
+// because the HTML parser decodes &#39; back to ' before the handler script runs.
+document.addEventListener('error', function (e) {
+  var t = e.target;
+  if (t && t.tagName === 'IMG' && t.hasAttribute('data-mono')) t.outerHTML = monogram(t.getAttribute('data-mono'));
+}, true);
 function monogram(name) {
   var ch = String(name || '').replace(/^[@#]+/, '').trim().charAt(0) || '?';
   return '<span class="k-mono-icon">' + esc(ch.toUpperCase()) + '</span>';
