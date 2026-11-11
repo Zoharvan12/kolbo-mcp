@@ -55,7 +55,7 @@ function boot(sc) {
       '<div style="font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px">' + esc(g.name) + '</div>' +
       g.models.map(function (m, mi) {
         return '<div class="k-audio-row" data-g="' + gi + '" data-m="' + mi + '" style="cursor:pointer;padding:6px 8px;margin-bottom:4px">' +
-          (m.icon ? '<img class="k-audio-art" style="width:24px;height:24px;border-radius:6px" src="' + esc(m.icon) + '" onerror="this.outerHTML=monogram(\\'' + esc(m.name).replace(/'/g, '') + '\\')">'
+          (m.icon ? '<img class="k-audio-art" style="width:24px;height:24px;border-radius:6px" src="' + esc(m.icon) + '" data-mono="' + esc(m.name) + '">'
                   : '<span style="flex:none">' + monogram(m.name) + '</span>') +
           '<div class="k-audio-meta"><div class="k-audio-title" style="font-size:12px">' + esc(m.name) + '</div>' +
           (m.description ? '<div class="k-audio-sub" style="font-size:10.5px">' + esc(m.description) + '</div>' : '') + '</div>' +

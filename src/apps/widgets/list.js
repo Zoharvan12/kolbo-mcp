@@ -141,7 +141,7 @@ function itemHTML(item) {
     : item.thumbnail
     ? '<img class="k-audio-art k-peek-hit" src="' + esc(item.thumbnail) + '" alt="" loading="lazy"'
       + peekAttrs(item.thumbnail, 'image', item.title)
-      + ' onerror="this.outerHTML=monogram(\\'' + esc(item.title || '?').replace(/'/g, '') + '\\')">'
+      + ' data-mono="' + esc(item.title || '?') + '">'
     : monogram(item.title || '?');
   return '<div class="k-audio-row" data-i="' + i + '"' + (clickable ? ' style="cursor:pointer"' : '') + '>' +
     avatar +

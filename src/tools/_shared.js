@@ -24,6 +24,7 @@ const fs = require('fs');
 const path = require('path');
 const net = require('net');
 const dns = require('dns').promises;
+const { assertLocalPathAllowed } = require('../localPathPolicy');
 // Never load Bun's incomplete built-in undici shim. Node uses the installed
 // dispatcher below; Bun uses native fetch pinned to vetted IPs (its node:tls
 // compatibility transport can return empty peer certificates intermittently).
@@ -390,6 +391,7 @@ async function resolveToBuffer(source, kind, opts = {}) {
       LOCAL_FILE_ROUTING
     );
   }
+  assertLocalPathAllowed(source);
   let stat;
   try {
     stat = fs.statSync(source);

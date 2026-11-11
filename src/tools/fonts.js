@@ -3,6 +3,7 @@ const { z } = require('zod');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const FormData = require('form-data');
+const { assertLocalPathAllowed } = require('../localPathPolicy');
 const { UI, uiResult } = require('../apps');
 const id = z.string().regex(/^[a-f0-9]{24}$/i);
 const result = value => ({ content: [{ type: 'text', text: JSON.stringify(value) }] });
@@ -21,6 +22,7 @@ function registerFontTools(server, client, options = {}) {
   }, async ({ file_path, language }) => {
     if (!options.allowLocalFiles) throw new Error('Remote font upload: use create_font_upload_ticket or font_upload_widget; server-local file access is disabled');
     if (!path.isAbsolute(file_path) || !/\.(otf|ttf|woff2)$/i.test(file_path)) throw new Error('Choose an absolute OTF, TTF or WOFF2 path');
+    assertLocalPathAllowed(file_path);
     const handle = await fs.open(file_path, 'r');
     try {
       const stat = await handle.stat();
