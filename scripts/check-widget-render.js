@@ -712,14 +712,14 @@ function preRenderShowsTheInputRefs() {
 async function videoEditKeepsSourceThroughPolling() {
   const { registerGenerateTools } = require('../src/tools/generate');
   let edit;
-  registerGenerateTools({ tool(name, ...args) { if (name === 'edit_video') edit = args.at(-1); } }, {
+  registerGenerateTools({ tool(name, ...args) { if (name === 'video_tools') edit = args.at(-1); } }, {
     async get() { return { models: [] }; },
     async post() { return { generation_id: 'edit-source' }; },
   }, { apps: true, remote: true });
   const args = { operation: 'upscale', video_url: 'https://media.kolbo.ai/source.mp4',
     mask_video_url: 'https://media.kolbo.ai/mask.mp4' };
   const w = mountWidget();
-  w.input('edit_video', args);
+  w.input('video_tools', args);
   const check = () => {
     const chips = w.html('chips');
     for (const url of [args.video_url, args.mask_video_url]) {

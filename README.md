@@ -242,15 +242,15 @@ Every generation tool also accepts an optional `project_id` arg that routes the 
 **SYNCI Music Library** (licensed production music)
 | Tool | Description |
 |------|-------------|
-| `search_music_library` | Search the licensed catalog; results contain watermarked previews only. |
+| `synci_search` | Search the licensed catalog; results contain watermarked previews only. |
 | `analyze_script_for_music` | Turn a script or scene description into a music search. |
-| `browse_music_library` | Browse the catalog without a query. |
-| `get_music_library_facets` | List genres, moods, instruments, BPM, and duration filters. |
-| `get_music_track_audio` | Get watermarked preview URLs for a track. |
-| `acquire_clean_music_track` | Spend one SYNCI vendor credit and return clean MP3/WAV signed URLs. Idempotent with `request_id`. |
-| `import_music_track_to_library` | Spend one vendor credit and copy a clean MP3/WAV into Kolbo's media library. |
-| `get_music_track_related` | Get stems/alternate-version metadata (purchasing remains unsupported). |
-| `get_music_track_lyrics` | Get lyrics metadata. |
+| `synci_browse` | Browse the catalog without a query. |
+| `synci_facets` | List genres, moods, instruments, BPM, and duration filters. |
+| `synci_track_audio` | Get watermarked preview URLs for a track. |
+| `synci_acquire_track` | Spend one SYNCI vendor credit and return clean MP3/WAV signed URLs. Idempotent with `request_id`. |
+| `synci_import_track` | Spend one vendor credit and copy a clean MP3/WAV into Kolbo's media library. |
+| `synci_track_related` | Get stems/alternate-version metadata (purchasing remains unsupported). |
+| `synci_track_lyrics` | Get lyrics metadata. |
 
 **Stock Library** (multi-source stock media: Pexels, Pixabay, Sketchfab 3D, Music)
 | Tool | Description |
@@ -299,14 +299,14 @@ Requires DaVinci Resolve Studio with the Kolbo plugin open (Workspace → Workfl
 
 | Tool | Description |
 |------|-------------|
-| `resolve_list_sessions` | List the caller's DaVinci Resolve windows connected through the Kolbo plugin |
-| `resolve_get_project` | Queue a read-only project inspection: timelines, frame rate, resolution, playhead (no approval) |
-| `resolve_get_timeline` | Queue a read-only inspection of the current timeline: clips per track with start/end, markers, playhead |
-| `resolve_import_media` | Import one Kolbo media id or Kolbo-owned HTTPS URL into the Kolbo.AI Media Pool bin |
-| `resolve_edit_timeline` | Structured edits: new timelines, timed and trimmed Kolbo clips on chosen tracks, transitions, audio fades, Fusion titles, markers, clip deletion |
-| `resolve_run_script` | Approval-gated JavaScript against Resolve's scripting API (colour, Fusion, render jobs); the editor reviews the exact code |
-| `resolve_capture_frame` | Export a timeline frame to the Kolbo library so the agent can check its work |
-| `resolve_get_command_status` | Read command status/result/error; `awaiting_approval` means stop and wait for the editor |
+| `davinci_list_sessions` | List the caller's DaVinci Resolve windows connected through the Kolbo plugin |
+| `davinci_get_project` | Queue a read-only project inspection: timelines, frame rate, resolution, playhead (no approval) |
+| `davinci_get_timeline` | Queue a read-only inspection of the current timeline: clips per track with start/end, markers, playhead |
+| `davinci_import_media` | Import one Kolbo media id or Kolbo-owned HTTPS URL into the Kolbo.AI Media Pool bin |
+| `davinci_edit_timeline` | Structured edits: new timelines, timed and trimmed Kolbo clips on chosen tracks, transitions, audio fades, Fusion titles, markers, clip deletion |
+| `davinci_run_script` | Approval-gated JavaScript against Resolve's scripting API (colour, Fusion, render jobs); the editor reviews the exact code |
+| `davinci_capture_frame` | Export a timeline frame to the Kolbo library so the agent can check its work |
+| `davinci_get_command_status` | Read command status/result/error; `awaiting_approval` means stop and wait for the editor |
 
 **Discovery & Account**
 | Tool | Description |

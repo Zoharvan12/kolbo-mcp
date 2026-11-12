@@ -136,7 +136,7 @@ fetch). These are **not** `list_presets` rows and do not go in `preset_id`.
   prepends 200+ words that will compete with theirs. Their words win.
 - They named a **preset explicitly** — resolve that one, do not substitute a "better" match.
 - The request is a **plain edit** ("remove the background", "make it 4K"). Those are
-  `edit_image` mechanics, not presets.
+  `image_tools` mechanics, not presets.
 - You are **mid-batch on an approved look.** Changing preset between shots in one
   sequence breaks continuity — that is the whole point of a locked global look.
 - You could not find a good match. **Say nothing and write a good prompt.** Announcing

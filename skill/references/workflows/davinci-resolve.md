@@ -7,7 +7,7 @@ Use this when the user wants Kolbo media edited, cut, titled, graded or rendered
 | **Kolbo Resolve plugin** (`resolve_*` tools, this server) | Any agent, including ChatGPT and claude.ai | Reading the project, importing Kolbo media, building timeline edits, titles, frame checks - every change approved by the editor |
 | **Blackmagic's DaVinci Resolve MCP** (their own server) | Local agents only (Claude Desktop, Claude Code, Codex) | Deep scripting, colour, LUTs/DCTLs, rendering |
 
-Both need **DaVinci Resolve Studio**; the free edition has no plugins and no external scripting. If `resolve_list_sessions` returns a session, prefer the Kolbo plugin.
+Both need **DaVinci Resolve Studio**; the free edition has no plugins and no external scripting. If `davinci_list_sessions` returns a session, prefer the Kolbo plugin.
 
 ## Kolbo Resolve plugin
 
@@ -15,35 +15,35 @@ Everything in this section was run end to end through Kolbo MCP against DaVinci 
 
 ### Connect and target safely
 
-1. Call `resolve_list_sessions` before the first Resolve action.
+1. Call `davinci_list_sessions` before the first Resolve action.
 2. If no session is listed, ask the user to open **Workspace → Workflow Integrations → Kolbo AI** in Resolve Studio and sign in with the same Kolbo account as this connector. **AI agents** in the plugin header connects automatically; if its dot is not green, ask them to click it.
 3. One session: `session_id` may be omitted. Several: show each and ask. Keep the chosen `session_id` on every later call; re-list after Resolve or the plugin restarts.
 
-Every tool except `resolve_list_sessions` and `resolve_get_command_status` returns a command record. Poll `resolve_get_command_status` until `succeeded`, `failed`, `denied` or `canceled`. Reads run without approval; everything else waits for **Allow once / Allow for this session / Deny** in the plugin window. `awaiting_approval` is not a polling state: tell the user to approve in the Kolbo AI window (it may be behind Resolve), then check again. `denied` is final.
+Every tool except `davinci_list_sessions` and `davinci_get_command_status` returns a command record. Poll `davinci_get_command_status` until `succeeded`, `failed`, `denied` or `canceled`. Reads run without approval; everything else waits for **Allow once / Allow for this session / Deny** in the plugin window. `awaiting_approval` is not a polling state: tell the user to approve in the Kolbo AI window (it may be behind Resolve), then check again. `denied` is final.
 
 ### Tools
 
 | Goal | Tool |
 |---|---|
-| Project name, timelines, frame rate, resolution, playhead | `resolve_get_project` |
-| Clips on every track (position, start/end seconds), markers | `resolve_get_timeline` |
-| Kolbo media into the Media Pool only | `resolve_import_media` |
-| Build or change an edit | `resolve_edit_timeline` |
-| Anything else in Resolve's scripting API | `resolve_run_script` |
-| See the result | `resolve_capture_frame` → look at the returned `url` |
+| Project name, timelines, frame rate, resolution, playhead | `davinci_get_project` |
+| Clips on every track (position, start/end seconds), markers | `davinci_get_timeline` |
+| Kolbo media into the Media Pool only | `davinci_import_media` |
+| Build or change an edit | `davinci_edit_timeline` |
+| Anything else in Resolve's scripting API | `davinci_run_script` |
+| See the result | `davinci_capture_frame` → look at the returned `url` |
 
-### Timeline edits (`resolve_edit_timeline`)
+### Timeline edits (`davinci_edit_timeline`)
 
 - Up to 100 operations run in order and stop at the first failure; earlier operations stay applied. Fix the failing one and continue - do not replay the batch.
 - Start new work with `timeline.create` so the user's existing timelines stay untouched. It uses the project's frame rate and resolution.
 - Times are seconds from the timeline start. `clip.append`: `record_seconds` = where it lands (default: end of that track), `trim_start_seconds` = seconds skipped at the head of the source, `duration_seconds` = length on the timeline (stills default to 5 s). media_type "video" keeps a clip's audio off the timeline; audio files always go to audio tracks. Missing tracks are added.
-- Clips are addressed by track plus position (1 = leftmost media clip on that track; transitions do not count) or exact clip name. Clip names are file names, and a file imported again gets a short prefix, so prefer positions. Positions change after inserts and deletes - re-read with `resolve_get_timeline` when unsure.
+- Clips are addressed by track plus position (1 = leftmost media clip on that track; transitions do not count) or exact clip name. Clip names are file names, and a file imported again gets a short prefix, so prefer positions. Positions change after inserts and deletes - re-read with `davinci_get_timeline` when unsure.
 - `clip.transition` needs handles: trim the head of the next shot (`trim_start_seconds` ≥ half the transition) or the transition will be refused.
 - `audio.fade` is for clips on audio tracks. `title.add` builds the title inside that clip's Fusion comp (`position` [0.5, 0.5] = centre, y grows upward) with a fade in and out; keep it inside title-safe (x and y between 0.1 and 0.9).
 - `clip.delete` is destructive; only delete what the user asked for.
 - The Kolbo AI window must stay open while you work; it can sit behind Resolve.
 
-### Scripts (`resolve_run_script`)
+### Scripts (`davinci_run_script`)
 
 - `code` is an **async JavaScript function body** with `resolve`, `project`, `timeline` and `log(...)` in scope. Every Resolve call returns a promise - `await` each one - and `return` a JSON-serialisable result.
 - The editor reads the exact code before approving. Give a plain `purpose`. Never touch files, the network or other projects unless the user asked for exactly that.

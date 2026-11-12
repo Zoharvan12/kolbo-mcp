@@ -97,7 +97,7 @@ Re-transcribe the tight cut (and each short) before burning; word timings change
 ## Key art
 
 - **Poster (3:4) and covers:** `gpt-image-2.6-sunburst` with every character's Visual DNA tagged in the prompt and all typography in the same generation (series title in its lettering, tagline). Name the title exactly or the model swaps it. Leads face the camera, figure in frame, eyes open.
-- **Banners / headers:** generate at the model's widest ratio with the poster as a source image, then fit the platform size with `edit_image` reframe / zoom-out. Never assemble key art in code; code may only crop or resize a finished image.
+- **Banners / headers:** generate at the model's widest ratio with the poster as a source image, then fit the platform size with `image_tools` reframe / zoom-out. Never assemble key art in code; code may only crop or resize a finished image.
 - QA: faces match the sheets, every word spelled right, characters clearly adult, no real-person likeness.
 
 ## Delivery report (to the user)

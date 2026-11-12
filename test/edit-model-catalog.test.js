@@ -10,7 +10,7 @@ const {
   assertExecutableEditModel,
 } = require('../src/tools/editModelCatalog');
 
-test('every edit_video operation resolves to its concrete catalog type', () => {
+test('every video_tools operation resolves to its concrete catalog type', () => {
   assert.deepEqual(VIDEO_EDIT_MODEL_TYPES, {
     upscale: 'video_upscale',
     reframe: 'video_reframe',

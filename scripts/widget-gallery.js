@@ -83,9 +83,9 @@ function build() {
   });
 
   const GEN_TOOLS = {
-    generate_image: 'image', generate_image_edit: 'image', edit_image: 'image', generate_creative_director: 'image',
+    generate_image: 'image', generate_image_edit: 'image', image_tools: 'image', generate_creative_director: 'image',
     generate_character_sheet: 'image', generate_video: 'video', generate_video_from_image: 'video', generate_video_from_video: 'video',
-    generate_elements: 'video', generate_first_last_frame: 'video', generate_lipsync: 'video', edit_video: 'video',
+    generate_elements: 'video', generate_first_last_frame: 'video', generate_lipsync: 'video', video_tools: 'video',
     generate_music: 'audio', generate_speech: 'audio', generate_sound: 'audio', generate_3d: '3d',
   };
   const PROMPT = 'Gritty photoreal documentary street photograph of a busy Israeli falafel stand, shot from behind the customer\'s shoulder at the counter, late afternoon light.';
@@ -96,8 +96,8 @@ function build() {
     widget: 'generation', tool, kind, generation_id: id, prompt: PROMPT,
     model: 'nano-banana-2', model_name: 'Nano Banana 2', model_icon: SAMPLE.icon,
     settings: settingsFor(kind), session_id: 'sess-1', project_id: 'proj-1', open_url: 'https://app.kolbo.ai/',
-    reference_images: tool === 'generate_image_edit' || tool === 'edit_image' ? [IMG2] : undefined,
-    reference_videos: tool === 'edit_video' ? [VID] : undefined,
+    reference_images: tool === 'generate_image_edit' || tool === 'image_tools' ? [IMG2] : undefined,
+    reference_videos: tool === 'video_tools' ? [VID] : undefined,
     poll_tool: 'get_generation_status', status_args: { generation_id: id, wait: true },
   });
 
@@ -126,8 +126,8 @@ function build() {
     // chip row (references + DNA count) the way a live call does.
     const PRE_REF_ARGS = {
       generate_image_edit: { source_images: [IMG, IMG2] },
-      edit_image: { image_url: IMG, mask_image_url: IMG2 },
-      edit_video: { video_url: VID, operation: 'upscale' },
+      image_tools: { image_url: IMG, mask_image_url: IMG2 },
+      video_tools: { video_url: VID, operation: 'upscale' },
       generate_video_from_image: { image_url: IMG },
       generate_video_from_video: { source_video: VID },
       generate_elements: { files: [IMG, VID, AUD] },
@@ -191,27 +191,27 @@ function build() {
   }
   // Operation edit card: no prompt line, plain operation label + its settings.
   scenarios.push({
-    tool: 'edit_image', title: 'completed — enhance_skin (operation label + settings chips)',
+    tool: 'image_tools', title: 'completed — enhance_skin (operation label + settings chips)',
     args: { image_url: IMG, operation: 'enhance_skin', skin_strength: 'realistic', fix_lighting: true },
-    result: Object.assign(baseGen('edit_image', 'image', 'edit-skin-done'), {
+    result: Object.assign(baseGen('image_tools', 'image', 'edit-skin-done'), {
       phase: 'completed', prompt: '', model: 'realistic-skin', model_name: 'Enhancor', urls: [urlFor('image')], credits_used: 10,
       settings: { mode: 'enhance_skin', details: ['realistic', 'fix lighting'] },
     }),
   });
   const angleArgs = { image_url: IMG, operation: 'camera_angle', horizontal_angle: 270, vertical_angle: -30, camera_zoom: 8 };
-  scenarios.push({ tool: 'edit_image', title: 'pre-render — camera_angle (operation label, no prompt line)', args: angleArgs, result: null });
+  scenarios.push({ tool: 'image_tools', title: 'pre-render — camera_angle (operation label, no prompt line)', args: angleArgs, result: null });
   scenarios.push({
-    tool: 'edit_image', title: 'generating → completes — camera_angle keeps its settings chips', args: angleArgs,
-    result: Object.assign(baseGen('edit_image', 'image', 'edit-angle-live'), {
+    tool: 'image_tools', title: 'generating → completes — camera_angle keeps its settings chips', args: angleArgs,
+    result: Object.assign(baseGen('image_tools', 'image', 'edit-angle-live'), {
       phase: 'generating', count: 1, prompt: '', model: 'qwen-image-edit-2511-multiple-angles', model_name: 'Qwen Angles',
       settings: { mode: 'camera_angle', details: ['270° turn', '-30° tilt', 'zoom 8'] },
     }),
     calls: { get_generation_status: [status('edit-angle-live', 'processing', 'image'), status('edit-angle-live', 'completed', 'image')] },
   });
   scenarios.push({
-    tool: 'edit_video', title: 'completed — upscale (operation label + factor/engine chips)',
+    tool: 'video_tools', title: 'completed — upscale (operation label + factor/engine chips)',
     args: { video_url: VID, operation: 'upscale', scale: 2, enhancement_model: 'Proteus' },
-    result: Object.assign(baseGen('edit_video', 'video', 'edit-vup-done'), {
+    result: Object.assign(baseGen('video_tools', 'video', 'edit-vup-done'), {
       phase: 'completed', prompt: '', urls: [urlFor('video')], credits_used: 12,
       settings: { mode: 'upscale', resolution: '4k', details: ['2×', 'Proteus'] },
     }),
@@ -279,7 +279,7 @@ function build() {
   scenarios.push(grid('list_visual_dnas', 'Visual DNA', gridItems(4, 'image').map((x, i) => Object.assign(x, { title: ['Kobi', 'Noa', 'Brand kit', 'Studio B'][i], subtitle: 'character' })), { total: 4 }));
   scenarios.push(grid('list_moodboards', 'Moodboards', gridItems(3, 'image'), { total: 3 }));
   scenarios.push(grid('list_color_palettes', 'Color DNA', gridItems(2, 'image'), { total: 2 }));
-  scenarios.push(grid('search_music_library', 'SYNCI music — previews', gridItems(4, 'audio').map((x, i) => Object.assign(x, { title: 'Track ' + (i + 1), subtitle: 'cinematic · 120bpm · 2:31' })), { total: 40 }));
+  scenarios.push(grid('synci_search', 'SYNCI music — previews', gridItems(4, 'audio').map((x, i) => Object.assign(x, { title: 'Track ' + (i + 1), subtitle: 'cinematic · 120bpm · 2:31' })), { total: 40 }));
 
   // lists
   const list = (tool, title, items, extra) => ({

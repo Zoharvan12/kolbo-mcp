@@ -23,7 +23,7 @@ the voice/background split).
 Just want the words as text, not the audio           → transcribe_audio (references/workflows/transcription.md)
 ```
 
-Never reach for `edit_video({ operation: "generate_audio" })` for any of these — that ADDS a
+Never reach for `video_tools({ operation: "generate_audio" })` for any of these — that ADDS a
 generated audio layer, it does not take one away.
 
 ## The layers

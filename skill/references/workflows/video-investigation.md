@@ -20,16 +20,16 @@ extracting quotes, or studying motion, music and sound. Choose evidence for the 
    120 seconds when transitions matter. Cuts are candidates from an 8 fps proxy;
    verify nearby full frames. Sparse sampling can miss brief actions or cuts.
 4. For motion, continuity, text over time or audiovisual alignment, extract kind
-   `clip` and call `analyze_video_evidence` focus `video` with a specific question.
+   `clip` and call `analyze_extracted_clip` focus `video` with a specific question.
    The interval alone is analyzed. Keep original source offset and clip-relative
    timestamps separate. Convert returned times by adding source_offset_seconds.
-5. For speech, extract kind `audio`, then `transcribe_video_evidence` for word timings,
+5. For speech, extract kind `audio`, then `transcribe_extracted_clip` for word timings,
    speakers and SRT. Source times are supplied on every word; SRT remains clip-relative.
    Verify unclear words before quoting. To cover all speech in a long recording, use
    explicit consecutive windows with slight overlap, merge by source times and
    deduplicate overlap. Do not silently transcribe hours when only one event is needed.
 6. For music or sound design, use kind `audio_levels` for measured levels/quiet times,
-   then audio evidence plus `analyze_video_evidence` focus `music` or `sound` for
+   then audio evidence plus `analyze_extracted_clip` focus `music` or `sound` for
    instrumentation, rhythm, mood, sound effects, ambience and speech overlap. Volume
    measurements do not establish genre, exact BPM, song identity or artist. Request
    stems only if source separation helps the user's task and spending is authorized.

@@ -319,8 +319,8 @@ async function main() {
     ['generate_video_from_video', { source_video: 'https://x/v.mp4', prompt: 'p', model: 'Kling 3.0 Pro' }, 'kling-video/v3/pro/video-to-video'],
     ['generate_image', { prompt: 'p', model: 'Nano Banana 2' }, 'nano-banana-2'],
     ['generate_image_edit', { prompt: 'p', source_images: ['https://x/i.png'], model: 'Nano Banana 2' }, 'nano-banana-2-image-editing'],
-    ['edit_video', { video_url: 'https://x/v.mp4', operation: 'upscale', model: 'Flux Video Upscale' }, 'blackforestlabs/flux-video-upscale'],
-    ['edit_video', { video_url: 'https://x/v.mp4', operation: 'reframe', aspect_ratio: '9:16', model: 'Luma Ray 3.2' }, 'luma-ray-3-2-reframe'],
+    ['video_tools', { video_url: 'https://x/v.mp4', operation: 'upscale', model: 'Flux Video Upscale' }, 'blackforestlabs/flux-video-upscale'],
+    ['video_tools', { video_url: 'https://x/v.mp4', operation: 'reframe', aspect_ratio: '9:16', model: 'Luma Ray 3.2' }, 'luma-ray-3-2-reframe'],
   ];
   for (const [tool, args, want] of wiring) {
     await check(`${tool}: "${args.model}" reaches the API as "${want}"`, async () => {
@@ -332,27 +332,27 @@ async function main() {
     });
   }
 
-  await check('edit_video rejects kolbo_gateway_* navigation aliases before submit', async () => {
+  await check('video_tools rejects kolbo_gateway_* navigation aliases before submit', async () => {
     posted.length = 0;
     await assert.rejects(
-      tools.edit_video({ video_url: 'https://x/v.mp4', operation: 'upscale', model: 'kolbo_gateway_upscale' }),
+      tools.video_tools({ video_url: 'https://x/v.mp4', operation: 'upscale', model: 'kolbo_gateway_upscale' }),
       /not an executable AI model/
     );
     assert.strictEqual(posted.length, 0, 'gateway alias reached the generation API');
   });
 
-  await check('edit_video rejects a concrete model from the wrong operation family', async () => {
+  await check('video_tools rejects a concrete model from the wrong operation family', async () => {
     posted.length = 0;
     await assert.rejects(
-      tools.edit_video({ video_url: 'https://x/v.mp4', operation: 'reframe', aspect_ratio: '9:16', model: 'topaz/upscale/video' }),
+      tools.video_tools({ video_url: 'https://x/v.mp4', operation: 'reframe', aspect_ratio: '9:16', model: 'topaz/upscale/video' }),
       /expected type: video_reframe/
     );
     assert.strictEqual(posted.length, 0, 'wrong-family model reached the generation API');
   });
 
-  await check('edit_video allows promptless Sonilo auto-caption audio generation', async () => {
+  await check('video_tools allows promptless Sonilo auto-caption audio generation', async () => {
     posted.length = 0;
-    await tools.edit_video({
+    await tools.video_tools({
       video_url: 'https://x/v.mp4',
       operation: 'generate_audio',
       model: 'sonilo/v1.1/video-to-video-sound-effects'
@@ -361,10 +361,10 @@ async function main() {
     assert.strictEqual(posted[0].body.prompt, undefined);
   });
 
-  await check('edit_image rejects model selection for pinned multi_shot processing', async () => {
+  await check('image_tools rejects model selection for pinned multi_shot processing', async () => {
     posted.length = 0;
     await assert.rejects(
-      tools.edit_image({ image_url: 'https://x/i.png', operation: 'multi_shot', model: 'nano-banana-2-image-editing' }),
+      tools.image_tools({ image_url: 'https://x/i.png', operation: 'multi_shot', model: 'nano-banana-2-image-editing' }),
       /model is not configurable for multi_shot/
     );
     assert.strictEqual(posted.length, 0, 'multi_shot model override reached the generation API');

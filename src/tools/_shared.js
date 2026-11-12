@@ -60,7 +60,7 @@ const FILE_INPUT_TOOLS = [
   'generate_image', 'generate_image_edit', 'generate_creative_director',
   'generate_video', 'generate_video_from_image', 'generate_video_from_video',
   'generate_elements', 'generate_first_last_frame', 'generate_lipsync',
-  'generate_3d', 'edit_image', 'edit_video', 'transcribe_audio',
+  'generate_3d', 'image_tools', 'video_tools', 'transcribe_audio',
   'create_visual_dna', 'update_visual_dna', 'generate_character_sheet', 'clone_voice',
   'chat_send_message', 'create_moodboard', 'update_moodboard',
   'separate_audio_stems', 'clean_dialogue_leftovers', 'separate_ambience',
@@ -588,7 +588,7 @@ async function inlineImageBlocks(urls, opts = {}) {
 // session (mirrors kolbo-map src/constants/sessionTypes.js resumeUrl map — the
 // route must match the SESSION MODEL the SDK created, per sdkSessionManager):
 //   ImageSession (image AND image_edit) → /image-tools?tool=create-image
-//   imgEditSession (edit_image / global_image_edit — the Canvas) → /image-tools?tool=canvas
+//   imgEditSession (image_tools / global_image_edit — the Canvas) → /image-tools?tool=canvas
 //   imgToVideoSession (video, video_from_image, elements, first_last_frame)
 //     → /video-tools?tool=create-video
 //   videoToVideoSession → /video-tools?tool=video-to-video
@@ -602,13 +602,13 @@ async function inlineImageBlocks(urls, opts = {}) {
 // imgToVideoSession. The old ?tool=image-editing / ?tool=text-to-video slugs
 // still redirect, but nothing new should emit them.
 // Intentionally ABSENT (no deep-linkable session page — widget falls back to
-// plain https://app.kolbo.ai): edit_video (GlobalVideoEditSession has no
+// plain https://app.kolbo.ai): video_tools (GlobalVideoEditSession has no
 // session deep-link), generate_3d (project-scoped, no session), shorts render.
 const APP_BASE_URL = 'https://app.kolbo.ai';
 const OPEN_URL_ROUTES = {
   generate_image:             { path: '/image-tools', tool: 'create-image' },
   generate_image_edit:        { path: '/image-tools', tool: 'create-image' },
-  edit_image:                 { path: '/image-tools', tool: 'canvas' },
+  image_tools:                 { path: '/image-tools', tool: 'canvas' },
   generate_video:             { path: '/video-tools', tool: 'create-video' },
   generate_video_from_image:  { path: '/video-tools', tool: 'create-video' },
   generate_elements:          { path: '/video-tools', tool: 'create-video', mode: 'elements' },
@@ -627,7 +627,7 @@ const OPEN_URL_ROUTES = {
 const TYPE_TO_TOOL = {
   image: 'generate_image',
   image_edit: 'generate_image_edit',
-  global_image_edit: 'edit_image',
+  global_image_edit: 'image_tools',
   video: 'generate_video',
   video_from_image: 'generate_video_from_image',
   elements: 'generate_elements',

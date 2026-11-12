@@ -276,7 +276,7 @@ function registerGenerateTools(server, client, options = {}) {
     ...opts,
     allowLocalFiles: !options.remote,
   });
-  // JSON-body tools (edit_image) cannot carry a file, so a local path is
+  // JSON-body tools (image_tools) cannot carry a file, so a local path is
   // uploaded to the media library first and its CDN URL is sent instead.
   // URLs pass through untouched.
   const rehostLocal = async (source, kind, project_id) => {
@@ -400,7 +400,7 @@ function registerGenerateTools(server, client, options = {}) {
         playback_urls: result.result.playback_urls,
         model: result.result.model,
         prompt_used: result.result.prompt_used,
-        _followup_hint: 'If the user asks to edit/change/modify this image next (scene, lighting, objects, style, color — any content edit), pass urls[0] to generate_image_edit. Use edit_image ONLY for mechanical ops (upscale/reframe/removebg/enhance_skin). Do NOT call generate_image again.'
+        _followup_hint: 'If the user asks to edit/change/modify this image next (scene, lighting, objects, style, color — any content edit), pass urls[0] to generate_image_edit. Use image_tools ONLY for mechanical ops (upscale/reframe/removebg/enhance_skin). Do NOT call generate_image again.'
       }, null, 2), images);
     }
   );
@@ -408,7 +408,7 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_image_edit ──────────────────────────────────
   server.tool(
     'generate_image_edit',
-    'THE tool for ANY prompt-driven / content edit of an existing image — changing the scene ("make it night", "change the sky to sunset"), adding/removing/replacing objects, restyling, recoloring, compositing, or any "edit this image to…" request. This is the image-editing equivalent of generate_image and runs on strong dedicated editing models (latest: gpt-image-2.6-flare / gpt-image-2.6-sunburst, nano-banana-2.1). Provide the source image URL(s) in `source_images` and the instruction in `prompt`. Supports Visual DNA profiles, moodboards, and Kolbo image-editing presets. PRESET CONTRACT: if the user requests a preset, call list_presets type="image_edit" and pass its exact id as `preset_id`; never silently omit it. Do NOT use `edit_image` for these — that tool is only for mechanical enhancements (upscale/reframe/remove-background/skin). For a brand-new image from scratch, use generate_image. Returns the edited image URL(s) when complete.',
+    'THE tool for ANY prompt-driven / content edit of an existing image — changing the scene ("make it night", "change the sky to sunset"), adding/removing/replacing objects, restyling, recoloring, compositing, or any "edit this image to…" request. This is the image-editing equivalent of generate_image and runs on strong dedicated editing models (latest: gpt-image-2.6-flare / gpt-image-2.6-sunburst, nano-banana-2.1). Provide the source image URL(s) in `source_images` and the instruction in `prompt`. Supports Visual DNA profiles, moodboards, and Kolbo image-editing presets. PRESET CONTRACT: if the user requests a preset, call list_presets type="image_edit" and pass its exact id as `preset_id`; never silently omit it. Do NOT use `image_tools` for these — that tool is only for mechanical enhancements (upscale/reframe/remove-background/skin). For a brand-new image from scratch, use generate_image. Returns the edited image URL(s) when complete.',
     {
       prompt: z.string().optional().describe('Description of the edit to apply (e.g., "remove the background", "change the sky to sunset"). Required unless `prompts` is provided.'),
       prompts: promptsField('edits of the SAME source images'),
@@ -504,7 +504,7 @@ function registerGenerateTools(server, client, options = {}) {
         playback_urls: result.result.playback_urls,
         model: result.result.model,
         prompt_used: result.result.prompt_used,
-        _followup_hint: 'If the user asks for another edit on this output, pass urls[0] back into generate_image_edit as source_images. For targeted ops (upscale/reframe/removebg/enhance_skin) use edit_image instead. Do NOT call generate_image from scratch.'
+        _followup_hint: 'If the user asks for another edit on this output, pass urls[0] back into generate_image_edit as source_images. For targeted ops (upscale/reframe/removebg/enhance_skin) use image_tools instead. Do NOT call generate_image from scratch.'
       }, null, 2), images);
     }
   );
@@ -598,7 +598,7 @@ function registerGenerateTools(server, client, options = {}) {
         scenes,
         total_scenes: result.scenes?.length || 0,
         completed_scenes: scenes.length,
-        _followup_hint: 'Each scene is a separate asset. If the user asks to edit one scene, find that scene by scene_number/title and pass its image_urls[0] (or video_urls[0]) to generate_image_edit / edit_image / edit_video / generate_video_from_video. Do NOT re-run generate_creative_director unless the user explicitly wants a brand-new set.'
+        _followup_hint: 'Each scene is a separate asset. If the user asks to edit one scene, find that scene by scene_number/title and pass its image_urls[0] (or video_urls[0]) to generate_image_edit / image_tools / video_tools / generate_video_from_video. Do NOT re-run generate_creative_director unless the user explicitly wants a brand-new set.'
       }, null, 2);
 
       return { content: [{ type: 'text', text: cdText }] };
@@ -684,7 +684,7 @@ function registerGenerateTools(server, client, options = {}) {
   // retired textToVideoGeneration path and was stale.
   server.tool(
     'generate_video',
-    'Generate a video from a text prompt using Kolbo AI. For SEVERAL different videos, pass all their prompts in `prompts` in ONE call (one combined widget) — never a series of separate calls. For animating an existing still image into motion, use generate_video_from_image instead. For a coordinated multi-scene video campaign, use generate_creative_director with workflow_type="video". Supports reference images (for style/composition guidance) and Visual DNA for character consistency. Seedance 2/2.5 PERFORM quoted dialogue natively (synced voice, lip movement, room tone) — do not route scene dialogue to generate_speech or generate_lipsync; write it in ENGLISH or Latin transliteration of Hebrew ("shalom"), never Hebrew script — Seedance 2/2.5 do not speak Hebrew; prefer Gemini Omni Flash 1.1 or Gemini Omni 1 for native Hebrew. Resolution is a credit MULTIPLIER (vs 720p: 480p x0.44, 1080p x2.25, 4k x4.95), so use a lower resolution for previews. For actual Seedance 2.5 Draft, explicitly pass resolution="480p-draft" with model="seedance-2-5", then use edit_video draft_quote/draft_enhance for paid finalization. Plain "480p" is a regular generation, not Draft. ROUTE BEFORE CALLING: when reference images anchor IDENTITY (specific characters, a specific product, a location that must match) — especially 2+ of them — that is generate_elements, not this tool; reference_images here are loose style/composition hints. Decide the right tool FIRST: a mis-routed call still starts a PAID generation, and switching tools afterwards without cancel_generation leaves the user paying for both. Returns the final video URL when complete.',
+    'Generate a video from a text prompt using Kolbo AI. For SEVERAL different videos, pass all their prompts in `prompts` in ONE call (one combined widget) — never a series of separate calls. For animating an existing still image into motion, use generate_video_from_image instead. For a coordinated multi-scene video campaign, use generate_creative_director with workflow_type="video". Supports reference images (for style/composition guidance) and Visual DNA for character consistency. Seedance 2/2.5 PERFORM quoted dialogue natively (synced voice, lip movement, room tone) — do not route scene dialogue to generate_speech or generate_lipsync; write it in ENGLISH or Latin transliteration of Hebrew ("shalom"), never Hebrew script — Seedance 2/2.5 do not speak Hebrew; prefer Gemini Omni Flash 1.1 or Gemini Omni 1 for native Hebrew. Resolution is a credit MULTIPLIER (vs 720p: 480p x0.44, 1080p x2.25, 4k x4.95), so use a lower resolution for previews. For actual Seedance 2.5 Draft, explicitly pass resolution="480p-draft" with model="seedance-2-5", then use video_tools draft_quote/draft_enhance for paid finalization. Plain "480p" is a regular generation, not Draft. ROUTE BEFORE CALLING: when reference images anchor IDENTITY (specific characters, a specific product, a location that must match) — especially 2+ of them — that is generate_elements, not this tool; reference_images here are loose style/composition hints. Decide the right tool FIRST: a mis-routed call still starts a PAID generation, and switching tools afterwards without cancel_generation leaves the user paying for both. Returns the final video URL when complete.',
     {
       prompt: z.string().optional().describe('Text description of the video to generate. Required unless `prompts` is provided.'),
       prompts: promptsField('videos'),
@@ -762,7 +762,7 @@ function registerGenerateTools(server, client, options = {}) {
         duration: result.result.duration,
         thumbnail_url: result.result.thumbnail_url,
         prompt_used: result.result.prompt_used,
-        _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to edit_video (upscale/reframe/face_swap/extend/generate_audio/lipsync/magic_edit) or generate_video_from_video (restyle). Do NOT call generate_video from scratch.'
+        _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to video_tools (upscale/reframe/face_swap/extend/generate_audio/lipsync/magic_edit) or generate_video_from_video (restyle). Do NOT call generate_video from scratch.'
       }, null, 2));
     }
   );
@@ -855,7 +855,7 @@ function registerGenerateTools(server, client, options = {}) {
         model: result.result.model,
         duration: result.result.duration,
         thumbnail_url: result.result.thumbnail_url,
-        _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to edit_video or generate_video_from_video. Do NOT re-run generate_video_from_image unless they want a fresh animation from a different source image. Animating more shots of THIS same sequence? Pass the session_id above back on each of those calls so they all land in one session.'
+        _followup_hint: 'If the user asks to edit/restyle/extend this video next, pass urls[0] to video_tools or generate_video_from_video. Do NOT re-run generate_video_from_image unless they want a fresh animation from a different source image. Animating more shots of THIS same sequence? Pass the session_id above back on each of those calls so they all land in one session.'
       }, null, 2));
     }
   );
@@ -1865,7 +1865,7 @@ function registerGenerateTools(server, client, options = {}) {
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency across outputs. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model.**'),
       style_id: z.string().optional().describe('Morphious Styles only (kolbo-morphious-motion or kolbo-morphious-swap; Standard only, the Lite modes refuse a style): id of a look from list_morphious_styles (Kolbo catalog or a custom style the user made). Restyles the WHOLE video in that look; the style counts as reference image 1, so no reference_images are needed. Prompt optional.'),
       draft: z.boolean().optional().describe('Special Draft mode. True forces 480p Draft even if resolution says 1080p; false selects regular video. Only supported when list_models advertises draft capabilities. For Seedance 2.5 editing use model seedance-2-5-video-to-video with generate_video_from_video; the source duration and aspect ratio are preserved. Uses ordinary credits; finalize through draft_quote then draft_enhance.'),
-      resolution: z.string().optional().describe('Video resolution or named tier: read supported_resolutions from list_models. For Seedance 2.5 Draft use resolution="480p-draft" on the matching public model: seedance-2-5 for creation, seedance-2-5-video-to-video for editing. Plain "480p" generates regular video, NOT Draft. Finalize an actual draft with edit_video operation="draft_quote" then "draft_enhance".'),
+      resolution: z.string().optional().describe('Video resolution or named tier: read supported_resolutions from list_models. For Seedance 2.5 Draft use resolution="480p-draft" on the matching public model: seedance-2-5 for creation, seedance-2-5-video-to-video for editing. Plain "480p" generates regular video, NOT Draft. Finalize an actual draft with video_tools operation="draft_quote" then "draft_enhance".'),
       sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Honored by `sound_generation_type: "native"` models (Kling O3/V3, Veo 3.1, PixVerse V6). Omit to use `sound_enabled_by_default`. Enabling sound may apply `sound_credit_multiplier` to cost.'),
       keyframes: z.array(z.object({
         image_url: z.string().describe('Public URL of the keyframe image'),
@@ -2066,7 +2066,7 @@ function registerGenerateTools(server, client, options = {}) {
       enhance_prompt: z.boolean().optional().describe('Enhance the prompt. Default: false — only pass true if the user explicitly asks to enhance/improve the prompt.'),
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
       draft: z.boolean().optional().describe('Special Draft mode. True forces 480p Draft even if resolution says 1080p; false selects regular video. Only supported when list_models advertises draft capabilities. For Seedance 2.5 editing use model seedance-2-5-video-to-video with generate_video_from_video; the source duration and aspect ratio are preserved. Uses ordinary credits; finalize through draft_quote then draft_enhance.'),
-      resolution: z.string().optional().describe('Video resolution or named tier: read supported_resolutions from list_models. For Seedance 2.5 Draft use resolution="480p-draft" on the matching public model: seedance-2-5 for creation, seedance-2-5-video-to-video for editing. Plain "480p" generates regular video, NOT Draft. Finalize an actual draft with edit_video operation="draft_quote" then "draft_enhance".'),
+      resolution: z.string().optional().describe('Video resolution or named tier: read supported_resolutions from list_models. For Seedance 2.5 Draft use resolution="480p-draft" on the matching public model: seedance-2-5 for creation, seedance-2-5-video-to-video for editing. Plain "480p" generates regular video, NOT Draft. Finalize an actual draft with video_tools operation="draft_quote" then "draft_enhance".'),
       sound_enabled: z.boolean().optional().describe('Enable (`true`) or disable (`false`) AI-generated synced audio on the output video. Honored by `sound_generation_type: "native"` models (Kling O3/V3, Veo 3.1, PixVerse V6). Omit to use `sound_enabled_by_default`. Enabling sound may apply `sound_credit_multiplier` to cost.'),
       project_id: projectIdField,
       session_id: sessionIdField
@@ -2291,7 +2291,7 @@ function registerGenerateTools(server, client, options = {}) {
       visual_dna_ids: z.array(z.string()).optional().describe('Array of Visual DNA profile IDs to apply for character/style consistency. **Cap: pass at most `max_visual_dna` IDs from list_models for the chosen model; if `supports_visual_dna: false`, DNA is silently ignored.**'),
       style_id: z.string().optional().describe('Morphious Styles only (kolbo-morphious-motion or kolbo-morphious-swap; Standard only, the Lite modes refuse a style): id of a look from list_morphious_styles (Kolbo catalog or a custom style the user made). Restyles the WHOLE video in that look; the style counts as reference image 1, so no reference_images are needed. Prompt optional.'),
       draft: z.boolean().optional().describe('Special Draft mode. True forces 480p Draft even if resolution says 1080p; false selects regular video. Only supported when list_models advertises draft capabilities. For Seedance 2.5 editing use model seedance-2-5-video-to-video with generate_video_from_video; the source duration and aspect ratio are preserved. Uses ordinary credits; finalize through draft_quote then draft_enhance.'),
-      resolution: z.string().optional().describe('Video resolution or named tier: read supported_resolutions from list_models. For Seedance 2.5 Draft use resolution="480p-draft" on the matching public model: seedance-2-5 for creation, seedance-2-5-video-to-video for editing. Plain "480p" generates regular video, NOT Draft. Finalize an actual draft with edit_video operation="draft_quote" then "draft_enhance".'),
+      resolution: z.string().optional().describe('Video resolution or named tier: read supported_resolutions from list_models. For Seedance 2.5 Draft use resolution="480p-draft" on the matching public model: seedance-2-5 for creation, seedance-2-5-video-to-video for editing. Plain "480p" generates regular video, NOT Draft. Finalize an actual draft with video_tools operation="draft_quote" then "draft_enhance".'),
       reference_images: z.array(z.string()).optional().describe('Array of reference image URLs for models that support additional image inputs. **Cap: pass at most `max_images` URLs from list_models — if `max_images === 0` the model does not accept image refs.** Examples: character reference images for Kling O1/O3, style reference for Aleph/gen4_aleph, character image for WAN VACE video-edit.'),
       reference_videos: z.array(z.string()).optional().describe('Array of additional reference video URLs for models that support multiple video inputs. **Cap: pass at most `max_videos` URLs from list_models — if `max_videos <= 1` only the source_video is accepted.** Example: WAN 2.6 reference-to-video accepts 1–3 reference videos.'),
       elements: z.array(z.string()).optional().describe('Array of element image URLs. **Cap: pass at most `max_elements` URLs from list_models — if `max_elements === 0` the model does not accept elements.** Elements are style or character reference assets alongside the main video.'),
@@ -2671,9 +2671,9 @@ function registerGenerateTools(server, client, options = {}) {
     return d.length ? d : undefined;
   };
 
-  // ─── edit_image ────────────────────────────────────────────
+  // ─── image_tools ────────────────────────────────────────────
   server.tool(
-    'edit_image',
+    'image_tools',
     'Apply a targeted AI edit to an existing image. Covers mechanical enhancements (upscale, remove background, skin retouching) AND creative operations (expand/outpaint, reframe, inpaint, erase, face swap, background replace, camera angle, multi-shot grid, split/upscale). ⚠️ To EXPAND an image / add space / widen it to a new aspect ratio while keeping the existing artwork intact, use operation="zoom_out" — NOT "reframe" (reframe re-generates the whole picture). ⚠️ For open-ended PROMPT-DRIVEN content edits — "make it night", restyling, adding/removing objects — use `generate_image_edit` instead; it runs on stronger dedicated editing models and produces better results.',
     {
       image_url: z.string().describe('URL or absolute local path of the primary source image to edit.'),
@@ -2870,7 +2870,7 @@ function registerGenerateTools(server, client, options = {}) {
       };
 
       if (returnsImmediately()) return submittedResult({
-        tool: 'edit_image', kind: 'image', gen, client, model,
+        tool: 'image_tools', kind: 'image', gen, client, model,
         prompt: prompt || '',
         settings: cardSettings,
         reference_images: [image_url, mask_image_url, ...(additional_images || [])].filter(Boolean)
@@ -2884,7 +2884,7 @@ function registerGenerateTools(server, client, options = {}) {
       const result = poll.result;
 
       return uiCompleted({
-        tool: 'edit_image', kind: 'image', gen, client, model,
+        tool: 'image_tools', kind: 'image', gen, client, model,
         prompt: prompt || '',
         settings: cardSettings,
         reference_images: [image_url, mask_image_url, ...(additional_images || [])].filter(Boolean),
@@ -2900,9 +2900,9 @@ function registerGenerateTools(server, client, options = {}) {
     }
   );
 
-  // ─── edit_video ────────────────────────────────────────────
+  // ─── video_tools ────────────────────────────────────────────
   server.tool(
-    'edit_video',
+    'video_tools',
     'Apply a targeted AI edit to an existing video. Covers both mechanical edits (upscale, reframe, remove watermark, remove background) and creative operations (generate audio, face swap, extend, lipsync, inpaint, retake, magic edit). Returns the edited video URL when complete.',
     {
       video_url: z.string().describe('URL of the source video to edit.'),
@@ -3097,7 +3097,7 @@ function registerGenerateTools(server, client, options = {}) {
         details: editDetails(operation, { scale, enhancement_model, target_fps, mode, enhancement_tier, enhancement_preset, bit_depth, scale_ratio, turbo, num_samples, preserve_speech }),
       };
       if (returnsImmediately()) return submittedResult({
-        tool: 'edit_video', kind: 'video', gen, client, model,
+        tool: 'video_tools', kind: 'video', gen, client, model,
         prompt: prompt || '',
         settings: cardSettings,
         ...editRefs
@@ -3111,7 +3111,7 @@ function registerGenerateTools(server, client, options = {}) {
       const result = poll.result;
 
       return uiCompleted({
-        tool: 'edit_video', kind: 'video', gen, client, model,
+        tool: 'video_tools', kind: 'video', gen, client, model,
         prompt: prompt || '',
         settings: cardSettings,
         ...editRefs,

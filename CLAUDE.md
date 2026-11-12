@@ -126,7 +126,7 @@ claude.ai (web)     → HTTPS → api.kolbo.ai/mcp (OAuth) → createServer({ ap
 
 ## MCP Apps — Interactive Kolbo Widgets (v1.30+, live since 2026-07-11)
 
-`edit_video` carries source/mask videos, image and audio inputs in its widget reference fields on submit and completion. Build these fields from the resolved request body so local files preview via the same uploaded CDN URLs sent to the API.
+`video_tools` carries source/mask videos, image and audio inputs in its widget reference fields on submit and completion. Build these fields from the resolved request body so local files preview via the same uploaded CDN URLs sent to the API.
 
 Kolbo Review uses `ui://kolbo/review.html` (`src/apps/widgets/review.js`) on `create_review_asset`, `get_review_asset`, `add_review_version` and `list_review_assets`: a player with note markers where the user posts timestamped notes, replies, resolves and sets status in chat. Every write goes through the existing review tools via `callTool`; voice memos and drawings stay in the app. Review results carry `open_url` (owner app link) beside the guest `share_url`.
 
@@ -203,7 +203,7 @@ Desktop (MCP Apps / SEP-1865). Full design: `docs/APPS-DESIGN.md`. Rules:
   catalog type and MUST be given it by every generate tool — without it the shortest
   identifier won, so on 2026-08-10 `generate_video_from_image` with "Kling 2.6 Pro"
   submitted the TEXT-to-video endpoint with an image attached and billed the t2v SKU.
-  Only `edit_image` / `edit_video` pass no type (operation-routed, no single type).
+  Only `image_tools` / `video_tools` pass no type (operation-routed, no single type).
   Guarded by `check-model-catalog.js` §5, which asserts the resolution AND that each
   tool actually passes its type.
 - **Grids are PAGED contact sheets, not growing lists.** `media-grid` renders one
@@ -301,7 +301,7 @@ src/tools/local-rehost.js — Wraps the generate-tools client: any absolute loca
 src/tools/generate.js    — All generation tools (image, image-edit, video, video-from-image,
                             video-from-video, elements, first-last-frame, lipsync,
                             creative-director, music, speech, sound, 3d, transcribe,
-                            edit_image, edit_video, cancel_generation, trim_video,
+                            image_tools, video_tools, cancel_generation, trim_video,
                             get_generation_status, get_creative_director_status)
 src/tools/audio_stems.js — Stem separation (separate_audio_stems, clean_dialogue_leftovers,
                             separate_ambience). Inline routes: explicit timeoutMs, no pollOrTimedOut
@@ -383,8 +383,8 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `separate_ambience` | `POST /v1/audio/ambience` | 660s | `audio_url` (the `sfx`/`music` layer) + optional `source_type`, OR `generation_id`. Billed even when nothing separable — response carries `skipped` |
 | `get_generation_status` | `GET /v1/generate/:id/status` | 180s w/ `wait` | single id or `generation_ids[]` batch (returns `all_done`/`still_processing`); `wait=true` blocks via pollUntilDone; single-id no-wait shape unchanged (widget contract) |
 | `get_creative_director_status` | see `src/tools/generate.js` | — | dedicated wait-capable status for CD batches (partial per-scene results) |
-| `edit_image` | see `src/tools/generate.js` | — | image edit incl. `zoom_out` outpainting (v1.54+) |
-| `edit_video` | see `src/tools/generate.js` | — | video edit operations |
+| `image_tools` | see `src/tools/generate.js` | — | image edit incl. `zoom_out` outpainting (v1.54+) |
+| `video_tools` | see `src/tools/generate.js` | — | video edit operations |
 | `cancel_generation` | see `src/tools/generate.js` | — | cancel an in-flight generation |
 | `list_voices` | `GET /v1/voices` (`src/tools/voices.js`) | — | filters: `provider`, `language`, `gender` |
 
@@ -469,15 +469,15 @@ Every generation tool below also accepts an optional `project_id` arg that route
 **SYNCI Music Library** (`src/tools/music_library.js`) — preview discovery + paid clean final use
 | Tool | Route | Notes |
 |------|-------|-------|
-| `search_music_library` | `POST /v1/music-library/search` | Watermarked preview discovery. |
+| `synci_search` | `POST /v1/music-library/search` | Watermarked preview discovery. |
 | `analyze_script_for_music` | `POST /v1/music-library/analyze-script` | Script → music search terms. |
-| `browse_music_library` | `GET /v1/music-library/catalog` | Watermarked preview browse. |
-| `get_music_library_facets` | `GET /v1/music-library/facets` | Genres/moods/instruments + ranges. |
-| `get_music_track_audio` | `GET /v1/music-library/track/:id/audio` | Preview-only URLs; never masters. |
-| `acquire_clean_music_track` | `POST /v1/music-library/clean/:trackId` | Paid clean MP3/WAV; idempotent with `requestId`. |
-| `import_music_track_to_library` | `POST /v1/music-library/import` | Paid clean acquisition + CDN import. |
-| `get_music_track_related` | `GET /v1/music-library/track/:id/related` | Metadata only; stem/version purchases unsupported. |
-| `get_music_track_lyrics` | `GET /v1/music-library/track/:id/lyrics` | Lyrics metadata. |
+| `synci_browse` | `GET /v1/music-library/catalog` | Watermarked preview browse. |
+| `synci_facets` | `GET /v1/music-library/facets` | Genres/moods/instruments + ranges. |
+| `synci_track_audio` | `GET /v1/music-library/track/:id/audio` | Preview-only URLs; never masters. |
+| `synci_acquire_track` | `POST /v1/music-library/clean/:trackId` | Paid clean MP3/WAV; idempotent with `requestId`. |
+| `synci_import_track` | `POST /v1/music-library/import` | Paid clean acquisition + CDN import. |
+| `synci_track_related` | `GET /v1/music-library/track/:id/related` | Metadata only; stem/version purchases unsupported. |
+| `synci_track_lyrics` | `GET /v1/music-library/track/:id/lyrics` | Lyrics metadata. |
 
 **Stock Library** (`src/tools/stock_library.js`) — multi-source stock media (Pexels, Pixabay, Sketchfab 3D, Music)
 | Tool | Route | Notes |

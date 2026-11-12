@@ -4,7 +4,7 @@ const { registerGenerateTools } = require('../src/tools/generate');
 
 test('draft quote returns availability and credits without generation polling', async () => {
   let edit;
-  const server = { tool(name, ...args) { if (name === 'edit_video') edit = args.at(-1); } };
+  const server = { tool(name, ...args) { if (name === 'video_tools') edit = args.at(-1); } };
   const calls = [];
   const quote = { status: true, data: { credits: 480, resolution: '1080p', supportedResolutions: ['1080p'] } };
   const client = {
@@ -22,7 +22,7 @@ test('draft quote returns availability and credits without generation polling', 
 
 test('draft finalization forwards source and resolution and returns completed billing', async () => {
   let edit;
-  const server = { tool(name, ...args) { if (name === 'edit_video') edit = args.at(-1); } };
+  const server = { tool(name, ...args) { if (name === 'video_tools') edit = args.at(-1); } };
   const calls = [];
   const client = {
     async post(url, body) { calls.push({ url, body }); return { generation_id: 'draft-final', session_id: 'session' }; },

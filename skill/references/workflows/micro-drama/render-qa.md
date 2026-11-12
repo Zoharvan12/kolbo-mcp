@@ -8,7 +8,7 @@ Read live rates from `list_models` (Seedance 2.5 bills per output second; Draft 
 
 ```
 episode Draft  = sum(part seconds) x Draft rate x 1.3   (1.3 = typical fix-shot overhead)
-episode final  = kept seconds x finalization rate at the chosen resolution (from edit_video draft_quote)
+episode final  = kept seconds x finalization rate at the chosen resolution (from video_tools draft_quote)
 assets         = sheets + looks + locations + voices (once per series; looks per season)
 ```
 
@@ -40,8 +40,8 @@ Look at frames, not the prompt. Outside agents: `python scripts/micro-drama/shot
 ## Finals (only the keepers)
 
 1. The user picks the keepers (or approves the tight cut built from Drafts; see `references/workflows/micro-drama/edit-deliver.md`).
-2. For each keeper: `edit_video` with `operation: "draft_quote"`, the Draft's `video_url`, `project_id` and a resolution from the catalog's `final_resolutions` (Drafts expire after `lifetime_seconds`, 7 days as of 2026-10, so finalize within that window). Sum the quotes and show them with the cap.
-3. Only after the user explicitly says yes to that exact quoted credit amount: `edit_video` with `operation: "draft_enhance"` and the same source, project and resolution. Never in the same turn as the quote, never covered by the credit cap or any autonomy setting, never as a default step. Finals are expensive (a 1080p finalization costs about 4.4x the Draft of the same length as of 2026-10); say so when quoting. This renders the same Draft at full quality; it is not a new generation.
+2. For each keeper: `video_tools` with `operation: "draft_quote"`, the Draft's `video_url`, `project_id` and a resolution from the catalog's `final_resolutions` (Drafts expire after `lifetime_seconds`, 7 days as of 2026-10, so finalize within that window). Sum the quotes and show them with the cap.
+3. Only after the user explicitly says yes to that exact quoted credit amount: `video_tools` with `operation: "draft_enhance"` and the same source, project and resolution. Never in the same turn as the quote, never covered by the credit cap or any autonomy setting, never as a default step. Finals are expensive (a 1080p finalization costs about 4.4x the Draft of the same length as of 2026-10); say so when quoting. This renders the same Draft at full quality; it is not a new generation.
 4. If a Draft has expired or cannot be finalized, say so before proposing any new paid render.
 5. Re-check each final against its Draft (same shots, same audio); the edit uses finals only.
 
@@ -49,7 +49,7 @@ Free path when the agent has a local upscaler: keep the 480p Drafts, upscale eac
 
 Cheaper path for long episodes: build and approve the tight cut from Drafts first, then finalize only the clips the cut actually uses.
 
-Budget alternative: upscale the approved Draft cut instead of re-rendering it. `edit_video` `operation: "upscale"` with the Bytedance upscaler and `enhancement_preset: "short_series"` (made for short dramas) costs a small fraction of a Draft finalization (read the live rate from `list_models type="video_upscale"`). It enlarges the 480p Draft rather than re-rendering it, so detail stays closer to the Draft. Run it only when the user asks for a finished or higher-resolution version: quote, explicit yes, then run. Never offer it unasked.
+Budget alternative: upscale the approved Draft cut instead of re-rendering it. `video_tools` `operation: "upscale"` with the Bytedance upscaler and `enhancement_preset: "short_series"` (made for short dramas) costs a small fraction of a Draft finalization (read the live rate from `list_models type="video_upscale"`). It enlarges the 480p Draft rather than re-rendering it, so detail stays closer to the Draft. Run it only when the user asks for a finished or higher-resolution version: quote, explicit yes, then run. Never offer it unasked.
 
 ## Bookkeeping and learning
 

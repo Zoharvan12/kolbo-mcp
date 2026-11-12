@@ -36,9 +36,9 @@ const READ_ONLY = [
   'list_agents', 'list_skills', 'list_docs', 'get_doc',
   'get_review_storage_usage', 'list_review_assets', 'get_review_asset',
   'list_review_collections', 'list_review_comments', 'list_review_share_links',
-  'search_music_library', 'analyze_script_for_music', 'browse_music_library',
-  'get_music_library_facets', 'get_music_track_audio',
-  'get_music_track_related', 'get_music_track_lyrics',
+  'synci_search', 'analyze_script_for_music', 'synci_browse',
+  'synci_facets', 'synci_track_audio',
+  'synci_track_related', 'synci_track_lyrics',
   'search_stock_media', 'get_stock_sources', 'get_stock_categories',
   'get_stock_collections', 'get_stock_asset', 'analyze_script_for_stock',
   // Free (no credits, no DB write) — returns a scratch composition plan for the caller to edit.
@@ -54,7 +54,7 @@ const OPEN_WORLD_READ_ONLY = [
   'blender_list_sessions', 'blender_get_scene', 'blender_search_docs',
   'blender_get_command_status',
   'adobe_list_sessions', 'adobe_get_project', 'adobe_get_timeline', 'adobe_get_command_status',
-  'resolve_list_sessions', 'resolve_get_project', 'resolve_get_timeline', 'resolve_get_command_status',
+  'davinci_list_sessions', 'davinci_get_project', 'davinci_get_timeline', 'davinci_get_command_status',
   // Social Planner reads that call the platform (account health, comments, inbox, metrics).
   'check_social_account', 'get_tiktok_creator_info', 'list_social_comments', 'list_social_conversations',
   'get_social_conversation', 'get_social_post', 'get_social_post_metrics', 'get_social_account_metrics',
@@ -76,7 +76,7 @@ const PRIVATE_WRITE = [
   'move_visual_dna_to_folder',
   'create_moodboard', 'create_morphious_style',
   'create_avatar', 'add_avatar_scene', 'create_avatar_video', 'regenerate_avatar_portraits', 'remove_avatar_video_background',
-  'preview_avatar_scene', 'preview_avatar_speech', 'animate_photo',
+  'preview_avatar_scene', 'preview_avatar_speech', 'talking_photo',
   'create_music_persona',
   'create_color_palette', 'activate_color_palette', 'deactivate_color_palette',
   'move_session', 'bulk_move_sessions', 'move_generations_to_session',
@@ -117,12 +117,12 @@ const DESTRUCTIVE_WRITE = [
   'create_music_reference_audio', 'edit_music_section',
   'generate_elements', 'generate_first_last_frame', 'generate_lipsync',
   'generate_video_from_video', 'transcribe_audio', 'generate_3d',
-  'edit_image', 'edit_video', 'trim_video', 'clone_voice',
+  'image_tools', 'video_tools', 'trim_video', 'clone_voice',
   'chat_send_message', 'generate_character_sheet',
-  'acquire_clean_music_track', 'import_music_track_to_library',
+  'synci_acquire_track', 'synci_import_track',
   'separate_audio_stems', 'clean_dialogue_leftovers', 'separate_ambience',
   'analyze_video',
-  'analyze_video_evidence', 'transcribe_video_evidence', 'cancel_video_inspection',
+  'analyze_extracted_clip', 'transcribe_extracted_clip', 'cancel_video_inspection',
 
   // Deletes and whole-value replacement updates are conservatively destructive.
   'delete_voice', 'update_visual_dna', 'delete_visual_dna', 'delete_visual_dna_folder',
@@ -154,7 +154,7 @@ const OPEN_WORLD_WRITE = [
   'adobe_import_media', 'adobe_place_on_timeline', 'adobe_create_sequence', 'adobe_import_captions',
   'adobe_capture_frame',
   // Resolve imports add Media Pool items; captures add a Kolbo library image.
-  'resolve_import_media', 'resolve_capture_frame',
+  'davinci_import_media', 'davinci_capture_frame',
   // Social Planner: posts, replies and messages go out on the user's own accounts.
   'create_social_calendar_feed', 'connect_social_account', 'publish_social_post', 'cross_post_social',
   'retry_social_post', 'reply_social_comment', 'set_social_queue', 'send_social_message',
@@ -170,7 +170,7 @@ const OPEN_WORLD_DESTRUCTIVE = [
   // Can delete layers; approved once per batch in the Kolbo panel.
   'adobe_edit_composition', 'adobe_run_script',
   // Can delete timeline clips; approved once per batch in the Kolbo plugin.
-  'resolve_edit_timeline', 'resolve_run_script',
+  'davinci_edit_timeline', 'davinci_run_script',
   // Social Planner: removes posts, comments, connections or automations.
   'revoke_social_calendar_feed', 'disconnect_social_account', 'delete_published_social_post',
   'moderate_social_comment', 'delete_social_automation', 'cancel_social_post',

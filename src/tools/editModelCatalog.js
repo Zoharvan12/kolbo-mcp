@@ -1,5 +1,5 @@
 /*
- * Operation-specific model catalogs for edit_image / edit_video.
+ * Operation-specific model catalogs for image_tools / video_tools.
  *
  * The `kolbo_gateway_*` rows in video_to_video are navigation aliases used by
  * Kolbo's web picker. They are not provider engines. MCP callers must discover

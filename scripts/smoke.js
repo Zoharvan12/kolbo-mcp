@@ -403,8 +403,8 @@ async function main() {
       ['generate_lipsync', { source: 'https://cdn.example/a.png', audio: 'https://cdn.example/a.mp3' }],
       ['generate_video_from_video', { source_video: 'https://cdn.example/a.mp4', prompt: 'p' }],
       ['transcribe_audio', { source: 'https://cdn.example/a.mp3' }],
-      ['edit_image', { image_url: 'https://cdn.example/a.png', operation: 'upscale' }],
-      ['edit_video', { video_url: 'https://cdn.example/a.mp4', operation: 'upscale' }],
+      ['image_tools', { image_url: 'https://cdn.example/a.png', operation: 'upscale' }],
+      ['video_tools', { video_url: 'https://cdn.example/a.mp4', operation: 'upscale' }],
     ];
     for (const [name, args] of cases) {
       const tool = server._registeredTools[name];
@@ -464,12 +464,12 @@ async function main() {
     const shown = JSON.parse((await flowTools.preview_avatar_scene.handler({ avatar_id: 'a1', preset_key: 'office' })).content[0].text);
     if (calls[0].url !== '/v1/avatars/a1/scenes' || calls[1].url !== '/v1/avatars/a1/scenes/s1/preview' || shown.scene_id !== 's1' || !shown.preview_url) throw new Error('preview_avatar_scene did not make the scene, then the image');
     calls.length = 0;
-    const made = JSON.parse((await flowTools.animate_photo.handler({ photo_url: 'https://x/me.jpg', consent: true, audio_url: 'https://x/a.mp3' })).content[0].text);
-    if (calls[0].body.quick !== true || calls[1].body.as_is !== true || calls[2].body.mode !== 'photo' || calls[2].body.scene_id !== 's1' || calls[2].body.audio_url !== 'https://x/a.mp3' || made.video_id !== 'v3') throw new Error('animate_photo did not run quick avatar, as-is scene, Photo video');
+    const made = JSON.parse((await flowTools.talking_photo.handler({ photo_url: 'https://x/me.jpg', consent: true, audio_url: 'https://x/a.mp3' })).content[0].text);
+    if (calls[0].body.quick !== true || calls[1].body.as_is !== true || calls[2].body.mode !== 'photo' || calls[2].body.scene_id !== 's1' || calls[2].body.audio_url !== 'https://x/a.mp3' || made.video_id !== 'v3') throw new Error('talking_photo did not run quick avatar, as-is scene, Photo video');
     calls.length = 0;
-    await flowTools.animate_photo.handler({ photo_url: 'https://x/me.jpg', consent: true, script: 'hi' }).then(() => { throw new Error('animate_photo took a script with no voice'); }, (e) => { if (!/needs a voice/.test(e.message)) throw e; });
-    if (calls.length) throw new Error('animate_photo saved an avatar before refusing the input');
-    console.log('[smoke] OK — avatar preview and animate_photo reach the API in order.');
+    await flowTools.talking_photo.handler({ photo_url: 'https://x/me.jpg', consent: true, script: 'hi' }).then(() => { throw new Error('talking_photo took a script with no voice'); }, (e) => { if (!/needs a voice/.test(e.message)) throw e; });
+    if (calls.length) throw new Error('talking_photo saved an avatar before refusing the input');
+    console.log('[smoke] OK — avatar preview and talking_photo reach the API in order.');
   }
 
   // ── Media sources route by WHAT they are, not which arg carried them ──────
@@ -781,12 +781,12 @@ async function main() {
     if (info.name !== 'Seedance 2.5') throw new Error(`variant id resolved to "${info.name}" instead of Seedance 2.5`);
     console.log('[smoke] variant model ids resolve to the base catalog model OK');
 
-    // edit_video draft_enhance passes no model: the server picks a hidden engine.
+    // video_tools draft_enhance passes no model: the server picks a hidden engine.
     // The card must still name it as Seedance 2.5 Draft Enhance with the
     // Seedance icon, never "Smart Select".
     const { uiGenerating } = require('../src/tools/_shared');
     const sc = (await uiGenerating({
-      tool: 'edit_video', kind: 'video', client, prompt: '',
+      tool: 'video_tools', kind: 'video', client, prompt: '',
       gen: { generation_id: 'g-draft' }, settings: { mode: 'draft_enhance' },
     })).structuredContent;
     if (sc.model_name !== 'Seedance 2.5 Draft Enhance') throw new Error(`draft_enhance chip shows "${sc.model_name}"`);

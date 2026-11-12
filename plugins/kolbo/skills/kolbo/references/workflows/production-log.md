@@ -21,8 +21,8 @@ If the file is missing and the user is referencing prior media, ask the user —
 **Immediately after every successful generation tool call**, before your next tool call or your final reply. The runtime will inject a reminder after generation tool results — treat that as a hard rule, not a suggestion.
 
 Tools that REQUIRE logging:
-- `generate_image`, `generate_image_edit`, `edit_image`
-- `generate_video`, `generate_video_from_image`, `generate_video_from_video`, `edit_video`
+- `generate_image`, `generate_image_edit`, `image_tools`
+- `generate_video`, `generate_video_from_image`, `generate_video_from_video`, `video_tools`
 - `generate_elements`, `generate_first_last_frame`, `generate_lipsync`
 - `generate_music`, `generate_sound`, `generate_speech`
 - `generate_3d`, `generate_creative_director`

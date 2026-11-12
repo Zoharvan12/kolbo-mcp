@@ -15,7 +15,7 @@ const noControls = (max) => z.string().min(1).max(max).refine(
   `Must be non-empty and contain no control characters (max ${max}).`,
 );
 const sessionId = z.string().min(1).max(128).regex(SAFE_ID).optional().describe(
-  'Target Resolve session id from resolve_list_sessions. Omit only when exactly one DaVinci Resolve plugin is connected.'
+  'Target Resolve session id from davinci_list_sessions. Omit only when exactly one DaVinci Resolve plugin is connected.'
 );
 const idempotencyKey = z.string()
   .min(1)
@@ -30,7 +30,7 @@ const mediaUrl = z.string().url().max(4096).optional()
 const mediaKind = z.enum(['video', 'image', 'audio']).optional()
   .describe('Media kind. Inferred from the Kolbo record or file extension when omitted.');
 
-// ─── resolve_edit_timeline operation schema (mirrors kolbo-api resolve/schemas.js) ───
+// ─── davinci_edit_timeline operation schema (mirrors kolbo-api resolve/schemas.js) ───
 const seconds = (min = 0, max = 4 * 3600) => z.number().finite().min(min).max(max);
 const track = () => z.number().int().min(1).max(50);
 const clipRef = z.union([z.number().int().min(1).max(10000), noControls(128)])
@@ -144,7 +144,7 @@ function mediaSource(args, toolName) {
 
 function registerResolveTools(server, client) {
   server.tool(
-    'resolve_list_sessions',
+    'davinci_list_sessions',
     'List the caller\'s DaVinci Resolve Studio windows that have the Kolbo plugin connected to AI agents. Call this before the first Resolve command. If none are listed, ask the user to open Workspace → Workflow Integrations → Kolbo AI in Resolve Studio and sign in.',
     {
       page: z.number().int().min(1).default(1),
@@ -154,8 +154,8 @@ function registerResolveTools(server, client) {
   );
 
   server.tool(
-    'resolve_get_project',
-    'Queue a read-only inspection of the open DaVinci Resolve project: name, timelines, current timeline, frame rate, resolution and playhead. No approval is needed. Returns a command record; poll resolve_get_command_status for the result.',
+    'davinci_get_project',
+    'Queue a read-only inspection of the open DaVinci Resolve project: name, timelines, current timeline, frame rate, resolution and playhead. No approval is needed. Returns a command record; poll davinci_get_command_status for the result.',
     {
       session_id: sessionId,
       idempotency_key: idempotencyKey,
@@ -164,7 +164,7 @@ function registerResolveTools(server, client) {
   );
 
   server.tool(
-    'resolve_get_timeline',
+    'davinci_get_timeline',
     'Queue a read-only inspection of the current DaVinci Resolve timeline: frame rate, duration, playhead, markers and every clip per video/audio track (track, position, name, start_seconds, end_seconds). No approval is needed. The clip list is truncated to max_clips (default 200).',
     {
       session_id: sessionId,
@@ -177,8 +177,8 @@ function registerResolveTools(server, client) {
   );
 
   server.tool(
-    'resolve_import_media',
-    'Import one Kolbo media item into the Kolbo.AI bin of the open DaVinci Resolve project\'s Media Pool without touching the timeline. The editor must approve it in the Kolbo plugin. Returns a command record; poll resolve_get_command_status.',
+    'davinci_import_media',
+    'Import one Kolbo media item into the Kolbo.AI bin of the open DaVinci Resolve project\'s Media Pool without touching the timeline. The editor must approve it in the Kolbo plugin. Returns a command record; poll davinci_get_command_status.',
     {
       session_id: sessionId,
       media_id: mediaId,
@@ -187,12 +187,12 @@ function registerResolveTools(server, client) {
       name: noControls(128).optional().describe('File name. Sanitized by the plugin.'),
       idempotency_key: idempotencyKey,
     },
-    async (args) => command(client, 'media.import', args, mediaSource(args, 'resolve_import_media'))
+    async (args) => command(client, 'media.import', args, mediaSource(args, 'davinci_import_media'))
   );
 
   server.tool(
-    'resolve_edit_timeline',
-    'DaVinci Resolve. Apply a batch of structured timeline edits: create a timeline, place Kolbo media at exact times on chosen tracks with trims, add transitions, fade audio, put animated titles over a clip (built in its Fusion comp), add markers, or delete clips. Times are seconds from the timeline start. Clips are addressed by track plus position (1 = leftmost) or exact name. Operations run in order and stop at the first failure (earlier ones stay applied). The editor approves the whole batch once in the Kolbo plugin. Read workflows/davinci-resolve.md first; verify with resolve_get_timeline and resolve_capture_frame.',
+    'davinci_edit_timeline',
+    'DaVinci Resolve. Apply a batch of structured timeline edits: create a timeline, place Kolbo media at exact times on chosen tracks with trims, add transitions, fade audio, put animated titles over a clip (built in its Fusion comp), add markers, or delete clips. Times are seconds from the timeline start. Clips are addressed by track plus position (1 = leftmost) or exact name. Operations run in order and stop at the first failure (earlier ones stay applied). The editor approves the whole batch once in the Kolbo plugin. Read workflows/davinci-resolve.md first; verify with davinci_get_timeline and davinci_capture_frame.',
     {
       session_id: sessionId,
       operations: timelineOperations,
@@ -200,15 +200,15 @@ function registerResolveTools(server, client) {
     },
     async (args) => {
       for (const operation of args.operations) {
-        if (operation.op === 'clip.append') mediaSource(operation, 'resolve_edit_timeline clip.append');
+        if (operation.op === 'clip.append') mediaSource(operation, 'davinci_edit_timeline clip.append');
       }
       return command(client, 'timeline.edit', args, { operations: args.operations });
     }
   );
 
   server.tool(
-    'resolve_run_script',
-    'Run JavaScript against DaVinci Resolve\'s scripting API inside the Kolbo plugin, for anything resolve_edit_timeline does not cover (colour, Fusion, render jobs, project settings). `code` is an ASYNC FUNCTION BODY with `resolve`, `project`, `timeline` and `log(...)` in scope; every Resolve API call returns a promise, so `await` it, and `return` a JSON-serialisable result. The editor sees the exact code in the Kolbo plugin and must approve it. Scripts have full access to the project and the computer, so never read or write files or touch the network unless the user explicitly asked.',
+    'davinci_run_script',
+    'Run JavaScript against DaVinci Resolve\'s scripting API inside the Kolbo plugin, for anything davinci_edit_timeline does not cover (colour, Fusion, render jobs, project settings). `code` is an ASYNC FUNCTION BODY with `resolve`, `project`, `timeline` and `log(...)` in scope; every Resolve API call returns a promise, so `await` it, and `return` a JSON-serialisable result. The editor sees the exact code in the Kolbo plugin and must approve it. Scripts have full access to the project and the computer, so never read or write files or touch the network unless the user explicitly asked.',
     {
       session_id: sessionId,
       code: z.string().min(1).max(64 * 1024).refine(
@@ -222,7 +222,7 @@ function registerResolveTools(server, client) {
   );
 
   server.tool(
-    'resolve_capture_frame',
+    'davinci_capture_frame',
     'Export one frame of the current DaVinci Resolve timeline and save it to the Kolbo media library. The result carries the image `url` - look at it to check the edit or title before telling the user it is done. Moves the playhead to time_seconds when given. The editor approves it in the Kolbo plugin.',
     {
       session_id: sessionId,
@@ -237,7 +237,7 @@ function registerResolveTools(server, client) {
   );
 
   server.tool(
-    'resolve_get_command_status',
+    'davinci_get_command_status',
     'Read the state, expires_at and bounded result/error of one DaVinci Resolve command owned by the caller. awaiting_approval is not a polling state: stop and ask the user to approve or deny it in the Kolbo plugin.',
     {
       command_id: z.string().min(1).max(128).regex(SAFE_ID),

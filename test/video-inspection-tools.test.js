@@ -18,7 +18,7 @@ test('additive evidence tools route safely and emit pixels outside JSON text', a
   assert.equal(calls[0].body.project_id, undefined); assert.equal(calls[0].opts.timeoutMs, 115000);
   assert.equal(tools.get('inspect_video').schema.frame_count.safeParse(13).success, false);
   assert.equal(tools.get('inspect_video').schema.inspection_id.safeParse('../another-user').success, false);
-  await tools.get('transcribe_video_evidence').handler({ inspection_id, evidence_id: 'a'.repeat(24), project_id: 'project' });
+  await tools.get('transcribe_extracted_clip').handler({ inspection_id, evidence_id: 'a'.repeat(24), project_id: 'project' });
   assert.equal(calls.at(-1).body.focus, 'transcription'); assert.equal(calls.at(-1).body.project_id, 'project');
-  for (const name of ['analyze_video_evidence', 'transcribe_video_evidence']) assert.equal(TOOL_ANNOTATIONS[name].destructiveHint, true);
+  for (const name of ['analyze_extracted_clip', 'transcribe_extracted_clip']) assert.equal(TOOL_ANNOTATIONS[name].destructiveHint, true);
 });

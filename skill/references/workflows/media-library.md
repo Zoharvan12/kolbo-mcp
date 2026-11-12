@@ -16,7 +16,7 @@ For production research, `get_visual_dna` provides the full stored description a
 
 ## ⚠️ Present locally-produced media to the user
 
-When you produce a media file LOCALLY — `ffmpeg` via the `video-production` skill, Remotion render, manual `Bash` mux of audio + video, `edit_image` outputs saved to disk, any save-to-file flow — make sure the user can actually find and open it. Local files are invisible in the chat / canvas UI by default; only the path string makes it through.
+When you produce a media file LOCALLY — `ffmpeg` via the `video-production` skill, Remotion render, manual `Bash` mux of audio + video, `image_tools` outputs saved to disk, any save-to-file flow — make sure the user can actually find and open it. Local files are invisible in the chat / canvas UI by default; only the path string makes it through.
 
 **Rules:**
 
@@ -123,12 +123,12 @@ fails to open (exit 26).
 
 ## SYNCI licensed music — operational detail
 
-The `*_music_library` tools (`search_music_library` / `browse_music_library` / `get_music_library_facets` / `get_music_track_audio` / `get_music_track_lyrics` / `get_music_track_related` / `analyze_script_for_music` / `acquire_clean_music_track` / `import_music_track_to_library`) front **SYNCI**, a commercially licensed catalog — not free stock.
+The `*_music_library` tools (`synci_search` / `synci_browse` / `synci_facets` / `synci_track_audio` / `synci_track_lyrics` / `synci_track_related` / `analyze_script_for_music` / `synci_acquire_track` / `synci_import_track`) front **SYNCI**, a commercially licensed catalog — not free stock.
 
 - Discovery and previews are free but **watermarked** — there is no unwatermarked URL until you pay.
-- `acquire_clean_music_track` **CHARGES CREDITS** for the clean master. Confirm with the user first, and pass a stable `requestId` so a retry doesn't buy the track twice.
-- `import_music_track_to_library` charges the same way AND also copies the clean track into the media library.
-- `analyze_script_for_music` turns a script into search terms for `search_music_library`.
+- `synci_acquire_track` **CHARGES CREDITS** for the clean master. Confirm with the user first, and pass a stable `requestId` so a retry doesn't buy the track twice.
+- `synci_import_track` charges the same way AND also copies the clean track into the media library.
+- `analyze_script_for_music` turns a script into search terms for `synci_search`.
 - Use this family when the user needs music cleared for commercial use. When free stock will do, use `search_stock_media` with `mediaType: "music"` instead.
 
 

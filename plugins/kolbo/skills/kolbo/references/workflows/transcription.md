@@ -92,7 +92,7 @@ On 429: wait 60s, retry the same chat call — reuse the CDN URLs, do not re-upl
 
 ## Analyzing the source before a chained generation — when it's worth it
 
-Before feeding a media asset into another generation tool (`generate_image_edit`, `edit_image`, `generate_video_from_image`, `generate_first_last_frame`, `generate_video_from_video`, `edit_video`, `generate_elements`, `generate_lipsync`), think about whether you actually *know* what's in the source. If you don't, analyze it first so the next prompt can reference concrete details instead of generic adjectives.
+Before feeding a media asset into another generation tool (`generate_image_edit`, `image_tools`, `generate_video_from_image`, `generate_first_last_frame`, `generate_video_from_video`, `video_tools`, `generate_elements`, `generate_lipsync`), think about whether you actually *know* what's in the source. If you don't, analyze it first so the next prompt can reference concrete details instead of generic adjectives.
 
 **Analyze first when:**
 

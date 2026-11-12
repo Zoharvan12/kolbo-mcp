@@ -752,14 +752,14 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "search_music_library": {
+    "synci_search": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "search_music_library retrieves or analyzes Kolbo data without changing stored state.",
+        "read_only_justification": "synci_search retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
@@ -776,62 +776,62 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "browse_music_library": {
+    "synci_browse": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "browse_music_library retrieves or analyzes Kolbo data without changing stored state.",
+        "read_only_justification": "synci_browse retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "get_music_library_facets": {
+    "synci_facets": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "get_music_library_facets retrieves or analyzes Kolbo data without changing stored state.",
+        "read_only_justification": "synci_facets retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "get_music_track_audio": {
+    "synci_track_audio": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "get_music_track_audio retrieves or analyzes Kolbo data without changing stored state.",
+        "read_only_justification": "synci_track_audio retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "get_music_track_related": {
+    "synci_track_related": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "get_music_track_related retrieves or analyzes Kolbo data without changing stored state.",
+        "read_only_justification": "synci_track_related retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "get_music_track_lyrics": {
+    "synci_track_lyrics": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": false,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "get_music_track_lyrics retrieves or analyzes Kolbo data without changing stored state.",
+        "read_only_justification": "synci_track_lyrics retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
@@ -1040,50 +1040,50 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "resolve_list_sessions": {
+    "davinci_list_sessions": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "resolve_list_sessions retrieves or analyzes Kolbo data without changing stored state.",
+        "read_only_justification": "davinci_list_sessions retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "resolve_get_project": {
+    "davinci_get_project": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "resolve_get_project retrieves or analyzes Kolbo data without changing stored state.",
+        "read_only_justification": "davinci_get_project retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "resolve_get_timeline": {
+    "davinci_get_timeline": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "resolve_get_timeline retrieves or analyzes Kolbo data without changing stored state.",
+        "read_only_justification": "davinci_get_timeline retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "resolve_get_command_status": {
+    "davinci_get_command_status": {
       "annotations": {
         "readOnlyHint": true,
         "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "resolve_get_command_status retrieves or analyzes Kolbo data without changing stored state.",
+        "read_only_justification": "davinci_get_command_status retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
@@ -2276,28 +2276,28 @@
         "destructive_justification": "generate_3d can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "edit_image": {
+    "image_tools": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": false,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "edit_image changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "read_only_justification": "image_tools changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "edit_image can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+        "destructive_justification": "image_tools can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "edit_video": {
+    "video_tools": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": false,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "edit_video changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "read_only_justification": "video_tools changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "edit_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+        "destructive_justification": "video_tools can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
     "trim_video": {
@@ -2348,28 +2348,28 @@
         "destructive_justification": "generate_character_sheet can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "acquire_clean_music_track": {
+    "synci_acquire_track": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": false,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "acquire_clean_music_track changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "read_only_justification": "synci_acquire_track changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "acquire_clean_music_track can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+        "destructive_justification": "synci_acquire_track can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "import_music_track_to_library": {
+    "synci_import_track": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": false,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "import_music_track_to_library changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "read_only_justification": "synci_import_track changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "import_music_track_to_library can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+        "destructive_justification": "synci_import_track can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
     "separate_audio_stems": {
@@ -2420,28 +2420,28 @@
         "destructive_justification": "analyze_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "analyze_video_evidence": {
+    "analyze_extracted_clip": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": false,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "analyze_video_evidence changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "read_only_justification": "analyze_extracted_clip changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "analyze_video_evidence can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+        "destructive_justification": "analyze_extracted_clip can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "transcribe_video_evidence": {
+    "transcribe_extracted_clip": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": false,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "transcribe_video_evidence changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "read_only_justification": "transcribe_extracted_clip changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "transcribe_video_evidence can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+        "destructive_justification": "transcribe_extracted_clip can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
     "cancel_video_inspection": {
@@ -2996,28 +2996,28 @@
         "destructive_justification": "adobe_capture_frame does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
-    "resolve_import_media": {
+    "davinci_import_media": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "resolve_import_media creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "resolve_import_media can create, update, expose, or revoke content through a publicly accessible link.",
-        "destructive_justification": "resolve_import_media does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+        "read_only_justification": "davinci_import_media creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "davinci_import_media can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "davinci_import_media does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
-    "resolve_capture_frame": {
+    "davinci_capture_frame": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "resolve_capture_frame creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "resolve_capture_frame can create, update, expose, or revoke content through a publicly accessible link.",
-        "destructive_justification": "resolve_capture_frame does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+        "read_only_justification": "davinci_capture_frame creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "davinci_capture_frame can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "davinci_capture_frame does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
     "share_doc": {
@@ -3152,28 +3152,28 @@
         "destructive_justification": "adobe_run_script can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "resolve_edit_timeline": {
+    "davinci_edit_timeline": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "resolve_edit_timeline changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "resolve_edit_timeline can create, update, expose, or revoke content through a publicly accessible link.",
-        "destructive_justification": "resolve_edit_timeline can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+        "read_only_justification": "davinci_edit_timeline changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "davinci_edit_timeline can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "davinci_edit_timeline can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "resolve_run_script": {
+    "davinci_run_script": {
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "resolve_run_script changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "resolve_run_script can create, update, expose, or revoke content through a publicly accessible link.",
-        "destructive_justification": "resolve_run_script can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+        "read_only_justification": "davinci_run_script changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "davinci_run_script can create, update, expose, or revoke content through a publicly accessible link.",
+        "destructive_justification": "davinci_run_script can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     }
   },

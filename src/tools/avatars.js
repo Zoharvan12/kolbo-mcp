@@ -52,7 +52,7 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'create_avatar',
-    'Create an avatar of a real person. Needs: 1-8 clear photos (photo_urls; more angles give a closer likeness) and, for videos from a typed script, a voice — either voice_url (30-60 s of clean speech, cloned) or stock_voice_id. A video from a recording of theirs (audio_url) needs no voice. To animate one photo exactly as it is, use animate_photo instead. Optional video_url (60 s+ of the person talking to camera) unlocks twin mode. Or pass visual_dna_id to convert one of the user\'s own Visual DNAs (photos then optional). consent must be true: the user confirms it is them or they have the person\'s permission — ask the user, never assume. Upload local files first with upload_media / create_upload_ticket.',
+    'Create an avatar of a real person. Needs: 1-8 clear photos (photo_urls; more angles give a closer likeness) and, for videos from a typed script, a voice — either voice_url (30-60 s of clean speech, cloned) or stock_voice_id. A video from a recording of theirs (audio_url) needs no voice. To animate one photo exactly as it is, use talking_photo instead. Optional video_url (60 s+ of the person talking to camera) unlocks twin mode. Or pass visual_dna_id to convert one of the user\'s own Visual DNAs (photos then optional). consent must be true: the user confirms it is them or they have the person\'s permission — ask the user, never assume. Upload local files first with upload_media / create_upload_ticket.',
     {
       name: z.string().min(1).max(60),
       consent: z.literal(true).describe('The user confirmed this is them, or they have the person\'s permission.'),
@@ -215,7 +215,7 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'preview_avatar_scene',
-    'Make the first frame of a Photo video: the person in the place, the exact image the video starts from (no credits, up to a minute). A Photo video refuses to start without it. Always show preview_url to the user and wait for their approval before create_avatar_video with mode photo. Not happy: call again with again: true (tries_left says how many remain), or use animate_photo with their own image. Pass the returned scene_id to create_avatar_video. Omni and twin need no preview.',
+    'Make the first frame of a Photo video: the person in the place, the exact image the video starts from (no credits, up to a minute). A Photo video refuses to start without it. Always show preview_url to the user and wait for their approval before create_avatar_video with mode photo. Not happy: call again with again: true (tries_left says how many remain), or use talking_photo with their own image. Pass the returned scene_id to create_avatar_video. Omni and twin need no preview.',
     {
       avatar_id: z.string().min(1).max(64),
       scene_id: z.string().max(40).optional(),
@@ -232,7 +232,7 @@ function registerAvatarTools(server, client) {
   );
 
   server.tool(
-    'animate_photo',
+    'talking_photo',
     'Make one photo talk exactly as it is: nothing is generated, there is no approval step and the video keeps the shape of the photo (Photo mode, up to 3 min). Give script (needs voice_url or stock_voice_id, or an avatar_id that has a voice) or audio_url (the user\'s own recording; no voice needed, the price follows its exact length). The photo is saved as a regular avatar to reuse or delete; pass avatar_id to add it to an avatar they already have. consent must be true: the user confirms it is them or they have the person\'s permission — ask the user, never assume. Returns video_id at once — poll get_avatar_video. Upload local files first with upload_media / create_upload_ticket.',
     {
       photo_url: z.string().url().describe('https link of the photo, one person with the face visible.'),

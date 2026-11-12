@@ -78,13 +78,13 @@ var TOOL_TITLES = {
   replace_music_section: 'Replace Section', export_music_wav: 'WAV Export', make_music_video: 'Music Video',
   generate_speech: 'Text to Speech',
   generate_sound: 'Sound Effect', generate_3d: '3D Generation',
-  generate_creative_director: 'Creative Director', edit_image: 'Image Edit', edit_video: 'Video Edit',
+  generate_creative_director: 'Creative Director', image_tools: 'Image Tools', video_tools: 'Video Tools',
   get_generation_status: 'Generations'
 };
 var OPEN_ROUTES = {
   generate_image: { path: '/image-tools', tool: 'create-image' },
   generate_image_edit: { path: '/image-tools', tool: 'create-image' },
-  edit_image: { path: '/image-tools', tool: 'canvas' },
+  image_tools: { path: '/image-tools', tool: 'canvas' },
   generate_video: { path: '/video-tools', tool: 'create-video' },
   generate_video_from_image: { path: '/video-tools', tool: 'create-video' },
   generate_elements: { path: '/video-tools', tool: 'create-video', mode: 'elements' },
@@ -590,7 +590,7 @@ function capLabel(inner) {
   return String(inner).replace(/(^|>)(\\s*)([a-z])/, function (m, gt, sp, ch) { return gt + sp + ch.toUpperCase(); });
 }
 function chip(inner) { return '<span class="k-chip">' + capLabel(inner) + '</span>'; }
-// edit_image / edit_video operation ids -> the words a user reads. Unknown ids
+// image_tools / video_tools operation ids -> the words a user reads. Unknown ids
 // fall back to the id with spaces, never the raw snake_case.
 var EDIT_LABELS = {
   upscale: 'Upscale', clarity_upscale: 'Clarity upscale', reframe: 'Reframe', zoom_out: 'Expand',

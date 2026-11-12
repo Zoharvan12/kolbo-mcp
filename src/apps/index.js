@@ -817,8 +817,8 @@ const TOOL_WIDGETS = {
   // than inferring it from the `generate_*` name; result-level _meta alone is
   // not enough for hosts that read the declaration (see the note below).
   generate_character_sheet: UI.generation,
-  edit_image: UI.generation,
-  edit_video: UI.generation,
+  image_tools: UI.generation,
+  video_tools: UI.generation,
   // transcript viewer
   transcribe_audio: UI.transcript,
   // model catalog
@@ -826,8 +826,8 @@ const TOOL_WIDGETS = {
   // media grid
   list_media: UI.mediaGrid,
   search_stock_media: UI.mediaGrid,
-  search_music_library: UI.mediaGrid,
-  browse_music_library: UI.mediaGrid,
+  synci_search: UI.mediaGrid,
+  synci_browse: UI.mediaGrid,
   get_stock_collections: UI.mediaGrid,
   list_presets: UI.mediaGrid,
   list_voices: UI.mediaGrid,

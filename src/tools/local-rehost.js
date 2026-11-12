@@ -1,6 +1,6 @@
 'use strict';
 
-// Every JSON-body generation tool (edit_image, generate_image_edit,
+// Every JSON-body generation tool (image_tools, generate_image_edit,
 // generate_video_from_image, generate_3d, ...) advertised "URL or absolute
 // local path" but shipped the path string straight to the API, which only
 // understands URLs. Only the multipart tools (elements, first/last frame,

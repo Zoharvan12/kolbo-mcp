@@ -10,8 +10,10 @@
  * tool-contract.json lists every tool the remote connector has ever shipped.
  * This check fails the build if any of them is missing from the current
  * server. New tools are appended with `--update`; that is the ONLY way the
- * file changes. To retire a tool, keep the name registered and make the
- * handler return a helpful "use X instead" message.
+ * file changes. To rename a tool, add the old name to RENAMED_TOOLS in
+ * src/index.js: it stays callable but is no longer listed. To retire a tool,
+ * keep the name registered and make the handler return a helpful "use X
+ * instead" message.
  *
  * Runs in prepublishOnly and CI.
  */
@@ -32,9 +34,11 @@ const server = createServer({
   allowBrowserLogin: false,
 });
 const current = Object.keys(server._registeredTools).sort();
+// Renamed tools stay callable under their old names as unlisted aliases.
+const callable = Object.getOwnPropertyNames(server._registeredTools);
 const locked = fs.existsSync(CONTRACT) ? JSON.parse(fs.readFileSync(CONTRACT, 'utf8')).tools : [];
 
-const missing = locked.filter(name => !current.includes(name));
+const missing = locked.filter(name => !callable.includes(name));
 if (missing.length) {
   console.error(`✗ tool contract broken — ${missing.length} published tool(s) no longer registered:`);
   for (const name of missing) console.error(`    ${name}`);

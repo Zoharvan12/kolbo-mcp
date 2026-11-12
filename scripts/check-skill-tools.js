@@ -44,7 +44,7 @@ const NOT_TOOLS = new Set([
   'session_id',   // returned by generation tools
   'generation_id',
   'deployment_url',
-  'trim_start_seconds', // nested operation field of adobe_edit_composition / resolve_edit_timeline
+  'trim_start_seconds', // nested operation field of adobe_edit_composition / davinci_edit_timeline
 ]);
 
 function inspectServer() {
@@ -62,7 +62,7 @@ function inspectServer() {
     for (const [k, v] of Object.entries(shape)) {
       args.add(k);
       // Enum VALUES look exactly like tool names too — `remove_background` is an
-      // edit_video operation, not a tool. Unwrap optional/default/array
+      // video_tools operation, not a tool. Unwrap optional/default/array
       // wrappers to reach the underlying enum.
       let node = v;
       for (let depth = 0; node && node._def && depth < 6; depth++) {

@@ -59,7 +59,7 @@ if (!process.env.KOLBO_API_KEY) {
 
 // ─── tiering ─────────────────────────────────────────────────────────────────
 
-const SPEND = /^(generate_|edit_|transcribe_|clone_voice|acquire_clean_music_track|import_music_track|chat_send_message|trim_video)/;
+const SPEND = /^(generate_|edit_|transcribe_|clone_voice|synci_acquire_track|import_music_track|chat_send_message|trim_video)/;
 const WRITE = /^(create_|update_|delete_|move_|share_|unshare_|favorite_|unfavorite_|archive_|unarchive_|activate_|deactivate_|add_|remove_|bulk_|restore_|permanently_|publish_|import_|upload_|regenerate_|media_upload_widget)/;
 
 const tierOf = (name) => (SPEND.test(name) ? 'spend' : WRITE.test(name) ? 'write' : 'read');
@@ -83,7 +83,7 @@ const BOOTSTRAP = [
   ['list_agents', {}, (r) => ({ agent_id: pick(r, 'id') })],
   ['list_docs', { limit: 5 }, (r) => ({ doc_id: pick(r, 'id') })],
   ['list_sessions', { limit: 5 }, (r) => ({ session_id: pick(r, 'id') })],
-  ['browse_music_library', { limit: 1 }, (r) => ({ track_id: pick(r, 'id') })],
+  ['synci_browse', { limit: 1 }, (r) => ({ track_id: pick(r, 'id') })],
 ];
 
 // The tool results are text blobs (JSON or widget envelopes). Grab the first

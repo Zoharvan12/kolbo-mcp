@@ -23,7 +23,7 @@ Discover draft capability with `list_models`: `draft.is_draft`, `can_finalize`,
 `final_resolutions`, and `lifetime_seconds`. Generate with the returned draft model
 identifier. Seedance 2.5 Draft is 480p and supports a separate 1080p final render
 within seven days; ordinary credits apply to each stage, with no Unlimited.
-Call `edit_video` with `operation: "draft_quote"`, the saved draft `video_url`, and
+Call `video_tools` with `operation: "draft_quote"`, the saved draft `video_url`, and
 its original `project_id` to check availability and exact cost. Then use
 `operation: "draft_enhance"` with a supported `resolution`. The server selects
 the engine and recovers the original task; do not pass a prompt or task ID.

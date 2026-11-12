@@ -6,7 +6,7 @@ The library covers both **uploaded files** and **AI-generated outputs the user h
 
 ## ⚠️ Present locally-produced media to the user
 
-When you produce a media file LOCALLY — `ffmpeg` via the `video-production` skill, Remotion render, manual `Bash` mux of audio + video, `edit_image` outputs saved to disk, any save-to-file flow — make sure the user can actually find and open it. Local files are invisible in the chat / canvas UI by default; only the path string makes it through.
+When you produce a media file LOCALLY — `ffmpeg` via the `video-production` skill, Remotion render, manual `Bash` mux of audio + video, `image_tools` outputs saved to disk, any save-to-file flow — make sure the user can actually find and open it. Local files are invisible in the chat / canvas UI by default; only the path string makes it through.
 
 **Rules:**
 
