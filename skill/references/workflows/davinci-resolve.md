@@ -4,7 +4,7 @@ Use this when the user wants Kolbo media edited, cut, titled, graded or rendered
 
 | Path | Works from | Use it for |
 |---|---|---|
-| **Kolbo Resolve plugin** (`resolve_*` tools, this server) | Any agent, including ChatGPT and claude.ai | Reading the project, importing Kolbo media, building timeline edits, titles, frame checks - every change approved by the editor |
+| **Kolbo Resolve plugin** (`davinci_*` tools, this server) | Any agent, including ChatGPT and claude.ai | Reading the project, importing Kolbo media, building timeline edits, titles, frame checks - every change approved by the editor |
 | **Blackmagic's DaVinci Resolve MCP** (their own server) | Local agents only (Claude Desktop, Claude Code, Codex) | Deep scripting, colour, LUTs/DCTLs, rendering |
 
 Both need **DaVinci Resolve Studio**; the free edition has no plugins and no external scripting. If `davinci_list_sessions` returns a session, prefer the Kolbo plugin.

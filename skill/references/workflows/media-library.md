@@ -123,7 +123,7 @@ fails to open (exit 26).
 
 ## SYNCI licensed music — operational detail
 
-The `*_music_library` tools (`synci_search` / `synci_browse` / `synci_facets` / `synci_track_audio` / `synci_track_lyrics` / `synci_track_related` / `analyze_script_for_music` / `synci_acquire_track` / `synci_import_track`) front **SYNCI**, a commercially licensed catalog — not free stock.
+The SYNCI tools (`synci_search` / `synci_browse` / `synci_facets` / `synci_track_audio` / `synci_track_lyrics` / `synci_track_related` / `analyze_script_for_music` / `synci_acquire_track` / `synci_import_track`) front **SYNCI**, a commercially licensed catalog — not free stock.
 
 - Discovery and previews are free but **watermarked** — there is no unwatermarked URL until you pay.
 - `synci_acquire_track` **CHARGES CREDITS** for the clean master. Confirm with the user first, and pass a stable `requestId` so a retry doesn't buy the track twice.
