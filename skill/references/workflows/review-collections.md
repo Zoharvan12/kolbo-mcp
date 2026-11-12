@@ -10,7 +10,7 @@ guest share links — all project-scoped like everything else in Kolbo.
 not know it exists. After any upload, reply with one clickable link per asset using the
 `open_url` field the tools return (`asset.open_url`, `assets[].open_url`,
 `collection.open_url`). That link opens the asset in the Kolbo app, where the owner leaves
-timestamped notes. `share_url` from `create_review_share_link` is the separate guest link.
+timestamped notes. The guest link (the share_url field) from `create_review_share_link` is separate.
 
 Not for: publishing a page (`publish_html_artifact`), sharing a whole media folder
 (`share_media_folder`), or internal doc collaboration (`share_doc`).
