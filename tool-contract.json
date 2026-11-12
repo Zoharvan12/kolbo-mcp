@@ -3,6 +3,7 @@
   "tools": [
     "acquire_clean_music_track",
     "activate_color_palette",
+    "add_avatar_look",
     "add_avatar_scene",
     "add_instrumental",
     "add_media_to_folder",
@@ -265,6 +266,7 @@
     "rate_media",
     "regenerate_avatar_portraits",
     "regenerate_project_profile",
+    "remove_avatar_look",
     "remove_avatar_scene",
     "remove_avatar_video_background",
     "remove_media_from_folder",

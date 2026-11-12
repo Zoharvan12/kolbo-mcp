@@ -131,7 +131,7 @@ function registerVoiceTools(server, client, options = {}) {
       if (language) form.append('language', language);
       if (project_id) form.append('project_id', project_id);
       const result = await client.postMultipart('/v1/voices/clone', form);
-      return { content: [{ type: 'text', text: JSON.stringify({ voice: result.voice || result, _hint: 'Use this voice with generate_speech (find it via list_voices).' }, null, 2) }] };
+      return { content: [{ type: 'text', text: JSON.stringify({ voice: result.voice || result, _hint: 'Use this voice with generate_speech (find it via list_voices), or give it to an avatar: stock_voice_id on create_avatar / update_avatar.' }, null, 2) }] };
     }
   );
 

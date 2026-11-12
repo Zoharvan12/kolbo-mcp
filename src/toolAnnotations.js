@@ -75,7 +75,7 @@ const PRIVATE_WRITE = [
   'create_visual_dna', 'create_visual_dna_folder', 'update_visual_dna_folder',
   'move_visual_dna_to_folder',
   'create_moodboard', 'create_morphious_style',
-  'create_avatar', 'add_avatar_scene', 'create_avatar_video', 'regenerate_avatar_portraits', 'remove_avatar_video_background',
+  'create_avatar', 'add_avatar_scene', 'add_avatar_look', 'create_avatar_video', 'regenerate_avatar_portraits', 'remove_avatar_video_background',
   'preview_avatar_scene', 'preview_avatar_speech', 'talking_photo',
   'create_music_persona',
   'create_color_palette', 'activate_color_palette', 'deactivate_color_palette',
@@ -127,7 +127,7 @@ const DESTRUCTIVE_WRITE = [
   // Deletes and whole-value replacement updates are conservatively destructive.
   'delete_voice', 'update_visual_dna', 'delete_visual_dna', 'delete_visual_dna_folder',
   'update_moodboard', 'delete_moodboard', 'delete_morphious_style',
-  'update_avatar', 'delete_avatar', 'remove_avatar_scene', 'pick_avatar_portrait',
+  'update_avatar', 'delete_avatar', 'remove_avatar_scene', 'remove_avatar_look', 'pick_avatar_portrait',
   'update_color_palette', 'delete_color_palette',
   'delete_media_folder', 'delete_media', 'permanently_delete_media',
   'bulk_delete_media', 'bulk_permanently_delete_media',

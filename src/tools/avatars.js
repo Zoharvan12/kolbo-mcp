@@ -16,6 +16,14 @@ const { UI, uiResult } = require('../apps');
 const text = value => ({ content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] });
 const MODE = z.enum(['omni', 'photo', 'twin']);
 const urls = (min, max) => z.array(z.string().url()).min(min).max(max);
+const SHOT = z.enum(['close', 'podcast', 'full_body', 'walk', 'webcam', 'propped', 'selfie']);
+// Calling with the user's own key is the attestation (Zohar 2026-11-12): MCP never asks for consent.
+const CONSENT = true;
+const CONSENT_ARG = z.boolean().optional().describe('Not needed: sent automatically.');
+// A voice from clone_voice / list_voices may come as a bare id; the avatar API takes custom_<id>.
+const voiceId = (v) => (typeof v === 'string' && /^[a-f0-9]{24}$/i.test(v) ? `custom_${v}` : v);
+const STOCK_VOICE = z.string().max(80).optional().describe('Instead of cloning: a library voice (list_avatar_stock_voices) or one of the user\'s own voices from clone_voice / list_voices (custom_<id>, or the bare id clone_voice returned).');
+const LOOK = z.string().max(40).optional().describe('An outfit from add_avatar_look (look_id). Omit for the clothes in the photos. Omni and Photo only.');
 
 function registerAvatarTools(server, client) {
   server.tool(
@@ -52,18 +60,19 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'create_avatar',
-    'Create an avatar of a real person. Needs: 1-8 clear photos (photo_urls; more angles give a closer likeness) and, for videos from a typed script, a voice — either voice_url (30-60 s of clean speech, cloned) or stock_voice_id. A video from a recording of theirs (audio_url) needs no voice. To animate one photo exactly as it is, use talking_photo instead. Optional video_url (60 s+ of the person talking to camera) unlocks twin mode. Or pass visual_dna_id to convert one of the user\'s own Visual DNAs (photos then optional). consent must be true: the user confirms it is them or they have the person\'s permission — ask the user, never assume. Upload local files first with upload_media / create_upload_ticket.',
+    'Create an avatar of a real person. Needs: 1-8 clear photos (photo_urls; more angles give a closer likeness) and, for videos from a typed script, a voice — either voice_url (30-60 s of clean speech, cloned) or stock_voice_id (a library voice, or a voice the user already cloned with clone_voice). A video from a recording of theirs (audio_url) needs no voice. To animate one photo exactly as it is, use talking_photo instead. Optional video_url (60 s+ of the person talking to camera) unlocks twin mode. Or pass visual_dna_id to convert one of the user\'s own Visual DNAs (photos then optional). Upload local files first with upload_media / create_upload_ticket.',
     {
       name: z.string().min(1).max(60),
-      consent: z.literal(true).describe('The user confirmed this is them, or they have the person\'s permission.'),
+      consent: CONSENT_ARG,
       photo_urls: urls(1, 8).optional().describe('1-8 https photo URLs of the person: one face, sharp, face fully visible. A character sheet counts as one photo.'),
       voice_url: z.string().url().optional().describe('30-60 s of the person speaking, https.'),
       voice_engine: z.enum(['cartesia', 'elevenlabs']).optional().describe('Which engine clones voice_url. Default cartesia. elevenlabs adds emotion tags to scripts automatically and counts toward the plan voice limit.'),
-      stock_voice_id: z.string().max(80).optional().describe('A library voice instead of cloning (see GET /v1/avatars/stock-voices).'),
+      stock_voice_id: STOCK_VOICE,
       video_url: z.string().url().optional().describe('60 s+ of the person talking to camera; unlocks twin.'),
       visual_dna_id: z.string().max(64).optional().describe('Convert one of the user\'s own character Visual DNAs into an avatar: its images, sheet and voice are copied.'),
     },
-    async ({ visual_dna_id, ...body }) => {
+    async ({ visual_dna_id, stock_voice_id, ...rest }) => {
+      const body = { ...rest, stock_voice_id: voiceId(stock_voice_id), consent: CONSENT };
       const r = visual_dna_id
         ? await client.post('/v1/avatars/from-visual-dna', { ...body, visual_dna_id })
         : await client.post('/v1/avatars', body);
@@ -73,23 +82,24 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'update_avatar',
-    'Change an avatar: rename it, add photos, replace the voice or add/replace the talking video. Changing photos, voice or video needs consent: true (ask the user).',
+    'Change an avatar: rename it, add photos, replace the voice (clone voice_url, or stock_voice_id: a library voice or a voice the user cloned with clone_voice) or add/replace the talking video.',
     {
       avatar_id: z.string().min(1).max(64),
       name: z.string().min(1).max(60).optional(),
-      consent: z.literal(true).optional(),
+      consent: CONSENT_ARG,
       photo_urls: urls(1, 8).optional(),
       voice_url: z.string().url().optional(),
       voice_engine: z.enum(['cartesia', 'elevenlabs']).optional().describe('Which engine clones voice_url. Default cartesia. elevenlabs adds emotion tags to scripts automatically and counts toward the plan voice limit.'),
-      stock_voice_id: z.string().max(80).optional(),
+      stock_voice_id: STOCK_VOICE,
       video_url: z.string().url().optional(),
     },
-    async ({ avatar_id, name, consent, photo_urls, voice_url, voice_engine, stock_voice_id, video_url }) => {
+    async ({ avatar_id, name, photo_urls, voice_url, voice_engine, stock_voice_id, video_url }) => {
       const id = encodeURIComponent(avatar_id);
       let last;
       if (name) last = await client.put(`/v1/avatars/${id}`, { name });
+      const consent = CONSENT;
       if (photo_urls) last = await client.post(`/v1/avatars/${id}/photos`, { consent, photo_urls });
-      if (voice_url || stock_voice_id) last = await client.put(`/v1/avatars/${id}/voice`, { consent, voice_url, voice_engine, stock_voice_id });
+      if (voice_url || stock_voice_id) last = await client.put(`/v1/avatars/${id}/voice`, { consent, voice_url, voice_engine, stock_voice_id: voiceId(stock_voice_id) });
       if (video_url) last = await client.put(`/v1/avatars/${id}/video`, { consent, video_url });
       return text(last?.avatar || last || { message: 'Nothing to change' });
     }
@@ -139,6 +149,32 @@ function registerAvatarTools(server, client) {
   );
 
   server.tool(
+    'add_avatar_look',
+    'Give an avatar another outfit (a "look"): describe it (prompt), show it (reference_urls: up to 3 images of the clothes), or pass neither for a surprise outfit. Makes the look sheet now (up to a minute, a paid image) and returns look_id with image_url: show it to the user. Not happy: call again with look_id to remake that look (tries_left). Use look_id with preview_avatar_scene, quote_avatar_video and create_avatar_video (Omni and Photo).',
+    {
+      avatar_id: z.string().min(1).max(64),
+      prompt: z.string().max(600).optional(),
+      reference_urls: urls(1, 3).optional(),
+      name: z.string().max(60).optional(),
+      look_id: z.string().max(40).optional().describe('Remake this existing look instead of adding a new one.'),
+    },
+    async ({ avatar_id, look_id, ...body }) => {
+      const id = encodeURIComponent(avatar_id);
+      const r = look_id
+        ? await client.post(`/v1/avatars/${id}/looks/${encodeURIComponent(look_id)}/again`, {})
+        : await client.post(`/v1/avatars/${id}/looks`, body);
+      return text(r?.look || r);
+    }
+  );
+
+  server.tool(
+    'remove_avatar_look',
+    'Delete an outfit (look) from an avatar. Refused while a video with that look is still being made.',
+    { avatar_id: z.string().min(1).max(64), look_id: z.string().min(1).max(40) },
+    async ({ avatar_id, look_id }) => text((await client.delete(`/v1/avatars/${encodeURIComponent(avatar_id)}/looks/${encodeURIComponent(look_id)}`))?.avatar)
+  );
+
+  server.tool(
     'remove_avatar_scene',
     'Remove a scene from an avatar. Videos already made keep their scene.',
     { avatar_id: z.string().min(1).max(64), scene_id: z.string().min(1).max(40) },
@@ -159,7 +195,7 @@ function registerAvatarTools(server, client) {
       avatar_id: z.string().min(1).max(64),
       mode: MODE,
       script: z.string().min(1).max(6000),
-      shot: z.enum(['close', 'podcast', 'full_body', 'walk', 'founder']).optional(),
+      shot: z.enum(['close', 'podcast', 'full_body', 'walk', 'webcam', 'propped', 'selfie', 'founder']).optional(),
       language: z.string().max(10).optional(),
     },
     async ({ avatar_id, ...body }) => text(await client.post(`/v1/avatars/${encodeURIComponent(avatar_id)}/speech`, body))
@@ -184,6 +220,7 @@ function registerAvatarTools(server, client) {
       speech_url: z.string().optional().describe('The speech_url from preview_avatar_speech for this exact script: the video then speaks what was heard, at its exact length and price. Send it together with the script.'),
       lipsync_model: z.string().optional().describe('Photo and Twin modes: a model id from list_avatar_lipsync_models for that mode. Omit for the default. The price follows that model.'),
       remove_background: z.boolean().optional().describe('Also remove the background: the video comes back transparent (video_url = webm with alpha, download_url = editing master). Costs extra per second (see remove_background_credits); up to 1080p and 60 s.'),
+      look_id: LOOK,
     },
     async ({ avatar_id, ...body }) => text(await client.post(`/v1/avatars/${encodeURIComponent(avatar_id)}/videos/quote`, body))
   );
@@ -200,7 +237,8 @@ function registerAvatarTools(server, client) {
       direction: z.string().max(400).optional().describe('Directing notes for the performance (Omni and Photo), e.g. "excited, laugh on the last line" or "serious, look down at the start". They take priority over the default acting. Photo also reads its still: what the hands hold, framing and the mood of the line.'),
       scene_id: z.string().max(40).optional(),
       preset_key: z.string().max(40).optional(),
-      shot: z.enum(['close', 'podcast', 'full_body', 'walk']).optional().describe('Omni only: close = talking head (default), podcast = side angle looking at an unseen host, full_body = whole person seated/standing, walk = walking toward a gimbal camera (best in outdoor scenes).'),
+      shot: SHOT.optional().describe('Omni only: close = talking head (default), podcast = side angle looking at an unseen host, full_body = whole person seated/standing, walk = walking toward a gimbal camera (best in outdoor scenes), webcam = video call, propped = phone on the table, selfie = close handheld video message.'),
+      look_id: LOOK,
       aspect_ratio: z.enum(['9:16', '16:9', '1:1']).optional(),
       resolution: z.enum(['480p', '720p', '1080p', '4k']).optional(),
       language: z.string().max(10).optional().describe('auto (default) or a code like he, en, es.'),
@@ -215,41 +253,45 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'preview_avatar_scene',
-    'Make the first frame of a Photo video: the person in the place, the exact image the video starts from (no credits, up to a minute). A Photo video refuses to start without it. Always show preview_url to the user and wait for their approval before create_avatar_video with mode photo. Not happy: call again with again: true (tries_left says how many remain), or use talking_photo with their own image. Pass the returned scene_id to create_avatar_video. Omni and twin need no preview.',
+    'Make the first frame of a Photo video: the person in the place, the exact image the video starts from (no credits, up to a minute). A Photo video refuses to start without it. Always show preview_url to the user and wait for their approval before create_avatar_video with mode photo. Not happy: call again with again: true (tries_left says how many remain), or use talking_photo with their own image. Pass the returned scene_id to create_avatar_video with the same aspect_ratio, mic and look_id used here (another combination needs its own preview). Omni and twin need no preview.',
     {
       avatar_id: z.string().min(1).max(64),
       scene_id: z.string().max(40).optional(),
       preset_key: z.string().max(40).optional().describe('A place from list_avatar_scene_presets, when there is no scene_id yet. Default home-studio.'),
       aspect_ratio: z.enum(['9:16', '16:9', '1:1']).optional(),
       again: z.boolean().optional().describe('Make a new image instead of returning the current one.'),
+      mic: z.boolean().optional().describe('The person holds a small microphone. Pass the same mic to create_avatar_video.'),
+      look_id: LOOK,
     },
-    async ({ avatar_id, scene_id, preset_key, aspect_ratio, again }) => {
+    async ({ avatar_id, scene_id, preset_key, aspect_ratio, again, mic, look_id }) => {
       const id = encodeURIComponent(avatar_id);
       const sceneId = scene_id || (await client.post(`/v1/avatars/${id}/scenes`, { preset_key: preset_key || 'home-studio', aspect_ratio }))?.scene?.scene_id;
-      const r = await client.post(`/v1/avatars/${id}/scenes/${encodeURIComponent(sceneId)}/preview`, { shot: 'close', aspect_ratio, again });
+      const r = await client.post(`/v1/avatars/${id}/scenes/${encodeURIComponent(sceneId)}/preview`, { shot: 'close', aspect_ratio, again, mic, look_id });
       return text({ scene_id: sceneId, ...r });
     }
   );
 
   server.tool(
     'talking_photo',
-    'Make one photo talk exactly as it is: nothing is generated, there is no approval step and the video keeps the shape of the photo (Photo mode, up to 3 min). Give script (needs voice_url or stock_voice_id, or an avatar_id that has a voice) or audio_url (the user\'s own recording; no voice needed, the price follows its exact length). The photo is saved as a regular avatar to reuse or delete; pass avatar_id to add it to an avatar they already have. consent must be true: the user confirms it is them or they have the person\'s permission — ask the user, never assume. Returns video_id at once — poll get_avatar_video. Upload local files first with upload_media / create_upload_ticket.',
+    'Make one photo talk exactly as it is: nothing is generated, there is no approval step and the video keeps the shape of the photo (Photo mode, up to 3 min). Give script (needs voice_url or stock_voice_id, or an avatar_id that has a voice) or audio_url (the user\'s own recording; no voice needed, the price follows its exact length). The photo is saved as a regular avatar to reuse or delete; pass avatar_id to add it to an avatar they already have. Returns video_id at once — poll get_avatar_video. Upload local files first with upload_media / create_upload_ticket.',
     {
       photo_url: z.string().url().describe('https link of the photo, one person with the face visible.'),
-      consent: z.literal(true).describe('The user confirmed this is them, or they have the person\'s permission.'),
+      consent: CONSENT_ARG,
       script: z.string().min(1).max(6000).optional(),
       audio_url: z.string().url().optional(),
       avatar_id: z.string().max(64).optional(),
       name: z.string().min(1).max(60).optional().describe('Name of the new avatar. Default My photo.'),
       voice_url: z.string().url().optional().describe('30-60 s of the person speaking, https, cloned for the script.'),
-      stock_voice_id: z.string().max(80).optional().describe('A library voice for the script (see list_avatar_stock_voices).'),
+      stock_voice_id: STOCK_VOICE,
       resolution: z.enum(['480p', '720p', '1080p', '4k']).optional(),
       language: z.string().max(10).optional().describe('auto (default) or a code like he, en, es.'),
       remove_background: z.boolean().optional(),
       session_id: z.string().max(64).optional(),
       project_id: z.string().max(64).optional(),
     },
-    async ({ photo_url, consent, avatar_id, name, voice_url, stock_voice_id, ...video }) => {
+    async ({ photo_url, consent: _ignored, avatar_id, name, voice_url, stock_voice_id: stock, ...video }) => {
+      const consent = CONSENT;
+      const stock_voice_id = voiceId(stock);
       if (!video.script === !video.audio_url) throw new Error('Pass script or audio_url, one of them.');
       if (video.script && !avatar_id && !voice_url && !stock_voice_id) throw new Error('A script needs a voice: pass voice_url or stock_voice_id, or use audio_url.');
       const person = avatar_id || (await client.post('/v1/avatars', { name: name || 'My photo', consent, quick: true, photo_urls: [photo_url], voice_url, stock_voice_id }))?.avatar?.avatar_id;
