@@ -129,9 +129,11 @@ const BRIDGE_JS = `
     appInfo: { name: 'kolbo-widget', version: '1.0.0' },
     appCapabilities: {}
   }).then(function (res) {
+    // ChatGPT also speaks MCP Apps and kills the card ("This app timed out")
+    // unless the initialized notification arrives within 5 s — always send it.
+    notify('ui/notifications/initialized');
     if (oa) return; // A late JSON-RPC ack must not replace OpenAI host context.
     hostContext = (res && res.hostContext) || null;
-    notify('ui/notifications/initialized');
     initialized = true;
     queue.forEach(post);
     queue = [];
