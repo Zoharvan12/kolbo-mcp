@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review Player Mockup</title>
+<style>
+:root {
+  --bg: #0f0f0f; --card: rgba(255,255,255,0.04); --card-solid: #161619;
+  --panel: rgba(255,255,255,0.035); --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14); --text: #f5f5f2;
+  --text-muted: rgba(245,245,242,0.62); --text-faint: rgba(245,245,242,0.40);
+  --brand: #3b82f6; --brand-soft: rgba(59,130,246,0.16);
+  --success: #22c55e; --error: #ef4444; --warning: #f59e0b;
+  --radius-card: 24px; --radius-btn: 10px;
+  --specular: inset 0 1px 0 rgba(255,255,255,0.18);
+  --smooth: cubic-bezier(0.25,0.46,0.45,0.94);
+}
+:root[data-theme="light"] {
+  --bg: #f5f5f2; --card: rgba(255,255,255,0.85); --card-solid: #fff;
+  --panel: rgba(0,0,0,0.035); --border: rgba(0,0,0,0.08); --border-strong: rgba(0,0,0,0.14);
+  --text: #0a0a0c; --text-muted: rgba(10,10,12,0.62); --text-faint: rgba(10,10,12,0.40);
+  --brand-soft: rgba(59,130,246,0.10); --specular: inset 0 1px 0 rgba(255,255,255,0.65);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px 16px 48px; }
+.page { max-width: 760px; margin: 0 auto; }
+.chat { color: var(--text-muted); margin: 0 0 12px; font-size: 13px; }
+.chat b { color: var(--text); font-weight: 600; }
+.k-ic { width: 1em; height: 1em; display: inline-block; vertical-align: -0.125em; }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-card); box-shadow: var(--specular); padding: 16px; }
+.head { display: flex; align-items: center; gap: 10px; }
+.title { font-weight: 600; font-size: 15px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mark { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(135deg,#3b82f6,#8b5cf6); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 12px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 12px; color: var(--text-muted); font-size: 12px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: var(--panel); border: 1px solid var(--border); }
+.chip.status { cursor: pointer; }
+.dot { width: 7px; height: 7px; border-radius: 50%; }
+
+.strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 12px; scrollbar-width: thin; }
+.thumb { flex: 0 0 auto; width: 74px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); padding: 4px; cursor: pointer; text-align: center; font-size: 11px; color: var(--text-muted); transition: border-color .2s var(--smooth); }
+.thumb .sw { height: 54px; border-radius: 8px; position: relative; }
+.thumb .badge { position: absolute; top: 3px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--brand); color: #fff; font-size: 10px; line-height: 16px; }
+.thumb.on { border-color: var(--brand); color: var(--text); }
+
+.body { display: grid; grid-template-columns: 250px 1fr; gap: 14px; }
+@media (max-width: 620px) { .body { grid-template-columns: 1fr; } .player { max-width: 280px; margin: 0 auto; width: 100%; } }
+
+.player { display: flex; flex-direction: column; gap: 8px; }
+.stage { position: relative; aspect-ratio: 9/16; border-radius: 16px; overflow: hidden; background: #000; border: 1px solid var(--border); cursor: pointer; }
+.scene { position: absolute; inset: 0; transition: background 0.6s var(--smooth); }
+.scene-label { position: absolute; left: 10px; bottom: 10px; right: 10px; color: rgba(255,255,255,.85); font-size: 12px; text-shadow: 0 1px 3px #000; }
+.play { position: absolute; inset: 0; margin: auto; width: 52px; height: 52px; border-radius: 50%; background: rgba(0,0,0,.45); display: grid; place-items: center; color: #fff; font-size: 22px; transition: opacity .2s; }
+.playing .play { opacity: 0; }
+.pin { position: absolute; top: 10px; left: 10px; padding: 3px 8px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff; font-size: 11px; opacity: 0; transition: opacity .25s; }
+.pin.show { opacity: 1; }
+
+.scrub { position: relative; height: 26px; cursor: pointer; }
+.track { position: absolute; left: 0; right: 0; top: 11px; height: 4px; border-radius: 2px; background: var(--border-strong); }
+.fill { position: absolute; left: 0; top: 11px; height: 4px; border-radius: 2px; background: var(--brand); }
+.head-dot { position: absolute; top: 6px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+.mk { position: absolute; top: 0; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; border: 2px solid var(--card-solid); }
+.mk.range { height: 4px; top: 3px; margin-left: 0; border: 0; border-radius: 2px; opacity: .55; }
+.time { display: flex; justify-content: space-between; color: var(--text-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+
+.notes { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.compose { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 10px; }
+.compose textarea { width: 100%; resize: none; min-height: 52px; background: transparent; border: 0; outline: 0; color: var(--text); font: inherit; }
+.crow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tc { font-variant-numeric: tabular-nums; padding: 2px 8px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); font-size: 12px; font-weight: 600; cursor: pointer; border: 0; }
+.ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: var(--radius-btn); padding: 4px 9px; font: inherit; font-size: 12px; cursor: pointer; display: inline-flex; gap: 5px; align-items: center; }
+.ghost.on { border-color: var(--brand); color: var(--brand); }
+.btn { margin-left: auto; background: var(--brand); color: #fff; border: 0; border-radius: var(--radius-btn); padding: 6px 14px; font: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+.btn:disabled { opacity: .4; cursor: default; }
+
+.filter { display: flex; gap: 6px; font-size: 12px; }
+.list { display: flex; flex-direction: column; gap: 8px; max-height: 330px; overflow-y: auto; padding-right: 2px; }
+.note { display: grid; grid-template-columns: 28px 1fr; gap: 8px; padding: 10px; border-radius: 14px; border: 1px solid var(--border); background: var(--card); transition: border-color .2s, opacity .2s; }
+.note.active { border-color: var(--brand); }
+.note.resolved { opacity: .5; }
+.note.resolved .nb { text-decoration: line-through; }
+.av { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; }
+.nh { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+.nh b { color: var(--text); font-weight: 600; }
+.nh .tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: var(--panel); border: 1px solid var(--border); }
+.nh .res { margin-left: auto; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-strong); background: transparent; color: var(--text-faint); cursor: pointer; display: grid; place-items: center; }
+.note.resolved .res { background: var(--success); border-color: var(--success); color: #fff; }
+.nb { margin-top: 3px; }
+.reply { margin-top: 6px; padding-left: 10px; border-left: 2px solid var(--border-strong); font-size: 13px; color: var(--text-muted); }
+.nf { margin-top: 4px; display: flex; gap: 10px; font-size: 12px; color: var(--text-faint); }
+.nf span { cursor: pointer; }
+.nf span:hover { color: var(--text); }
+
+.foot { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; flex-wrap: wrap; }
+.foot .spacer { flex: 1; }
+.menu { position: relative; }
+.pop { position: absolute; bottom: 34px; left: 0; background: var(--card-solid); border: 1px solid var(--border-strong); border-radius: 12px; padding: 4px; min-width: 180px; display: none; z-index: 5; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.pop.open { display: block; }
+.pop div { padding: 7px 10px; border-radius: 8px; cursor: pointer; display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.pop div:hover { background: var(--panel); }
+
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--card-solid); border: 1px solid var(--border-strong); border-radius: 12px; padding: 8px 14px; font-size: 12px; color: var(--text-muted); opacity: 0; transition: all .25s var(--smooth); font-family: ui-monospace, Consolas, monospace; }
+.toast.show { opacity: 1; transform: translateX(-50%); }
+.legend { margin-top: 18px; color: var(--text-faint); font-size: 12px; }
+.legend code { color: var(--text-muted); }
+.theme { float: right; }
+</style>
+</head>
+<body>
+<div class="page">
+  <button class="ghost theme" id="themeBtn">Toggle light / dark</button>
+  <p class="chat">Agent: <b>All 6 cuts are in Kolbo Review.</b> Leave notes right here, or open them in Kolbo.</p>
+
+  <div class="card" id="card">
+    <div class="head">
+      <div class="title" id="title">PGB ep1 · Snow White, main cut</div>
+      <div class="mark">K</div>
+    </div>
+    <div class="chips">
+      <span class="chip">v2</span>
+      <span class="chip" id="dur">0:24</span>
+      <span class="chip status" id="statusChip"><span class="dot" id="statusDot"></span><span id="statusTxt"></span></span>
+      <span class="chip" id="countChip"></span>
+    </div>
+
+    <div class="strip" id="strip"></div>
+
+    <div class="body">
+      <div class="player">
+        <div class="stage" id="stage">
+          <div class="scene" id="scene"></div>
+          <div class="pin" id="pin"></div>
+          <div class="scene-label" id="sceneLabel"></div>
+          <div class="play" id="playIc"></div>
+        </div>
+        <div class="scrub" id="scrub">
+          <div class="track"></div>
+          <div class="fill" id="fill"></div>
+          <div id="markers"></div>
+          <div class="head-dot" id="hd"></div>
+        </div>
+        <div class="time"><span id="cur">0:00</span><span id="tot">0:24</span></div>
+      </div>
+
+      <div class="notes">
+        <div class="compose">
+          <textarea id="ta" placeholder="Leave a note on this moment…"></textarea>
+          <div class="crow">
+            <button class="tc" id="tcBtn" title="Jump to this time">@ 0:00</button>
+            <button class="ghost" id="rangeBtn" title="Mark a range instead of a point"></button>
+            <button class="btn" id="post" disabled>Post note</button>
+          </div>
+        </div>
+        <div class="filter">
+          <button class="ghost on" data-f="open">Open</button>
+          <button class="ghost" data-f="all">All</button>
+          <button class="ghost" data-f="resolved">Resolved</button>
+        </div>
+        <div class="list" id="list"></div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="menu">
+        <button class="ghost" id="statusBtn"></button>
+        <div class="pop" id="statusPop"></div>
+      </div>
+      <button class="ghost" id="shareBtn"></button>
+      <span class="spacer"></span>
+      <button class="ghost" id="openBtn"></button>
+    </div>
+  </div>
+
+  <p class="legend">Mockup only. Every button logs the MCP call it would make, e.g. <code>create_review_comment</code>, <code>resolve_review_comment</code>, <code>set_review_status</code>. Voice memos and drawing annotations stay in the full app ("Open in Kolbo").</p>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const ICONS = {
+  play: '<svg class="k-ic" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+  pause: '<svg class="k-ic" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
+  check: '<svg class="k-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>',
+  open: '<svg class="k-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  share: '<svg class="k-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
+  range: '<svg class="k-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6v12M20 6v12M4 12h16"/></svg>',
+  flag: '<svg class="k-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4h11l-2 4 2 4H5"/></svg>',
+};
+const STATUS = {
+  in_progress: ['In progress', '#a1a1aa'],
+  needs_review: ['Needs review', '#f59e0b'],
+  changes_requested: ['Changes requested', '#ef4444'],
+  approved: ['Approved', '#22c55e'],
+};
+const PEOPLE = { ZV: ['Zohar', '#3b82f6'], RH: ['Roy (client)', '#8b5cf6'], AI: ['Agent', '#0ea5e9'] };
+
+const ASSETS = [
+  { name: 'Snow White', dur: 23.8, g: ['#3b0d1a', '#c0392b', '#f1c40f'], status: 'needs_review', notes: [
+    { id: 1, who: 'ZV', t: 2.1, body: 'Hook lands late. Cut the first 8 frames so the apple bite hits on beat one.' },
+    { id: 2, who: 'RH', t: 9.4, t2: 12.0, body: 'Mugshot flash is great, hold it 6 more frames.', reply: { who: 'AI', body: 'Will extend to 0:12.25 in v3.' } },
+    { id: 3, who: 'ZV', t: 17.6, body: 'Grill sizzle SFX is too quiet against the music.' },
+    { id: 4, who: 'RH', t: 21.0, body: 'End card typo fixed.', resolved: true },
+  ]},
+  { name: 'Jasmine', dur: 24.9, g: ['#0b2e4f', '#16a085', '#f39c12'], status: 'changes_requested', notes: [
+    { id: 5, who: 'ZV', t: 5.0, body: 'Lamp prop changes colour between shots 2 and 3.' },
+    { id: 6, who: 'ZV', t: 14.2, body: 'Use the alt take of the van door here.' },
+  ]},
+  { name: 'Elsa', dur: 19.7, g: ['#0c1f3f', '#5dade2', '#ecf0f1'], status: 'needs_review', notes: [
+    { id: 7, who: 'RH', t: 3.3, body: 'Ice crack should sync with the bass hit.' },
+  ]},
+  { name: 'Belle', dur: 19.5, g: ['#3d2a05', '#d4ac0d', '#7d3c98'], status: 'approved', notes: [
+    { id: 8, who: 'RH', t: 8.0, body: 'Love it, approved.', resolved: true },
+  ]},
+  { name: 'Fiona', dur: 31.1, g: ['#11300f', '#58d68d', '#784212'], status: 'needs_review', notes: [] },
+  { name: 'Rapunzel', dur: 16.9, g: ['#3b1d4a', '#bb8fce', '#f7dc6f'], status: 'in_progress', notes: [] },
+];
+
+let ai = 0, t = 0, playing = false, filter = 'open', rangeMode = false, nextId = 100, last = 0;
+const $ = (id) => document.getElementById(id);
+const fmt = (s) => { s = Math.max(0, s); const m = Math.floor(s / 60); const r = s - m * 60; return m + ':' + String(Math.floor(r)).padStart(2, '0'); };
+const A = () => ASSETS[ai];
+function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), 2200); }
+
+function renderStrip() {
+  $('strip').innerHTML = ASSETS.map((a, i) => {
+    const open = a.notes.filter((n) => !n.resolved).length;
+    return `<div class="thumb ${i === ai ? 'on' : ''}" data-i="${i}"><div class="sw" style="background:linear-gradient(160deg,${a.g[0]},${a.g[1]})">${open ? `<span class="badge">${open}</span>` : ''}<span class="dot" style="position:absolute;left:5px;top:5px;background:${STATUS[a.status][1]}"></span></div>${a.name}</div>`;
+  }).join('');
+}
+function renderHead() {
+  const a = A();
+  $('title').textContent = 'PGB ep1 · ' + a.name + ', main cut';
+  $('dur').textContent = fmt(a.dur); $('tot').textContent = fmt(a.dur);
+  const [label, color] = STATUS[a.status];
+  $('statusTxt').textContent = label; $('statusDot').style.background = color;
+  const open = a.notes.filter((n) => !n.resolved).length;
+  $('countChip').textContent = open + ' open note' + (open === 1 ? '' : 's');
+  $('statusBtn').innerHTML = ICONS.flag + ' Set status';
+}
+function renderMarkers() {
+  const a = A();
+  $('markers').innerHTML = a.notes.filter((n) => !n.resolved).map((n) => {
+    const c = PEOPLE[n.who][1]; const l = (n.t / a.dur) * 100;
+    const range = n.t2 ? `<div class="mk range" style="left:${l}%;width:${((n.t2 - n.t) / a.dur) * 100}%;background:${c};top:12px"></div>` : '';
+    return range + `<div class="mk" data-id="${n.id}" style="left:${l}%;background:${c}" title="${fmt(n.t)} ${PEOPLE[n.who][0]}"></div>`;
+  }).join('');
+}
+function renderList() {
+  const a = A();
+  const items = a.notes.slice().sort((x, y) => x.t - y.t).filter((n) => filter === 'all' || (filter === 'resolved' ? n.resolved : !n.resolved));
+  $('list').innerHTML = items.length ? items.map((n) => {
+    const [who, c] = PEOPLE[n.who];
+    const tc = fmt(n.t) + (n.t2 ? '–' + fmt(n.t2) : '');
+    const reply = n.reply ? `<div class="reply"><b style="color:var(--text)">${PEOPLE[n.reply.who][0]}</b> ${n.reply.body}</div>` : '';
+    return `<div class="note ${n.resolved ? 'resolved' : ''}" data-id="${n.id}">
+      <div class="av" style="background:${c}">${n.who}</div>
+      <div><div class="nh"><b>${who}</b><button class="tc" data-seek="${n.t}">${tc}</button>${n.who === 'RH' ? '<span class="tag">Guest</span>' : ''}<button class="res" data-res="${n.id}" title="${n.resolved ? 'Reopen' : 'Resolve'}">${ICONS.check}</button></div>
+      <div class="nb">${n.body}</div>${reply}
+      <div class="nf"><span data-reply="${n.id}">Reply</span></div></div></div>`;
+  }).join('') : `<div style="color:var(--text-faint);font-size:13px;padding:14px 4px">${filter === 'resolved' ? 'No resolved notes.' : 'No open notes yet. Scrub to a moment and leave one.'}</div>`;
+}
+function renderTime() {
+  const a = A(); const p = Math.min(1, t / a.dur);
+  $('fill').style.width = p * 100 + '%'; $('hd').style.left = p * 100 + '%';
+  $('cur').textContent = fmt(t);
+  $('tcBtn').textContent = '@ ' + fmt(t) + (rangeMode ? '–' + fmt(Math.min(a.dur, t + 3)) : '');
+  const g = a.g; const k = p;
+  $('scene').style.background = `radial-gradient(circle at ${30 + 40 * k}% ${60 - 30 * k}%, ${g[2]}55, transparent 55%), linear-gradient(${160 + 60 * k}deg, ${g[0]}, ${g[1]})`;
+  $('sceneLabel').textContent = a.name + ' · shot ' + (1 + Math.floor(p * 6));
+  const near = a.notes.find((n) => !n.resolved && Math.abs(n.t - t) < 0.6);
+  $('pin').textContent = near ? PEOPLE[near.who][0] + ': ' + near.body.slice(0, 34) + (near.body.length > 34 ? '…' : '') : '';
+  $('pin').classList.toggle('show', !!near);
+  document.querySelectorAll('.note').forEach((el) => el.classList.toggle('active', !!near && +el.dataset.id === near.id));
+}
+function renderAll() { renderStrip(); renderHead(); renderMarkers(); renderList(); renderTime(); }
+
+function setPlaying(v) {
+  playing = v; $('stage').classList.toggle('playing', v); $('playIc').innerHTML = v ? ICONS.pause : ICONS.play;
+  if (v) { last = performance.now(); requestAnimationFrame(tick); }
+}
+function tick(now) {
+  if (!playing) return;
+  t += (now - last) / 1000; last = now;
+  if (t >= A().dur) { t = A().dur; setPlaying(false); }
+  renderTime(); if (playing) requestAnimationFrame(tick);
+}
+function seek(s) { t = Math.max(0, Math.min(A().dur, s)); renderTime(); }
+
+$('stage').onclick = () => setPlaying(!playing);
+$('scrub').onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); seek(((e.clientX - r.left) / r.width) * A().dur); };
+$('strip').onclick = (e) => { const el = e.target.closest('.thumb'); if (!el) return; ai = +el.dataset.i; t = 0; setPlaying(false); renderAll(); toast('get_review_asset { asset_id: "' + A().name.toLowerCase().replace(' ', '-') + '" }'); };
+$('ta').oninput = () => { $('post').disabled = !$('ta').value.trim(); };
+$('ta').onfocus = () => setPlaying(false);
+$('tcBtn').onclick = () => seek(t);
+$('rangeBtn').innerHTML = ICONS.range + ' Range';
+$('rangeBtn').onclick = () => { rangeMode = !rangeMode; $('rangeBtn').classList.toggle('on', rangeMode); renderTime(); };
+$('post').onclick = () => {
+  const body = $('ta').value.trim(); if (!body) return;
+  const n = { id: nextId++, who: 'ZV', t: +t.toFixed(1), body };
+  if (rangeMode) n.t2 = Math.min(A().dur, n.t + 3);
+  A().notes.push(n); $('ta').value = ''; $('post').disabled = true; filter = 'open'; syncFilter();
+  renderAll();
+  toast('create_review_comment { time_start: ' + n.t + (n.t2 ? ', time_end: ' + n.t2 : '') + ' }');
+};
+$('list').onclick = (e) => {
+  const s = e.target.closest('[data-seek]'); if (s) { seek(+s.dataset.seek); return; }
+  const r = e.target.closest('[data-res]');
+  if (r) { const n = A().notes.find((x) => x.id === +r.dataset.res); n.resolved = !n.resolved; renderAll(); toast((n.resolved ? 'resolve_review_comment' : 'unresolve_review_comment') + ' { note_id: ' + n.id + ' }'); return; }
+  const rp = e.target.closest('[data-reply]'); if (rp) { $('ta').focus(); $('ta').placeholder = 'Reply…'; toast('reply_review_comment { note_id: ' + rp.dataset.reply + ' }'); }
+};
+function syncFilter() { document.querySelectorAll('.filter .ghost').forEach((b) => b.classList.toggle('on', b.dataset.f === filter)); }
+document.querySelector('.filter').onclick = (e) => { const b = e.target.closest('[data-f]'); if (!b) return; filter = b.dataset.f; syncFilter(); renderList(); };
+$('statusPop').innerHTML = Object.entries(STATUS).map(([k, [l, c]]) => `<div data-s="${k}"><span class="dot" style="background:${c}"></span>${l}</div>`).join('');
+$('statusBtn').onclick = (e) => { e.stopPropagation(); $('statusPop').classList.toggle('open'); };
+$('statusChip').onclick = (e) => { e.stopPropagation(); $('statusPop').classList.toggle('open'); };
+$('statusPop').onclick = (e) => { const d = e.target.closest('[data-s]'); if (!d) return; A().status = d.dataset.s; $('statusPop').classList.remove('open'); renderAll(); toast('set_review_status { review_status: "' + d.dataset.s + '" }'); };
+document.addEventListener('click', () => $('statusPop').classList.remove('open'));
+$('shareBtn').innerHTML = ICONS.share + ' Share with client';
+$('shareBtn').onclick = () => toast('create_review_share_link → copies guest share_url');
+$('openBtn').innerHTML = ICONS.open + ' Open in Kolbo';
+$('openBtn').onclick = () => toast('ui/open-link → app.kolbo.ai/review/asset/…');
+$('themeBtn').onclick = () => { const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'light' ? 'dark' : 'light'; };
+document.addEventListener('keydown', (e) => { if (e.target === $('ta')) return; if (e.code === 'Space') { e.preventDefault(); setPlaying(!playing); } });
+
+setPlaying(false); renderAll(); seek(9.6);
+</script>
+</body>
+</html>

@@ -128,6 +128,8 @@ claude.ai (web)     → HTTPS → api.kolbo.ai/mcp (OAuth) → createServer({ ap
 
 `edit_video` carries source/mask videos, image and audio inputs in its widget reference fields on submit and completion. Build these fields from the resolved request body so local files preview via the same uploaded CDN URLs sent to the API.
 
+Kolbo Review uses `ui://kolbo/review.html` (`src/apps/widgets/review.js`) on `create_review_asset`, `get_review_asset`, `add_review_version` and `list_review_assets`: a player with note markers where the user posts timestamped notes, replies, resolves and sets status in chat. Every write goes through the existing review tools via `callTool`; voice memos and drawings stay in the app. Review results carry `open_url` (owner app link) beside the guest `share_url`.
+
 `check_credits` uses `ui://kolbo/credits.html` on widget hosts, showing a snapshot of total, plan, credit-pack, and redemption credits. Its structured payload includes the full `credits` object; text-only hosts keep the original text response.
 
 Tool results render as branded, live-updating mini-apps inside claude.ai and Claude

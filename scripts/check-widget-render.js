@@ -201,6 +201,37 @@ const flush = () => new Promise((r) => setImmediate(r));
   assert.equal(w.node('error').hidden, false);
 }
 
+// Kolbo Review card: notes render from the preloaded payload (replies nested,
+// resolved hidden under Open), and a posted note goes through
+// create_review_comment with the player's timecode.
+async function reviewCardPostsTimedNotes() {
+  const w = mountWidget(blocks(widgetHtml(UI.review)).slice(1).join('\n'));
+  const asset = { id: 'a1', name: 'Snow White', review_status: 'needs_review', current_version_index: 0,
+    versions: [{ label: 'v1', url: 'https://media.kolbo.ai/x.mp4', media_type: 'video' }], open_url: 'https://app.kolbo.ai/review/asset/a1' };
+  w.deliver({ widget: 'review', asset, comments: [
+    { id: 'n1', body: 'Cut earlier', time_start: 2, author_kind: 'guest', guest_author: { name: 'Roy', role_label: 'Client' } },
+    { id: 'n2', body: 'Agreed', parent_note_id: 'n1', author: { first_name: 'Zohar' } },
+    { id: 'n3', body: 'Old typo', time_start: 5, resolved: true },
+  ] });
+  assert.equal(w.node('main').hidden, false, 'review card must leave loading');
+  assert.match(w.html('list'), /Cut earlier/);
+  assert.match(w.html('list'), /Agreed/, 'reply nests under its note');
+  assert.doesNotMatch(w.html('list'), /Old typo/, 'Open filter hides resolved notes');
+  assert.match(w.html('chips'), /1 open note</);
+  w.click('openBtn');
+  assert.deepEqual(w.links, ['https://app.kolbo.ai/review/asset/a1']);
+  w.node('ta').value = 'Grill SFX too quiet';
+  w.status({ success: true, comment: { id: 'n4', body: 'Grill SFX too quiet', time_start: 0 } });
+  w.click('post');
+  await new Promise((r) => setImmediate(r));
+  const posted = w.calls.find((c) => c.name === 'create_review_comment');
+  assert.ok(posted, 'Post note must call create_review_comment');
+  assert.equal(posted.args.asset_id, 'a1');
+  assert.equal(posted.args.body, 'Grill SFX too quiet');
+  assert.equal(typeof posted.args.time_start, 'number');
+  assert.match(w.html('list'), /Grill SFX too quiet/);
+}
+
 async function hostCompletionWinsOverPendingPoll() {
   const w = mountWidget();
   let finish;
@@ -936,6 +967,7 @@ async function openInKolboOpensTheSession() {
   await pagerFollowsNextArgs();
   await chatgptHostSeedsAndRenders();
   await hostCompletionWinsOverPendingPoll();
+  await reviewCardPostsTimedNotes();
   await batchStaysOneGrid({ kind: 'image', tool: 'generate_image', ext: 'png' });
   await batchStaysOneGrid({ kind: 'video', tool: 'generate_video_from_image', ext: 'mp4' });
   await completedCardNamesWhatActuallyRan();

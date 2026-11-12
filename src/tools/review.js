@@ -5,8 +5,35 @@
 
 const { z } = require('zod');
 const { projectIdField } = require('./_shared');
+const { UI, uiResult } = require('../apps');
 
 const REVIEW_STATUS = z.enum(['in_progress', 'needs_review', 'approved', 'changes_requested']);
+const APP = 'https://app.kolbo.ai';
+
+// Owner-side app links. The API only returns guest share_url, so agents had no
+// link to hand the user after an upload. Additive field — text shape otherwise unchanged.
+const assetUrl = (a) => (a && a.id ? { ...a, open_url: `${APP}/review/asset/${a.id}` } : a);
+const collectionUrl = (c) => (c && c.id
+  ? { ...c, open_url: `${APP}/review${c.project_id ? `?project=${c.project_id}` : ''}` }
+  : c);
+function withLinks(result) {
+  if (!result || typeof result !== 'object') return result;
+  const out = { ...result };
+  if (out.asset) out.asset = assetUrl(out.asset);
+  if (Array.isArray(out.assets)) out.assets = out.assets.map(assetUrl);
+  if (out.collection) out.collection = collectionUrl(out.collection);
+  if (Array.isArray(out.collections)) out.collections = out.collections.map(collectionUrl);
+  return out;
+}
+const linked = (result) => ({ content: [{ type: 'text', text: JSON.stringify(withLinks(result), null, 2) }] });
+// Review player card (ui://kolbo/review.html). Hosts that mount widgets hand the
+// model structuredContent instead of text, so the payload carries the full
+// linked result plus widget keys; text stays byte-identical to `linked`.
+const card = (tool, payload, extra) => uiResult(
+  UI.review,
+  JSON.stringify(payload, null, 2),
+  { ...payload, ...(extra || {}), widget: 'review', tool }
+);
 
 function registerReviewTools(server, client) {
   // ─── get_review_storage_usage ────────────────────────────────
@@ -40,27 +67,30 @@ function registerReviewTools(server, client) {
       if (limit) params.set('limit', String(limit));
       const qs = params.toString();
       const result = await client.get(`/v1/review/assets${qs ? '?' + qs : ''}`);
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return card('list_review_assets', withLinks(result));
     }
   );
 
   // ─── get_review_asset ────────────────────────────────────────
   server.tool(
     'get_review_asset',
-    'Fetch one review asset with all versions, status, and media URLs.',
+    'Fetch one review asset with all versions, status, media URLs, and asset.open_url. On widget hosts this shows the review player, where the user watches the cut and leaves timestamped notes in chat — call it to "show the cut for review".',
     {
       asset_id: z.string().describe('Review asset ObjectId from list_review_assets or create_review_asset.'),
     },
     async ({ asset_id }) => {
       const result = await client.get(`/v1/review/assets/${encodeURIComponent(asset_id)}`);
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      // Preload notes so the card paints them without a widget round trip.
+      // Best effort: a failure here must not fail the asset read.
+      const notes = await client.get(`/v1/review/assets/${encodeURIComponent(asset_id)}/comments`).catch(() => null);
+      return card('get_review_asset', withLinks(result), notes && Array.isArray(notes.comments) ? { comments: notes.comments } : undefined);
     }
   );
 
   // ─── create_review_asset ─────────────────────────────────────
   server.tool(
     'create_review_asset',
-    'Create a Kolbo Review asset with v1 media attached. Upload first via `upload_media`, `create_upload_ticket`, or `media_upload_widget`, then pass the returned `media_id`. Requires `project_id` when the user named a project.',
+    'Create a Kolbo Review asset with v1 media attached — use it proactively when you finish a cut, edit, or render the user should judge: they leave timestamped notes on the video and you read them back with list_review_comments. Result carries asset.open_url (owner link in the Kolbo app) — always hand it to the user as a clickable link. Upload first via `upload_media`, `create_upload_ticket`, or `media_upload_widget`, then pass the returned `media_id`. Requires `project_id` when the user named a project.',
     {
       name: z.string().describe('Display name for the review asset.'),
       media_id: z.string().describe('MediaLibraryItem id from upload_media / list_media.'),
@@ -70,15 +100,10 @@ function registerReviewTools(server, client) {
     },
     async (args) => {
       const result = await client.post('/v1/review/assets', args);
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            ...result,
-            _hint: 'Asset created. Share with clients via create_review_share_link, or add feedback with create_review_comment.',
-          }, null, 2),
-        }],
-      };
+      return card('create_review_asset', {
+        ...withLinks(result),
+        _hint: 'Asset created. ALWAYS give the user asset.open_url as a clickable link (or open it) so they can leave timestamped notes. On widget hosts the user can also leave notes right in the review card. For clients without a Kolbo account, create_review_share_link returns a guest share_url.',
+      }, { comments: [] });
     }
   );
 
@@ -94,7 +119,7 @@ function registerReviewTools(server, client) {
     },
     async ({ asset_id, ...body }) => {
       const result = await client.patch(`/v1/review/assets/${encodeURIComponent(asset_id)}`, body);
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return linked(result);
     }
   );
 
@@ -112,7 +137,7 @@ function registerReviewTools(server, client) {
         media_id,
         version_note,
       });
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return card('add_review_version', withLinks(result), { comments: [] });
     }
   );
 
@@ -128,7 +153,7 @@ function registerReviewTools(server, client) {
       const result = await client.post(`/v1/review/assets/${encodeURIComponent(asset_id)}/status`, {
         review_status,
       });
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return linked(result);
     }
   );
 
@@ -151,7 +176,7 @@ function registerReviewTools(server, client) {
     async ({ project_id }) => {
       const qs = project_id ? `project_id=${encodeURIComponent(project_id)}` : '';
       const result = await client.get(`/v1/review/collections${qs ? '?' + qs : ''}`);
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return linked(result);
     }
   );
 
@@ -164,7 +189,7 @@ function registerReviewTools(server, client) {
     },
     async (args) => {
       const result = await client.post('/v1/review/collections', args);
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return linked(result);
     }
   );
 
@@ -177,7 +202,7 @@ function registerReviewTools(server, client) {
     },
     async ({ collection_id, name }) => {
       const result = await client.patch(`/v1/review/collections/${encodeURIComponent(collection_id)}`, { name });
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+      return linked(result);
     }
   );
 

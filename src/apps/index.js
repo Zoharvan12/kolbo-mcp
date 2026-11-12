@@ -26,6 +26,7 @@ const { listWidgetHtml } = require('./widgets/list');
 const { HOST_MAP } = require('../cdn');
 const { plansWidgetHtml } = require('./widgets/plans');
 const { creditsWidgetHtml } = require('./widgets/credits');
+const { reviewWidgetHtml } = require('./widgets/review');
 const { ResourceTemplate } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { McpError, ErrorCode } = require('@modelcontextprotocol/sdk/types.js');
 
@@ -39,6 +40,7 @@ const UI = {
   list: 'ui://kolbo/list.html',
   plans: 'ui://kolbo/plans.html',
   credits: 'ui://kolbo/credits.html',
+  review: 'ui://kolbo/review.html',
 };
 
 const WIDGET_BUILDERS = {
@@ -51,6 +53,7 @@ const WIDGET_BUILDERS = {
   [UI.list]: listWidgetHtml,
   [UI.plans]: plansWidgetHtml,
   [UI.credits]: creditsWidgetHtml,
+  [UI.review]: reviewWidgetHtml,
 };
 
 // Widgets are pure functions of source — build once per process.
@@ -178,6 +181,7 @@ function registerApps(server) {
     [UI.list, 'Kolbo List Widget'],
     [UI.plans, 'Kolbo Plans Widget'],
     [UI.credits, 'Kolbo Credit Balance Widget'],
+    [UI.review, 'Kolbo Review Widget'],
   ]) {
     for (const u of [versionedUri(uri), uri]) {
       registerAppResource(
@@ -852,6 +856,11 @@ const TOOL_WIDGETS = {
   show_plans: UI.plans,
   check_credits: UI.credits,
   list_project_assets: UI.list,
+  // Kolbo Review player: watch a cut and leave timestamped notes in chat.
+  create_review_asset: UI.review,
+  get_review_asset: UI.review,
+  add_review_version: UI.review,
+  list_review_assets: UI.review,
 };
 
 function attachToolWidgetMeta(server) {

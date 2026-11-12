@@ -320,6 +320,40 @@ function build() {
     ['zero credit balance', { total: 0, plan_credits: 0, credit_pack: 0, redemption: 0 }],
     ['partial credit balance', { total: 12.5, plan_credits: 12.5 }],
   ]) scenarios.push({ tool: 'check_credits', title, args: {}, result: { widget: 'credits', credits } });
+  // Kolbo Review player
+  const rvAsset = (id, name, status, kind) => ({
+    id, name, project_id: 'proj-1', collection_id: 'col-1', review_status: status, current_version_index: 0,
+    versions: [{ id: id + '-v1', label: 'v1', media_id: id + '-m', url: kind === 'image' ? IMG : VID, media_type: kind, thumbnail_url: IMG }],
+    open_url: 'https://app.kolbo.ai/review/asset/' + id,
+  });
+  const rvNote = (id, extra) => Object.assign({ id, body: '', author_kind: 'user', author: { id: 'u1', first_name: 'Zohar', last_name: 'Vanunu' }, resolved: false, parent_note_id: null }, extra);
+  const rvNotes = [
+    rvNote('n1', { body: 'Hook lands late. Cut the first 8 frames so the bite hits on beat one.', time_start: 0.5 }),
+    rvNote('n2', { body: 'Hold this shot 6 more frames.', time_start: 2.4, time_end: 4, author_kind: 'guest', author: null, guest_author: { name: 'Roy', role_label: 'Client' } }),
+    rvNote('n3', { body: 'Will extend in v2.', parent_note_id: 'n2' }),
+    rvNote('n4', { body: 'End card typo fixed.', time_start: 5, resolved: true }),
+  ];
+  const rvOk = (sc) => ({ structuredContent: sc, content: [{ type: 'text', text: JSON.stringify(sc) }] });
+  const rvCalls = {
+    list_review_comments: [rvOk({ success: true, comments: rvNotes })],
+    create_review_comment: [rvOk({ success: true, comment: rvNote('n9', { body: 'Gallery note', time_start: 1.2 }) })],
+    reply_review_comment: [rvOk({ success: true, comment: rvNote('n10', { body: 'Gallery reply', parent_note_id: 'n1' }) })],
+    resolve_review_comment: [rvOk({ success: true })],
+    unresolve_review_comment: [rvOk({ success: true })],
+    set_review_status: [rvOk({ success: true, asset: { review_status: 'approved' } })],
+    list_review_share_links: [rvOk({ success: true, share_links: [] })],
+    create_review_share_link: [rvOk({ success: true, share_link: { share_url: 'https://app.kolbo.ai/review/s/gallery' } })],
+  };
+  scenarios.push({ tool: 'get_review_asset', title: 'review player — one cut with notes', args: { asset_id: 'a1' }, calls: rvCalls,
+    result: { widget: 'review', tool: 'get_review_asset', success: true, asset: rvAsset('a1', 'PGB ep1 - Snow White', 'needs_review', 'video'), comments: rvNotes } });
+  scenarios.push({ tool: 'list_review_assets', title: 'review player — collection of cuts', args: { collection_id: 'col-1' }, calls: rvCalls,
+    result: { widget: 'review', tool: 'list_review_assets', success: true, assets: [
+      rvAsset('a1', 'Snow White', 'needs_review', 'video'), rvAsset('a2', 'Jasmine', 'changes_requested', 'video'),
+      rvAsset('a3', 'Elsa', 'approved', 'video'), rvAsset('a4', 'Poster still', 'in_progress', 'image'),
+    ] } });
+  scenarios.push({ tool: 'create_review_asset', title: 'review player — fresh upload, no notes', args: { name: 'Belle' }, calls: rvCalls,
+    result: { widget: 'review', tool: 'create_review_asset', success: true, asset: rvAsset('a5', 'Belle', 'in_progress', 'video'), comments: [] } });
+
   scenarios.push({ tool: 'show_plans', title: 'plans — requested', args: {}, result: { widget: 'plans', reason: 'requested', balance: 412, current_plan: { name: 'Pro' }, plans: [{ name: 'Pro', price: 29, credits: 1500 }, { name: 'Studio', price: 99, credits: 6000 }], credit_packs: [{ name: '500 credits', price: 9 }], pricing_url: 'https://app.kolbo.ai/pricing' } });
 
   return scenarios;
