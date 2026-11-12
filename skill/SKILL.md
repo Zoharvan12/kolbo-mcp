@@ -1,5 +1,5 @@
 ---
-version: 0.9.26
+version: 0.9.28
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images, video (Seedance, Veo, Kling, Hailuo), music, speech, sound, 3D, transcription, Visual DNA, Creative Director batches, marketing assets, HTML artifacts, and AI Docs, Flow node workflows and session/system prompts, and approved Blender scene control. Use for sophisticated AI filmmaking as well as individual media: scripts, production bibles, recurring characters and locations, acting, dialogue, music performance, blocking, physics, multi-shot continuity, connected scenes, prompt audits, feature-length production planning, end-to-end vertical micro-drama series (Micro-Drama Studio), and direct Blender scene building through the connected Kolbo Blender plugin. NOT for: unrelated standalone video editing / FFmpeg (use video-production), motion graphics (use remotion-best-practices), code editing, or general chat.
@@ -93,7 +93,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Browse, manage, or present existing **media library** items | `references/workflows/media-library.md` |
 | Write or edit a **published project's page / project story / showcase post** (headings, steps with real prompts, before/after) | `references/workflows/project-story.md` |
 | Upload, pick, or reuse a **personal font** (My Fonts / Font collection, `font_ids`) | `references/workflows/personal-fonts.md` |
-| Run a **client review / approval loop** — share a cut for feedback, timestamped comments, versions (v1→v2), approve / request-changes, guest links | `references/workflows/review-collections.md` |
+| **Finished a cut / edit / render** the user must judge (offer it unasked), or run a **client review / approval loop** — share a cut for feedback, timestamped comments, versions (v1→v2), approve / request-changes, guest links | `references/workflows/review-collections.md` |
 | Confirm **cost** or validate **resolution / aspect / duration** against model caps | `references/workflows/cost-and-validation.md` |
 | Hit an **auth / MCP / 429** issue | `references/workflows/troubleshooting.md` |
 | Inspect or change a connected **Blender** scene, render, import Kolbo media, or run approved Blender Python | `references/workflows/blender.md` |
@@ -463,6 +463,10 @@ Chat renders markdown natively. `![alt](url)` = inline image. `[label](url)` = l
 **After `generate_creative_director` completes** — share results as individual URLs, one per scene. Do NOT create an HTML grid artifact.
 
 **Never update `.kolbo/production.md` merely because a generation succeeded.** Keep the result provisional in the generation card / Library, ask the user to choose, and write only the explicitly approved winner in the same turn as approval. Brief approval before generation is not output approval; silence, a topic change, or requesting the next task is not approval. See `references/workflows/production-log.md`.
+
+## ⚠️ Finished cuts go to Kolbo Review (HARD RULE)
+
+Finished a video the user must judge? Offer Kolbo Review in the same message and say what it does (timestamped notes on the cut); many users do not know it exists. After `create_review_asset`, reply with one clickable link per asset from `open_url` — never just "uploaded". Read notes back with `list_review_comments`; a new cut is `add_review_version`. Full flow: `references/workflows/review-collections.md`.
 
 ## Limitations & Safety
 

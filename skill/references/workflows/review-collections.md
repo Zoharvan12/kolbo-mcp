@@ -6,6 +6,12 @@ same feedback thread, or share work with someone who has no Kolbo account. This 
 Frame.io-style layer over the media library — assets, versions, comments, statuses, and
 guest share links — all project-scoped like everything else in Kolbo.
 
+**Be proactive.** Offer Review whenever you deliver a cut the user must judge. Most users do
+not know it exists. After any upload, reply with one clickable link per asset using the
+`open_url` field the tools return (`asset.open_url`, `assets[].open_url`,
+`collection.open_url`). That link opens the asset in the Kolbo app, where the owner leaves
+timestamped notes. `share_url` from `create_review_share_link` is the separate guest link.
+
 Not for: publishing a page (`publish_html_artifact`), sharing a whole media folder
 (`share_media_folder`), or internal doc collaboration (`share_doc`).
 
