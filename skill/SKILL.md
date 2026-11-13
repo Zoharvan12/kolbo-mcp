@@ -1,5 +1,5 @@
 ---
-version: 0.9.30
+version: 0.9.31
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images, video (Seedance, Veo, Kling, Hailuo), music, speech, sound, 3D, transcription, Visual DNA, Creative Director batches, marketing assets, HTML artifacts, and AI Docs, Flow node workflows and session/system prompts, and approved Blender scene control. Use for sophisticated AI filmmaking as well as individual media: scripts, production bibles, recurring characters and locations, acting, dialogue, music performance, blocking, physics, multi-shot continuity, connected scenes, prompt audits, feature-length production planning, end-to-end vertical micro-drama series (Micro-Drama Studio), and direct Blender scene building through the connected Kolbo Blender plugin. NOT for: unrelated standalone video editing / FFmpeg (use video-production), motion graphics (use remotion-best-practices), code editing, or general chat.
@@ -60,6 +60,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Investigate **video/audio content, long recordings, cuts, speech, music or continuity** with adaptive evidence | `references/workflows/video-investigation.md` |
 | Make a **film / ad / scene / episode / campaign / any video with multiple or recurring characters** — read BEFORE planning a single shot | `references/workflows/production-planning.md` |
 | Make a **micro-drama / short-form drama series / episodic vertical drama / branded drama series** end to end (bible → cast → Seedance 2.5 Draft episodes → finals → edit → trailer, cutdowns, key art) | `references/workflows/micro-drama.md` (Micro-Drama Studio) |
+| **Recreate a viral reel's format** from a link or file ("make a video like this": measure, story read, formula, contracts, Seedance 2.5 Draft takes, blind QC, edit) | `references/workflows/viral-recreate.md` |
 | Direct, develop, audit, or continue a **film / episode / connected scene / complex performance** with continuity, acting, dialogue, music, blocking, or physics | `references/workflows/filmmaking.md` |
 | Build, inspect, animate, light, render, or edit a **Blender scene through Kolbo Blender MCP** | `references/workflows/blender-mcp.md` |
 | Generate a **Seedance 2.5** video | `skill` `elements-prompting` + `references/models/seedance25.md` + Locked Intro in `references/models/seedance.md`. For narrative/continuity also load `references/workflows/filmmaking.md` — but compile the prompt as Locked Intro, NOT the SCENE CONTEXT / OPTICS / ACTION pack |
@@ -107,9 +108,7 @@ Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/sr
 ## Available MCP Tools
 For music composition/reference/section edits, extensions and covers, Trends and Motion Library, Morphious Styles, Creative Director status, project copies and transfer responses, read `references/workflows/tool-operations.md`. For editable video timelines, read `references/workflows/video-editor.md`. Use `get_video_editor_schema`, `list_video_editor_sessions`, `get_video_editor_session`, `create_video_editor_session`, `update_video_editor_session`, and `export_video_editor_session`. Edit existing sessions in place using their saved revision; do not recreate them to rename or change clips.
 
-For personal font uploads, font selection, or reuse, read `references/workflows/personal-fonts.md`. Use the dedicated My Fonts tools; never the media-upload path or agent-rendered specimens.
-
-Font tools (when exposed by the installed MCP): `list_fonts`, `get_font`, `upload_font`, `get_font_upload_status`, `create_font_upload_ticket`, `font_upload_widget`, `rename_font`, `delete_font`. Image creation/editing and image-mode Creative Director accept `font_ids` only on models with `supports_custom_fonts`.
+For personal font uploads, font selection, or reuse, read `references/workflows/personal-fonts.md`. Use the dedicated My Fonts tools; never the media-upload path or agent-rendered specimens. Font tools (when exposed by the installed MCP): `list_fonts`, `get_font`, `upload_font`, `get_font_upload_status`, `create_font_upload_ticket`, `font_upload_widget`, `rename_font`, `delete_font`. Image creation/editing and image-mode Creative Director accept `font_ids` only on models with `supports_custom_fonts`.
 
 ### Generation
 | Tool | Description |
