@@ -25,7 +25,7 @@ function registerColorPaletteTools(server, client, options = {}) {
   // ─── list_color_palettes ───────────────────────────────────
   server.tool(
     'list_color_palettes',
-    'List the user\'s Color DNA palettes (personal + org). Each has a name, 1-10 colors, and an is_active flag — at most one palette is active per account at a time, and the active one auto-applies to every generation.',
+    "Read-only. Lists the user's Color DNA palettes (personal and organization). Returns each palette's id, name, colors (1-10) and is_active flag. At most one palette per account is active.",
     { project_id: projectScopeReadField },
     async ({ project_id } = {}) => {
       const suffix = project_id ? `?project_id=${encodeURIComponent(project_id)}` : '';

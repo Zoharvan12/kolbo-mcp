@@ -12,7 +12,7 @@ function registerPresetTools(server, client, options = {}) {
   // ─── list_presets ──────────────────────────────────────────
   server.tool(
     'list_presets',
-    'Resolve a generation preset and pass its exact id as preset_id. ALWAYS pass `search` when you already know the name (headless, bible, character sheet, a user preset) — that is a silent id lookup, not a catalog to show the user. Omit search only when they asked to browse. Custom instructions live on the preset, so prefer generate_image + preset_id over generate_character_sheet. Never invent an id.',
+    "Read-only. Finds generation presets and returns their ids for the preset_id argument of generation tools. With a known name (for example \"headless\", \"bible\", \"character sheet\" or a user preset), pass search to get that one id; omit search only when the user wants to browse presets. A preset carries its own custom instructions. Never invent a preset id.",
     {
       type: z.string().optional().describe('Filter by catalog: "image" | "image_edit" | "video" | "music" | "text_to_video". Omit for all.'),
       search: z.string().optional().describe('Name lookup, e.g. "headless", "bible", "character sheet". Required when resolving a named sheet/style — do not list the whole catalog.')

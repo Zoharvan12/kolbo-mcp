@@ -8,7 +8,9 @@ function sentenceFor(name, hints) {
   if (hints.readOnlyHint) {
     return {
       read_only_justification: `${name} retrieves or analyzes Kolbo data without changing stored state.`,
-      open_world_justification: 'It does not publish content or modify a public or third-party system.',
+      open_world_justification: hints.openWorldHint
+        ? `${name} reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.`
+        : 'It does not publish content or modify a public or third-party system.',
       destructive_justification: 'It does not delete, overwrite, revoke access, spend credits, or start a paid job.',
     };
   }
@@ -17,7 +19,7 @@ function sentenceFor(name, hints) {
     ? `${name} changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.`
     : `${name} creates or updates state in the user's Kolbo account or starts a bounded private workflow.`;
   const openWorld = hints.openWorldHint
-    ? `${name} can create, update, expose, or revoke content through a publicly accessible link.`
+    ? `${name} sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).`
     : 'Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.';
   const destructive = hints.destructiveHint
     ? `${name} can perform an irreversible or replacement action, spend credits, delete data, or revoke access.`

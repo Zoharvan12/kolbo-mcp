@@ -37,7 +37,7 @@ function registerProjectTools(server, client) {
   // ─── list_projects ─────────────────────────────────────────
   server.tool(
     'list_projects',
-    'List the user\'s platform projects (owned + shared with edit/full/owner permission). Use this to resolve a project NAME the user mentioned ("put this in my Acme Campaign project") into the project ObjectId you pass back as `project_id` on generation / chat / upload / move tools. Whenever the user mentions a project by name OR location, you MUST call this first — those tools accept only ObjectIds, not names — and then pass the resolved `project_id` on EVERY subsequent call in the conversation (it is per-call, not sticky; omitting it drops work into the default bucket). Returns id, name, role, is_default, and is_archived. The project flagged `is_default: true` is the auto-created "API Generations" bucket every SDK generation lands in when project_id is omitted. Accounts routinely have HUNDREDS of projects, so this is paginated: when you already know the name, pass `search` — it is far cheaper than listing everything. Default page size is 50; use `page` to walk the rest (`pagination.has_more` tells you when to stop). Archived projects are hidden unless you pass `include_archived: true`.',
+    "Read-only. Lists the user's projects (owned, or shared with edit, full or owner permission), paginated (default 50 per page). Returns id, name, role, is_default and is_archived. Pass search to find a project by name. Generation, chat, upload and move tools take the returned id as project_id; they do not accept names, and project_id applies per call. is_default marks the \"API Generations\" project that receives work sent without a project_id. Archived projects are returned only with include_archived: true.",
     {
       search: z.string().optional().describe('Case-insensitive substring match on the project name. Use this whenever the user named a project — it turns a full listing into a one-item answer.'),
       page: z.number().optional().describe('Page number, 1-indexed. Default: 1'),
@@ -153,7 +153,7 @@ function registerProjectTools(server, client) {
   // ─── list_session_generations ──────────────────────────────
   server.tool(
     'list_session_generations',
-    'List a session\'s generations as complete GROUPS — each entry is one generation with its prompt and ALL the outputs it produced. Call this FIRST whenever the user wants to reorganize WITHIN or BETWEEN sessions ("move these three shots into their own session", "split the good takes out"), because `move_generations_to_session` and `split_session` take the ids this returns. Also the cheapest way to see what is actually inside a session before moving it. A generation is never separable from its own outputs, so you always move whole entries. Only image, image-to-video, lipsync and video-to-video sessions support this level of organization; other types return SESSION_TYPE_NOT_MOVABLE and should be moved whole with `move_session`.',
+    "Read-only. Lists one session's generations. Each entry is one generation with its prompt and all of its outputs. The returned ids are the inputs of move_generations_to_session and split_session; a generation always moves with its outputs. Supported for image, image-to-video, lipsync and video-to-video sessions; other types return SESSION_TYPE_NOT_MOVABLE (move those whole with move_session).",
     {
       session_id: z.string().describe('The session ObjectId to inspect.'),
       type: z.string().optional().describe('Optional session type hint to speed up the lookup. Omit if unsure.')
@@ -520,7 +520,7 @@ function registerProjectTools(server, client) {
   // ─── list_sessions ─────────────────────────────────────────
   server.tool(
     'list_sessions',
-    'List the user\'s sessions across ALL generation types (image, video, music, chat, transcription…), newest-activity first. Each row includes `session_id`, `name`, pipe `type`, `types[]`, and `project_id` — pass that `project_id` on later generate/chat/upload calls for work in this conversation. Use to answer "what\'s in this project?", to find a session_id for `move_session` / `rename_session` / `delete_session`, or to locate past work. Filter by `project_id` and/or `type` (one key) and/or `types` (several keys).',
+    "Read-only. Lists the user's sessions across all generation types (image, video, music, chat, transcription and more), newest activity first, paginated. Each row has session_id, name, type, types[] and project_id. Filter by project_id, type or types. The returned session_id is the input of move_session, rename_session and delete_session.",
     {
       project_id: z.string().optional().describe('Restrict to one project (ObjectId from list_projects).'),
       type: z.string().optional().describe('Restrict to one session type (pipe string on the row stays). Keys: image, video, video_from_image, music, speech, sound, image_edit, creative_director, chat, elements, first_last_frame, lipsync, video_from_video, transcription, global_image_edit, global_video_edit, shorts.'),
@@ -640,7 +640,7 @@ function registerProjectTools(server, client) {
 
   server.tool(
     'list_project_context',
-    'List a project\'s knowledge-base sources (URLs, texts, files) with their AI summaries and analysis status.',
+    "Read-only. Lists a project's knowledge-base sources (URLs, texts and files) with each source's stored summary and analysis status.",
     { project_id: z.string().describe('Project ObjectId.') },
     async ({ project_id }) => {
       const result = await client.get(`/v1/projects/${encodeURIComponent(project_id)}/context`);
@@ -686,7 +686,7 @@ function registerProjectTools(server, client) {
 
   server.tool(
     'list_project_assets',
-    'List the Visual DNAs and moodboards tagged onto a project\'s CAST roster — the @Name / #Name assets this project actually uses. Each DNA row includes its stored description plus a project-scoped `note` ("what this asset is for here"). Call this before editing the cast, writing DNA descriptions, or generating against a named project. Does not list the user\'s whole library — only what is tagged on THIS project.',
+    "Read-only. Lists the Visual DNAs and moodboards on a project's cast (the @Name and #Name assets the project uses). Each Visual DNA row includes its description and a project-specific note. Returns only the assets attached to this project, not the user's whole library.",
     { project_id: z.string().describe('Project ObjectId from list_projects.') },
     async ({ project_id }) => {
       const result = await client.get(`/v1/projects/${encodeURIComponent(project_id)}/assets`);

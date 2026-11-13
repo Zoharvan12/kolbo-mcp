@@ -2053,7 +2053,7 @@ function registerGenerateTools(server, client, options = {}) {
   // ─── generate_first_last_frame ─────────────────────────────
   server.tool(
     'generate_first_last_frame',
-    'Generate a video that morphs / interpolates from a FIRST frame to a LAST frame. Provide the two frames as URLs (first_frame_url + last_frame_url) or as URLs/absolute local paths (first_frame + last_frame) — the pairs are interchangeable and may be mixed. Optional prompt describes the desired motion/transition. Returns the final video URL when complete.',
+    "Generates a video that moves from a start frame to an end frame. Provide the two frames as URLs (first_frame_url and last_frame_url) or as URLs or absolute local paths (first_frame and last_frame); the pairs are interchangeable and can be mixed. An optional prompt describes the motion or transition. Returns the final video URL when complete.",
     {
       first_frame_url: z.string().optional().describe('Public URL of the first frame image. Interchangeable with first_frame.'),
       last_frame_url: z.string().optional().describe('Public URL of the last frame image. Interchangeable with last_frame.'),

@@ -11,7 +11,7 @@ function registerMoodboardTools(server, client, options = {}) {
   // ─── list_moodboards ───────────────────────────────────────
   server.tool(
     'list_moodboards',
-    'List moodboards. Default scope is "personal" — the user\'s OWN custom moodboards, which is what the card shows. Pass scope "preset"/"global" for the system presets, "organization" for org-shared, or "all" for everything. Returns id, name, master_prompt, thumbnail, and image URLs for each.',
+    "Read-only. Lists moodboards with their id, name, master_prompt, thumbnail and image URLs. Default scope is \"personal\" (the user's own moodboards); \"preset\" or \"global\" returns system presets, \"organization\" returns organization-shared moodboards, \"all\" returns everything the user can access.",
     {
       scope: z.enum(['all', 'personal', 'preset', 'global', 'organization']).optional().describe('Filter by scope. Default: "personal" (only the user\'s own custom moodboards). "preset"/"global" = system presets. "organization" = org-shared. "all" = everything accessible.'),
       project_id: projectScopeReadField

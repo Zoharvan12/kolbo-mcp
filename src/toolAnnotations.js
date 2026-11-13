@@ -1,5 +1,4 @@
 'use strict';
-
 /**
  * Public MCP safety contract.
  *
@@ -13,7 +12,8 @@ const READ_ONLY = [
   'get_flow_schema', 'list_flow_sessions', 'get_flow_session', 'validate_flow_session',
   'estimate_flow_run', 'get_flow_run', 'list_flow_runs',
   'list_morphious_styles',
-  'list_avatars', 'get_avatar', 'list_avatar_scene_presets', 'get_avatar_video', 'list_avatar_stock_voices', 'list_avatar_lipsync_models', 'quote_avatar_video',
+  'list_avatars', 'get_avatar', 'list_avatar_scene_presets', 'get_avatar_video', 'list_avatar_stock_voices',
+  'list_avatar_lipsync_models',
   'list_trends', 'get_trend', 'estimate_trend_run', 'get_trend_run', 'list_trend_runs',
   'get_download_status',
   'get_video_editor_schema', 'list_video_editor_sessions', 'get_video_editor_session',
@@ -24,10 +24,11 @@ const READ_ONLY = [
   'chat_list_conversations', 'chat_get_messages',
   'list_visual_dnas', 'get_visual_dna', 'list_visual_dna_folders',
   'list_moodboards', 'get_moodboard',
-  'list_color_palettes', 'analyze_color_palette',
+  'list_color_palettes',
   'list_media', 'list_media_folders', 'get_media', 'get_media_stats',
   'list_presets', 'list_cinematic_presets',
-  'list_projects', 'get_project', 'get_project_publication', 'list_sessions', 'list_project_context', 'get_project_profile',
+  'list_projects', 'get_project', 'get_project_publication', 'list_sessions', 'list_project_context',
+  'get_project_profile',
   // Returns a draft without saving it.
   'get_project_story', 'draft_project_story', 'get_project_page_insights',
   'list_project_assets',
@@ -36,11 +37,6 @@ const READ_ONLY = [
   'list_agents', 'list_skills', 'list_docs', 'get_doc',
   'get_review_storage_usage', 'list_review_assets', 'get_review_asset',
   'list_review_collections', 'list_review_comments', 'list_review_share_links',
-  'synci_search', 'analyze_script_for_music', 'synci_browse',
-  'synci_facets', 'synci_track_audio',
-  'synci_track_related', 'synci_track_lyrics',
-  'search_stock_media', 'get_stock_sources', 'get_stock_categories',
-  'get_stock_collections', 'get_stock_asset', 'analyze_script_for_stock',
   // Free (no credits, no DB write) — returns a scratch composition plan for the caller to edit.
   'create_music_composition_plan',
   // Social Planner reads of our own queue, automations and posts.
@@ -58,32 +54,35 @@ const OPEN_WORLD_READ_ONLY = [
   // Social Planner reads that call the platform (account health, comments, inbox, metrics).
   'check_social_account', 'get_tiktok_creator_info', 'list_social_comments', 'list_social_conversations',
   'get_social_conversation', 'get_social_post', 'get_social_post_metrics', 'get_social_account_metrics',
+  // Call third-party AI models or external catalogs (Pexels, Pixabay, Sketchfab, SYNCI).
+  'analyze_color_palette', 'quote_avatar_video', 'analyze_script_for_music', 'analyze_script_for_stock',
+  'search_stock_media', 'get_stock_sources', 'get_stock_categories', 'get_stock_collections',
+  'get_stock_asset', 'synci_search', 'synci_browse', 'synci_facets', 'synci_track_audio',
+  'synci_track_related', 'synci_track_lyrics',
 ];
 
 const PRIVATE_WRITE = [
   'create_flow_session', 'duplicate_flow_session', 'move_flow_session', 'restore_flow_session',
   'upload_font', 'rename_font', 'create_font_upload_ticket', 'font_upload_widget',
   'create_video_editor_session',
-  'media_upload_widget', 'create_upload_ticket', 'upload_media',
-  'favorite_media', 'unfavorite_media', 'dislike_media', 'undislike_media', 'rate_media', 'clear_media_rating',
+  'media_upload_widget', 'create_upload_ticket',
+  'favorite_media', 'unfavorite_media', 'dislike_media', 'undislike_media', 'rate_media',
+  'clear_media_rating',
   'create_media_folder', 'update_media_folder',
   'add_media_to_folder', 'remove_media_from_folder',
   'share_media_folder',
   'restore_media', 'move_media', 'bulk_restore_media', 'bulk_move_media',
   'move_folder_contents',
-  'import_elevenlabs_voice',
-  'create_visual_dna', 'create_visual_dna_folder', 'update_visual_dna_folder',
+  'create_visual_dna_folder', 'update_visual_dna_folder',
   'move_visual_dna_to_folder',
-  'create_moodboard', 'create_morphious_style',
-  'create_avatar', 'add_avatar_scene', 'add_avatar_look', 'create_avatar_video', 'regenerate_avatar_portraits', 'remove_avatar_video_background',
-  'preview_avatar_scene', 'preview_avatar_speech', 'talking_photo',
+  'create_morphious_style',
   'create_music_persona',
   'create_color_palette', 'activate_color_palette', 'deactivate_color_palette',
   'move_session', 'bulk_move_sessions', 'move_generations_to_session',
   'split_session', 'undo_session_organization',
   'rename_session', 'restore_session',
-  'create_project', 'duplicate_project', 'update_project',
-  'archive_project', 'unarchive_project', 'add_project_context', 'remove_project_hero_video',
+  'create_project', 'duplicate_project',
+  'archive_project', 'unarchive_project',
   'link_project_asset', 'unlink_project_asset',
   'create_agent', 'create_skill',
   'create_doc',
@@ -91,43 +90,26 @@ const PRIVATE_WRITE = [
   'set_review_status', 'create_review_collection', 'update_review_collection',
   'create_review_comment', 'reply_review_comment',
   'resolve_review_comment', 'unresolve_review_comment',
-  'import_stock_asset',
 ];
 
 const DESTRUCTIVE_WRITE = [
   'update_flow_session', 'undo_flow_edit', 'trash_flow_session',
   'run_flow_session', 'cancel_flow_run', 'retry_flow_run',
-  'run_trend', 'cancel_trend_run',
+  'cancel_trend_run',
   'cancel_download',
   // Can cancel (delete) an unfinished large upload.
   'finish_large_upload',
-  'extend_music', 'cover_music',
-  // Suno track ops: each spends credits (timed lyrics once per track).
-  'add_vocals', 'add_instrumental', 'replace_music_section', 'export_music_wav',
-  'make_music_video', 'generate_music_midi', 'get_timed_lyrics',
   'update_video_editor_session',
   'delete_font',
   'export_video_editor_session',
   // These actions spend credits, enqueue irreversible work, or cancel it.
-  'generate_image', 'generate_image_edit', 'generate_creative_director',
-  'generate_video', 'generate_video_from_image', 'generate_music',
-  'generate_speech', 'generate_sound', 'cancel_generation', 'cancel_avatar_video',
-  // Both spend credits — reference-audio upload is billed by ElevenLabs like a generation,
-  // section edit creates a new billed track.
-  'create_music_reference_audio', 'edit_music_section',
-  'generate_elements', 'generate_first_last_frame', 'generate_lipsync',
-  'generate_video_from_video', 'transcribe_audio', 'generate_3d',
-  'image_tools', 'video_tools', 'trim_video', 'clone_voice',
-  'chat_send_message', 'generate_character_sheet',
-  'synci_acquire_track', 'synci_import_track',
-  'separate_audio_stems', 'clean_dialogue_leftovers', 'separate_ambience',
-  'analyze_video',
-  'analyze_extracted_clip', 'transcribe_extracted_clip', 'cancel_video_inspection',
-
+  'cancel_generation', 'cancel_avatar_video',
+  'trim_video',
+  'cancel_video_inspection',
   // Deletes and whole-value replacement updates are conservatively destructive.
-  'delete_voice', 'update_visual_dna', 'delete_visual_dna', 'delete_visual_dna_folder',
-  'update_moodboard', 'delete_moodboard', 'delete_morphious_style',
-  'update_avatar', 'delete_avatar', 'remove_avatar_scene', 'remove_avatar_look', 'pick_avatar_portrait',
+  'delete_voice', 'delete_visual_dna', 'delete_visual_dna_folder',
+  'delete_moodboard', 'delete_morphious_style',
+  'delete_avatar', 'remove_avatar_scene', 'remove_avatar_look', 'pick_avatar_portrait',
   'update_color_palette', 'delete_color_palette',
   'delete_media_folder', 'delete_media', 'permanently_delete_media',
   'bulk_delete_media', 'bulk_permanently_delete_media',
@@ -142,6 +124,8 @@ const DESTRUCTIVE_WRITE = [
   'update_agent', 'delete_agent', 'update_skill', 'delete_skill', 'update_doc', 'delete_doc',
   'delete_review_asset', 'delete_review_collection',
   'edit_review_comment', 'delete_review_comment',
+  // Replaces project fields (name, cover, settings) with no undo.
+  'update_project',
 ];
 
 const OPEN_WORLD_WRITE = [
@@ -156,9 +140,14 @@ const OPEN_WORLD_WRITE = [
   // Resolve imports add Media Pool items; captures add a Kolbo library image.
   'davinci_import_media', 'davinci_capture_frame',
   // Social Planner: posts, replies and messages go out on the user's own accounts.
-  'create_social_calendar_feed', 'connect_social_account', 'publish_social_post', 'cross_post_social',
-  'retry_social_post', 'reply_social_comment', 'set_social_queue', 'send_social_message',
+  'connect_social_account', 'publish_social_post', 'cross_post_social',
+  'retry_social_post', 'reply_social_comment', 'send_social_message',
   'create_social_automation', 'update_social_automation', 'update_social_post',
+  // Send media or prompts to third-party AI providers (avatars, voices, analysis) or fetch external media.
+  'upload_media', 'import_stock_asset', 'import_elevenlabs_voice', 'create_moodboard', 'add_project_context',
+  'remove_project_hero_video', 'create_avatar', 'add_avatar_scene', 'add_avatar_look', 'create_avatar_video',
+  'regenerate_avatar_portraits', 'remove_avatar_video_background', 'preview_avatar_scene',
+  'preview_avatar_speech', 'talking_photo',
 ];
 
 const OPEN_WORLD_DESTRUCTIVE = [
@@ -174,6 +163,19 @@ const OPEN_WORLD_DESTRUCTIVE = [
   // Social Planner: removes posts, comments, connections or automations.
   'revoke_social_calendar_feed', 'disconnect_social_account', 'delete_published_social_post',
   'moderate_social_comment', 'delete_social_automation', 'cancel_social_post',
+  // Spend credits on third-party AI model providers (OpenAI, Google, Kling, Suno, ElevenLabs...).
+  'generate_image', 'generate_image_edit', 'generate_creative_director', 'generate_video',
+  'generate_video_from_image', 'generate_music', 'generate_speech', 'generate_sound',
+  'create_music_reference_audio', 'edit_music_section', 'extend_music', 'cover_music', 'add_vocals',
+  'add_instrumental', 'replace_music_section', 'export_music_wav', 'make_music_video', 'generate_music_midi',
+  'get_timed_lyrics', 'generate_elements', 'generate_first_last_frame', 'generate_lipsync',
+  'generate_video_from_video', 'transcribe_audio', 'generate_3d', 'image_tools', 'video_tools', 'clone_voice',
+  'chat_send_message', 'generate_character_sheet', 'synci_acquire_track', 'synci_import_track',
+  'separate_audio_stems', 'clean_dialogue_leftovers', 'separate_ambience', 'analyze_video',
+  'analyze_extracted_clip', 'transcribe_extracted_clip', 'run_trend', 'create_visual_dna',
+  'update_visual_dna', 'update_moodboard', 'update_avatar',
+  // The feed URL is public and the queue rewrite replaces the posting schedule.
+  'create_social_calendar_feed', 'set_social_queue',
 ];
 
 const SOCIAL_TOOLS = [READ_ONLY, OPEN_WORLD_READ_ONLY, OPEN_WORLD_WRITE, OPEN_WORLD_DESTRUCTIVE]
@@ -201,6 +203,13 @@ function buildToolAnnotations() {
 
 const TOOL_ANNOTATIONS = buildToolAnnotations();
 
+// Human-readable titles for tools whose names OpenAI's scan found unclear.
+const TOOL_TITLES = Object.freeze({
+  generate_creative_director: 'Generate a set of images or videos from one brief',
+  generate_elements: 'Generate a video from reference images, videos or audio',
+  generate_first_last_frame: 'Generate a video between a start frame and an end frame',
+});
+
 function attachToolAnnotations(server) {
   const registered = server?._registeredTools || {};
   const registeredNames = Object.keys(registered).sort();
@@ -218,7 +227,10 @@ function attachToolAnnotations(server) {
       + `Stale: ${stale.join(', ') || 'none'}.`
     );
   }
-  for (const name of registeredNames) registered[name].annotations = TOOL_ANNOTATIONS[name];
+  for (const name of registeredNames) {
+    registered[name].annotations = TOOL_ANNOTATIONS[name];
+    if (TOOL_TITLES[name] && !registered[name].title) registered[name].title = TOOL_TITLES[name];
+  }
 }
 
 module.exports = {

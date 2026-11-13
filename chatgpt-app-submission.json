@@ -188,18 +188,6 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "quote_avatar_video": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "quote_avatar_video retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
     "list_trends": {
       "annotations": {
         "readOnlyHint": true,
@@ -520,18 +508,6 @@
       },
       "justifications": {
         "read_only_justification": "list_color_palettes retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "analyze_color_palette": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "analyze_color_palette retrieves or analyzes Kolbo data without changing stored state.",
         "open_world_justification": "It does not publish content or modify a public or third-party system.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
@@ -884,162 +860,6 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "synci_search": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "synci_search retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "analyze_script_for_music": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "analyze_script_for_music retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "synci_browse": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "synci_browse retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "synci_facets": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "synci_facets retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "synci_track_audio": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "synci_track_audio retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "synci_track_related": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "synci_track_related retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "synci_track_lyrics": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "synci_track_lyrics retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "search_stock_media": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "search_stock_media retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "get_stock_sources": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "get_stock_sources retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "get_stock_categories": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "get_stock_categories retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "get_stock_collections": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "get_stock_collections retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "get_stock_asset": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "get_stock_asset retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
-    "analyze_script_for_stock": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "analyze_script_for_stock retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
     "create_music_composition_plan": {
       "annotations": {
         "readOnlyHint": true,
@@ -1144,7 +964,7 @@
       },
       "justifications": {
         "read_only_justification": "prepare_video_inspection retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "prepare_video_inspection reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1156,7 +976,7 @@
       },
       "justifications": {
         "read_only_justification": "inspect_video retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "inspect_video reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1168,7 +988,7 @@
       },
       "justifications": {
         "read_only_justification": "blender_list_sessions retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "blender_list_sessions reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1180,7 +1000,7 @@
       },
       "justifications": {
         "read_only_justification": "blender_get_scene retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "blender_get_scene reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1192,7 +1012,7 @@
       },
       "justifications": {
         "read_only_justification": "blender_search_docs retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "blender_search_docs reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1204,7 +1024,7 @@
       },
       "justifications": {
         "read_only_justification": "blender_get_command_status retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "blender_get_command_status reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1216,7 +1036,7 @@
       },
       "justifications": {
         "read_only_justification": "adobe_list_sessions retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "adobe_list_sessions reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1228,7 +1048,7 @@
       },
       "justifications": {
         "read_only_justification": "adobe_get_project retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "adobe_get_project reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1240,7 +1060,7 @@
       },
       "justifications": {
         "read_only_justification": "adobe_get_timeline retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "adobe_get_timeline reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1252,7 +1072,7 @@
       },
       "justifications": {
         "read_only_justification": "adobe_get_command_status retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "adobe_get_command_status reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1264,7 +1084,7 @@
       },
       "justifications": {
         "read_only_justification": "davinci_list_sessions retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "davinci_list_sessions reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1276,7 +1096,7 @@
       },
       "justifications": {
         "read_only_justification": "davinci_get_project retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "davinci_get_project reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1288,7 +1108,7 @@
       },
       "justifications": {
         "read_only_justification": "davinci_get_timeline retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "davinci_get_timeline reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1300,7 +1120,7 @@
       },
       "justifications": {
         "read_only_justification": "davinci_get_command_status retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "davinci_get_command_status reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1312,7 +1132,7 @@
       },
       "justifications": {
         "read_only_justification": "check_social_account retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "check_social_account reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1324,7 +1144,7 @@
       },
       "justifications": {
         "read_only_justification": "get_tiktok_creator_info retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "get_tiktok_creator_info reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1336,7 +1156,7 @@
       },
       "justifications": {
         "read_only_justification": "list_social_comments retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "list_social_comments reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1348,7 +1168,7 @@
       },
       "justifications": {
         "read_only_justification": "list_social_conversations retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "list_social_conversations reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1360,7 +1180,7 @@
       },
       "justifications": {
         "read_only_justification": "get_social_conversation retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "get_social_conversation reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1372,7 +1192,7 @@
       },
       "justifications": {
         "read_only_justification": "get_social_post retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "get_social_post reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1384,7 +1204,7 @@
       },
       "justifications": {
         "read_only_justification": "get_social_post_metrics retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "get_social_post_metrics reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1396,7 +1216,187 @@
       },
       "justifications": {
         "read_only_justification": "get_social_account_metrics retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "open_world_justification": "get_social_account_metrics reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "analyze_color_palette": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "analyze_color_palette retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "analyze_color_palette reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "quote_avatar_video": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "quote_avatar_video retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "quote_avatar_video reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "analyze_script_for_music": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "analyze_script_for_music retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "analyze_script_for_music reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "analyze_script_for_stock": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "analyze_script_for_stock retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "analyze_script_for_stock reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "search_stock_media": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "search_stock_media retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "search_stock_media reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "get_stock_sources": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "get_stock_sources retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "get_stock_sources reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "get_stock_categories": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "get_stock_categories retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "get_stock_categories reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "get_stock_collections": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "get_stock_collections retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "get_stock_collections reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "get_stock_asset": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "get_stock_asset retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "get_stock_asset reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "synci_search": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "synci_search retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "synci_search reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "synci_browse": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "synci_browse retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "synci_browse reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "synci_facets": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "synci_facets retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "synci_facets reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "synci_track_audio": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "synci_track_audio retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "synci_track_audio reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "synci_track_related": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "synci_track_related retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "synci_track_related reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "synci_track_lyrics": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "synci_track_lyrics retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "synci_track_lyrics reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
@@ -1530,18 +1530,6 @@
         "read_only_justification": "create_upload_ticket creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
         "destructive_justification": "create_upload_ticket does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "upload_media": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "upload_media creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "upload_media does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
     "favorite_media": {
@@ -1736,30 +1724,6 @@
         "destructive_justification": "move_folder_contents does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
-    "import_elevenlabs_voice": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "import_elevenlabs_voice creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "import_elevenlabs_voice does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "create_visual_dna": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "create_visual_dna creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "create_visual_dna does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
     "create_visual_dna_folder": {
       "annotations": {
         "readOnlyHint": false,
@@ -1796,18 +1760,6 @@
         "destructive_justification": "move_visual_dna_to_folder does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
-    "create_moodboard": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "create_moodboard creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "create_moodboard does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
     "create_morphious_style": {
       "annotations": {
         "readOnlyHint": false,
@@ -1818,114 +1770,6 @@
         "read_only_justification": "create_morphious_style creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
         "destructive_justification": "create_morphious_style does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "create_avatar": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "create_avatar creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "create_avatar does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "add_avatar_scene": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "add_avatar_scene creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "add_avatar_scene does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "add_avatar_look": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "add_avatar_look creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "add_avatar_look does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "create_avatar_video": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "create_avatar_video creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "create_avatar_video does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "regenerate_avatar_portraits": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "regenerate_avatar_portraits creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "regenerate_avatar_portraits does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "remove_avatar_video_background": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "remove_avatar_video_background creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "remove_avatar_video_background does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "preview_avatar_scene": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "preview_avatar_scene creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "preview_avatar_scene does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "preview_avatar_speech": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "preview_avatar_speech creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "preview_avatar_speech does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "talking_photo": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "talking_photo creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "talking_photo does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
     "create_music_persona": {
@@ -2084,18 +1928,6 @@
         "destructive_justification": "duplicate_project does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
-    "update_project": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "update_project creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "update_project does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
     "archive_project": {
       "annotations": {
         "readOnlyHint": false,
@@ -2118,30 +1950,6 @@
         "read_only_justification": "unarchive_project creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
         "destructive_justification": "unarchive_project does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "add_project_context": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "add_project_context creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "add_project_context does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "remove_project_hero_video": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "remove_project_hero_video creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "remove_project_hero_video does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
     "link_project_asset": {
@@ -2324,18 +2132,6 @@
         "destructive_justification": "unresolve_review_comment does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
-    "import_stock_asset": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "import_stock_asset creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "import_stock_asset does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
     "update_flow_session": {
       "annotations": {
         "readOnlyHint": false,
@@ -2408,18 +2204,6 @@
         "destructive_justification": "retry_flow_run can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "run_trend": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "run_trend changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "run_trend can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
     "cancel_trend_run": {
       "annotations": {
         "readOnlyHint": false,
@@ -2454,114 +2238,6 @@
         "read_only_justification": "finish_large_upload changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
         "destructive_justification": "finish_large_upload can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "extend_music": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "extend_music changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "extend_music can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "cover_music": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "cover_music changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "cover_music can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "add_vocals": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "add_vocals changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "add_vocals can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "add_instrumental": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "add_instrumental changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "add_instrumental can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "replace_music_section": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "replace_music_section changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "replace_music_section can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "export_music_wav": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "export_music_wav changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "export_music_wav can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "make_music_video": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "make_music_video changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "make_music_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_music_midi": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_music_midi changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_music_midi can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "get_timed_lyrics": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "get_timed_lyrics changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "get_timed_lyrics can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
     "update_video_editor_session": {
@@ -2600,102 +2276,6 @@
         "destructive_justification": "export_video_editor_session can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "generate_image": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_image changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_image can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_image_edit": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_image_edit changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_image_edit can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_creative_director": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_creative_director changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_creative_director can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_video": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_video changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_video_from_image": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_video_from_image changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_video_from_image can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_music": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_music changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_music can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_speech": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_speech changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_speech can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_sound": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_sound changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_sound can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
     "cancel_generation": {
       "annotations": {
         "readOnlyHint": false,
@@ -2720,126 +2300,6 @@
         "destructive_justification": "cancel_avatar_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "create_music_reference_audio": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "create_music_reference_audio changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "create_music_reference_audio can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "edit_music_section": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "edit_music_section changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "edit_music_section can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_elements": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_elements changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_elements can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_first_last_frame": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_first_last_frame changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_first_last_frame can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_lipsync": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_lipsync changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_lipsync can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_video_from_video": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_video_from_video changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_video_from_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "transcribe_audio": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "transcribe_audio changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "transcribe_audio can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_3d": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_3d changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_3d can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "image_tools": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "image_tools changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "image_tools can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "video_tools": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "video_tools changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "video_tools can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
     "trim_video": {
       "annotations": {
         "readOnlyHint": false,
@@ -2850,138 +2310,6 @@
         "read_only_justification": "trim_video changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
         "destructive_justification": "trim_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "clone_voice": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "clone_voice changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "clone_voice can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "chat_send_message": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "chat_send_message changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "chat_send_message can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "generate_character_sheet": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "generate_character_sheet changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "generate_character_sheet can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "synci_acquire_track": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "synci_acquire_track changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "synci_acquire_track can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "synci_import_track": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "synci_import_track changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "synci_import_track can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "separate_audio_stems": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "separate_audio_stems changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "separate_audio_stems can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "clean_dialogue_leftovers": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "clean_dialogue_leftovers changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "clean_dialogue_leftovers can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "separate_ambience": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "separate_ambience changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "separate_ambience can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "analyze_video": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "analyze_video changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "analyze_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "analyze_extracted_clip": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "analyze_extracted_clip changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "analyze_extracted_clip can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "transcribe_extracted_clip": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "transcribe_extracted_clip changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "transcribe_extracted_clip can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
     "cancel_video_inspection": {
@@ -3008,18 +2336,6 @@
         "destructive_justification": "delete_voice can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "update_visual_dna": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "update_visual_dna changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "update_visual_dna can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
     "delete_visual_dna": {
       "annotations": {
         "readOnlyHint": false,
@@ -3044,18 +2360,6 @@
         "destructive_justification": "delete_visual_dna_folder can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
-    "update_moodboard": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "update_moodboard changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "update_moodboard can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
     "delete_moodboard": {
       "annotations": {
         "readOnlyHint": false,
@@ -3078,18 +2382,6 @@
         "read_only_justification": "delete_morphious_style changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
         "destructive_justification": "delete_morphious_style can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
-      }
-    },
-    "update_avatar": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": false,
-        "destructiveHint": true
-      },
-      "justifications": {
-        "read_only_justification": "update_avatar changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
-        "destructive_justification": "update_avatar can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
     "delete_avatar": {
@@ -3452,6 +2744,18 @@
         "destructive_justification": "delete_review_comment can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
+    "update_project": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "update_project changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
+        "destructive_justification": "update_project can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
     "download_media_from_url": {
       "annotations": {
         "readOnlyHint": false,
@@ -3460,7 +2764,7 @@
       },
       "justifications": {
         "read_only_justification": "download_media_from_url creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "download_media_from_url can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "download_media_from_url sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "download_media_from_url does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3472,7 +2776,7 @@
       },
       "justifications": {
         "read_only_justification": "import_music_audio creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "import_music_audio can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "import_music_audio sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "import_music_audio does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3484,7 +2788,7 @@
       },
       "justifications": {
         "read_only_justification": "publish_html_artifact creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "publish_html_artifact can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "publish_html_artifact sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "publish_html_artifact does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3496,7 +2800,7 @@
       },
       "justifications": {
         "read_only_justification": "create_review_share_link creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "create_review_share_link can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "create_review_share_link sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "create_review_share_link does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3508,7 +2812,7 @@
       },
       "justifications": {
         "read_only_justification": "blender_capture_viewport creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "blender_capture_viewport can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "blender_capture_viewport sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "blender_capture_viewport does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3520,7 +2824,7 @@
       },
       "justifications": {
         "read_only_justification": "publish_project creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "publish_project can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "publish_project sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "publish_project does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3532,7 +2836,7 @@
       },
       "justifications": {
         "read_only_justification": "submit_project_to_catalog creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "submit_project_to_catalog can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "submit_project_to_catalog sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "submit_project_to_catalog does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3544,7 +2848,7 @@
       },
       "justifications": {
         "read_only_justification": "adobe_import_media creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "adobe_import_media can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "adobe_import_media sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "adobe_import_media does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3556,7 +2860,7 @@
       },
       "justifications": {
         "read_only_justification": "adobe_place_on_timeline creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "adobe_place_on_timeline can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "adobe_place_on_timeline sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "adobe_place_on_timeline does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3568,7 +2872,7 @@
       },
       "justifications": {
         "read_only_justification": "adobe_create_sequence creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "adobe_create_sequence can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "adobe_create_sequence sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "adobe_create_sequence does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3580,7 +2884,7 @@
       },
       "justifications": {
         "read_only_justification": "adobe_import_captions creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "adobe_import_captions can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "adobe_import_captions sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "adobe_import_captions does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3592,7 +2896,7 @@
       },
       "justifications": {
         "read_only_justification": "adobe_capture_frame creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "adobe_capture_frame can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "adobe_capture_frame sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "adobe_capture_frame does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3604,7 +2908,7 @@
       },
       "justifications": {
         "read_only_justification": "davinci_import_media creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "davinci_import_media can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "davinci_import_media sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "davinci_import_media does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3616,20 +2920,8 @@
       },
       "justifications": {
         "read_only_justification": "davinci_capture_frame creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "davinci_capture_frame can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "davinci_capture_frame sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "davinci_capture_frame does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "create_social_calendar_feed": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": true,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "create_social_calendar_feed creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "create_social_calendar_feed can create, update, expose, or revoke content through a publicly accessible link.",
-        "destructive_justification": "create_social_calendar_feed does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
     "connect_social_account": {
@@ -3640,7 +2932,7 @@
       },
       "justifications": {
         "read_only_justification": "connect_social_account creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "connect_social_account can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "connect_social_account sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "connect_social_account does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3652,7 +2944,7 @@
       },
       "justifications": {
         "read_only_justification": "publish_social_post creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "publish_social_post can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "publish_social_post sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "publish_social_post does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3664,7 +2956,7 @@
       },
       "justifications": {
         "read_only_justification": "cross_post_social creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "cross_post_social can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "cross_post_social sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "cross_post_social does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3676,7 +2968,7 @@
       },
       "justifications": {
         "read_only_justification": "retry_social_post creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "retry_social_post can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "retry_social_post sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "retry_social_post does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3688,20 +2980,8 @@
       },
       "justifications": {
         "read_only_justification": "reply_social_comment creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "reply_social_comment can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "reply_social_comment sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "reply_social_comment does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "set_social_queue": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": true,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "set_social_queue creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "set_social_queue can create, update, expose, or revoke content through a publicly accessible link.",
-        "destructive_justification": "set_social_queue does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
     "send_social_message": {
@@ -3712,7 +2992,7 @@
       },
       "justifications": {
         "read_only_justification": "send_social_message creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "send_social_message can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "send_social_message sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "send_social_message does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3724,7 +3004,7 @@
       },
       "justifications": {
         "read_only_justification": "create_social_automation creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "create_social_automation can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "create_social_automation sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "create_social_automation does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3736,7 +3016,7 @@
       },
       "justifications": {
         "read_only_justification": "update_social_automation creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "update_social_automation can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "update_social_automation sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "update_social_automation does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
@@ -3748,8 +3028,188 @@
       },
       "justifications": {
         "read_only_justification": "update_social_post creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "update_social_post can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "update_social_post sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "update_social_post does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "upload_media": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "upload_media creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "upload_media sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "upload_media does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "import_stock_asset": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "import_stock_asset creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "import_stock_asset sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "import_stock_asset does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "import_elevenlabs_voice": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "import_elevenlabs_voice creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "import_elevenlabs_voice sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "import_elevenlabs_voice does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "create_moodboard": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "create_moodboard creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "create_moodboard sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "create_moodboard does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "add_project_context": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "add_project_context creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "add_project_context sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "add_project_context does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "remove_project_hero_video": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "remove_project_hero_video creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "remove_project_hero_video sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "remove_project_hero_video does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "create_avatar": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "create_avatar creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "create_avatar sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "create_avatar does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "add_avatar_scene": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "add_avatar_scene creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "add_avatar_scene sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "add_avatar_scene does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "add_avatar_look": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "add_avatar_look creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "add_avatar_look sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "add_avatar_look does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "create_avatar_video": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "create_avatar_video creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "create_avatar_video sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "create_avatar_video does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "regenerate_avatar_portraits": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "regenerate_avatar_portraits creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "regenerate_avatar_portraits sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "regenerate_avatar_portraits does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "remove_avatar_video_background": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "remove_avatar_video_background creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "remove_avatar_video_background sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "remove_avatar_video_background does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "preview_avatar_scene": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "preview_avatar_scene creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "preview_avatar_scene sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "preview_avatar_scene does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "preview_avatar_speech": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "preview_avatar_speech creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "preview_avatar_speech sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "preview_avatar_speech does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "talking_photo": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "talking_photo creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "talking_photo sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "talking_photo does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
     "share_doc": {
@@ -3760,7 +3220,7 @@
       },
       "justifications": {
         "read_only_justification": "share_doc changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "share_doc can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "share_doc sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "share_doc can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3772,7 +3232,7 @@
       },
       "justifications": {
         "read_only_justification": "revoke_review_share_link changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "revoke_review_share_link can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "revoke_review_share_link sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "revoke_review_share_link can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3784,7 +3244,7 @@
       },
       "justifications": {
         "read_only_justification": "unpublish_project changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "unpublish_project can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "unpublish_project sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "unpublish_project can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3796,7 +3256,7 @@
       },
       "justifications": {
         "read_only_justification": "update_project_story changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "update_project_story can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "update_project_story sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "update_project_story can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3808,7 +3268,7 @@
       },
       "justifications": {
         "read_only_justification": "blender_apply_operations changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "blender_apply_operations can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "blender_apply_operations sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "blender_apply_operations can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3820,7 +3280,7 @@
       },
       "justifications": {
         "read_only_justification": "blender_import_media changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "blender_import_media can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "blender_import_media sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "blender_import_media can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3832,7 +3292,7 @@
       },
       "justifications": {
         "read_only_justification": "blender_render changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "blender_render can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "blender_render sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "blender_render can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3844,7 +3304,7 @@
       },
       "justifications": {
         "read_only_justification": "blender_undo changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "blender_undo can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "blender_undo sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "blender_undo can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3856,7 +3316,7 @@
       },
       "justifications": {
         "read_only_justification": "blender_file_operation changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "blender_file_operation can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "blender_file_operation sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "blender_file_operation can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3868,7 +3328,7 @@
       },
       "justifications": {
         "read_only_justification": "blender_execute_python changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "blender_execute_python can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "blender_execute_python sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "blender_execute_python can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3880,7 +3340,7 @@
       },
       "justifications": {
         "read_only_justification": "adobe_edit_composition changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "adobe_edit_composition can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "adobe_edit_composition sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "adobe_edit_composition can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3892,7 +3352,7 @@
       },
       "justifications": {
         "read_only_justification": "adobe_run_script changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "adobe_run_script can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "adobe_run_script sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "adobe_run_script can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3904,7 +3364,7 @@
       },
       "justifications": {
         "read_only_justification": "davinci_edit_timeline changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "davinci_edit_timeline can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "davinci_edit_timeline sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "davinci_edit_timeline can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3916,7 +3376,7 @@
       },
       "justifications": {
         "read_only_justification": "davinci_run_script changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "davinci_run_script can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "davinci_run_script sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "davinci_run_script can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3928,7 +3388,7 @@
       },
       "justifications": {
         "read_only_justification": "revoke_social_calendar_feed changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "revoke_social_calendar_feed can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "revoke_social_calendar_feed sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "revoke_social_calendar_feed can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3940,7 +3400,7 @@
       },
       "justifications": {
         "read_only_justification": "disconnect_social_account changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "disconnect_social_account can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "disconnect_social_account sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "disconnect_social_account can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3952,7 +3412,7 @@
       },
       "justifications": {
         "read_only_justification": "delete_published_social_post changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "delete_published_social_post can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "delete_published_social_post sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "delete_published_social_post can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3964,7 +3424,7 @@
       },
       "justifications": {
         "read_only_justification": "moderate_social_comment changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "moderate_social_comment can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "moderate_social_comment sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "moderate_social_comment can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3976,7 +3436,7 @@
       },
       "justifications": {
         "read_only_justification": "delete_social_automation changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "delete_social_automation can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "delete_social_automation sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "delete_social_automation can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     },
@@ -3988,8 +3448,548 @@
       },
       "justifications": {
         "read_only_justification": "cancel_social_post changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
-        "open_world_justification": "cancel_social_post can create, update, expose, or revoke content through a publicly accessible link.",
+        "open_world_justification": "cancel_social_post sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "cancel_social_post can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_image": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_image changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_image sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_image can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_image_edit": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_image_edit changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_image_edit sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_image_edit can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_creative_director": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_creative_director changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_creative_director sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_creative_director can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_video": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_video changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_video sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_video_from_image": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_video_from_image changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_video_from_image sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_video_from_image can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_music": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_music changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_music sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_music can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_speech": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_speech changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_speech sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_speech can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_sound": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_sound changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_sound sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_sound can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "create_music_reference_audio": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "create_music_reference_audio changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "create_music_reference_audio sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "create_music_reference_audio can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "edit_music_section": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "edit_music_section changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "edit_music_section sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "edit_music_section can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "extend_music": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "extend_music changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "extend_music sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "extend_music can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "cover_music": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "cover_music changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "cover_music sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "cover_music can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "add_vocals": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "add_vocals changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "add_vocals sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "add_vocals can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "add_instrumental": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "add_instrumental changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "add_instrumental sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "add_instrumental can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "replace_music_section": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "replace_music_section changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "replace_music_section sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "replace_music_section can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "export_music_wav": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "export_music_wav changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "export_music_wav sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "export_music_wav can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "make_music_video": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "make_music_video changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "make_music_video sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "make_music_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_music_midi": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_music_midi changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_music_midi sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_music_midi can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "get_timed_lyrics": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "get_timed_lyrics changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "get_timed_lyrics sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "get_timed_lyrics can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_elements": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_elements changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_elements sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_elements can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_first_last_frame": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_first_last_frame changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_first_last_frame sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_first_last_frame can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_lipsync": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_lipsync changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_lipsync sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_lipsync can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_video_from_video": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_video_from_video changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_video_from_video sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_video_from_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "transcribe_audio": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "transcribe_audio changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "transcribe_audio sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "transcribe_audio can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_3d": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_3d changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_3d sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_3d can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "image_tools": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "image_tools changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "image_tools sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "image_tools can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "video_tools": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "video_tools changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "video_tools sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "video_tools can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "clone_voice": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "clone_voice changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "clone_voice sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "clone_voice can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "chat_send_message": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "chat_send_message changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "chat_send_message sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "chat_send_message can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "generate_character_sheet": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "generate_character_sheet changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "generate_character_sheet sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "generate_character_sheet can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "synci_acquire_track": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "synci_acquire_track changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "synci_acquire_track sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "synci_acquire_track can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "synci_import_track": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "synci_import_track changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "synci_import_track sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "synci_import_track can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "separate_audio_stems": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "separate_audio_stems changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "separate_audio_stems sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "separate_audio_stems can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "clean_dialogue_leftovers": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "clean_dialogue_leftovers changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "clean_dialogue_leftovers sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "clean_dialogue_leftovers can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "separate_ambience": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "separate_ambience changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "separate_ambience sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "separate_ambience can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "analyze_video": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "analyze_video changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "analyze_video sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "analyze_video can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "analyze_extracted_clip": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "analyze_extracted_clip changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "analyze_extracted_clip sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "analyze_extracted_clip can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "transcribe_extracted_clip": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "transcribe_extracted_clip changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "transcribe_extracted_clip sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "transcribe_extracted_clip can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "run_trend": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "run_trend changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "run_trend sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "run_trend can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "create_visual_dna": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "create_visual_dna changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "create_visual_dna sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "create_visual_dna can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "update_visual_dna": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "update_visual_dna changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "update_visual_dna sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "update_visual_dna can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "update_moodboard": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "update_moodboard changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "update_moodboard sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "update_moodboard can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "update_avatar": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "update_avatar changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "update_avatar sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "update_avatar can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "create_social_calendar_feed": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "create_social_calendar_feed changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "create_social_calendar_feed sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "create_social_calendar_feed can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "set_social_queue": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "set_social_queue changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "set_social_queue sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "set_social_queue can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     }
   },

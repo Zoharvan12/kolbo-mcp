@@ -16,7 +16,7 @@ const text = value => ({ content: [{ type: 'text', text: JSON.stringify(value, n
 function registerMorphiousStyleTools(server, client) {
   server.tool(
     'list_morphious_styles',
-    'List Morphious Styles: looks that restyle a WHOLE video (2D toon, painterly 3D, gouache, comic, clay, felt, yarn...). Returns the Kolbo catalog first, then the user\'s own custom styles (custom: true). To apply one, pass its id as style_id to generate_video_from_video with model "kolbo-morphious-motion" and the source video; no reference image or prompt is needed.',
+    "Read-only. Lists Morphious Styles, looks that restyle a whole video (2D toon, painterly 3D, gouache, comic, clay, felt, yarn and more): the Kolbo catalog first, then the user's custom styles (custom: true). This tool does not apply a style. To apply one, call generate_video_from_video with model \"kolbo-morphious-motion\", the source video and the style id as style_id.",
     {},
     async () => {
       const styles = unwrap(await client.get('/v1/morphious-styles')).styles || [];

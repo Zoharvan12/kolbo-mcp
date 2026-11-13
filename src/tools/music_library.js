@@ -69,14 +69,7 @@ function registerMusicLibraryTools(server, client, options = {}) {
 
   server.tool(
     'synci_search',
-    'Search the licensed SYNCI catalog — the PAID third-party option. ' +
-    '⚠️ NOT the default for music. Kolbo has its OWN large AI music library that is FREE and ' +
-    'is usually cheaper or free: call search_stock_media with source="kolbo-ai" and mediaType="music" ' +
-    '(it also supports natural-language vibe search, e.g. "uplifting hopeful corporate background"). ' +
-    'Reach for SYNCI only when the user explicitly asks for the licensed/SYNCI catalog, names a real ' +
-    'artist or commercial track, or needs stems / a specific licensed cue. ' +
-    'Results here contain watermarked preview audio only; any download or timeline use requires ' +
-    'synci_acquire_track. ' + "Free for subscribers, org members and anyone who already bought the track; for everyone else it COSTS CREDITS (the search response carries the exact price in cleanTrackCredits, and cleanAccess:false means this caller will be charged). State the cost and get the user's agreement BEFORE calling it.",
+    "Read-only search of the licensed SYNCI music catalog, a paid third-party catalog. Use it when the user asks for licensed or SYNCI music, names a real artist or commercial track, or needs stems or a specific licensed cue. For Kolbo's own music library, use search_stock_media with source=\"kolbo-ai\" and mediaType=\"music\". Results contain watermarked preview audio only. Download or timeline use needs synci_acquire_track: free for subscribers, organization members and earlier buyers of the track, otherwise it costs credits (cleanTrackCredits gives the price; cleanAccess: false means this caller is charged). Tell the user the cost and get their agreement before calling synci_acquire_track.",
     {
       query: z.string().max(200).optional(),
       mood: z.string().optional(),
