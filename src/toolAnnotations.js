@@ -53,7 +53,7 @@ const OPEN_WORLD_READ_ONLY = [
   'davinci_list_sessions', 'davinci_get_project', 'davinci_get_timeline', 'davinci_get_command_status',
   // Social Planner reads that call the platform (account health, comments, inbox, metrics).
   'check_social_account', 'get_tiktok_creator_info', 'list_social_comments', 'list_social_conversations',
-  'get_social_conversation', 'get_social_post', 'get_social_post_metrics', 'get_social_account_metrics',
+  'get_social_conversation', 'get_social_post_metrics', 'get_social_account_metrics',
   // Call third-party AI models or external catalogs (Pexels, Pixabay, Sketchfab, SYNCI).
   'analyze_color_palette', 'quote_avatar_video', 'analyze_script_for_music', 'analyze_script_for_stock',
   'search_stock_media', 'get_stock_sources', 'get_stock_categories', 'get_stock_collections',
@@ -143,9 +143,11 @@ const OPEN_WORLD_WRITE = [
   'connect_social_account', 'publish_social_post', 'cross_post_social',
   'retry_social_post', 'reply_social_comment', 'send_social_message',
   'create_social_automation', 'update_social_automation', 'update_social_post',
+  // Reading a post that is still processing moves it forward on the platform.
+  'get_social_post',
   // Send media or prompts to third-party AI providers (avatars, voices, analysis) or fetch external media.
   'upload_media', 'import_stock_asset', 'import_elevenlabs_voice', 'create_moodboard', 'add_project_context',
-  'remove_project_hero_video', 'create_avatar', 'add_avatar_scene', 'add_avatar_look', 'create_avatar_video',
+  'remove_project_hero_video', 'create_avatar', 'add_avatar_scene', 'create_avatar_video',
   'regenerate_avatar_portraits', 'remove_avatar_video_background', 'preview_avatar_scene',
   'preview_avatar_speech', 'talking_photo',
 ];
@@ -176,6 +178,8 @@ const OPEN_WORLD_DESTRUCTIVE = [
   'update_visual_dna', 'update_moodboard', 'update_avatar',
   // The feed URL is public and the queue rewrite replaces the posting schedule.
   'create_social_calendar_feed', 'set_social_queue',
+  // Makes a paid look sheet; calling again with look_id replaces it.
+  'add_avatar_look',
 ];
 
 const SOCIAL_TOOLS = [READ_ONLY, OPEN_WORLD_READ_ONLY, OPEN_WORLD_WRITE, OPEN_WORLD_DESTRUCTIVE]

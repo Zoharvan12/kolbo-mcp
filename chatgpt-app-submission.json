@@ -1184,18 +1184,6 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
-    "get_social_post": {
-      "annotations": {
-        "readOnlyHint": true,
-        "openWorldHint": true,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "get_social_post retrieves or analyzes Kolbo data without changing stored state.",
-        "open_world_justification": "get_social_post reads from systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links); it does not publish to or modify them.",
-        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
-      }
-    },
     "get_social_post_metrics": {
       "annotations": {
         "readOnlyHint": true,
@@ -3032,6 +3020,18 @@
         "destructive_justification": "update_social_post does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
+    "get_social_post": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "get_social_post creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "get_social_post sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "get_social_post does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
     "upload_media": {
       "annotations": {
         "readOnlyHint": false,
@@ -3126,18 +3126,6 @@
         "read_only_justification": "add_avatar_scene creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
         "open_world_justification": "add_avatar_scene sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "add_avatar_scene does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
-      }
-    },
-    "add_avatar_look": {
-      "annotations": {
-        "readOnlyHint": false,
-        "openWorldHint": true,
-        "destructiveHint": false
-      },
-      "justifications": {
-        "read_only_justification": "add_avatar_look creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
-        "open_world_justification": "add_avatar_look sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
-        "destructive_justification": "add_avatar_look does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
     "create_avatar_video": {
@@ -3990,6 +3978,18 @@
         "read_only_justification": "set_social_queue changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
         "open_world_justification": "set_social_queue sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
         "destructive_justification": "set_social_queue can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
+      }
+    },
+    "add_avatar_look": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "add_avatar_look changes Kolbo state and can spend credits, replace data, delete data, revoke access, or start an irreversible job.",
+        "open_world_justification": "add_avatar_look sends requests to systems outside Kolbo (third-party AI model providers, external media catalogs, connected social accounts, desktop editor plugins or public links).",
+        "destructive_justification": "add_avatar_look can perform an irreversible or replacement action, spend credits, delete data, or revoke access."
       }
     }
   },
