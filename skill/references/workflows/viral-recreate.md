@@ -26,9 +26,10 @@ Load with this file: [seedance-2-5.md](references/models/seedance25.md), [seedan
    - kind `cuts` for cut candidates. Verify each against nearby frames: flashes, explosions and fire add false cuts; whips and dissolves hide real ones.
    - kind `audio_levels` for loudness and silences.
 4. Write a shot table: start, end, length per shot, average and longest shot, total length, aspect, loudness.
-5. Sound: kind `audio` then `transcribe_audio` (or `transcribe_extracted_clip`) for speech and audio events. Music-only reels give little text: describe the track instead (genre, energy, whether cuts land on its hits, whether the reel's own audio or a trend track carries it).
-6. Per beat, extract kind `clip` and call `analyze_extracted_clip` focus `video` with a **neutral** question ("Describe who is in frame, what each person does in order, where the camera is and how it moves, and the light"). Never put your own reading into the question; the witness must be blind. It misses small things (hands below frame, speech under music), so check every claim against frames.
-7. Count the real beats. A beat is a story event, not a cut. One beat can span several cuts.
+5. Sound: kind `audio` then `transcribe_audio` (or `transcribe_extracted_clip`) for speech and audio events. Music-only reels give little text: describe the track instead (genre, instruments, tempo, energy, whether cuts land on its hits, whether the reel's own audio or a trend track carries it).
+6. **Classify the music: `added track` or `generator bed`.** AI-made reels often carry a faint music bed that the video model baked into the take. Signs of a generator bed: the reel's metadata names no track or artist, the bed is low and generic, and it never hits the cuts. Audio analysis and a stem split both "hear music" either way, so neither settles it; decide from those signs and confirm with the user before any music spend. A generator bed means the recreation needs no music. Write the class into the formula.
+7. Per beat, extract kind `clip` and call `analyze_extracted_clip` focus `video` with a **neutral** question ("Describe who is in frame, what each person does in order, where the camera is and how it moves, and the light"). Never put your own reading into the question; the witness must be blind. It misses small things (hands below frame, speech under music), so check every claim against frames.
+8. Count the real beats. A beat is a story event, not a cut. One beat can span several cuts.
 
 Automated analysis is a lead, not a fact. A claim needs a frame time.
 
@@ -85,13 +86,16 @@ Before each prompt, write a contract with one line per element:
 - the location (and its location image);
 - operator position and move;
 - the gag;
-- the payoff frame.
+- the payoff frame;
+- every character's state at frame 0 (asleep or awake, standing or seated, who holds what). Without it Seedance starts mid-action;
+- every contact action pinned to its exact target, with the wrong target named: "kisses the middle of her cheek, high on the cheekbone, well away from the mouth". "Kisses her cheek" produced a kiss on the mouth.
 
 Each contract line maps to a prompt line. Compile the prompt with the block shape in [seedance25-craft.md](references/filmmaking/seedance25-craft.md): the camera written as a person, a populated world, about 1 s per action, real sounds only, an AVOID list that holds behaviours.
 
 ## 5. Build assets
 
 - **Characters:** invented faces only. Generate a face batch, let the user pick, then a character sheet; store each recurring person as a Visual DNA (`create_visual_dna`, see [visual-dna.md](references/workflows/visual-dna.md)). Read every DNA description back and check the sheet for invented text.
+- **A sheet must agree with itself.** Check every view for one hairstyle and one outfit before any take. A sheet that showed a bun in some views and loose hair in others made the hair flip between takes and even mid-shot. Fix or regenerate the sheet; never hope the prompt overrides it.
 - **Locations:** one **empty** location image per beat, from the spot where the shot starts, with no people, in the reel's aspect. Use Seedream 5.5 text-to-image at 2K (confirm the current Seedream id in `list_models`). Edit it only with the matching Seedream edit model. Seedream shrinks small story props, so ask for them large. Attach it as a reference image with a role line, never as the start frame. A location described only in words drifts between takes.
 - **Real products:** when the user names a real product, use real product photos (the official product page or press kit, clean product shots only; screenshots with fine print leak text into the video). Build a product DNA from them. A generic look-alike reads as fake.
 - **No app screens as the gag.** Models can't render a real app interface. Show the physical product instead, and don't repeat one prop motif across beats.
@@ -100,7 +104,7 @@ Each contract line maps to a prompt line. Compile the prompt with the block shap
 ## 6. Make the takes
 
 1. `create_project` for the piece; keep every id in a production log.
-2. Quote the cost: `list_models` for live rates, then state the total. Seedance 2.5 Draft is billed per second.
+2. Quote the cost: `list_models` for live rates, then state the total. Seedance 2.5 Draft is billed per second. **Budget one retake per take.** Measured baseline on a new format: first takes passed 72% of contract lines but 0 of 2 whole takes; after one targeted retake each, every story line passed.
 3. Generate with `generate_elements`, `model: "seedance-2-5"`, `draft: true` (480p Draft), the DNA ids, `project_id` and `duration` equal to the prompt's total.
 4. **Fire one take first.** Wait for it (`get_generation_status`), QC it (step 7), show it to the user. Only then fire the rest. Untested batches multiply the same mistake.
 5. Then the rest, one beat per take. Put several shots in one generation only when the action continues across the cut.
@@ -115,6 +119,8 @@ Run this on every take before the user sees it:
 3. **Prop in every frame.** Every prop must appear in every strip tile from its first appearance to the end. A prop that vanishes or morphs fails the take.
 4. **Checks:** cut count and camera motion against the reference beat; the gag reads at phone size; cause and effect in one frame; no burned-in text or captions; no music in the take; nobody looks into the lens unless the format says so; extras are moving.
 
+The blind reviewer is the gate, not your own read. In the measured run, the producer's stranger read caught one defect but missed a frame-0 defect (a character awake when the contract said asleep); the blind reviewer caught both.
+
 Never call a take "works" and recommend locking it on your own read. Show only takes that pass; share them for review (see [review-collections.md](references/workflows/review-collections.md)).
 
 **Fixing a note:** fix the unclear beat; don't swap it for a new idea. Make a weak action bigger and clearer, never safer. Keep the prompt text that produced approved beats word for word. Keep rejected and spare takes in an "unused" reel grouped by beat; never put a rejected take back into a cut because its retake failed: drop the beat or reshoot it generic.
@@ -125,6 +131,10 @@ Never call a take "works" and recommend locking it on your own read. Show only t
 - Any zoom happens in the take, never as a crop or scale in the edit.
 - Grain, tape or VHS texture goes on as a post filter.
 - Music goes in the edit, not the takes. Use music the user has the rights to on every platform they post to.
+- **Music follows the class from step 1.** A `generator bed` reference: no music; deliver take audio only. An `added track` reference: make an instrumental with `generate_music` from the decoded genre, instruments and tempo. Don't fall back to generic stock music for a viral cut; it reads as an ad. For the closest match:
+  - split the reference with `separate_audio_stems` (mode `full`), then either `cover_music` of its music stem (it can return 2+ minutes, so trim the opening) or `generate_music` on Suno V6 with the stem in `reference_audios`;
+  - `cover_music` needs the user to confirm they hold the rights to the source. A third-party reel's track is not theirs, so ask before covering it and never set that confirmation on their behalf.
+- **Mix the music low under voices:** about 18–22 dB under the dialogue, EQ'd out of the voice band (cut roughly 1–4 kHz, high-pass the lows).
 - **Post the same music cut on every platform.** A version stripped to take audio for some platforms loses the timing the reel was cut to. If one platform needs different music for rights reasons, re-cut to that track rather than posting silence under the original edit.
 - Deliver at the reel's aspect, without burned-in text unless the format uses captions, and give the user the review link for the final cut.
 - After the user posts, compare their posted edit with your finals (hook length, what they dropped, the last image) and fold the differences into the formula for the next episode.

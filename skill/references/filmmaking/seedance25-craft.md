@@ -68,10 +68,13 @@ Total: 6s / 1 shot / 9:16
 - Too slow: add one small beat; never stretch the beats you have. Too fast: remove a beat or lengthen the take.
 - Write escalation (small, worse, worst) and end while it is still escalating.
 - Real time only. Slow motion is an edit operation, never prompt text.
+- Write every character's state at frame 0 (asleep or awake, who holds what). Otherwise the take starts mid-action.
+- Pin each contact action to its exact target and name the wrong one: "kisses the middle of her cheek, high on the cheekbone, well away from the mouth". "Kisses her cheek" can land on the mouth.
 
 ## Real sounds only
 
 - `No music. No musical score.` in every take unless music was asked for. Music goes in the edit. When chimes or humming still appear, use the full sentence: "No music at all, no singing or humming, no background score, no musical tones, no chimes or magical sound effects, only real room sounds."
+- Short real words ("mama", "Papa!") render cleanly, even in animation. Use gibberish only for longer lines that must stay unreadable.
 - Name the real sources in the scene: footsteps on tile, a till drawer, traffic through glass, fabric rustle, breath.
 - No fantasy sound effects (sparkles, whooshes, magic). No glow or sparkle visuals either.
 - Readable text (a sign, a board) is spelled in the prompt, twice ("OPEN LATE", O-P-E-N L-A-T-E), and checked in QC. Re-roll on a miss.
