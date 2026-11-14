@@ -1,5 +1,5 @@
 ---
-version: 0.9.33
+version: 0.9.34
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images, video (Seedance, Veo, Kling, Hailuo), music, speech, sound, 3D, transcription, Visual DNA, Creative Director batches, marketing assets, HTML artifacts, and AI Docs, Flow node workflows and session/system prompts, and approved Blender scene control. Use for sophisticated AI filmmaking as well as individual media: scripts, production bibles, recurring characters and locations, acting, dialogue, music performance, blocking, physics, multi-shot continuity, connected scenes, prompt audits, feature-length production planning, end-to-end vertical micro-drama series (Micro-Drama Studio), and direct Blender scene building through the connected Kolbo Blender plugin. NOT for: unrelated standalone video editing / FFmpeg (use video-production), motion graphics (use remotion-best-practices), code editing, or general chat.
@@ -106,7 +106,6 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | **Voice / TTS** — pick a voice, Hebrew voices, styles, emotion tags, speed, every `generate_speech` option | `references/models/voice-tts.md` |
 | Pick **stock / production music** from the Kolbo library (free, instant) before composing with Suno | `references/workflows/music-library.md` |
 | Take **selected or favorited Drafts** to final delivery (Draft finalize, then Topaz) | `references/workflows/draft-finals.md` |
-| **Build or edit a full React app** with App Builder (repo, deploy, Kolbo generation from the browser) | `references/workflows/app-builder.md` |
 
 Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/src/config/systemPrompt.js` — same battle-tuned rules that power Kolbo's web-app help widget. Keep parity (see `packages/opencode/CLAUDE.md` "MCP & Skill Sync Rule").
 
