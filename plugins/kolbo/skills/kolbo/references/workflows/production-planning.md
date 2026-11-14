@@ -9,9 +9,12 @@ starts here, **before** a single video credit is spent. Most users do not know
 this flow exists; they ask for a film and expect a film. Walk them through it
 rather than jumping to a prompt.
 
-**Skip asset mapping** only for generic b-roll, ambient motion or stock-like scenes with no
-recurring cast. Everything else is Visual DNA (cast, location, product) plus a written prompt per
-scene on `generate_elements`. Never generate keyframes or scene stills as a step toward video.
+**Skip asset mapping** only when keyframes and DNA are **100% unnecessary**: generic b-roll,
+ambient motion, simple stock-like scenes where the video model inventing composition is fine.
+Character scenes on Seedance 2.5 / Wan 3 Elements get DNA only (characters + location), with
+composition and shots in the prompt; never a scene still per shot (founder, 2026-11-05).
+For a product plate or a single designed frame that must be locked, generate the keyframe first and attach it to the video call — do not
+invent stills and then run a Multishot T2V that ignores them.
 
 ## The order is not negotiable (when cast/product identity must lock)
 

@@ -2,9 +2,13 @@
 
 Compile from approved project/shot state. Keep explanatory notes outside the generation prompt.
 
+## Narrative film on Seedance: directing document
+
+For drama, dialogue and story scenes on Seedance 2.0 / 2.5, compile `directing-document.md` inside the Locked Intro headers: the format five award-level AI films used (2026-11-02). It covers the same truth as the strict contract below, plus a fixed FILM STYLE law, references with "ignore X", timed inner beats, a numbered camera plan, timed dialogue slots with silences, physical locks and the Seedance forbid table.
+
 ## Strict shot contract
 
-Use for dialogue, continuity, complex blocking, exact synchronization, or failure recovery.
+Use for dialogue, continuity, complex blocking, exact synchronization, or failure recovery on models without a dedicated directing format, and as the pre-compile checklist.
 
 ```text
 SCENE CONTEXT
@@ -102,7 +106,7 @@ Include:
 - eyeline and mouth state;
 - ambience behavior under speech.
 
-One short line per clip is often reliable, but do not impose that as a universal model law. Use actual duration/capability and the user's editorial plan.
+One short line per clip is often reliable, but do not impose that as a universal model law. Use actual duration/capability and the user's editorial plan. On Seedance, timed slots that include the silences ("lips closed when not speaking; if a line finishes early, hold silence") held multi-line 15 s takes in Oneiric (`audio-dialogue-music.md`).
 
 ## Exact-song contract
 

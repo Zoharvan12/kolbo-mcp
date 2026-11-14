@@ -55,6 +55,10 @@ Veo bakes audio directly from prompt instructions. Use these conventions:
 - **Ambient noise**: prefix with `Ambient noise:` or `Ambient:`. Example: `Ambient noise: the quiet hum of a starship bridge`.
 - **Music**: describe inline. Example: `A swelling orchestral score begins to play.`
 
+## Narrative film on Veo (skill-only, not yet mirrored in `systemPrompt.js`; 2026-11-02)
+
+The winning-film directing format (`references/filmmaking/directing-document.md`) was proven on Seedance, not Veo. What should transfer, untested on Veo: an acting task per character (want / obstacle / tactic, eyes reading the other person), timed dialogue with silences and "lips closed when not speaking", an ordered list of diegetic sounds with no music unless asked, physical locks (scale against a person, object physics, a plausible reaction), and eliding fights into aftermath + off-screen sound. What does not transfer: 15-30 s multi-shot masters (Veo clips are short) and long NO-lists (Veo prefers positive framing). Verify on frames.
+
 ## Negative / Exclusion Prompts (Veo prefers positive framing)
 
 - Describe what you WANT, not what you don't want.

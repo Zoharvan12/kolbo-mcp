@@ -9,6 +9,7 @@ A person who has a Visual DNA can talk on camera in his own recorded voice, with
 1. **Voice:**
    - Prefer the person's own recording. Run it through Scribe with `words_per_line: 1` to find false starts and repeats.
    - Cut in true silence with a 10 ms crossfade, then re-run Scribe to confirm the text is clean.
+   - **Generated voice = user approves it first** (founder 2026-11-02): play the speech to the user and wait for approve / other voice / change wording before any video take uses it. Voices that drive lips or carry a whole video are never chosen silently.
    - A cloned voice also works, but his own recording reads as more real.
 2. **Chunks:** split the voice at sentence gaps of 0.4 s or more into chunks of **10 s or less**. Pad each chunk with silence to a whole number of seconds and upload them as mp3. Wan 3 caps audio input at 1–15 s, and shorter chunks keep the face steadier.
 3. **Generate:** `generate_elements`, model `wan3.0-elements`, 720p (about 7.6 cr/s), `aspect_ratio: "9:16"`. Set `duration` to the padded chunk length.
@@ -61,3 +62,21 @@ natural blinks, head within a 10 degree arc. Camera does not move, no zoom, no c
 | 8 s take at 720p | 61 cr |
 | 27 s short in 3 environments | about 213 cr |
 | Retake of one environment | 61–76 cr |
+
+## Update 2026-10-29 (short02 hook, studio)
+- **Script in the prompt.** Put each spoken line in a [PERFORMANCE] block as ordered beats: "First, "TRANSLITERATED" (meaning): one muscle or hand action. Then ...". Without the words, the acting does not match what he says.
+- **Never put time ranges on the lines** (0.1-1.7s ...). Wan reads them as a shot list and cuts wide/medium at every sentence. Ordered beats without times gave one continuous take (sync 0.99).
+- **References:**
+  - 3 recent real photos as identity (neutral, current look).
+  - 1 real photo of the room as location only ("ignore the table and laptop in front of him").
+  - No tight crops: a close crop among the references made Wan cut to a close-up.
+- **Framing:** a wide full-body shot reads better than a medium shot (Zohar).
+- **Lock the set with a generated empty-room plate (2026-10-29, hook v6).** Do not use a frame from an earlier take: its glitches got copied.
+  - Make a clean 9:16 image of the empty room with the chair in place. Nano Banana 2.1 edit, from the real room photo.
+  - Pass it as a reference with "copy its framing, camera, room and objects exactly, he sits in that chair".
+  - Result: the room stayed identical from the first frame to the last, with almost no drift.
+- **Calm acting.** Write small movements with hands low at the knee and armrest, and list "big or theatrical gestures" in AVOID. The scripted beats alone made the acting a bit exaggerated.
+- **Eyes on the lens, always** (Zohar, 2026-10-29: "we must avoid it for avatars").
+  - Never write look-away beats ("eyes drift up remembering", "gaze dips").
+  - State "face and eyes on the lens every second" in both PERFORMANCE and SHOT, and put off-camera looks in AVOID.
+  - A strongly angled chair pulls the head off-axis, so keep the chair at 15 degrees or less.

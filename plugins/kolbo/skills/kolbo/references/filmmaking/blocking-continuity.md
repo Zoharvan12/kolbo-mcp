@@ -25,7 +25,7 @@ State exactly what frame one contains when occupancy matters:
 - camera side and shot size;
 - motion already in progress or deliberate stillness.
 
-Do not automatically add an empty establishing beat. Use a short master/positioning image only when it serves continuity or editorial intent.
+Do not automatically add an empty establishing beat. Use a short master/positioning image only when it serves continuity or editorial intent. Proven cheap form (Oneiric, Seedance): `SEGMENT 1 — MASTER (0.0–0.3 s)`, a wide with everyone in place, then `HARD CUT` to the real shot; the editor drops it. Write BLOCKING in screen directions with head/feet orientation ("head toward the hall, feet toward the kitchen, never reversed"), who never moves their feet, and where each hidden prop is and is NOT (Red Flag).
 
 ## Position grammar
 
@@ -68,7 +68,7 @@ Continuity can intentionally break for ellipsis, montage, dream logic, or a reve
 
 ## Staging/layout references
 
-Use a staging reference when prose cannot reliably hold multi-character geometry.
+Use a staging reference when prose cannot reliably hold multi-character geometry. **Not for Kolbo's own Seedance productions:** those pass Visual DNAs + prompt + `@Audio` only (production-director A17, Zohar 2026-10-28); put the staging into BLOCKING words and the 0.3 s master instead.
 
 ### Diagram construction
 

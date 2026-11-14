@@ -25,7 +25,7 @@ The shot list then describes behaviour that follows from it (fixes a sleeve that
 9. **One continuous moment per part.** No time or place jump inside a part; exits and new rooms get their own part, with a cause.
 10. Lying or seated characters: place the camera relative to the FACE.
 11. **Posture is locked like position.** Write each character's posture in CAST and in every shot heading ("standing, leaning back against the desk edge, arms folded"). "Nora at the desk" alone made Seedance sit her down in the next part, while the previous part had her standing.
-12. **A part that continues another part gets a frame of it.** Grab one clean frame of the previous part showing each character's posture and place, pass it as a reference image tagged "@ImageN shows the exact positions and postures at the start; keep them". Text continuity alone drifts.
+12. **A part that continues another part gets a frame of it.** Grab one clean frame of the previous part showing each character's posture and place, pass it as a reference image tagged "@ImageN shows the exact positions and postures at the start; keep them". Text continuity alone drifts. *(Kolbo's own productions: superseded by production-director A17, no video frames as references. Open the part with a 0.3 s wide master that shows every posture and place, then HARD CUT (Oneiric, 2026-11-02), and write the postures in BLOCKING.)*
 
 ## Coverage (default)
 
@@ -58,6 +58,7 @@ No music. No musical score. No stingers, no whooshes.
 ```
 
 - Name each speaker's accent in CAST and in every one of their lines; the voice sample alone does not hold it.
+- **Silences are slots too** (Oneiric): write `(silence 4.1–6.0 s — she holds his look, lips closed)` between lines and close the block with "When not speaking, lips stay closed. If a line finishes early, hold silence." Give each speaker an acting task, not a mood: WANT / OBSTACLE / TACTIC and what their eyes check on the other person (`references/filmmaking/acting-direction.md` "Proven prompt recipe").
 - The part ends about 1 s after its last line. Serial episodes: between lines 0.5-1.2 s; one longer beat (≤2 s) only where a line must land.
 - **Standalone reels and emotional scenes need breath:** at most 3 lines per 12-15 s part, timings spaced 2.5-4 s apart, and a written silent beat after each key line (a silent reaction shot, "then she holds his look in silence"). Add a `[PACE – LOCKED]` line: "Every line is followed by a real silent pause. Nobody rushes. HARD CUT between shots. Real-time speed, no slow motion." Six lines in one 15 s part played rushed with no pause to cut on (Wrong Number, Oct 2026).
 - AVOID adds: speaking the words of the reference audio, loud breathing, music.

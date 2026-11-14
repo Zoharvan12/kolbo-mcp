@@ -8,6 +8,14 @@ A thumbnail is not a nice image at small size. It is a different craft with a di
 success test: **it is judged at ~168px inside a scrolling feed, next to a hundred others.**
 Everything below follows from that.
 
+## Zohar's cover composition default — 2026-10-16 (Shorts update 2026-10-19: central ~60%, x/y 20–80%, supersedes the 50% numbers below for 9:16 covers)
+
+Keep all main lettering and the decisive action inside the central 50% of the image. For vertical covers, use x=25–75%, y=25–75% as the conservative production safe rectangle; peripheral scenery may fill the outer quarters. Do not put the title across the upper quarter. Check the full cover and a central-rectangle crop at phone-feed size before delivery. This user preference overrides the generic placement and wider safe-area conventions below unless Zohar gives a different layout.
+
+Episode covers must show their actual episode's world and enemies. Blip & Blop: Part 1 is the Smurf/Snuff section; Part 2 is the Care Bears/Scare Bears section. A hero swap over the same mushroom-village background does not distinguish the two episodes. Match shared typography while changing the source-backed enemy and environment. Source: Zohar's corrections, 2026-10-16.
+
+Do not assume numeric safe-area wording was obeyed. Blip & Blop covers v2 had the correct episode worlds but still placed the title above25% and spread the cast beyond the central width. The full image looked attractive; a literal central50% crop exposed the failure. Inspect that crop before declaring compliance. For a composition-only correction, keep approved identities/type and request a substantial zoom-out with seamless environment extension; review the actual result again. Never silently call a failed crop safe.
+
 ---
 
 ## ⚠️ Two things to get right before advising anyone
@@ -95,7 +103,7 @@ carried three words or fewer. The ubiquitous "3–5 bold words" advice describes
   `no other text, no taglines, no watermark, no logo, no captions, no gibberish letters`.
 - Heavy-weight sans, one typeface. Cap height ≈ **12–15% of frame height**.
 - **Always** an outline, drop shadow, or solid colour block behind it.
-- Placement: top third or the side opposite the face. **Never the bottom-right quadrant.**
+- Placement for Zohar: all lettering inside the central 50% rectangle defined above, separated from the decisive action. Other users may choose the upper third or opposite the face. **Never rely on the bottom-right corner.**
 - Let the subject overlap one letter slightly — instant depth.
 
 Long strings come back mangled from every image model. If words garble twice, generate the
@@ -110,7 +118,7 @@ real brand mark.** Generate the plate without it and composite the actual logo f
 | **Bottom-right corner** | Duration chip sits here. Nothing important. |
 | **Bottom edge, full width** | Red progress bar on partially-watched videos. Keep critical content ≥40px off the bottom (at 1280×720 scale). |
 | **Overall safe area** | Everything load-bearing inside the centre ~1100×620 of a 1280×720 canvas. |
-| **9:16 — Shorts/Reels/TikTok** | Must survive a **centre-square crop** (grids and cross-posts crop vertical media to the middle). Keep the top ~15% and bottom ~20% clear of platform UI. |
+| **9:16 — Shorts/Reels/TikTok** | Zohar (2026-10-19): all text, logos, faces and action inside the **central ~60% (x/y 20–80%)**, with outer quarters reserved for peripheral scenery. Check that crop and the full vertical cover. A centre-square crop alone is insufficient for his brief. |
 | **Validate at** | **168×94 px** — the desktop suggested-videos render size. Not 1280×720. |
 
 **File spec (updated — most guides are stale):** YouTube now recommends **3840×2160**,
@@ -178,11 +186,7 @@ fixes. Reserve HTML-compositing patches for the rare case a specific mark still 
 back wrong after 2–3 regenerations with references — it is a fallback, not the default
 path.
 
-**9:16 safe-zone discipline:** keep the hero content (face, gesture, headline, badge,
-logo) inside roughly the **centre 70% of the canvas width**, not edge-to-edge — verified
-by the centre-square-crop test below. State this explicitly in the prompt ("generous
-margin on both sides, nothing touches the left/right edge") rather than fixing it after
-generation.
+**9:16 safe-zone discipline for Zohar (updated 2026-10-19):** keep main faces, decisive action, headline and part badge inside the **central ~60% of width and height (x/y 20–80%)**; this supersedes the 50% bound for Shorts covers. Background and peripheral silhouettes may extend outside. State exact 25–75% bounds in the prompt, then inspect the central crop; the earlier centre-70%-width advice is superseded for his covers.
 
 **Multi-element layout recipe that shipped (Aug 2026, made on nano-banana-2; applies to 2.1):** when a comp
 carries 4+ graphic elements (headline, badge, app tile, still cards, brand chip), three
@@ -314,3 +318,17 @@ the thumbnail outright.
 - [ ] Real logos composited from files, never model-rendered
 - [ ] Nothing in the image that isn't in the video
 - [ ] Exported 3840×2160; verified at 168×94 (and centre-cropped first, for 9:16)
+
+## Viral Nostalgic Games Short covers (Zohar, 2026-10-21)
+
+- **Text:** the game's own title logo, recreated as a glossy 3D version from a crop of the game's title screen, with "LIVE ACTION" in chunky 3D letters under it. Never "IN REAL LIFE" or other taglines.
+- **Style reference:** pass a past series cover as a reference image so the type treatment matches.
+- **Source:** a 4K60 still of the beat from the finished cut, passed as source image 1.
+- **Model:** `gpt-image-2.5-sunburst/edit`, 2K high, 15 cr.
+- **Widths:** the model overshoots stated widths by roughly 25–35%. A logo asked at 50% came back about 76% wide. Ask for ~40%, or fix with a zoom-out (`image-apps-v2/outpaint`, 6 cr) that compresses toward the centre. Never shift the stack down.
+- **Safety filter:** a frame of a person hanging over a drop was flagged as sensitive twice, even with friendly wording. Choose a non-peril frame of the same beat.
+- **Cast (Zohar, 2026-10-21):** show Roy and the game's hero together, both faces large and clearly readable. Pass a face close-up of each, taken from the 4K finals, as extra source images next to the beat frame. This supersedes "2 of 3 covers without Roy's face".
+- **Title legibility (Zohar, 2026-10-21):** if the game's logo doesn't read at phone size (Icy Tower's graffiti failed three rounds), set the name as a custom readable title in the game world's material, e.g. chunky ice-block letters with snow caps, icicles, a dark outline and a rim glow in the game logo's colour. Keep "LIVE ACTION" under it.
+- **Likeness:** pass the talent's real photos (`_shared/cast/roi-harel/photos/face_smile.jpg`, `face_front_neutral.jpg`) as face references, not AI film frames, and say "use ONLY for face and identity, ignore the t-shirt and background".
+- **Action:** use the film's biggest action beat (a combo spin, a leap toward the lens, a slip with GAME OVER), not a standing pose.
+- **Model:** GPT Image 2.5 Sunburst edit at 2K high. Nano Banana 2.1 was rejected on these covers ("it look bad").

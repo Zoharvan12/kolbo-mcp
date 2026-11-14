@@ -284,7 +284,7 @@ Do **not** omit `search` (that dumps the catalog). Do not show the preset picker
 
 ### ⚠️ Aspect ratio — character sheets and bibles are LANDSCAPE
 
-Default every character sheet, turnaround, and character/production **bible** sheet to **`3:2` or `16:9`** unless the user asks for something else.
+Default every character sheet, turnaround, and character/production **bible** sheet to **`3:2` or `16:9`** unless the user asks for something else. A 9:16 film does not change this: the ratio belongs to the finished video, and the sheet must pass `aspect_ratio` itself, because writing "16:9" in the prompt does not change the canvas.
 
 These are multi-panel grids laid out side by side — front, back, left, right, plus detail callouts. A square or portrait frame forces the panels to stack, which shrinks each one and costs the engine the very facial and body detail the sheet exists to capture. Landscape gives each panel usable width.
 

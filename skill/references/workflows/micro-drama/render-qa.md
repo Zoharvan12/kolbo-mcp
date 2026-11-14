@@ -20,7 +20,7 @@ Reference run (2026-10-07, "Wrong Number" Ep1): a 60 s episode = 4 parts x 15 s 
 
 1. **Part 1 first** as the test for a new series or look. Review it yourself before firing the rest.
 2. Then submit the remaining approved parts of the episode in one parallel batch (no waiting on each other). A part whose assets already exist goes out at once; only parts waiting on a new location or prop wait for that asset.
-3. **QA every part** (below). FAIL → the smallest fix: re-prompt and re-render only the failed shot as a short part (4-8 s), not the whole part. Max 2 retries per item, then show the user the evidence and options.
+3. **QA every part** (below). FAIL → diagnose the cause, then the smallest fix: re-prompt and re-render only the failed shot as a short part (4-8 s), not the whole part. Never re-render an unchanged prompt (one take per prompt, Zohar 2026-11-02). Max 2 retries per item, then show the user the evidence and options.
 4. Accept small render notes; fix only story, continuity or taste breaks.
 5. Do not poll in a loop; the generation card updates itself. When the next step needs the URL, check status without `wait` every 1-2 minutes (a 15 s Draft took about 5 minutes; long `wait` calls can time out on the client).
 

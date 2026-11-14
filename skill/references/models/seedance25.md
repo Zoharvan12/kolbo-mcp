@@ -11,7 +11,9 @@ Load this file when the user wants a **Seedance 2.5** video (they said "2.5" / "
 
 **Audio:** Seedance 2.5 emits real synced audio. `list_models` shows `sound_generation_type: none` only because there is no in-app toggle (`sound_baked_in: true`) — it does NOT mean the model is silent, and it is never a reason to reach for TTS. Quoted dialogue is PERFORMED (synced voices, lip movement, room tone) alongside the SFX named in AUDIO, so scene dialogue never goes through `generate_speech` or `generate_lipsync`; write the lines in quotes inside their shot beats.
 
-**Hebrew (HARD):** Seedance 2.5 does **not** speak Hebrew. Never put Hebrew-script dialogue in the prompt. Use Latin transliteration in quotes per speaker (`שלום` → `"shalom"`), or route native Hebrew speech to Gemini Omni Flash 1.1 / Gemini Omni 1. Attached-audio lip-sync sometimes works when audio length matches the clip exactly and the prompt has no Hebrew script; Kolbo accepts native audio uploads (no black-video workaround). Asset tags always retain their exact stored spelling, including `@אביב` / `#ישראל` literally. Keep post-production VO out of the generation prompt.
+**Hebrew (HARD):** Seedance 2.5 does **not** speak Hebrew. Never put Hebrew-script dialogue in the prompt. Use Latin transliteration in quotes per speaker (`שלום` → `"shalom"`), but a Hebrew talking person is never a Seedance shot: Hebrew talking person / UGC / avatar (founder flow, 2026-11-02): make the Hebrew audio FIRST (`generate_speech`, Cartesia Hebrew voice by default, ElevenLabs V3/V4 for directed reads; never DeepDub), pad it to the whole-second clip length, then `generate_elements` on `wan3.0-elements` with the person (DNA + real face photos) and that audio as `@Audio1` in `reference_audio_urls` (15 s max per take). The other route for scenes (founder, 2026-11-05): render on Seedance 2.5 with the dialogue written in English as emotion and intent per speaker, then lip-sync the Hebrew lines onto each speaker with Sync-3, which animates only that speaker; see the micro-drama router, Stage 0. Wan 3 drives the lips from the real audio (0.95-0.99 envelope correlation); Seedance 2.5 re-generates its own speech (0.30), so it never carries Hebrew speech. Full recipe: the `avatar-studio-reel` skill. Asset tags always retain their exact stored spelling, including `@אביב` / `#ישראל` literally. Keep post-production VO out of the generation prompt.
+
+**One take per prompt (Zohar, 2026-11-02):** for film work, generate each prompt once at `480p-draft` (`draft: true`); never 720p or 1080p for a test. If the take fails, diagnose, rewrite the prompt and generate once. Never two generations of the same unchanged prompt. Finalize only the take the user picked.
 
 **Use the cheapest supported tier unless the user selected an output resolution.** Resolution is a credit MULTIPLIER, not a flat rate. Relative to 720p: 480p ×0.44, 1080p ×2.25. A 30s pass costs ~540cr at 480p against ~1230cr at 720p and ~2770cr at 1080p. When no output resolution was selected and 480p is the cheapest supported tier, block the film at 480p, get the user's sign-off on staging, performance and timing, then re-run only the approved cut at a higher delivery resolution if the user explicitly authorizes that resolution increase. Approval of the creative cut alone does not authorize a more expensive resolution. If no output resolution was selected, use the cheapest supported tier from the live catalog even for final work; pass it explicitly.
 
@@ -34,6 +36,8 @@ To turn an approved draft into full quality, use its saved output video URL and 
 - **NO FAMOUS NAMES OR IP IN PROMPTS (HARD):** Never put celebrity/public-figure names, real directors or artists, copyrighted character/franchise/IP names, famous campaign names or slogans, or famous studio/company names into a final Seedance 2.5 or Elements prompt. Translate user-supplied references into concrete visual traits without repeating the famous name; preserve exact user-owned Visual DNA and asset tags.
 
 ## Universal Rules (HARD — same as help widget OUTPUT CONTRACT)
+
+**"Multi-shot" means one generation (Zohar 2026-11-07).** Write every shot and cut in one prompt with the cast and location attached. Never make separate clips and cut them afterwards unless the user asks or the length exceeds the model's maximum.
 
 User-selected shot structure wins over examples. One continuous take uses `Single continuous shot`, `Total: Xs / 1 shot / AR`, one SHOT heading and `multi_shots: false`. Use Multishot ON only for multiple shots. Copy aspect, duration, dialogue and camera direction from the current scene brief. Expand craft blocks only when they resolve a real staging need; do not pad or introduce contradictory locks.
 
@@ -72,7 +76,7 @@ Total: Xs / N shots / AR
 
 Full acting / continuity craft: `models/seedance.md`. Do not skip the Total lines or the three look/cast/location blocks. Do not restack GLOBAL LOOK inside shots.
 
-2.5 is where this format earns its keep: 15 shots timed to 30s, written in full detail, one locked look so every cut matches camera / grade / cast.
+2.5 is where this format earns its keep: a 15-30 s scene, one locked look so every cut matches camera / grade / cast. For drama, fewer shots with deeper direction beat many thin shots: winning takes carried about 3-9 internal cuts at 6k-11k characters (see `references/filmmaking/directing-document.md`).
 
 ## OUTPUT CONTRACT (WINS — mirror of help widget)
 
@@ -81,7 +85,22 @@ FORBIDDEN: "same character throughout" as the only lock; one fence per shot; cla
 
 ## Prompt length
 
-The whole 30,000 characters is yours (founder 2026-11-08: "no reason to be lazy"). Length is not a cost. Write every shot in full detail: rig, lens, move, action beat by beat, performance for the speaker AND the listeners, prop and hand state, light, atmosphere, sound. Never shorten a prompt to save space. Never split into part 1 / part 2.
+The whole 30,000 characters is yours (founder 2026-11-08: "no reason to be lazy"). Length is not a cost. Write every shot in full detail: rig, lens, move, action beat by beat, performance for the speaker AND the listeners, prop and hand state, light, atmosphere, sound. Never shorten a prompt to save space. Never split into part 1 / part 2. A 25-30 s cinematic scene under ~6k characters is too thin.
+
+**Narrative film scenes (skill-only, not yet mirrored in `systemPrompt.js`; 2026-11-02 film study):** write the scene as the directing document in `references/filmmaking/directing-document.md`, inside the same Total / SHOT headers. Winning films ran 6,000-11,000 characters for a 15-30 s scene (about 680 characters per second; our failed films about 250), as 15-30 s multi-shot masters with about 3-9 hard cuts. Those films rolled each prompt many times; our rule is one take per prompt. The word counts above are the floor for simple pieces, not a target for drama.
+
+**Measured Seedance 2.5 drifts on a chained narrative film** (Last Call v2, 6 calls / 31 shots, 480p-draft, 2026-11-02, `filmmaking/directing-document.md` §8). Write the counter-line in every affected call:
+
+| Drift | Counter-line |
+|---|---|
+| Dialogue singles delivered into the lens (5/13) | `[EYELINES]` "looks at Kolya, frame-right of the lens, never into the lens" |
+| State resets between calls (coat back on, props moved) | `[START STATE]` block, element by element |
+| Prop design drifts (open-face → full-face, matte red → glossy → black) | one byte-identical descriptor per prop in every call, or a prop DNA |
+| Location DNA leaks dusk, a parked car, a second set | "black night sky, no horizon glow, no cars; the same wall, steel door and sodium lamp" |
+| Mirror → clones of the lead | no mirrors or reflective glass behind a lead |
+| Crowd speaks real words; dancers in sync | "wordless crowd roar, no intelligible words in any language; each dancer to their own rhythm" |
+| Hits read wrong (missed punch, shove throws a man) | each hit as cause → contact shot → proportional reaction (`filmmaking/physics-action.md`) |
+| A 0.3 s master renders ~3 s, the leads lost in the dark | skip it in dense rooms |
 
 A one-line shot beat is UNDER-WRITTEN. If a 30s / 8+ shot compile lands under ~6k characters, it is too thin: go back and direct it. Detail must stay consistent: more words never mean new contradictions (re-read the references and the locks before adding).
 
@@ -109,9 +128,9 @@ Skip CORE STYLE / SUBJECT / ENVIRONMENT — the three locked blocks already own 
 
 - Limits: up to 30 images (each ≤4K), up to 10 videos (≤30s combined), up to 10 audio clips (≤30s combined); up to 50 materials total.
 - Role mapping is mandatory, one line per material:
-  - `@Image N defines <subject>'s <appearance, clothing, structure, or material>.`
-  - `@Video N defines <motion, camera movement, or pacing>.`
-  - `@Audio N defines <character or sound type>'s <voice, dialogue, ambience, or music>.`
+  - `@ImageN defines <subject>'s <appearance, clothing, structure, or material>.`
+  - `@VideoN defines <motion, camera movement, or pacing>.`
+  - `@AudioN defines <character or sound type>'s <voice, dialogue, ambience, or music>.`
 - Add exclusions when a material's people/background could leak: "Do not use the image background." / "Do not use the people in the image."
 
 ## Task-locked parameters

@@ -16,7 +16,7 @@
 2. Name the shared event/direction.
 3. Build each character's motive, goal, obstacle, tactic, physical channel, and voice lock.
 4. Build one location map and coverage axis.
-5. Plan masters, singles, two-shots, reactions, inserts, and audio seams according to the edit—not by formula.
+5. Plan masters, singles, two-shots, reactions, inserts, and audio seams according to the edit—not by formula. On Seedance, generate each scene segment as a 15-30 s multi-shot master (about 3-9 cuts) and mine it; one take per prompt at `480p-draft` (`directing-document.md` §1).
 6. Write separate shot cards with entering/leaving performance and prop states.
 7. Compile dialogue ownership and listener behavior into each shot.
 8. Assemble early and order missing coverage.
@@ -74,7 +74,7 @@ Do not attempt to generate a feature automatically from a paragraph. Automation 
 
 1. Compare prompt, inputs, result, and intended proof.
 2. Classify the failure owner.
-3. Patch one section/variable.
+3. Patch one section/variable; generate the patched prompt once.
 4. Preserve proven prompt text and settings.
 5. Re-run and log.
 6. After the configured attempt threshold, redesign the shot or asset rather than continuing prose iteration.

@@ -24,6 +24,18 @@ Use exact quoted text. Separate:
 
 Specify when mouths remain closed if the model tends to invent speech. Allow nonverbal sound only when requested.
 
+**Timed slots with silences (Oneiric, 2026-11-02):** write the silences as slots too, so the model has nowhere to improvise:
+
+```text
+(silence 0.3–2.0 s — sitting up, no words)
+RUDY @2.0–8.5 s, low and sincere, starts at once: "..."
+(silence 8.5–11.0 s — the slow lean back, lips closed)
+No added, changed, improvised or mumbled words. No gibberish. When not speaking, lips stay closed.
+If a line finishes early, hold silence. Nobody else makes a sound.
+```
+
+Lock the voice in words per character ("low, deep, bassy resonant chest voice, minimal pitch movement; here it carries a soft sincerity"). Keep dialogue minimal: Red Flag has about 9 lines in 2:16, Tortoise about 10 in 3:55, Listen to Meh none. Dialogue in the characters' real language reads as real (Red Flag in Cantonese, subtitles in post); on Seedance, Hebrew stays Latin transliteration.
+
 Fit dialogue to the available duration. Include a clean tail when the editor needs a seam. Preserve the previous line's emotional/audio tail only when it helps the next reaction; do not import irrelevant visual subjects from prior audio.
 
 ## Exact-song lip-sync lane
@@ -79,6 +91,14 @@ For moving vehicles or complex environments, protect balance, handholds, wind, h
 Use when edit flexibility or dramatic silence matters. Define a continuous environmental bed and timed events. “No score” must not suppress dialogue or requested effects.
 
 Use silence as a placed event with duration and dramatic purpose, not an empty unspecified gap.
+
+Seedance adds music, drones and stings on its own. The wording that held across 238 of 366 Tortoise prompts: "ABSOLUTELY NO BGM. ZERO MUSIC. NO SCORE. NO MUSICAL DRONE. NO PERCUSSION. NO BASS HIT. NO HORROR STING." Write the diegetic events as an ordered list. Lessons from the winning films (`directing-document.md`):
+
+- **Generate picture with no music; add score in the edit,** often none for long stretches (Listen to Meh: none for 2:29).
+- **One diegetic motif carries the film** and changes meaning by the end (Red Flag's transistor-radio ballad, Listen to Meh's "Meh", Tortoise's squad chant).
+- **Off-screen sound tells what the picture hides** (Red Flag's elided fight: thuds and crashing trophies).
+- Silence or a dip right before every big hit; cut dead on the impact transient.
+- **Seedance as a sound engine:** generate takes only for their audio (an unseen voice, whispers multiplying) and lay them under other picture (Tortoise).
 
 ## Post-production music lane
 

@@ -48,6 +48,42 @@ Moment to moment: <dialogue/beat → tactic and listener check>
 
 Do not paste theory into the prompt. Convert it into actions the model can show.
 
+## Proven prompt recipe (Seedance, 2026-11-02)
+
+The most believable AI acting found so far: Oneiric and Red Flag, Seedance 2.0 / 2.5. Full scene format: `directing-document.md`.
+
+```text
+ACTING TASK — RUDY
+WANT: <what he needs from Bob in this scene>
+STAKES: <what one crack costs>
+OBSTACLE: <what resists>
+TACTIC: <playable action toward Bob>
+Truth: <one sentence, e.g. "She is not angry; she just ends it.">
+Moment to moment:
+"Doesn't gotta be." — brush the mockery aside; a quick read of his eyes: is he listening or loading the next joke?
+"<next line>" — <what he does to Bob> / <what he checks>
+Eyes: he constantly checks BOTH of Bob's eyes, moving between them, hunting for a sparkle of trust; registers after
+every point whether Bob is interested or about to smirk, and adjusts. Never a frozen, glassy stare; natural blinks.
+```
+
+Also proven:
+
+- **Red Flag's acting law in the style block:** "Don't act the emotion; act the process of carrying out your tactic. The drama is in the eyes. The gaze is always doing a task, never a blank stare; natural blinks. No glaring, no shouting, no grimacing."
+- **Lifelong motive → this scene's objective → tactic** (Red Flag): "believes since childhood that being romantic enough gets you forgiven... objective: turn the break-in back into a 'surprise'... no smile while searching; the smile is forced out only the moment he has the flowers."
+- **Inner change as a beat of time:** "his breath stops half a beat; pain gives way to a quiet understanding."
+- **Reactions as micro-steps** (Tortoise): "Eyes first. Then head. Then shoulders. Not dramatically." One named expression per character per beat ("BLUE: focused suspicion. PINK: restrained alarm.").
+- **Lines under pressure start instantly:** "stammering, starts immediately, no pause" removes the AI pause before speaking.
+- **Forbid the overacting Seedance defaults to:** "no wide eyes, no gasp, no head snap, no playing to camera, no glaring, no shouting, no grimacing."
+- **Body and prop physics as one continuous motion with weight** (Oneiric): "elbow presses into the rolled arm, the cushion decompresses as his shoulders lift... no jump, no spring."
+- **Timed dialogue slots with silences and "lips closed when not speaking"**: `audio-dialogue-music.md`.
+
+### What Last Call v2 added (Seedance 2.5, 2026-11-02)
+
+- **Motivation before tactic.** A tactic with no provocation reads as nonsense. Kolya grabbing Anastasia's wrist after she had done nothing, with "Stay. Talk to me.", got: "no logic… how are we still confusing this?" Write the want as something concrete the other person can refuse ("he asks when she finishes; she says never; he asks for her number; she ignores him; then the grab"). Escalate in 2–3 refusals.
+- **Real job behaviour, one task per shot.** "Pours two drinks at once, slides them over, takes cash with the same hand" rendered as a bartender juggling chaser glasses: "nobody works like that… just finish pouring a glass". Pick the one task a real worker does at that moment.
+- **Eyeline per single is not optional.** "Nobody plays to camera" in the style law did not stop 5 of 13 dialogue singles from delivering into the lens. Write it per shot: "he looks at Kolya, frame-right of the lens, never into the lens".
+- **The pause-free delivery rule can hurt accents.** "Three vodkas" came out as "Privatkas" twice. For a key line with a heavy accent, write the accent as "light", spell the stressed words, and check them on the transcript.
+
 ## Eyes and listening
 
 Treat the eyes as purposeful work, not decoration:

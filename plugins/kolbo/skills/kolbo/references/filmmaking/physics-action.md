@@ -36,6 +36,36 @@ For difficult action, begin on a strong executable state: already mid-swing, alr
 
 Use explicit transitions only when the model/mode and duration can carry them. A sequence of clear states with causal bridges is usually more reliable than a long chain of preparatory actions.
 
+## Physical locks in the prompt (Red Flag, 2026-11-02)
+
+Write three kinds of lock as hard sentences:
+
+- **Scale ruler:** "the iron railing is about 110 cm and he is 185 cm: standing straight, the railing top sits just above his belt, below his ribs."
+- **Object physics:** "the door opens outward, hinge on the left; the tiger is painted only on the outside face; after the slam the inside is plain walnut, never a second door."
+- **Plausible reaction to the real cause:** "the bouquet is light; it cannot knock down a 185 cm man. He steps back from surprise: two or three steps, heel first, each step finds the floor. Forbidden: staggering as if hit by something heavy."
+
+Forbid the weightless default: "no floating props, no floating hands, no weightless props, no teleporting."
+
+## Elide what the model cannot do
+
+Seedance cannot sell multi-body choreography and turns it into a back-and-forth exchange. Red Flag never shows its fight: grab → hard cut → he is already on the floor + an insert of her trophies + off-screen thuds, while the radio plays on. Default for violence in a narrative film: cause → cut → aftermath + one story insert + off-screen sound. When a strike must be seen, write one instant chain ("she hurls him in one motion") and forbid "no grappling exchange, no arm-capture, no coil, no blocks, no punches, no back-and-forth".
+
+### Shown fights that play (Last Call v2, Zohar's notes, 2026-11-02)
+
+Seedance 2.5 made three "instant chains" in medium wides, and Zohar called them "pretty stupid":
+- a small shove sent a heavy man flying into a dumpster;
+- a bottle broke on Eli's forearm and he did not react;
+- the knife was tossed, caught and never left Kolya's hand;
+- the punch missed: Eli ducked under it and sat down by the wrong bin.
+
+Rules:
+- **Force matches reaction both ways.** A shove only moves someone who is already off balance. A bottle smashed on a body hurts: a flinch, a grunt, a hand to the spot.
+- **Each signature move is a mechanism with a cause:** "he catches the bottle arm at the wrist, twists until the fingers open, the bottle drops into his own hand, he swings it into Tyler's head".
+- **The contact gets its own shot.** Insert or close-up on the impact, the reaction in the next cut. When Zohar asks, the one signature smash may be in slow motion with blood (it overrides the film-wide bans for that beat only; flag the preflight B20 exception).
+- **A weapon reveal gets coverage:** a medium close-up from the waist as the switchblade opens, then an over-the-shoulder on the threat.
+- **A miss is a cause too.** Write the punch as "the fist lands on his cheek, his head turns with it, he falls back into the trash cans behind him". Name where the body lands, on the side the hit came from.
+- **Downed men stay finished:** "lying flat on his back, arms loose, not supporting his weight". Not "sitting in a puddle", which rendered as alert and propped up.
+
 ## Impossible shots
 
 Change the input before overprompting:

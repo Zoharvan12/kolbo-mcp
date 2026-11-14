@@ -16,6 +16,8 @@ Match the optical class to what the frame must communicate:
 
 Use discrete anchors when the model responds to them. Reinforce extreme optics with physical camera distance, foreground behavior, depth, and visible outcome.
 
+**Narrative film (2026-11-02, five award-level AI films):** describe the frame and its purpose before any lens number ("their shoulders frame the foreground; the image reads as: THEY ARE LOOKING AT THIS"); Tortoise used millimetres in 6 of 366 prompts. Also proven: a numbered camera plan per segment ("9 shots, 8 real positions: ① ... ⑨", each with its reason); the camera law "every change of shot size is a HARD CUT to another real camera position; never push, pull or zoom" with "no push-in, no pull-out, no zoom, no dolly, no tracking, no rack focus — breathing drift only" (Red Flag, 103 prompts); named depth layers PRIMARY / SECONDARY / BACKGROUND; a physical POV ("the camera is her eyes, 148 cm high"); a FINAL IMAGE line per take; a 0.3 s wide master then a hard cut to lock geography. Full format: `directing-document.md`.
+
 ## One content class per beat
 
 Do not ask one uninterrupted lens beat to be a macro detail, intimate portrait, and vast geographic panorama simultaneously. Use a cut, motivated camera transition, or looser exploratory instruction.
@@ -86,6 +88,12 @@ Translate a named filmmaker/cinematographer reference into observable characteri
 ## Edit grammar
 
 Name cut type only when it matters: hard, match, smash, insert, reverse, whip. Allocate enough pre/post action for the intended edit. Record the final state and the visual or audio hook into the next shot.
+
+**Coverage and length (Last Call v2 notes, 2026-11-02):**
+- **Length by information.** A shot ends when its last new information lands. A reaction hold is about 2 s. Four of Zohar's notes were "too long", including a 5 s wrist insert that read as "needlessly dramatic".
+- **Inserts for stakes:** a weapon reveal or a signature hit gets its own shot (a medium close-up from the waist as the switchblade opens, then an over-the-shoulder).
+- **The first shot of a new call** continues the last call's axis and shows everyone the next beat involves. A fresh angle with an attacker running in "from nowhere" broke S5.
+- **Keep the leads visible.** A beat about Anastasia shows Anastasia; a dark crowded master where the leads can't be found fails.
 
 ## Audit failures
 

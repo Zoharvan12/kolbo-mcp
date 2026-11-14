@@ -11,6 +11,8 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
 
 **Elements uses this same file.** `generate_elements` is not a second prompt language. Do not write `SCENE CONTEXT` / `OPTICS` / `ACTION` department packs for Elements or Seedance — those are filmmaking audit contracts, not the generation compile shape.
 
+**Narrative film exception (skill-only, not yet mirrored in `systemPrompt.js`; 2026-11-02):** for drama, dialogue and story scenes, fill the Locked Intro with the directing-document blocks in `references/filmmaking/directing-document.md` (FILM STYLE law, REFERENCES by priority with "ignore X", SCENE, BLOCKING, timed ACTION with inner beats, numbered CAMERA plan, ACTING TASK, timed DIALOGUE with silences, LIGHT, SOUND, PHYSICAL LOCKS, FORBIDDEN, POSITIVE LOCKS). Award-winning AI films (Red Flag, Oneiric, Tortoise, Listen to Meh) used exactly these headers on Seedance 2.0 / 2.5, so the ban above applies to the audit pack, not to these scene headers. Keep the Total / Multishot / SHOT lines.
+
 **Frames format takes precedence:** on image-to-video or first/last-frame, write ordinary motion, camera and transition prose grounded in the supplied composition. Default to one continuous take; timed action beats are allowed. Omit Locked Intro/CAST/LOCATION blocks and multi-shot headers unless the user's selected route actually requires them. Use `@Image1` for the opening still and `@Image2` for a supplied landing still; never invent a DNA name or copy a placeholder identifier. Existing supplied DNA tags retain their exact spelling.
 
 ## Creative direction takes precedence
@@ -51,7 +53,7 @@ operation. Do not assume Seedance 2.0 supports this flow.
 - **Describe the camera behavior requested for each shot.** Preserve intentional static shots; do not replace requested dynamic moves with static dialogue coverage.
 - **Tell Seedance what the camera is NOT doing** (e.g. `no cuts, no zoom, natural head movement`) — this is what locks POV.
 - **Control prose defaults to English; exact dialogue and asset tags retain the user-requested language**, wrapped in a copy-ready code block. Reply in the user's language; preserve any explicit request for the prompt language too.
-- **HARD CAP: 10,000 characters TOTAL for the ENTIRE prompt** — measured as one single string including all shots, boilerplate, SFX lines, and the Total lines. It is per PROMPT, not per shot. **Never** split into multiple prompts, code blocks, or "part 1 / part 2" to evade the cap. Count the final prompt before output; if over, trim (cut adjectives, collapse boilerplate, shorten SFX lists, tighten redundant shot prose without dropping user-requested shots) and re-count until it fits.
+- **Prompt cap belongs to the selected model, not this shared format.** Read live `max_prompt_length` from `list_models` and measure the entire final string, including all shots, locks, SFX and Total lines. The old blanket10,000-character rule was Seedance2.0-specific and is superseded2026-10-16 for other models; current examples are Seedance2.5 at30,000 and Wan3Elements at20,000, subject to live verification. Never split a connected sequence to evade the selected cap. Save a draft before validating length; an advisory house length must not prevent writing a reviewable file. Trim redundant prose only when needed without dropping required shots, locks or exact asset tags.
 
 ## Locked Intro (DEFAULT for any multi-shot cinematic — including Elements)
 
@@ -117,6 +119,8 @@ FORBIDDEN: omitting Total / Multishot; "same character throughout" as the only l
 - Short prompts can hit hard — don't pad if the concept is tight.
 
 ### 4. Fights
+**Scope (2026-11-02):** this format is for stylised showcase action. In a narrative film, elide multi-body fights: grab → hard cut → aftermath + an insert that tells the story + off-screen thuds (Red Flag). Seedance turns written choreography into a back-and-forth exchange; when a strike must be on screen, write one instant chain and forbid "no grappling exchange, no arm-capture, no blocks, no punches, no back-and-forth" (`references/filmmaking/directing-document.md` §4-5).
+
 - Always supply: **clear location, clear power mismatch, defined escalation arc**.
 - Describe choreography beat by beat — Seedance executes what you write.
 - Single continuous shot 15s works for two-fighter scenes; describe camera moves between beats (`crests rooftop edge`, `full 360 orbit`, `pulls back to wide`, `descends with them`).
@@ -153,6 +157,7 @@ Appearance locks WHO. Persona locks HOW THEY BEHAVE — without it Seedance rend
 - **Layer 1:** every living cast member gets a PERSONA clause in CAST — emotional baseline (warm / guarded / furious under control / anxious), energy level, posture and gait, habitual hand gestures, exaggeration level. Lock it once and reuse the SAME persona text verbatim on every later generation in the project, so the character does not change personality between clips.
 - **Layer 2:** every shot beat with a living character states the PERFORMANCE, not only the movement — facial expression, the emotion under it, and how that emotion shapes the physical action. A happy walk, a frightened run and an angry line reading are three different bodies. Mixed states are usually truer ("relief fighting embarrassment"). Add hand gestures sized to the locked persona.
 - Forbidden: a beat that moves a person through the frame with no expression, no emotion and no energy. That is the single most common cause of "the video looks dead".
+- **Drama: give the tactic, not the emotion (2026-11-02).** The most believable Seedance acting found (Oneiric, Red Flag) wrote per character WANT / STAKES / OBSTACLE / TACTIC, a moment-by-moment task per line, and active eyes ("he never stops reading her: checks both her eyes, adjusts to what he finds"); the emotion follows. Recipe: `references/filmmaking/acting-direction.md` "Proven prompt recipe".
 
 ## Dialogue & expression
 
@@ -160,6 +165,7 @@ Appearance locks WHO. Persona locks HOW THEY BEHAVE — without it Seedance rend
 - **Hebrew (HARD):** Seedance 2 / 2.5 do **not** speak Hebrew. Never put Hebrew-script dialogue in the prompt. Use Latin transliteration in quotes (`שלום` → `"shalom"`), or recommend Gemini Omni Flash 1.1 / Gemini Omni 1 for native Hebrew. Do not promise Seedance Hebrew success. Attached-audio lip-sync on 2.5 is unreliable unless audio length matches the clip and the prompt has no Hebrew script. Keep narration reserved for post out of the prompt.
 - `list_models` reports `sound_generation_type: "none"` for Seedance 2 / 2.5 because there is no in-app sound toggle (`sound_baked_in: true`). That field does NOT mean the model is silent. Do not read it as a reason to add TTS.
 - For silent tension, deliver it as expression, not speech: `He does not speak. His expression clearly says: "…"`.
+- **Timed dialogue slots with silences (Oneiric):** `(silence 0.3–2.0 s — sitting up, no words)`, `RUDY @2.0–8.5 s: "…"`, `(silence 8.5–11.0 s — the slow lean back, lips closed)`, then: "No added, changed, improvised or mumbled words. When not speaking, lips stay closed. If a line finishes early, hold silence." Lock each voice in words ("low, deep, bassy chest voice, minimal pitch movement").
 
 ## Content tone
 
@@ -216,9 +222,11 @@ Never pile all style tokens at the top of the prompt. Each aspect lives in the b
 
 Use only the discrete steps. Not "23°" — use 18° or 29°.
 
+For narrative film, describe the frame and its purpose first ("their shoulders frame the foreground, so the image reads as: they are looking at this"); FOV numbers are optional there. The Tortoise and the Hare used lens millimetres in 6 of 366 prompts.
+
 ### Prompting rules
 
-- **Positive only.** ❌ "does not fall backward" → ✅ "stays upright, feet planted."
+- **Positive for objects and end states.** ❌ "does not fall backward" → ✅ "stays upright, feet planted." *(Narrowed 2026-11-02: the model's own defaults — music, added camera moves, slow motion, overacting, plastic skin, floating props, empty first frame — need explicit forbids; winning films carried a median of 10 targeted NO lines per prompt. Wording: `references/filmmaking/directing-document.md` §4.)*
 - **Speeds in km/h.** ❌ "fast/slow" → ✅ "moves at 40 km/h", "camera pans at 5 km/h."
 - **Atmosphere in % / meters.** ❌ "light fog" → ✅ "fog density 40%", "haze visible at 15 meters depth."
 - **Atmosphere builds in steps across shots.** Shot 1: 20% → Shot 2: 40% → Shot 3: 60%.
@@ -256,11 +264,11 @@ Place a requested signature CAMERA trajectory prominently in the shot heading, t
 
 - Distributed style (no top-pile)?
 - One camera movement per time slice?
-- FOV in degrees from the table (not mm, not arbitrary)?
+- FOV in degrees from the table (not mm, not arbitrary), or for narrative film the frame's purpose?
 - WB in Kelvin?
 - Speed in km/h, atmosphere in % or meters?
 - Color via material + light + role?
-- Positive phrasing (no "does not X")?
+- Positive phrasing for objects and end states; model defaults (music, camera moves, slow motion, overacting) explicitly forbidden?
 - No equipment / director names?
 - Emotion through muscle, not labels?
 - Multishot: FOV per segment + "no drift mid-segment"?

@@ -1,5 +1,5 @@
 ---
-version: 0.9.32
+version: 0.9.33
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images, video (Seedance, Veo, Kling, Hailuo), music, speech, sound, 3D, transcription, Visual DNA, Creative Director batches, marketing assets, HTML artifacts, and AI Docs, Flow node workflows and session/system prompts, and approved Blender scene control. Use for sophisticated AI filmmaking as well as individual media: scripts, production bibles, recurring characters and locations, acting, dialogue, music performance, blocking, physics, multi-shot continuity, connected scenes, prompt audits, feature-length production planning, end-to-end vertical micro-drama series (Micro-Drama Studio), and direct Blender scene building through the connected Kolbo Blender plugin. NOT for: unrelated standalone video editing / FFmpeg (use video-production), motion graphics (use remotion-best-practices), code editing, or general chat.
@@ -16,7 +16,6 @@ You have direct access to the Kolbo AI creative platform via MCP tools (auto-con
 This file is the **always-loaded core**: tool inventory + universal hard rules + routing index — for model-specific prompt rules, workflows, cost validation, etc., Read the matching `references/` file from the index below; loading is mandatory, not optional flavor (users never invoke the bundled skills themselves — skipping them yields a lazy one-line prompt).
 
 ## Step 0 — Bootstrap
-
 Once per conversation, before any other Kolbo tool call:
 
 1. **Run `check_credits`.** If it fails with "Session expired" / "Not authenticated", ask the user to run `kolbo auth login` (or their branded CLI command like `sapir auth login`) and reload the editor.
@@ -26,6 +25,7 @@ Once per conversation, before any other Kolbo tool call:
 If the user is on a whitelabel build (`sapir`, etc.), they must use their branded command — not `kolbo`. See `references/workflows/troubleshooting.md`.
 
 ## 🎬 Confirm the Creative Brief & Cost BEFORE Generating (CRITICAL — read first)
+**Kobi inside the Kolbo app: skip this whole section.** The request authorizes the work and `submit_plan` is the only approval. Never ask "should I go ahead?"; pick sensible defaults, call `submit_plan` and make it.
 
 Never fire a paid generation the moment the user says "make X". First **present the brief back as a confirmation the user can change** — this is the single most important interaction. It gives the user control over what gets created and what it costs, instead of silently spending credits on defaults.
 
@@ -53,7 +53,6 @@ Then generate **only** with the confirmed parameters. If the user changes an opt
 For multi-scene / batch work this pairs with `generate_creative_director` (see below) — still confirm the brief first.
 
 ## Routing Index — Read These Files on Demand
-
 | If the user wants to… | Read first |
 |---|---|
 | Build, edit, inspect, organize or run **Flow sessions / nodes / prompts / system prompts** | `references/workflows/flow.md` |
@@ -63,9 +62,10 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | **Recreate a viral reel's format** from a link or file ("make a video like this": measure, story read, formula, contracts, Seedance 2.5 Draft takes, blind QC, edit) | `references/workflows/viral-recreate.md` |
 | Direct, develop, audit, or continue a **film / episode / connected scene / complex performance** with continuity, acting, dialogue, music, blocking, or physics | `references/workflows/filmmaking.md` |
 | Build, inspect, animate, light, render, or edit a **Blender scene through Kolbo Blender MCP** | `references/workflows/blender-mcp.md` |
-| Generate a **Seedance 2.5** video | `skill` `elements-prompting` + `references/models/seedance25.md` + Locked Intro in `references/models/seedance.md`. For narrative/continuity also load `references/workflows/filmmaking.md` — but compile the prompt as Locked Intro, NOT the SCENE CONTEXT / OPTICS / ACTION pack |
+| Generate a **Seedance 2.5** video | `skill` `elements-prompting` + `references/models/seedance25.md` + Locked Intro in `references/models/seedance.md`. For narrative/continuity also load `references/workflows/filmmaking.md` — but compile the prompt as Locked Intro, NOT the SCENE CONTEXT / OPTICS / ACTION pack. **Narrative film / drama scene:** fill the Locked Intro with `references/filmmaking/directing-document.md` (winning AI films, 2026-11-02: 15-30 s multi-shot masters, acting tasks, timed dialogue with silences, forbid table, one take per prompt at `480p-draft`) |
 | Generate a **Seedance 2 / WAN / MiniMax H3 / Gemini / Elements** video (`generate_elements` or Visual DNA) | `skill` `elements-prompting` + `references/models/seedance.md` — same Locked Intro. Elements is NOT a different prompt language |
 | Make a **real person talk on camera from their Visual DNA** (AI avatar / talking host / "make me talk") | `references/workflows/talking-avatar-wan3.md`: Wan 3.0 Elements + DNA + 2 real face photos + their voice as `@Audio 1`, one take of 10 s or less per environment |
+| A character must speak with **real acting** — the user performs the lines, or sends any audio (voice note, take, whole scene) to cut per line and speaker and re-voice (voice-to-voice / speech-to-speech) | `references/workflows/voice-acting.md` |
 | Generate a **GPT Image** image (latest 2.6), an **animated GIF**, or an **SVG / vector** logo or icon | `references/models/gpt-image.md` |
 | **No background / transparent PNG / cutout** on any image | `references/models/gpt-image.md` |
 | Generate a **Nano Banana / Gemini** image | `references/models/nano-banana.md` |
@@ -84,7 +84,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Generate **brand product imagery** (studio shot, lifestyle, Pinterest pin, hero banner, carousel, ad pack, virtual try-on, conceptual, restyle) | `references/workflows/product-photoshoot.md` |
 | Generate **marketplace listing cards** (Amazon main + secondary + A+ content) | `references/workflows/marketplace-cards.md` |
 | Apply a **preset** — a named look, sheet, thumbnail, grading, camera move, Seedance shot recipe, music style — or decide whether one fits what the user just asked for | `references/workflows/presets.md` |
-| Make a **very attractive / sexy / curvy woman** ("bigger bust", fully clothed or swimwear, non-explicit) — figure wording, framing, model route, Midjourney swimwear-editorial wording and prompt length, one-change fix | `references/workflows/attractive-characters.md` |
+| Make a **very attractive / sexy / curvy woman** ("bigger bust", fully clothed or swimwear, non-explicit) — figure wording, framing, model route, Midjourney swimwear-editorial wording and prompt length, one-change fix, building her from a real person's photos (face and body as separate refs) | `references/workflows/attractive-characters.md` |
 | Use **Visual DNA** / character consistency / `@name` syntax | `references/workflows/visual-dna.md` |
 | Use **Color DNA** / brand palette grading | `references/workflows/color-dna.md` |
 | Start or continue a **multi-step production** (storyboard → scenes → final cut) | `references/workflows/production-log.md` |
@@ -102,6 +102,11 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Build **motion graphics** in After Effects — shape layers, animated text, effects, expressions, logo reveals | `references/workflows/after-effects-motion.md` |
 | Edit, title, grade or render Kolbo media in **DaVinci Resolve** (Studio) — Kolbo Resolve plugin (`davinci_*`, any agent) or Blackmagic's MCP (local) | `references/workflows/davinci-resolve.md` |
 | Create or edit a saved **Video Editor** timeline, clips, trims, speed or captions | `references/workflows/video-editor.md` |
+| **Edit a finished ad / reel / trailer / campaign piece** for a customer (pacing, titles, music, sound, look choice, variety across pieces) | `references/workflows/edit-quality.md` |
+| **Voice / TTS** — pick a voice, Hebrew voices, styles, emotion tags, speed, every `generate_speech` option | `references/models/voice-tts.md` |
+| Pick **stock / production music** from the Kolbo library (free, instant) before composing with Suno | `references/workflows/music-library.md` |
+| Take **selected or favorited Drafts** to final delivery (Draft finalize, then Topaz) | `references/workflows/draft-finals.md` |
+| **Build or edit a full React app** with App Builder (repo, deploy, Kolbo generation from the browser) | `references/workflows/app-builder.md` |
 
 Each `references/models/*.md` mirrors the matching skill prompt in `kolbo-api/src/config/systemPrompt.js` — same battle-tuned rules that power Kolbo's web-app help widget. Keep parity (see `packages/opencode/CLAUDE.md` "MCP & Skill Sync Rule").
 
@@ -206,7 +211,6 @@ Resolve names with `list_visual_dnas` first. Full binding rules: `references/wor
 **Every still on a DNA can reach the model.** Kolbo now sends all of a DNA's reference images that fit the model's image-slot cap (user uploads first, then one still per DNA, then leftovers round-robin). If a DNA only gets one leftover slot and has no real character sheet, unused stills become a white grid. Mixed-vibe stills or environment photos that contain a main character will confuse the generation — keep each DNA surgically clean. Create-and-pack rules: `references/workflows/visual-dna.md`.
 
 ## ⚠️ `enhance_prompt` — leave it OFF (HARD RULE)
-
 **Never pass `enhance_prompt: true` unless the user asked for it in words.** It is
 not a quality knob you turn on to be helpful — it sends the prompt to a rewriter
 first, so the model renders *different words than the ones the user wrote*.
@@ -221,7 +225,6 @@ first, so the model renders *different words than the ones the user wrote*.
   always writes and enhances each scene prompt itself, so the flag is not a switch there.
 
 ## ⚠️ Never re-upload a Kolbo URL (HARD RULE)
-
 A URL from `generate_*`, `list_media`, `get_media`, or a prior `upload_media` is **already on Kolbo CDN**. Pass that exact URL to the next tool (`reference_images` / `source_images` / `image_url` / `files`). Do **not** call `upload_media`, `create_upload_ticket`, or `media_upload_widget` on it — that copies the file a second time and wastes storage.
 
 - Hosts that are already hosted: `media.kolbo.ai`, any `*.kolbo.ai`, Kolbo DigitalOcean Spaces.
@@ -229,11 +232,12 @@ A URL from `generate_*`, `list_media`, `get_media`, or a prior `upload_media` is
 - Same rule after compaction: pull the URL from `.kolbo/production.md` and reuse it. Never download-then-reupload.
 
 ## ⚠️ Route video per use case (decide — do not cargo-cult)
-
 Pick the cheapest route that actually controls what the brief needs. Do not invent a pipeline.
 
 **1. Any scene with a character, location or product (the default for story, ad and product video)**
 Visual DNA for each (a character sheet = ONE preset image; a location = ONE empty interior/exterior image) → a written prompt per scene on `generate_elements` (Seedance 2.5, Wan 3.0, Kling). The DNAs and the prompt carry identity and staging; the model stages the scene.
+
+**Scenes with characters on Seedance 2.5 / Wan 3 Elements (founder, 2026-11-05): no scene stills.** Attach only the Visual DNAs of the characters and the location; composition, blocking, shots and camera go in the prompt. Never plan "an image per scene with the characters" before the video and never attach a composed scene still to an Elements call; it makes these models worse.
 
 **2. A still the user gave you or asked for**
 Animate it with `generate_video_from_image` / first-last. Never make keyframes, "opening stills" or scene stills yourself as a step toward video, and never animate a still you made unasked.
@@ -245,10 +249,9 @@ Only for generic b-roll, ambient motion or stock-like scenes with no recurring c
 - Do not generate scene stills or keyframes before video. Video = DNAs + prompt on Elements.
 - Do not generate stills and then run a Multishot T2V that never attaches them.
 
-Scene dialogue is **never** `generate_speech` or `generate_lipsync` on a Seedance shoot. Seedance 2 / 2.5 perform quoted lines written into the shot beat — English or Latin transliteration of Hebrew (`"shalom"`), never Hebrew script. For native Hebrew speech, prefer Gemini Omni Flash 1.1 or Gemini Omni 1. Full flow: `references/workflows/production-planning.md`.
+Scene dialogue is **never** `generate_speech` or `generate_lipsync` on a Seedance shoot. Seedance 2 / 2.5 perform quoted lines written into the shot beat — English or Latin transliteration of Hebrew (`"shalom"`), never Hebrew script. English dialogue only on Seedance. Hebrew talking person / UGC / avatar (founder flow, 2026-11-02): make the Hebrew audio FIRST (`generate_speech`, Cartesia Hebrew voice by default, ElevenLabs V3/V4 for directed reads; never DeepDub), pad it to the whole-second clip length, then `generate_elements` on `wan3.0-elements` with the person (DNA + real face photos) and that audio as `@Audio1` in `reference_audio_urls` (15 s max per take). Wan 3 drives the lips from the real audio (0.95-0.99 envelope correlation); Seedance 2.5 re-generates its own speech (0.30), so alone it never carries Hebrew speech. **Exact recordings in a scene with people talking, in Hebrew or any language Seedance cannot speak: when `list_models` shows `seedance-2-5-lipsync`, use it, and offer it unasked whenever the user works in Hebrew or another language Seedance cannot speak.** `generate_elements` with `model: "seedance-2-5-lipsync"`, the recordings in spoken order in `reference_audio_urls` (library URLs: upload first), `visual_dna_ids` for the speakers and the location, `aspect_ratio`, `resolution` (480p is the draft tier) and no `duration`. The prompt is direction only: who is who ("@Audio1 is @talia"), what is really going on between them, the place. Never the lines, spelling, timings or shot times: the model reads the words itself, directs each shot, builds the carriers and lays the recording back over the kept background. Full recipe: the `avatar-studio-reel` skill. Full flow: `references/workflows/production-planning.md`.
 
 ## ⚠️ Load the matching skill BEFORE generating (HARD RULE)
-
 This `kolbo` skill is the mandatory first layer for every Kolbo media task. Do **not** call `generate_*` / `generate_elements` / `generate_image_edit`, or write the billable prompt for them, until you have loaded every matching dependency **in this turn** (the `skill` tool for bundled skills and Read of the required Kolbo references). "I already know this," memory, or a prior-turn load does not count. Users will never invoke these skills themselves.
 
 Dependencies accumulate: narrative Elements work requires **Kolbo + filmmaking + elements-prompting**, not whichever one was loaded first. Before the first paid call, silently check the stack and load anything missing.
@@ -268,7 +271,6 @@ Dependencies accumulate: narrative Elements work requires **Kolbo + filmmaking +
 | Film / episode / connected scene | — | `references/workflows/filmmaking.md` + `production-planning.md` |
 
 ## ⚠️ Seedance / Elements prompt contract (HARD RULE)
-
 Mode wins over model family. **Frames** (`generate_video_from_image`) and **First/Last Frame** (`generate_first_last_frame`) use ordinary motion/camera/transition prose grounded in the supplied composition, including on Seedance 2.5. Do not add Elements CAST/LOCATION blocks, invent DNA names, or enable cuts because a template says so. An ordinary uploaded frame is `@Image1`, not a DNA; an end frame is `@Image2`. For **Elements / text-driven multi-shot** work, `generate_elements`, Seedance 2 / 2.5, WAN, MiniMax H3, Gemini, and reference-composed video share the Locked Intro in `references/models/seedance.md`. Load `elements-prompting` first (craft, exact `@ImageN` mapping, eight elements), then compile:
 
 `N connected cinematic shots, Xs total, AR, Multishot ON` → `Total: Xs / N shots / AR` → `[GLOBAL LOOK – LOCKED, APPLIES TO EVERY SHOT]` → `[CAST – IDENTICAL IN EVERY SHOT]` (each person is `@DNAName`) → `[LOCATION]` → LOCATION MAP / CONTINUITY / PHYSICS → `SHOT N — 0:00–0:02 — …` (ranges sum to Xs) → closing `Total: Xs / N shots / AR`. Pass MCP `duration: X` matching that Total. Omitting Total / Multishot is a failed compile — same contract as the Kolbo help widget.
@@ -281,7 +283,6 @@ Do **not** default Elements to `SCENE CONTEXT` / `OPTICS` / `ACTION` / `ACTIVE R
 User names a brand/site/domain ("my platform kolbo.ai") → open it yourself (kolbo.ai → https://kolbo.ai) with your best tool: a real browser (Kolbo Code `browser` incl. `record_start`/`record_stop`, Kobi **browse_website** (in-app, not MCP), Claude in Chrome, Playwright MCP), else WebFetch. Take the real logo, screenshots, a scroll-through recording as footage; upload and attach them as references — never a text imitation of the brand. Never ask for a URL/logo/file you can fetch; ask only after a real attempt failed. Details: `references/workflows/research-first.md`.
 
 ## ⚠️ If the User Names a Tool, USE THAT TOOL (HARD RULE)
-
 A user-named tool — in any language — overrides every other rule. Recognized aliases:
 
 | User said (any language) | Use exactly |
@@ -290,12 +291,11 @@ A user-named tool — in any language — overrides every other rule. Recognized
 | "image edit", "edit", "modify", "remove background", **"עריכת תמונה"** (paired with a per-image instruction) | `generate_image_edit` |
 | "elements" / **"אלמנטים"** | `generate_elements` |
 | "first/last frame" / **"פריימים"** | `generate_first_last_frame` |
-| "lipsync" / **"ליפסינק"** | `generate_lipsync` |
+| "lipsync" / **"ליפסינק"** | `generate_lipsync`; a new scene spoken from a recording: `generate_elements` on `seedance-2-5-lipsync` when listed |
 
 **Mixed signals — named tool always wins.** "Image edit with the director tool to make 4 angles" → `generate_creative_director`.
 
 ## ⚠️ Generate vs Edit (when the user did NOT name a tool)
-
 | User intent | Action | NOT this |
 |-------------|--------|----------|
 | "Create a video from scratch" | `generate_video` | — |
@@ -309,7 +309,6 @@ A user-named tool — in any language — overrides every other rule. Recognized
 | "No background" / transparent PNG / cutout, **בלי רקע** / **רקע שקוף** — new image or existing one | `generate_image` / `generate_image_edit` with `background: "transparent"` on the latest GPT Image model, `gpt-image-2.6-flare` / `-sunburst` (gate on `supports_transparent_background: true`) | ❌ Prompt wording alone — it returns an opaque image. ❌ `image_tools` `removebg` unless they want a purely mechanical cutout of an existing photo |
 
 ## Core Workflow
-
 **Preset contract** (full doctrine — catalogs, intent→search map, cinematic dimensions: `references/workflows/presets.md`):
 - Custom instructions live on the **preset**, and it is almost always better than the paragraph you would improvise. Prefer `generate_image` + `preset_id` (not `generate_character_sheet`) for Character Sheet / Headless / Bible / location / product sheets.
 - **Presets are not image-only.** `type: "video"` holds 200+ Seedance 2 shot recipes (chase, orbital, drift, showcase, VFX, storyboard) and feeds `generate_video` + `generate_elements`; `image_edit` and `music` have their own catalogs. `image` and `image_edit` ids are NOT interchangeable.
@@ -344,7 +343,6 @@ Model types for `list_models`: `text_to_img`, `image_editing`, `text_to_video`, 
 - Keep unrelated goals in separate sessions. When context becomes mixed, preserve a compact checkpoint with the accepted brief, source references, working prompts/settings and observed failures. Offer a supported fork/new session; do not claim to have moved or forked a session without a successful tool result.
 
 ## ⚠️ Generation lifecycle — source of truth, waiting, failures (HARD RULE — read this)
-
 **How calls work:** each generation tool blocks until the job is fully complete. Images: seconds. Video: minutes. Multiple tool calls in one response run concurrently. On hosts with live widgets the tool instead returns `submitted` (or `_timed_out`) instantly — the card updates on its own.
 
 Four surfaces show the same job. Use this map — never invent a fifth:
@@ -377,7 +375,6 @@ Four surfaces show the same job. Use this map — never invent a fifth:
 `failure` envelope structure + retry rules: `references/workflows/troubleshooting.md`.
 
 ## 📁 Projects — Where Work Lands (CRITICAL)
-
 Everything in Kolbo — sessions, generations, media, docs — lives inside a PROJECT. Getting this wrong is the #1 user complaint ("my work went to the wrong project").
 
 1. **User names a project** ("in my Acme project", "for the film") → call `list_projects` ONCE to resolve the name to an ObjectId, then pass that **same** id as `project_id` on **EVERY** subsequent `generate_*` / `upload_media` / `create_doc` / `chat_send_message` call in **this conversation**. There is no server-side sticky store — omitting it on any later call silently lands in the default "API Generations" bucket (`is_default: true`). Once resolved, treat that id as required for the rest of the conversation. Accounts often hold hundreds of projects, so pass `list_projects({ search: "acme" })` rather than listing everything; the list is paginated (50/page) and hides archived projects unless you pass `include_archived: true`. When the user starts new work, `create_project` first, then pass its id the same way.
@@ -385,7 +382,6 @@ Everything in Kolbo — sessions, generations, media, docs — lives inside a PR
 3. **Work landed in the wrong project? MOVE it, never regenerate**: `move_session` relocates a whole session + all its media (generation sessions and chats; Creative Director, transcription, global_image_edit and shorts sessions return `SESSION_TYPE_NOT_MOVABLE` — move their media with `bulk_move_media` instead); `move_media` / `bulk_move_media` / `move_folder_contents` relocate individual media items. Empty leftover sessions after a move: `delete_session` (soft-delete; `restore_session` undoes it). `rename_session` only changes the sidebar title.
 
 ## ⚠️ One session per plan bucket (HARD RULE)
-
 Omitting `session_id` on a generate call creates a **new** Kolbo sidebar session. Do that only when the **plan** starts a new bucket — not per take, not per shot, not because you just called a tool.
 
 Name buckets from the plan you already showed the user, then `rename_session` on first create:
@@ -407,13 +403,11 @@ How to thread:
 After the user approves a bucket, write its `session_id` + plan name into `.kolbo/production.md` `### Sessions`. Do not create or update the file for a pending bucket. Full rules: `references/workflows/production-planning.md` + `production-log.md`.
 
 ## Rate Limiting & Batch Generation
-
 - `generate_image`: 30/min. All other generation tools: 10/min per type. 300/min global. `upload_media`: 300/min, no credit cost.
 - **Independent outputs:** emit ready generation calls together. This applies to videos as well as images. Eight requested videos must not become eight sequential waits when parallel submission is supported.
 - **Every batch size:** respect current tool/provider concurrency limits and rate-limit responses. If no more specific limit is available, use the existing conservative batch guidance: images 8, image edits 5, videos 3, video-to-video 3, music/speech/sound 5. Submit each batch concurrently, wait for capacity with a batched status call, then submit the remaining items. Keep pending IDs in the current run; persist only user-approved winners in `.kolbo/production.md`. Never restart submitted jobs to fill a batch.
 
 ## ⚠️ Multi-output? Default to `generate_creative_director` (CRITICAL)
-
 `generate_creative_director` is **an agent**, not a niche tool. Plans each scene internally, locks consistency, runs in parallel. For 2+ related outputs, it's almost always right.
 
 **Tie-breaker:** about to fire ≥2 `generate_image` calls and the user did NOT dictate per-image prompts? Stop. Use `generate_creative_director`.
@@ -423,7 +417,6 @@ After the user approves a bucket, write its `session_id` + plan name into `.kolb
 **Parameter gotcha:** `num_images` (1–4, same prompt different seeds) on `generate_image` vs `scene_count` (1–8, distinct prompt per scene) on `generate_creative_director`. **Never pass `num_images` to Creative Director.**
 
 ## 🛑 Runaway-Loop Guard — ONE Generation per Requested Item (CRITICAL)
-
 When the user asks for **one specific change**, the answer is **a single tool call**. After URLs return, **stop**. Surface and wait.
 
 You are NOT allowed to:
@@ -435,17 +428,17 @@ You are NOT allowed to:
 **Only re-fire when:** user explicitly asked for variations with a count, OR previous call returned `failure.retryable === true` (ONE retry), OR previous call returned `completed` but `urls.length === 0` (ONE retry).
 
 ## ⚠️ Editing an Existing Video → ONE Call, Not Frames-First (CRITICAL)
-
 Existing video → modify → **single `generate_video_from_video` call** with source video URL + edit prompt.
 
 For MiniMax H3 Max Recast, use its exact live catalog identifier: one 5–30 second source, each continuous shot at most 15 seconds, and 1–4 ordered character photos. Prompt is optional (maximum 2000 characters); references replace main people left to right unless instructed otherwise. Choose the cheapest supported resolution explicitly, omit duration/aspect ratio, and leave `enhance_realism` false for a cheap test. Optional `seed` is a nonnegative integer. Original audio is retained; this is not native audio generation. Shared prompt enhancement is disabled for this model. Read current pricing from the catalog; USD-wallet execution and Unlimited are unsupported. Recast also supports character `visual_dna_ids` with empty instructions. Each accessible DNA supplies one existing canonical reference; manual photos come first, then DNAs in ID order. Total combined references must fit four. Do not attach the DNA thumbnail or its still again as a manual photo. Missing, inaccessible, non-character or overflowing identities fail before charging. Typed names map to numbered references; avoid ambiguous same-name mentions.
 
 **Use a TRUE video-to-video model.** Image-to-video models reject with `WRONG_MODEL_TYPE`. Valid: `wan/2-7-videoedit`, `happyhorse/video-edit`, `kling-video/o3-video-to-video`, or any model whose DB `type` includes `video_to_video` (use `list_models({ type: "video_to_video" })`).
 
+**Use a TRUE video-to-video model.** Image-to-video models reject with `WRONG_MODEL_TYPE`. Valid: `wan/2-7-videoedit`, `happyhorse/video-edit`, `kling-video/o3-video-to-video`, or any model whose DB `type` includes `video_to_video` (use `list_models({ type: "video_to_video" })`).
+
 **Motion-control / animate-move models invert the inputs**: `reference_images[0]` = the CHARACTER IMAGE to animate, `source_video` = the driving/reference video whose motion is transferred. Omitting the character image returns a `MOTION_CONTROL_INPUTS` error. **Do NOT** decompose into frames. **Do NOT** re-fire if the first call returned URLs.
 
 ## ⚠️ Character-Driven Video — DNAs + Prompts on Elements (CRITICAL)
-
 For any ad / story / scene-based video **created from scratch** featuring a Visual DNA character, location or product (NOT v2v edits):
 
 1. Attach the cast, location and product DNAs to `generate_elements` (Seedance 2.5, Wan 3.0, Kling).
@@ -454,7 +447,6 @@ For any ad / story / scene-based video **created from scratch** featuring a Visu
 Never generate shot frames or keyframes first and animate them (founder rule, 2026-11-08). Frames come into it only when the user supplies them or asks for images.
 
 ## ⚠️ Generated URLs in Chat (CRITICAL)
-
 Chat renders markdown natively. `![alt](url)` = inline image. `[label](url)` = labeled link with preview.
 - **Catalog-style replies** (numbered lists of characters / scenes / products): embed `![alt](url)` so each item shows inline.
 - **Conversational replies** ("4 shots ready"): keep prose short. Avoid bare URL dumps and HTML `<table>` grids — Library already provides a gallery.
@@ -464,18 +456,15 @@ Chat renders markdown natively. `![alt](url)` = inline image. `[label](url)` = l
 **Never update `.kolbo/production.md` merely because a generation succeeded.** Keep the result provisional in the generation card / Library, ask the user to choose, and write only the explicitly approved winner in the same turn as approval. Brief approval before generation is not output approval; silence, a topic change, or requesting the next task is not approval. See `references/workflows/production-log.md`.
 
 ## ⚠️ Finished cuts go to Kolbo Review (HARD RULE)
-
 Finished a video the user must judge? Offer Kolbo Review in the same message and say what it does (timestamped notes on the cut); many users do not know it exists. After `create_review_asset`, reply with one clickable link per asset from `open_url` — never just "uploaded". Read notes back with `list_review_comments`; a new cut is `add_review_version`. Full flow: `references/workflows/review-collections.md`.
 
 ## Limitations & Safety
-
 - **Real people**: never identify specific individuals in photos, even public figures. Describe visible attributes only.
 - **NSFW**: Kolbo enforces content safety at the model level. If a generation fails on safety grounds, rephrase rather than retrying identically.
 - **Copyright**: style references are fine ("in the style of Studio Ghibli"); verbatim reproduction is not.
 - **No fabricated URLs**: only share URLs that actually came back from a tool call.
 
 ## Sharing HTML Artifacts
-
 HTML/SVG/Mermaid artifacts have a **Share** button in the preview toolbar that uploads the artifact and copies a permanent public URL (no login required to view). Or call `publish_html_artifact({ title, content })` directly.
 
 If at this point you still don't know which `references/` file to load, default to `references/models/prompt-copilot.md` for generation prompts or `references/workflows/cost-and-validation.md` for cost/validation questions, or just keep going with this core file's rules.
@@ -483,9 +472,10 @@ If at this point you still don't know which `references/` file to load, default 
 ## Media selection preferences
 Honor explicit models, presets, budget and inputs. Choose only eligible catalog candidates with all required capabilities. Use requested presets; otherwise use fitting presets when useful. For video generation, editing and lip-sync, when the user has not explicitly selected an output resolution, use the cheapest supported output resolution from the live catalog and pass it explicitly; do not inherit an expensive provider default. Preserve explicit user-selected resolution/settings. Finish fully, cinematic, professional, final, production and available credits are NOT permission to increase resolution. Never infer output resolution from reference media or export settings. A budget is a ceiling, not a spending target. Do not upscale or regenerate at a higher tier without explicit user authorization. If pricing or supported resolutions cannot be verified, inspect the catalog before dispatch; never invent a tier. Models with fixed output resolution use their native output. Never treat a policy refusal as a technical failure or route around safeguards.
 Default images and edits: the latest GPT Image, now GPT Image 2.6 Flare (fast, everyday) / Sunburst (precise detail, consistent edits); medium for value, high for ordinary maximum quality. Older GPT Image 2.5 / 2 only when named. For no background, animated GIF or SVG use 2.6 natively (`background: "transparent"`, `output_format: "gif"` / `"svg"`); never fake them with prompt words or HTML. Reserve xhigh/max for exceptional dense or difficult multilingual text after medium/high prove insufficient; do not automatically spend on retries. Nano Banana 2.1 (latest Flash; Nano Banana 2 only when named) is secondary. Seedream 5.0 Pro favors cinematic aesthetics over complex instruction fidelity; Wan 2.7 Pro is another creative alternative. Z Image/P Image for cheap tests. Midjourney for artistic concepts only, never editing. Soul V2 for realistic people/UGC concepts; derive character sheets before registering finished Visual DNA. Mirage Film 2 for environments and cinematic inspiration.
+**Real-looking examples (Zohar 2026-10-19).** Real people go to Soul 2 (`soul/v2/standard`), or sometimes Midjourney; cinematic shots go to Seedream 5 Pro. Write prompts with specific lived-in details, available light and phone or 35mm film language. Never use generic "premium e-commerce, studio lighting" prompts: on nano-banana-2 they read as "really fake, gross". When realism matters, run two models on the same prompts, compare on a contact sheet and keep the most real.
 **Seedance 2.5 Draft:** explicitly pass `model: "seedance-2-5", draft: true` (or legacy `resolution: "480p-draft"`) on the matching video generation tool. Plain `480p` is regular video, never Draft. Use ordinary credits. Finalize a saved draft via `video_tools` `draft_quote` then authorized `draft_enhance`, with its video URL, original project and quoted supported resolution; do not regenerate the prompt. See `references/models/seedance25.md`.
 For Draft video editing, use `generate_video_from_video` with `model: "seedance-2-5-video-to-video", draft: true`. The source duration and aspect ratio are inherited. Draft uses regular edit 480p pricing; optional finalization uses regular edit 1080p pricing, both charging combined input/output seconds. Read the live catalog and quote rather than hardcoding prices. This app-credit/MCP route does not imply USD-wallet video-edit execution availability.
-Default video: Seedance 2.5 for general cinematic work (not Hebrew speech). Kling specializes in controlled single-image and first/last-frame shots. Wan 3.0 specializes in motion graphics and animated typography — native Hebrew speech is poor; attached-audio lip-sync works well. It is also the proven **talking-avatar tool**: a person's Visual DNA plus 2 real face photos plus their own voice as `@Audio 1` gives 0.99 voice sync, holds their identity and works in any environment (`references/workflows/talking-avatar-wan3.md`, 2026-10-28). MiniMax H3 offers higher resolution and strong attached-audio lip-sync; H3 Max favors speed at lower resolution with the same audio lip-sync strength. **Native Hebrew dialogue:** Gemini Omni Flash 1.1 or Gemini Omni 1 (best). Seedance 2 / 2.5 do not speak Hebrew — use Latin transliteration in quotes on Seedance, or switch to Gemini Omni. Grok Imagine 1.5 and Seedance 2.0 are non-Hebrew alternatives. P Video/Draft for cheap fast tests. Use base, edit or extend variants only with their required inputs.
+Default video: Seedance 2.5 for general cinematic work (not Hebrew speech); for narrative film use `references/filmmaking/directing-document.md`, whose rules are proven on Seedance only (§6 there says what transfers to Kling, Wan 3 and Veo). Kling specializes in controlled single-image and first/last-frame shots (the Kling-based Cinema Studio film CUPID started every video from a designed still). Wan 3.0 specializes in motion graphics and animated typography — native Hebrew speech is poor; attached-audio lip-sync works well. It is also the proven **talking-avatar tool**: a person's Visual DNA plus 2 real face photos plus their own voice as `@Audio 1` gives 0.99 voice sync, holds their identity and works in any environment (`references/workflows/talking-avatar-wan3.md`, 2026-10-28). MiniMax H3 offers higher resolution and strong attached-audio lip-sync; H3 Max favors speed at lower resolution with the same audio lip-sync strength. **Native Hebrew dialogue:** Gemini Omni Flash 1.1 or Gemini Omni 1 (best). Seedance 2 / 2.5 do not speak Hebrew — use Latin transliteration in quotes on Seedance, or switch to Gemini Omni. Grok Imagine 1.5 and Seedance 2.0 are non-Hebrew alternatives. P Video/Draft for cheap fast tests. Use base, edit or extend variants only with their required inputs.
 Existing-video lip-sync: Sync 3 for active-speaker handling; PixVerse for cartoons/2D and economical faster work. Portrait lip-sync: Veed Fabric or HeyGen Avatar; P Avatar for budget work. LTX Audio to Video for camera/environment motion with audio-driven performance.
 Default music: Suno v6. ElevenLabs Music is an alternative, especially for duration-directed scoring. Both accept custom duration requests; validate the selected tool schema and inspect actual output duration.
 

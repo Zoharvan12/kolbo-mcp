@@ -29,6 +29,7 @@ Read [routing.md](references/filmmaking/routing.md) for the full decision rules.
 | Premise, outline, screenplay, weak scene | Development | `scene-engine.md`, then `workflows.md` |
 | Character, location, prop, state, voice, or production preparation | Pre-production | `asset-preproduction.md`, `production-bible.md`; add `acting-direction.md` for recurring characters |
 | One generation-ready video prompt | Direction | `prompt-contracts.md`, selected craft references, then the model adapter |
+| Narrative film / drama / dialogue scene on Seedance | Direction | `directing-document.md` (winning-film format, one take per prompt, forbid table), `acting-direction.md`, then `seedance25.md` |
 | Connected dialogue or performance | Direction | `acting-direction.md`, `blocking-continuity.md`, `audio-dialogue-music.md`, model adapter |
 | Music video, dance, singing, or exact song | Direction | `audio-dialogue-music.md`, `cinematography.md`, `blocking-continuity.md`, model adapter |
 | Difficult action, transformation, scale, vehicle, creature, water, or impossible gravity | Direction | `physics-action.md`, `blocking-continuity.md`, `cinematography.md`, model adapter |
@@ -45,6 +46,7 @@ Craft packs named in the table above (load only what the shot needs):
 [physics-action.md](references/filmmaking/physics-action.md) ·
 [audio-dialogue-music.md](references/filmmaking/audio-dialogue-music.md) ·
 [seedance25-craft.md](references/filmmaking/seedance25-craft.md) (live-action Seedance 2.5 takes that read as filmed footage)
+[directing-document.md](references/filmmaking/directing-document.md)
 
 For Seedance 2.5, always read [seedance-2-5.md](references/models/seedance25.md) before final compilation. Treat capability numbers as a dated adapter snapshot and verify them against current provider/catalog truth when real money or production delivery depends on them.
 
@@ -98,6 +100,8 @@ SHOT N — 0:00–0:02 — …
 
 The SCENE CONTEXT pack in `prompt-contracts.md` is an **audit / pre-compile checklist** for non-Seedance models and Workbench diagnosis — not the default Elements prompt.
 
+**Narrative film scenes** fill these same Locked Intro headers with the directing document in [directing-document.md](references/filmmaking/directing-document.md) (FILM STYLE law, references by priority, BLOCKING, timed ACTION, numbered CAMERA, ACTING TASK, timed DIALOGUE, LIGHT, SOUND, PHYSICAL LOCKS, FORBIDDEN, POSITIVE LOCKS). Evidence: five award-level AI films, 2026-11-02. Generate 15-30 s multi-shot masters, one take per prompt at `480p-draft`; after a failure rewrite the prompt, never re-roll it.
+
 For anchored or exploratory work on other models, collapse compatible blocks and protect only non-negotiables. Never manufacture a rigid skeleton when a looser model-native prompt is more likely to succeed.
 
 ## Preserve continuity
@@ -115,7 +119,7 @@ When a generation fails:
 
 1. Compare intended versus observed result.
 2. Identify one primary failure owner: asset, state, dramatic design, blocking, acting, optics, camera, timing, physics, lighting, audio, model capability, or prompt contradiction.
-3. Change the smallest causal unit.
+3. Change the smallest causal unit, then generate once (never re-generate an unchanged prompt).
 4. Preserve every proven line or block.
 5. Log the change and verdict.
 6. After repeated failures, redesign the shot: bake the state into an asset, add a staging/layout reference, reduce actions, split the shot, change the angle, or switch model/mode.
