@@ -249,6 +249,19 @@ async function reviewCardPostsTimedNotes() {
   scrub.fire('pointerup', {});
   scrub.fire('pointermove', { clientX: 20 });
   assert.ok(Math.abs(vid.currentTime - 60) < 1, 'scrubber must stop seeking after pointerup');
+  // HEVC masters: the card plays the H.264 playback_url, keeps state when the host
+  // resends the same result, and says so when a video track still cannot decode.
+  const w3 = mountWidget(blocks(widgetHtml(UI.review)).slice(1).join(String.fromCharCode(10)));
+  const hevc = { ...asset, id: 'a3', versions: [{ label: 'v1', url: 'https://media.kolbo.ai/master.mp4', playback_url: 'https://media.kolbo.ai/proxy.mp4', media_type: 'video' }] };
+  w3.status({ success: true, comments: [] });
+  w3.deliver({ widget: 'review', asset: hevc, comments: [] });
+  const v3 = w3.node('vid');
+  assert.equal(v3.src, 'https://media.kolbo.ai/proxy.mp4', 'review card must play playback_url, not the HEVC master');
+  v3.attrs.src = v3.src; v3.duration = 42; v3.videoWidth = 1920; v3.fire('loadedmetadata', {});
+  w3.deliver({ widget: 'review', asset: hevc, comments: [] });
+  assert.match(w3.html('chips'), /0:42/, 'resending the same result reset the duration');
+  v3.videoWidth = 0; v3.fire('loadedmetadata', {});
+  assert.match(w3.node('msg').textContent, /cannot play in this browser/, 'undecodable video track must say so');
 }
 
 async function hostCompletionWinsOverPendingPoll() {

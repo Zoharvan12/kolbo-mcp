@@ -229,7 +229,11 @@ function renderHead() {
 function loadMedia() {
   var v = version(A()); var vid = el('vid'); var img = el('img');
   var isImg = kindOf(v) === 'image';
-  setPlaying(false); S.t = 0; S.dur = 0;
+  // HEVC / 10-bit masters do not decode in many browsers; playback_url is the H.264 proxy.
+  var src = isImg ? (v.url || '') : (v.playback_url || v.url || '');
+  // Same cut re-delivered (host resends the result): keep playback, time and duration.
+  if (!isImg && src && vid.getAttribute('src') === src) { renderHead(); renderTime(); return; }
+  setPlaying(false); S.t = 0; S.dur = 0; msg('');
   el('rvBody').classList.remove('portrait'); el('stage').style.aspectRatio = '';
   img.hidden = !isImg; vid.hidden = isImg; el('playIc').hidden = isImg; el('timeline').hidden = isImg; el('tcBtn').hidden = isImg; el('rangeBtn').hidden = isImg;
   if (isImg) {
@@ -238,7 +242,7 @@ function loadMedia() {
     img.src = v.url || '';
   } else {
     img.removeAttribute('src');
-    if (vid.getAttribute('src') !== v.url) { vid.src = v.url || ''; }
+    vid.src = src;
   }
   renderTime();
 }
@@ -409,8 +413,11 @@ function sendToAgent() {
   msg('Sent to the agent.');
 }
 
+var NO_PLAY = 'This cut cannot play in this browser. Open it in Kolbo to watch it.';
+el('vid').addEventListener('error', function () { if (el('vid').getAttribute('src')) msg(NO_PLAY, true); });
 el('vid').addEventListener('loadedmetadata', function () {
   var v = el('vid'); S.dur = isFinite(v.duration) ? v.duration : 0;
+  if (!v.videoWidth && kindOf(version(A())) === 'video') msg(NO_PLAY, true); // video track the browser cannot decode: sound only, black frame
   fitStage(v.videoWidth, v.videoHeight); renderHead(); renderMarkers(); renderTime();
 });
 el('vid').addEventListener('timeupdate', function () { if (!S.playing) return; S.t = el('vid').currentTime || 0; renderTime(); });
