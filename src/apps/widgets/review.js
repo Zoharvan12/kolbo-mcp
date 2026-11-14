@@ -416,8 +416,15 @@ el('stage').onclick = function () { setPlaying(!S.playing); };
 el('scrub').addEventListener('pointerdown', function (e) {
   var mk = e.target.closest && e.target.closest('[data-seek]');
   if (mk) { seek(+mk.getAttribute('data-seek')); return; }
-  var r = el('scrub').getBoundingClientRect();
-  seek(((e.clientX - r.left) / r.width) * S.dur);
+  var sc = el('scrub'), r = sc.getBoundingClientRect();
+  function at(ev) { seek(((ev.clientX - r.left) / r.width) * S.dur); }
+  at(e);
+  try { sc.setPointerCapture(e.pointerId); } catch (x) {}
+  function move(ev) { at(ev); }
+  function up() { sc.removeEventListener('pointermove', move); sc.removeEventListener('pointerup', up); sc.removeEventListener('pointercancel', up); }
+  sc.addEventListener('pointermove', move);
+  sc.addEventListener('pointerup', up);
+  sc.addEventListener('pointercancel', up);
 });
 el('strip').onclick = function (e) { var b = e.target.closest('[data-i]'); if (b) selectAsset(+b.getAttribute('data-i')); };
 el('ta').oninput = syncCompose;

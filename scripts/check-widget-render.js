@@ -78,8 +78,11 @@ function stubEl() {
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
     setAttribute(k, v) { e.attrs[k] = v; }, getAttribute: (k) => e.attrs[k] ?? null,
     removeAttribute(k) { delete e.attrs[k]; },
-    addEventListener() {}, focus() {}, pause() {},
-    getBoundingClientRect: () => ({ bottom: 0 }),
+    on: {}, addEventListener(t, f) { (e.on[t] = e.on[t] || []).push(f); },
+    removeEventListener(t, f) { e.on[t] = (e.on[t] || []).filter((x) => x !== f); },
+    fire(t, ev) { (e.on[t] || []).slice().forEach((f) => f({ type: t, target: e, ...ev })); },
+    focus() {}, pause() {}, setPointerCapture() {},
+    getBoundingClientRect: () => ({ bottom: 0, left: 0, width: 100 }),
     querySelector: () => stubEl(), querySelectorAll: () => [],
     appendChild(child) { return child; },
   };
@@ -230,6 +233,16 @@ async function reviewCardPostsTimedNotes() {
   assert.equal(posted.args.body, 'Grill SFX too quiet');
   assert.equal(typeof posted.args.time_start, 'number');
   assert.match(w.html('list'), /Grill SFX too quiet/);
+  // Scrubber drags: pointermove after pointerdown keeps seeking, stops after pointerup.
+  const scrub = w.node('scrub'), vid = w.node('vid');
+  w.node('vid').fire('loadedmetadata', {});
+  vid.duration = 100; vid.fire('loadedmetadata', {});
+  scrub.fire('pointerdown', { clientX: 10, pointerId: 1 });
+  scrub.fire('pointermove', { clientX: 60 });
+  assert.ok(Math.abs(vid.currentTime - 60) < 1, 'scrubber drag must seek while the pointer moves');
+  scrub.fire('pointerup', {});
+  scrub.fire('pointermove', { clientX: 20 });
+  assert.ok(Math.abs(vid.currentTime - 60) < 1, 'scrubber must stop seeking after pointerup');
 }
 
 async function hostCompletionWinsOverPendingPoll() {
