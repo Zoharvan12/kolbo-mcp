@@ -327,13 +327,18 @@ function registerGenerateTools(server, client, options = {}) {
       midjourney_profile_codes: z.array(z.string().regex(/^[a-z0-9]{5,32}$/i)).max(5).optional().describe('Midjourney only: native Midjourney moodboard or personalization codes (the code after --p, e.g. "ymzqaj9"). Any shared code works, from any account. Codes typed as "--p <code>" inside the prompt also work.'),
       style_reference_images: z.array(z.string().url()).max(4).optional().describe('Midjourney only: up to 4 image URLs whose STYLE (not content) the result should take, sent as --sref.'),
       enable_web_search: z.boolean().optional().describe('Enable web-search grounding for the prompt (useful for current events, brand references, real-world accuracy). Default: false'),
-      resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolution_multipliers on the same model to predict credit cost. Omit to use the model default.'),
-      quality: z.string().optional().describe('Quality tier for models that support it (e.g. "low", "medium", "high", "xhigh", "max", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Omit to use the model default.'),
+      resolution: z.string().optional().describe('Image resolution tier: "1K" (~1024px), "2K" (Full HD), "3K" (QHD), or "4K" (UHD) (Magnific One: "1k" | "2k" | "4k"). Model-dependent — call list_models and read supported_resolutions on the chosen model. Read resolution_multipliers on the same model to predict credit cost. Omit to use the model default.'),
+      quality: z.string().optional().describe('Quality tier for models that support it (e.g. "low", "medium", "high", "xhigh", "max", "auto"). Check list_models → supported_qualities on the chosen model. "auto" is normalised to "medium" on gpt-image-2. Magnific One: "medium" | "high" only. Omit to use the model default.'),
       background: z.enum(['auto', 'opaque', 'transparent']).optional().describe('Output background. Before passing "transparent", call list_models for the chosen image model and require supports_transparent_background=true. Use PNG or WebP (PNG is selected by default when omitted). Kolbo forwards the setting and appends the exact phrase "no background" once to the effective prompt; prompt wording alone is not sufficient.'),
       output_format: z.enum(['png', 'jpeg', 'webp', 'gif', 'svg']).optional().describe('Output file format on supported OpenAI image models. Default: png. "gif" (animated, prompt or edit) and "svg" (vector, text-to-image only, one image, always billed and rendered at 1K, quality low/medium/high) exist only on GPT Image 2.6: check list_models -> supported_output_formats. A GIF is one grid of frames, so `resolution` is the size of the WHOLE sheet and each frame is smaller (2K with 9 frames = 512px frames).'),
       complexity: z.enum(['low', 'medium', 'high']).optional().describe('GPT Image 2.6 only (list_models -> supports_complexity): how much the model plans the composition before drawing. Default high. "low" roughly halves latency and suits simple prompts and focused edits; "high" helps dense text and complex layouts. Same price at every level; separate from `quality`.'),
       frame_count: z.number().int().optional().describe('GIF only (output_format="gif"): number of frames, 9 or 16 (list_models -> supported_gif_frame_counts). Default 9.'),
       frame_duration_ms: z.number().int().min(20).max(2000).optional().describe('GIF only: milliseconds per frame (rounded to 10). Default 200.'),
+      tiles: z.union([z.literal(8), z.literal(16)]).optional().describe('"magnific-one-draft" only (draft vs quality is picked by the model id: "magnific-one" or "magnific-one-draft"): number of separate draft images, 8 or 16, all billed as ONE request (not per image).'),
+      style: z.enum(['solid', 'outline', 'color', 'flat', 'sticker']).optional().describe('"magnific-text-to-icon" only: icon style.'),
+      format: z.enum(['png', 'svg']).optional().describe('"magnific-text-to-icon" only: icon file format. Default png.'),
+      num_inference_steps: z.number().int().min(10).max(50).optional().describe('"magnific-text-to-icon" only: inference steps 10-50. Default 10.'),
+      guidance_scale: z.number().min(0).max(10).optional().describe('"magnific-text-to-icon" only: prompt adherence 0-10. Default 7.'),
       output_compression: z.number().int().min(0).max(100).optional().describe('JPEG/WebP output compression quality (0-100); not applicable to PNG.'),
       moderation: z.enum(['auto', 'low']).optional().describe('Moderation setting on supported OpenAI image models. Default: auto.'),
       mask_image_url: z.string().url().optional().describe('Optional public PNG mask URL for supported OpenAI edits with source/reference images. Transparent regions indicate areas to edit.'),
@@ -343,13 +348,13 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, midjourney_profile_codes, style_reference_images, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
+    async ({ prompt, prompts, model, aspect_ratio, enhance_prompt = false, num_images, reference_images, visual_dna_ids, moodboard_id, midjourney_profile_codes, style_reference_images, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, tiles, style, format, num_inference_steps, guidance_scale, preset_id, cinematic, skip_color_palette, project_id, session_id, font_ids }) => {
       if (!prompt && !(prompts && prompts.length)) throw new Error('Provide prompt or prompts');
       model = await canonicalModelId(client, model, 'text_to_img'); // lenient id resolution ("z-image" → "z-image/turbo")
       aspect_ratio = await resolveCatalogAspectRatio(client, model, aspect_ratio, 'text_to_img');
       const shared = await rehostLocalPaths(client, {
         model, aspect_ratio, enhance_prompt, font_ids,
-        reference_images, visual_dna_ids, moodboard_id, midjourney_profile_codes, style_reference_images, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, preset_id, cinematic, skip_color_palette, project_id, session_id
+        reference_images, visual_dna_ids, moodboard_id, midjourney_profile_codes, style_reference_images, enable_web_search, resolution, quality, background, output_format, output_compression, moderation, mask_image_url, complexity, frame_count, frame_duration_ms, tiles, style, format, num_inference_steps, guidance_scale, preset_id, cinematic, skip_color_palette, project_id, session_id
       }, { allowLocalFiles: !options.remote });
       reference_images = [...(shared.reference_images || []), shared.mask_image_url].filter(Boolean);
 
@@ -2667,6 +2672,8 @@ function registerGenerateTools(server, client, options = {}) {
     if (has(a.enhancement_preset) && a.enhancement_preset !== 'general') d.push(a.enhancement_preset);
     if (has(a.bit_depth) && Number(a.bit_depth) > 8) d.push(`${a.bit_depth}-bit`);
     if (has(a.target_fps)) d.push(`${a.target_fps} fps`);
+    if (a.fps_boost === true) d.push('fps boost');
+    if (a.output_format === 'prores_422_hq') d.push('ProRes');
     if (op === 'extend' && has(a.mode)) d.push(`at ${a.mode}`);
     return d.length ? d : undefined;
   };
@@ -2713,13 +2720,13 @@ function registerGenerateTools(server, client, options = {}) {
 
       // ── upscale ────────────────────────────────────────────
       scale: z.number().optional()
-        .describe('Upscale factor: 1, 2 or 4. Used with operation="upscale". Default: 2. There is NO 8 — every Topaz split endpoint declares upscale_factor max 4 in its OpenAPI, so an 8 is a guaranteed provider error. Output size is otherwise unbounded: 4x on a 4K source is a 16K result and is priced pro-rata, not refused.'),
+        .describe('Upscale factor. Used with operation="upscale". Default: 2. Topaz: 1, 2 or 4 (there is NO 8 — every Topaz split endpoint declares upscale_factor max 4, so an 8 is a guaranteed provider error; output is otherwise unbounded and priced pro-rata). "magnific-upscaler-creative": 2, 4, 8 or 16, output capped at 25.3 MP (16x only on sources up to ~314x314 px, 8x up to ~628x628 px; larger is refused before any charge). "magnific-upscaler-precision-v2": whole number 2-16. "magnific-upscaler-precision" has no scale control — omit it.'),
 
       enhancement_model: z.string().optional()
         .describe('Topaz engine. With operation="upscale" on model "topaz/upscale/image" it selects the engine family: "Standard V2" / "High Fidelity V3" / "CGI" / "Text Refine" (faithful), "Wonder 3.5" (rebuilds natural detail), "Bloom 2" (reinvents detail — most expensive), "Transparent" (keeps the alpha channel). With operation="enhance" it selects the correction engine for the chosen model. Omit for the model default. Call list_models to see the engines a model offers.'),
 
       output_format: z.string().optional()
-        .describe('Output image format: "jpeg" or "png". Used with Topaz "upscale" and "enhance". Defaults to jpeg (the transparent upscaler always returns png).'),
+        .describe('Output image format: "jpeg" or "png". Used with Topaz "upscale" and "enhance". Defaults to jpeg (the transparent upscaler always returns png). Not used by the Magnific upscalers.'),
 
       resolution: z.string().optional()
         .describe('Target output resolution (e.g. "4k", "2k", "1080p"). Used with "clarity_upscale", "split_upscale", "multi_shot".'),
@@ -2772,9 +2779,27 @@ function registerGenerateTools(server, client, options = {}) {
       crop_to_fill: z.boolean().optional()
         .describe('Crop to fill the target size instead of keeping the source framing. Used with operation="upscale" (Topaz). Default: false.'),
       creativity: z.number().optional()
-        .describe('How much new detail is invented. operation="clarity_upscale": 0-1 (default 0.35). operation="upscale" with the Bloom (creative) engine: 1-9.'),
-      resemblance: z.number().min(0).max(1).optional()
-        .describe('How closely the result must match the source (0-1). Used with operation="clarity_upscale". Default: 0.6.'),
+        .describe('How much new detail is invented. The range depends on the model: operation="clarity_upscale": 0-1 (default 0.35). operation="upscale" with the Topaz Bloom (creative) engine: 1-9. operation="upscale" on "magnific-upscaler-creative": WHOLE number -10 to 10 (default 0; a decimal is refused).'),
+      resemblance: z.number().optional()
+        .describe('How closely the result must match the source. operation="clarity_upscale": 0-1 (default 0.6). operation="upscale" on "magnific-upscaler-creative": WHOLE number -10 to 10 (default 0; higher = closer to the source).'),
+
+      // ── upscale (Magnific) ─────────────────────────────────
+      hdr: z.number().int().min(-10).max(10).optional()
+        .describe('"magnific-upscaler-creative" only (operation="upscale"): definition and detail level, whole number -10 to 10. Default: 0.'),
+      fractality: z.number().int().min(-10).max(10).optional()
+        .describe('"magnific-upscaler-creative" only (operation="upscale"): how strongly the prompt and detail apply per square pixel, whole number -10 to 10. Default: 0.'),
+      engine: z.enum(['automatic', 'magnific_illusio', 'magnific_sharpy', 'magnific_sparkle']).optional()
+        .describe('"magnific-upscaler-creative" only (operation="upscale"): upscaling engine. "magnific_illusio" (illustrations, smooth), "magnific_sharpy" (photos, sharp), "magnific_sparkle" (in between). Default: "automatic".'),
+      optimized_for: z.enum(['standard', 'soft_portraits', 'hard_portraits', 'art_n_illustration', 'videogame_assets', 'nature_n_landscapes', 'films_n_photography', '3d_renders', 'science_fiction_n_horror']).optional()
+        .describe('"magnific-upscaler-creative" only (operation="upscale"): content style to optimise for. Default: "standard".'),
+      flavor: z.enum(['sublime', 'photo', 'photo_denoiser']).optional()
+        .describe('"magnific-upscaler-precision-v2" only (operation="upscale"): "sublime" (art and illustration), "photo" (photographs, default), "photo_denoiser" (noisy photos). Same price for all.'),
+      sharpen: z.number().int().min(0).max(100).optional()
+        .describe('Magnific precision upscalers (operation="upscale"): sharpening 0-100. Default: 50 on "magnific-upscaler-precision", 7 on "magnific-upscaler-precision-v2".'),
+      smart_grain: z.number().int().min(0).max(100).optional()
+        .describe('Magnific precision upscalers (operation="upscale"): film grain added to hide artifacts, 0-100. Default: 7.'),
+      ultra_detail: z.number().int().min(0).max(100).optional()
+        .describe('Magnific precision upscalers (operation="upscale"): fine detail added, 0-100. Default: 30.'),
 
       // ── background_replace / split / erase ─────────────────
       background_reference_image: z.string().optional()
@@ -2788,7 +2813,7 @@ function registerGenerateTools(server, client, options = {}) {
 
       // ── inpaint / erase / face_swap / background_replace / zoom_out / camera_angle / magic_edit ──
       prompt: z.string().optional()
-        .describe('Text instruction guiding the edit. Required for "background_replace". Used with "inpaint", "zoom_out", "camera_angle", and the deprecated "magic_edit". For "zoom_out" it describes what fills the NEW space only — the original image is left as-is.'),
+        .describe('Text instruction guiding the edit. Required for "background_replace". Used with "inpaint", "zoom_out", "camera_angle", the deprecated "magic_edit", and optionally "upscale" on "magnific-upscaler-creative" (guides the invented detail). For "zoom_out" it describes what fills the NEW space only — the original image is left as-is.'),
 
       mask_image_url: z.string().optional()
         .describe('URL or absolute local path of a mask image (black & white; white = affected area). Required for "inpaint" and "erase". For "face_swap", this is the face reference image.'),
@@ -2818,6 +2843,7 @@ function registerGenerateTools(server, client, options = {}) {
       horizontal_angle, vertical_angle, camera_zoom,
       face_enhancement, face_enhancement_strength, face_enhancement_creativity,
       subject_detection, crop_to_fill, creativity, resemblance,
+      hdr, fractality, engine, optimized_for, flavor, sharpen, smart_grain, ultra_detail,
       background_reference_image, negative_prompt, split_layout, mask_expansion,
       project_id, session_id
     }) => {
@@ -2856,6 +2882,7 @@ function registerGenerateTools(server, client, options = {}) {
         horizontal_angle, vertical_angle, camera_zoom,
         face_enhancement, face_enhancement_strength, face_enhancement_creativity,
         subject_detection, crop_to_fill, creativity, resemblance,
+        hdr, fractality, engine, optimized_for, flavor, sharpen, smart_grain, ultra_detail,
         background_reference_image, negative_prompt, split_layout, mask_expansion,
         project_id, session_id
       });
@@ -2937,11 +2964,11 @@ function registerGenerateTools(server, client, options = {}) {
       scale: z.number().optional()
         .describe('Upscale factor (e.g. 2, 4). Used with operation="upscale". On "blackforestlabs/flux-video-upscale" the valid range is 1.5-3 (default 2).'),
       resolution: z.string().optional()
-        .describe('Target resolution (e.g. "4k", "2k", "1080p"; Bytedance Upscaler also "6k", "8k"). Used with "upscale" and "reframe". Not used by "blackforestlabs/flux-video-upscale" — use `scale` instead. On "prunaai/p-video-upscale" (P Video Upscale) read the allowed values, per-target frame caps and prices from list_models type="video_upscale" (params.target_resolution; default 1080p).'),
+        .describe('Target resolution (e.g. "4k", "2k", "1080p"; Bytedance Upscaler also "6k", "8k"). Used with "upscale" and "reframe". Magnific video upscalers: "720p" | "1k" | "2k" | "4k" (default "2k"). Not used by "blackforestlabs/flux-video-upscale" — use `scale` instead. On "prunaai/p-video-upscale" (P Video Upscale) read the allowed values, per-target frame caps and prices from list_models type="video_upscale" (params.target_resolution; default 1080p).'),
       target_fps: z.number().optional()
-        .describe('Target frame rate (e.g. 24, 30, 60). Used with operation="upscale". Bytedance Upscaler: 24-120, default 30; price multiplies per started 30 fps. P Video Upscale: whole fps 16-60 (unset keeps the source rate); output above 30 fps costs double.'),
+        .describe('Target frame rate (e.g. 24, 30, 60). Used with operation="upscale". Bytedance Upscaler: 24-120, default 30; price multiplies per started 30 fps. P Video Upscale: whole fps 16-60 (unset keeps the source rate); output above 30 fps costs double. "magnific-video-upscaler-topaz": 1-60.'),
       enhancement_model: z.string().optional()
-        .describe('Topaz enhancement engine for operation="upscale" on model "topaz/upscale/video". Families: Precision (faithful — "Proteus", "Artemis High Quality", "Iris", "Dione TV", "Gaia CG", "Gaia 2"), Denoise ("Nyx", "Nyx Fast"), Generative (rebuilds detail that is not in the source — "Starlight Fast 2", "Starlight HQ", "Starlight Precise 2.6"), Creative ("Astra 2", always renders 4K). Generative and Creative engines cost several times the Precision rate. Omit for the default.'),
+        .describe('Topaz enhancement engine for operation="upscale" on model "topaz/upscale/video". Families: Precision (faithful — "Proteus", "Artemis High Quality", "Iris", "Dione TV", "Gaia CG", "Gaia 2"), Denoise ("Nyx", "Nyx Fast"), Generative (rebuilds detail that is not in the source — "Starlight Fast 2", "Starlight HQ", "Starlight Precise 2.6"), Creative ("Astra 2", always renders 4K). Generative and Creative engines cost several times the Precision rate. Omit for the default. On "magnific-video-upscaler-topaz" it is REQUIRED: "starlight_precise_2_5" or "starlight_fast_2".'),
 
       // Bytedance Upscaler ("bytedance-upscaler/upscale/video") controls. Validated, priced and
       // duration-capped server-side (kolbo-api services/globalVideoEditing/bytedanceUpscale.js).
@@ -2957,6 +2984,28 @@ function registerGenerateTools(server, client, options = {}) {
         .describe('Bytedance Upscaler custom scale (1.1-10) for operation="upscale", used INSTEAD of `resolution`. Output must stay within 4K; billed on the 1080p/2k/4k tier it lands in. For 6K/8K use `resolution`.'),
       turbo: z.boolean().optional()
         .describe('P Video Upscale ("prunaai/p-video-upscale") only: faster generation, slightly lower quality, same price. Used with operation="upscale".'),
+
+      // Magnific video upscalers ("magnific-video-upscaler", "-turbo", "-precision", "-topaz").
+      // `resolution` is "720p" | "1k" | "2k" | "4k" (default 2k); Topaz also needs `enhancement_model`
+      // ("starlight_precise_2_5" | "starlight_fast_2") and takes `target_fps` 1-60.
+      creativity: z.number().int().min(0).max(100).optional()
+        .describe('Magnific Standard / Turbo video upscaler (operation="upscale"): how much new detail is invented, 0-100. (Image upscalers use other ranges; see image_tools.)'),
+      flavor: z.enum(['vivid', 'natural']).optional()
+        .describe('Magnific Standard / Turbo video upscaler (operation="upscale"): "vivid" or "natural" look.'),
+      sharpen: z.number().int().min(0).max(100).optional()
+        .describe('Magnific video upscalers except Topaz (operation="upscale"): sharpening 0-100.'),
+      smart_grain: z.number().int().min(0).max(100).optional()
+        .describe('Magnific video upscalers except Topaz (operation="upscale"): film grain added to hide artifacts, 0-100.'),
+      fps_boost: z.boolean().optional()
+        .describe('Magnific video upscalers except Topaz (operation="upscale"): doubles the frame rate. Billing is per output frame, so this roughly doubles the price.'),
+      strength: z.number().int().min(0).max(100).optional()
+        .describe('"magnific-video-upscaler-precision" only (operation="upscale"): enhancement strength 0-100. Default: 60. Ignored when fps_boost is on.'),
+      output_format: z.enum(['h264', 'prores_422_hq']).optional()
+        .describe('Magnific video upscalers except Topaz (operation="upscale"): "h264" (default) or "prores_422_hq". With ProRes the result URL is an mp4 preview and download_url is the .mov master.'),
+      frame_interpolation: z.enum(['apollo', 'chronos']).optional()
+        .describe('"magnific-video-upscaler-topaz" only (operation="upscale"): frame interpolation engine used when target_fps raises the frame rate.'),
+      noise: z.number().min(0).max(1).optional()
+        .describe('"magnific-video-upscaler-topaz" only (operation="upscale"): noise reduction 0-1.'),
 
       // ── reframe ────────────────────────────────────────────
       aspect_ratio: z.string().optional()
@@ -3039,6 +3088,7 @@ function registerGenerateTools(server, client, options = {}) {
       image_url, audio_url, duration, mode,
       target_fps, resolution, enhancement_model,
       enhancement_tier, enhancement_preset, fidelity, bit_depth, scale_ratio, turbo,
+      creativity, flavor, sharpen, smart_grain, fps_boost, strength, output_format, frame_interpolation, noise,
       grid_position_x, grid_position_y,
       sound_effect_prompt, background_music_prompt, original_sound, cfg_strength,
       audio_format, segments,
@@ -3074,6 +3124,7 @@ function registerGenerateTools(server, client, options = {}) {
         image_url, audio_url, duration, mode,
         target_fps, resolution,
         enhancement_tier, enhancement_preset, fidelity, bit_depth, scale_ratio, turbo,
+        creativity, flavor, sharpen, smart_grain, fps_boost, strength, output_format, frame_interpolation, noise,
         grid_position_x, grid_position_y,
         sound_effect_prompt, background_music_prompt, original_sound, cfg_strength,
         audio_format, segments,
@@ -3094,7 +3145,7 @@ function registerGenerateTools(server, client, options = {}) {
       if (operation === 'draft_quote') return { content: [{ type: 'text', text: JSON.stringify(gen, null, 2) }] };
       const cardSettings = {
         mode: operation, duration, aspect_ratio, resolution,
-        details: editDetails(operation, { scale, enhancement_model, target_fps, mode, enhancement_tier, enhancement_preset, bit_depth, scale_ratio, turbo, num_samples, preserve_speech }),
+        details: editDetails(operation, { scale, enhancement_model, target_fps, mode, enhancement_tier, enhancement_preset, bit_depth, scale_ratio, turbo, num_samples, preserve_speech, fps_boost, output_format }),
       };
       if (returnsImmediately()) return submittedResult({
         tool: 'video_tools', kind: 'video', gen, client, model,
