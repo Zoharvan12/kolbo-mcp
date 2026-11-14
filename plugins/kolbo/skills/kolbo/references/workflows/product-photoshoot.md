@@ -61,7 +61,7 @@ The mode determines which Kolbo MCP tool to call and what defaults to use.
 
 **For multi-output modes** (`social_carousel`, `ad_creative_pack`), always use `generate_creative_director` — never fire ≥2 `generate_image` calls in a loop. See `models/creative-director.md`.
 
-**Always validate** `aspect_ratio` and `resolution` against the chosen model's `supported_aspect_ratios` / `supported_resolutions` via `list_models` — see SKILL.md "Resolution / Aspect / Duration — validate against caps".
+**Always validate** `aspect_ratio` and `resolution` against the chosen model's `supported_aspect_ratios` / `supported_resolutions` via `list_models` — see `references/workflows/cost-and-validation.md`.
 
 ## Pre-Generation Interview (CRITICAL)
 
@@ -143,7 +143,7 @@ For `social_carousel` / `ad_creative_pack` (multi-output by design):
 - Call the chosen MCP tool — single command, no preamble.
 - For multi-output: `generate_creative_director` returns N URLs; share them as individual lines (do NOT build an HTML grid artifact — the canvas already shows the gallery).
 - For single-output: one image URL.
-- Log every URL + model + resolution + mode into `.kolbo/production.md` under `### <Mode>` subsection.
+- After the user approves a result, log only that URL + model + resolution + mode into `.kolbo/production.md` under `### <Mode>`.
 
 ## UX Rules
 
@@ -171,6 +171,9 @@ NO captions, NO watermarks, NO extra text.
 @image1 (the product) in a {real-world scene description},
 natural {time-of-day} light, {natural action involving the product}.
 Photographic, editorial style, {iPhone | 35mm film | medium format} feel.
+<!-- "iPhone feel" is not a look on its own — for a genuine phone-shot / UGC product
+     photo (deep focus, computational HDR, named available light, real clutter, and the
+     rules for keeping label identity intact) read workflows/ugc-smartphone.md. -->
 {Optional: include hands, partial face — never identifiable people}.
 {Brand palette baked into props/clothing}.
 NO captions, NO watermarks.

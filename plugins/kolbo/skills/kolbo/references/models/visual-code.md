@@ -8,7 +8,7 @@ Load this file when the user wants to **build an interactive HTML artifact where
 
 If the user asks for a **presentation** → see `models/html-presentation.md`. If they ask for a **landing page** → see `models/landing-page.md`. Everything else visual-and-interactive is here.
 
-**Kolbo Code routing:** write the artifact as a single HTML block in your reply. Kolbo Code's panel renders it as a previewable artifact card. Call `publish_html_artifact({ title, content })` to publish to `sites.kolbo.ai` after approval.
+**Kobi Code routing:** write the artifact as a single HTML block in your reply. Kobi Code's panel renders it as a previewable artifact card. Call `publish_html_artifact({ title, content })` to publish to `sites.kolbo.ai` after approval.
 
 ## What This Skill Is For
 

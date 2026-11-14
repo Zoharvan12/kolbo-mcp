@@ -4,9 +4,9 @@
 
 # GPT Image (latest: 2.6) — Prompt Rules
 
-Load this file when the user wants a **GPT Image** image (OpenAI, any version; latest is GPT Image 2.6), a transparent image, an animated GIF or an SVG. For other image models see `models/nano-banana.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
+Load this file when the user wants a **GPT Image** image (OpenAI, any version; latest is GPT Image 2.6), a transparent image, an animated GIF or an SVG. Discover current variants and native transparency support from list_models; never assume exclusivity or support from this reference. For other image models see `models/nano-banana.md`, `models/creative-director.md`, or `models/prompt-copilot.md`.
 
-**Kolbo MCP routing:** call `generate_image` (text-to-image) or `generate_image_edit` (edits with `source_images`). Pass the exact identifier the user named; otherwise use the latest family (`gpt-image-2.6-flare` / `gpt-image-2.6-sunburst`) after confirming it in `list_models({ type: "text_to_img" })`.
+**Kolbo MCP routing:** call `generate_image` (text-to-image) or `generate_image_edit` (edits with `source_images`). Pass the exact identifier the user named; otherwise use the latest family (`gpt-image-2.6-flare` / `gpt-image-2.6-sunburst`) after confirming it in `list_models({ type: "text_to_img" })`. On `generate_image_edit` the same families appear as their `/edit` rows under `list_models({ type: "image_editing" })`.
 
 ## Latest model and its native outputs (GPT Image 2.6)
 
@@ -25,6 +25,7 @@ Check `supported_output_formats` on the chosen row before passing `gif` or `svg`
 
 - **Resolution and aspect ratio are MCP-tool params** (`aspect_ratio`, `resolution`) — NEVER include `size=`, `1024x1536`, aspect-ratio tags, or any resolution syntax inside the `prompt` field.
 - Pass aspect / resolution as separate tool parameters. Quality (`low` / `medium` / `high`, plus `xhigh` / `max` where supported), `output_format` and `complexity` are their own params too — never bake it into the prompt text.
+- **No background uses both a tool parameter and a prompt cue.** If the user asks for no background / a transparent cutout, call `list_models` for the chosen image type and require `supports_transparent_background: true`. Then pass `background: "transparent"` and `output_format: "png"` (or `"webp"`). Kolbo appends the exact phrase `no background` once to the effective prompt automatically. The phrase alone is not sufficient; if the model does not advertise the capability, choose a supported model with the user.
 - Do not write Python, `client.images.generate`, OpenAI SDK code, or `size=` keyword arguments. The user is generating through Kolbo's MCP tools.
 
 ## Universal Prompting Rules (apply to EVERY prompt)
@@ -32,26 +33,26 @@ Check `supported_output_formats` on the chosen row before passing `gif` or `svg`
 - **Structure + goal**: write prompts in a consistent order — background/scene → subject → key details → constraints → declared intended use (ad / UI mock / infographic / poster / logo / etc.). The "intended use" line sets the mode and polish level.
 - **Format**: prefer skimmable templates over clever syntax. Use short labeled segments or line breaks for complex requests. Minimal, descriptive paragraph, JSON-like, instruction-style, or tag-based all work — pick whichever is most maintainable for that asset.
 - **Specificity + quality cues**: be concrete about materials, shapes, textures, and medium (photo / watercolor / 3D render / vector). Add targeted quality levers only when needed (`film grain`, `textured brushstrokes`, `macro detail`).
+- **Phone-shot / UGC / "authentic" realism**: photorealism triggers are not enough — that look needs deep depth of field, computational-HDR flatness, named available light and deliberate imperfection. Read `workflows/ugc-smartphone.md`.
 - **Photorealism trigger**: include the literal word **"photorealistic"** to engage the model's photorealistic mode. Supporting phrases: "real photograph", "taken on a real camera", "professional photography", "iPhone photo", "35mm film". Camera specs (lens mm, aperture) work for high-level look but are loosely interpreted — use for vibe, not physics.
 - **Composition**: specify framing/viewpoint (close-up, wide, top-down), perspective (eye-level, low-angle), lighting/mood (soft diffuse, golden hour, high-contrast). If layout matters, call out placement ("logo top-right", "subject centered, negative space on left").
 - **People, pose, action**: describe scale, body framing, gaze, object interactions ("full body visible, feet included", "looking down at the open book, not at the camera", "hands naturally gripping the handlebar").
+- **Complex scene, an edit that must not drift, or a reusable template**: use the block schema, the reference contract (`identity_lock` + an explicit `preserve` list) and named slots from `workflows/prompt-structure.md`.
 - **Constraints — what changes vs what stays**: state exclusions and invariants explicitly. For edits use **"change only X" + "keep everything else the same"**, and re-state the preserve list on every iteration to prevent drift. Common invariants: identity, geometry, layout, brand elements, camera angle, saturation, contrast, labels, surrounding objects. Always include "no watermark, no extra text, no logos/trademarks" unless the brief specifies otherwise.
-- **Text in images**: put literal text in **quotes** or **ALL CAPS**, specify typography (font style, size, color, placement). For tricky words / brand names, spell letter-by-letter. Recommend quality **high** when text is small, dense, or multi-font.
+- **Text in images**: put literal text in **quotes** or **ALL CAPS**, specify typography (font style, size, color, placement). For tricky words / brand names, spell letter-by-letter. Use the current catalog quality guidance for small, dense or multi-font text.
 - **Multi-image inputs**: reference each input by number with a short description ("Image 1: product photo… Image 2: style reference…") and describe the interaction ("apply Image 2's style to Image 1", "place the dog from Image 2 next to the woman in Image 1"). Use `@image1` / `@image2` tags — see `workflows/visual-dna.md`.
 - **Iterate, don't overload**: prefer a clean base prompt + single-change follow-ups ("make lighting warmer", "remove the extra tree", "restore the original background") over one giant prompt.
 
-## Latency vs Fidelity (recommend `quality` param)
+## Quality selection
 
-- **low**: high-volume batches, drafts, ideation, latency-sensitive cases. Often "good enough" — default for variant exploration.
-- **medium**: balanced. Style probing, normal exploration.
-- **high**: final assets, small/dense text, multi-font layouts, close-up portraits, identity-sensitive edits, infographics, diagrams, posters, UI with labels, scientific visuals, slides with charts/footnotes.
+Read the selected model's current catalog summary, supported qualities and default_quality before recommending a tier. The catalog owns price/quality tradeoffs and exceptional higher-tier use cases. Honor explicit user settings and spending authorization; examples below are craft illustrations, not default settings.
 
 ## Use Cases (text → image)
 
 ### Infographics, diagrams, scientific visuals, slides/charts
 - Treat as artifact spec, not illustration request. Name exact deliverable. Define hierarchy. Provide real text/data verbatim in quotes.
 - Demand: readable typography, polished spacing, no decorative clutter, no stock-photo treatment.
-- Recommend: `quality: "high"`, landscape `aspect_ratio` for deck/slide outputs.
+- Recommend a supported quality from the current catalog and an aspect ratio matching the requested deck/slide output.
 
 ### Photorealism
 - Prompt as if a real photo is being captured in the moment. Use photography language (lens, lighting, framing). Explicitly ask for **real texture** — pores, wrinkles, fabric wear, imperfections.
@@ -59,7 +60,7 @@ Check `supported_output_formats` on the chosen row before passing `gif` or `svg`
 
 ### Logos
 - Brand personality + use case + clean, original mark + strong silhouette + balanced negative space + scales from small to large. Flat design, minimal strokes, no gradients unless essential. Plain background, generous padding, centered. "Original, non-infringing".
-- Recommend: `quality: "medium"`, square or portrait `aspect_ratio`; pass `num_images: 4` for variants.
+- Recommend quality from the selected catalog row and an aspect ratio matching the brief; request variants only within the authorized count and budget.
 
 ### Ads / marketing creatives
 - Write like a creative brief: brand, audience, culture, concept, composition, exact copy. Let the model make taste decisions inside boundaries.

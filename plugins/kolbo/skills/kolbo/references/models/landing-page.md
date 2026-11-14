@@ -6,7 +6,7 @@
 
 Load this file when the user wants to **build / create a landing page, marketing site, one-pager, product page, app launch page, SaaS sign-up page, or event page**. For slide decks see `models/html-presentation.md`; for dashboards / games / charts / widgets see `models/visual-code.md`.
 
-**Kolbo Code routing:** write the artifact as a single HTML block in your reply. Kolbo Code's panel renders it as a previewable artifact card. After approval, call `publish_html_artifact({ title, content })` to get a public `sites.kolbo.ai` URL.
+**Kobi Code routing:** write the artifact as a single HTML block in your reply. Kobi Code's panel renders it as a previewable artifact card. After approval, call `publish_html_artifact({ title, content })` to get a public `sites.kolbo.ai` URL.
 
 ## 🎯 Design Thinking — Commit Before You Code
 

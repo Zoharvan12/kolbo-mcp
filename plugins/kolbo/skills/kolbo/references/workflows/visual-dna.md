@@ -8,13 +8,43 @@ Visual DNA profiles capture the visual "identity" of a character, style, product
 
 ## Workflow
 
-1. **Create** a profile with `create_visual_dna` — provide reference images (max 4 — if the user gives more, pick the 4 most representative or ask which to keep; never pass 5+), optionally video and audio.
+### Creation failure recovery
+
+Create DNA through the available tool when the user requested it; do not default to asking for manual wizard work. A reference-preparation error **before submission** means this attempt did not create a profile. For an uncertain submission, reconcile with a personal/project-scoped list and inspect the matching profile before retrying. Existence alone does not establish that an errored call created it. Stop repeating an identical runtime error; report the exact failure and the verified scope, without inventing an auth outage or claiming reconnect will fix it. After success, check the returned ID, exact stored name, type and references; correct confirmed metadata errors in place rather than recreating. A headless wardrobe sheet for a recurring person remains character DNA.
+
+1. **Sheet first, then DNA.** For any production asset (character / location / prop), resolve the sheet **preset** (`list_presets` with `search`) and `generate_image` with that `preset_id` — custom instructions live on the preset. Then `create_visual_dna` with the sheet as `character_sheet_url` (max 4 extra images — if the user gives more, pick the 4 most representative **that share the same identity and vibe**; never pass 5+). Optionally video and audio. See **Purity** below before you generate those stills.
 2. **Types**: `character` (default), `style`, `product`, `scene`, `environment`.
-   **References are one set, any mix:** up to 4 images, 1 video (3-10s), 1 voice clip (5-30s). Any one is enough. Video-only: frames are analyzed and a mid-clip frame is its face for image models. Voice-only: `character` only, and image models skip it. A sheet is just one of the images — uploaded sheets are recognized automatically; never call an ordinary photo a sheet. Remove a clip with `update_visual_dna` `video: ""` / `audio: ""`. To use a DNA's own clips in `generate_elements`, pass `videos[0].url` in `reference_videos` and `audio_clips[0].url` in `reference_audio_urls`, and tag them `@VideoN` / `@AudioN` — the server labels them as that character.
 3. **Use** the profile by passing its `id` in `visual_dna_ids` in: `generate_image`, `generate_creative_director`, `generate_elements`, `generate_video_from_image`, `generate_video_from_video`, `generate_first_last_frame`.
 4. **List/inspect** profiles with `list_visual_dnas` / `get_visual_dna`.
+5. **Edit in place** with `update_visual_dna` (name, `prompt_helper`, stills, `character_sheet_url`, type, attributes). NEVER `delete_visual_dna` + `create_visual_dna` to rename, restyle, swap stills, or change a description — the old id is what generations and `@Name` already bind to. Providing `images` replaces the whole still set and re-analyzes; omit images to keep them.
+6. **Tag it onto the project cast.** After `create_visual_dna` for named-project work, call `link_project_asset` (`asset_type: "visual_dna"`) then `update_project_asset` with a real `description` (the DNA identity text the roster injects) and a `note` (what this asset is for in THIS project). List first with `list_project_assets`. Same for moodboards (`asset_type: "moodboard"`, note only — style edits stay on `update_moodboard`). Never unlink+relink to change a description.
 
 **Server-side auto-routing:** passing `visual_dna_ids` is enough — the server expands the DNA's reference images and auto-routes the selected text-to-image model to its image-editing variant (e.g. `nano-banana-2.1` → `nano-banana-2.1/edit`, `gpt-image-2.6-sunburst` → `gpt-image-2.6-sunburst/edit`). You do NOT need to also pass `reference_images` when using DNA. If the chosen model has no edit variant at all, the server falls back to using the DNA's images as style references on the t2i model. DNA payloads are never silently dropped.
+
+## How those images actually reach the model (packing)
+
+Kolbo no longer sends only the first still or the character sheet. For every attached DNA:
+
+1. **User-uploaded refs take image slots first.**
+2. **Remaining slots:** one main still per DNA, then leftover stills from each DNA **round-robin** until the model's image-slot cap (`elements_max_images` / equivalent) is full.
+3. **If every still fits the cap, every still is sent** as its own reference. A 4-image character DNA on a 9-slot model is four slots, not one.
+4. **If a DNA only gets one leftover slot**, has **no distinct character sheet**, and still has unused stills, those leftovers are composited into a **white grid / collage** (up to 9 cells) so the model still sees them. A real character sheet is never overwritten by a collage.
+5. **Native Kling Elements** stays one element per DNA (sheet / frontal). Other providers use the slot pack above.
+
+So every image you store on a DNA can appear in the generation — as its own slot or as a cell in that grid. Unused stills are no longer ignored.
+
+## Purity — what may live on a DNA (HARD)
+
+Because leftover stills now travel with the DNA, a junk-drawer profile poisons every generation that uses it.
+
+- **One DNA = one identity + one vibe.** All stills must feel like the same person / place / product / look. Do not mix two lighting moods, two eras, or two art directions on one profile.
+- **Character DNA:** only that character. No second hero, no "also include the friend." Extra people only as **anonymous crowd / background extras** — never a named, readable, or story-important second face.
+- **Environment / scene / location DNA:** architecture, light, materials, geography. Empty, or with anonymous crowd / atmosphere extras, is OK. **Do not put a main character, hero, or recognizable face that is not supposed to live in that place** — they will bleed into every shot that uses the location.
+- **Product DNA:** only that product (angles, materials, label). No hand-model hero unless the product is worn-on-body and the body is generic / faceless.
+- **Style DNA:** one art direction. A style board applied to varied subjects is OK. Two conflicting looks in one style DNA is not.
+- **Separate states = separate DNAs** (clean vs bloodied, day vs night, intact vs broken). Do not dump both into one profile.
+- When **generating** stills for a DNA, lock subject + wardrobe/era/palette in the prompt and explicitly forbid extra heroes / wrong-location characters.
+- If the user hands you mixed refs, pick the stills that share vibe + identity (or generate clean ones). Do not register a junk drawer. Max 4 extra images on `create_visual_dna` still applies — those 4 are **all consumed**.
 
 ## ⚠️ Pre-flight: Verify the Visual DNA Exists Before Using It (MANDATORY)
 
@@ -37,18 +67,19 @@ When the user says "use the model אסתר" but you've only created a DNA for "�
 
 ## ⚠️ Don't re-fetch / re-list your own outputs (CRITICAL)
 
-After a generation tool returns its URLs, those URLs are **already** in the canvas (the desktop app's gallery panel) and in `.kolbo/production.md`. Do **NOT** call `list_media`, `get_media`, `get_media_stats`, `list_visual_dnas`, or `chat_send_message` with `media_urls` on those URLs just to "verify" or "fetch thumbnails of the results":
+After a generation tool returns its URLs, those URLs are already in **Library** (right panel — This session). They enter `.kolbo/production.md` only after the user approves the actual result. Do **NOT** call `list_media`, `get_media`, `get_media_stats`, `list_visual_dnas`, or `chat_send_message` with `media_urls` just to "verify" or "fetch thumbnails":
 
 - It burns credits and time for zero new information.
-- Every such tool call streams partial output into the session, which forces the desktop canvas to re-evaluate (visible flicker on the gallery tiles).
+- Every such tool call streams partial output into the session, which forces Library to re-evaluate (visible flicker on the gallery tiles).
 - The thumbnails returned by `list_media` / `get_media` are the SAME asset you just generated.
+- A black chat generation card while `Generating` is normal — do not treat it as missing output.
 
 **Only call list/get media tools when:**
 - The user explicitly asks ("what do I have in my library?", "show me my old DNAs").
 - You need details about something generated in an **earlier session** that you don't have a record of.
 - You're chasing a specific user reference like "the rainy clip from yesterday" that isn't in the current chat's `.kolbo/production.md`.
 
-For media you generated this session, you already know the prompt, model, and result URL — write that into `.kolbo/production.md` and reference it from context.
+For media generated this session, use the current tool result while approval is pending. After explicit output approval, write the winner's prompt, model, and URL into `.kolbo/production.md`.
 
 ## ⚠️ Presenting list results — show thumbnails (MANDATORY)
 
@@ -77,14 +108,7 @@ Fields to read for the image source (use the first one present on the item): `th
 
 ## ⚠️ @name Syntax — ALWAYS use it when passing visual_dna_ids (MANDATORY)
 
-Whenever a generation call passes `visual_dna_ids` (even just one), the prompt MUST refer to each Visual DNA by `@<exact-name>` — the literal `name` field as it was set in `create_visual_dna` and as it appears in `list_visual_dnas`. This is how the engine binds the DNA to a role in the scene. Without `@name`, the engine guesses, drops the DNA, or blends multiple DNAs together.
-
-**Use the actual stored name, programmatically.** When you call `list_visual_dnas` (or `create_visual_dna`), read the `name` field off the response and use that exact string after the `@`. Do NOT:
-
-- Translate the name into another language ("אסתר" / "esther" / "אסתי" — pick whichever string is in `name` and use ONLY that one).
-- Invent a friendlier alias ("the model", "המודל", "her").
-- Write the character's name in plain text without the `@` prefix.
-- Drop the `@name` when only one DNA is passed — the engine still needs the binding so it knows the DNA is the *subject* and not a passive style.
+SKILL.md's `@Name` hard rule applies; here is why it binds that way:
 
 **Wrong** (DNA `name` is `esther_model`, user wrote prompt in Hebrew):
 ```
@@ -110,18 +134,18 @@ visual_dna_ids: ["vdna_abc",  // dana
 
 The match is **literal and case-insensitive**, so:
 - The `@name` must equal the stored `name` field (e.g. if `name: "esther_model"` → write `@esther_model`, not `@Esther`, not `@אסתר`, not `@the model`).
-- Any-language characters are supported — if the DNA was created with `name: "אסתר"` you write `@אסתר`. Use the EXACT stored string.
+- Any-language characters are supported — if the DNA was created with `name: "אסתר"` you write `@אסתר`. Use the EXACT stored string. Asset tags are identifiers and are exempt from English-only prompt/dialogue rules: never translate, transliterate, lowercase, strip diacritics, replace spaces, or slugify an existing name. Resolve the selected id with `get_visual_dna` if the current name is unknown; never guess from the user's language or a production-log alias.
 - Mentions terminate at punctuation (`.,!?`), double-spaces, another `@`, or end of string. So `@maya, wearing...` matches `maya`.
 
 This composes with `@image1` / `@image2` positional tags for plain reference/source images — see "Reference Tagging" below.
 
 ### ⚠️ Naming rule for `create_visual_dna` — NO SPACES (MANDATORY)
 
-The `name` you set MUST be a **single token, lowercase, no spaces, ASCII-safe** — `esther_model`, `dana`, `tokyo_neon`, `brand_red`. Never `Sarah Johnson`, never `the red dress`.
+For a NEW DNA, prefer a short single token in the user's chosen language, such as `אסתר`, `ليلى`, `小雨`, or `esther_model`. ASCII and lowercase are not required. This naming recommendation never permits rewriting an EXISTING stored name or its prompt tag.
 
 Reason: the prompt parser stops the `@<token>` match at the first space (and at `.,!?` punctuation). So `@Sarah Johnson` matches *only* `Sarah` — if no DNA named `Sarah` exists, the mention is silently dropped and the DNA never binds. A single-token name is the only way to guarantee inline `@name` works in any sentence, in any language, without forcing the user to write awkward punctuation around it.
 
-Use underscores for multi-word concepts (`old_town`, not `Old Town`). When the user proposes a name with spaces, accept the intent but collapse it into a single token before storing (`"Sarah Johnson"` → `sarah_johnson`) and tell them once how you'll refer to it. Source of truth: [kolbo-docs / Visual DNA & @ References](https://docs.kolbo.ai/kolbo-code/visual-dna).
+For new multi-word names, suggest underscores in the same language. Do not silently translate or rename a user-specified name. For existing names, preserve the full stored string and selected id, including spaces; if binding fails, report the limitation instead of inventing an alias or renaming the user's DNA.
 
 ## Reference Tagging — `@image1` / `@video1` / `@Audio1`
 
@@ -159,7 +183,7 @@ Lipsync @video1's speaker to the dialogue track @Audio1, keeping the original am
 2. **For edits, the source is `@image1` (or `@video1`).** In `generate_image_edit`, the first entry of `source_images` is the canonical base.
 3. **Visual DNA tags are name-based, not positional.** `@maya` always means the DNA you registered as `name: "maya"`, regardless of where its id sits in `visual_dna_ids`.
 4. **Tag every reference you actually pass.** If you pass a reference but never mention it in the prompt, the engine often treats it as decorative — either drop it or name it explicitly.
-5. **Tags carry across the production log.** When you log a generation to `.kolbo/production.md`, write the prompt with the tags intact and record the `@name → URL` / `@name → vdna_id` binding alongside.
+5. **Tags carry across the production log.** When the user approves a generation and you log it, preserve the prompt tags and record the `@name → URL` / `@name → vdna_id` binding alongside.
 6. **Tag even single-reference calls when a DNA, video, or audio is involved.** Single plain image with no DNA can use prose ("this image"), but as soon as the call also carries a DNA, a video ref, or an audio ref, tag every asset so the engine knows the subject vs. the modifier role.
 
 **Failure modes the tags fix:**
@@ -199,25 +223,11 @@ You can combine all three reference types in a single call — they're additive,
 
 ## Visual DNA Limits
 
-Read `max_visual_dna` from `list_models` for the exact cap, AND `supports_visual_dna` for the on/off boolean. A model can support DNA without an explicit cap, or have a non-null cap but silently ignore DNA on certain paths (e.g. `generate_video`). Typical ranges: image models (non-Kling) up to **8**, Kling image models **3**, Elements video models **3–5**, everything else up to **3**.
+Read `max_visual_dna` (and `elements_max_images` for image-slot packing) from `list_models` for the chosen model, AND `supports_visual_dna` for the on/off boolean. A model can support DNA without an explicit cap, or have a non-null cap but silently ignore DNA on certain paths (e.g. `generate_video`). Typical ranges: image models (non-Kling) up to **8**, Kling image models **3**, Elements video models **3–5**, everything else up to **3**.
 
 ## ⚠️ Visual DNA Creation — Always Generate Reference Images First (MANDATORY)
 
-**Before calling `create_visual_dna` for a character**, always generate 2 reference images first and include them alongside any user-provided images. These give the Visual DNA engine multi-angle coverage and dramatically improve consistency.
-
-**Step 1 — Generate both images in parallel (one `generate_image` call each, fire simultaneously):**
-
-1. **4-angle character sheet** — prompt: `"[character description], character reference sheet showing front view, back view, left side view, right side view, four panels arranged in a 2x2 grid, neutral solid background, full body, photorealistic"`, aspect ratio `16:9`
-2. **Close-up portrait** — prompt: `"[character description], close-up portrait, face and shoulders, neutral solid background, soft studio lighting, photorealistic"`, aspect ratio `1:1`
-
-**Step 2 — Call `create_visual_dna`** with:
-- `images`: the 4-angle sheet URL first, then the close-up URL — **plus** the user's reference photo(s) only if they provided one (i.e. a real person or existing character they want to match). If they gave no reference image, the 2 generated images alone are sufficient.
-- `type`: `"character"`
-- `name`: single-token lowercase descriptive name (see naming rule above)
-
-**Why:** A single reference photo only shows one angle. The close-up gives the engine facial detail; the 4-angle sheet gives it body geometry and pose range. Together they produce far more consistent generations.
-
-**Skip this only if** the user explicitly says "just use my image as-is" or provides 3+ reference images already covering multiple angles.
+**Before calling `create_visual_dna` for a character**, generate the reference stills first — a multi-angle sheet plus a close-up gives the engine far better coverage than a single photo. Route the stills through the **preset contract** (`list_presets` search → `preset_id` on `generate_image`), never a raw hand-written sheet prompt — see "Character sheet — default for production assets" below for the full flow, preset search terms, and aspect-ratio rules. Include the user's reference photo(s) alongside only if they provided one. **Skip this only if** the user explicitly says "just use my image as-is" or provides 3+ reference images already covering multiple angles.
 
 ## When to Use
 
@@ -244,9 +254,40 @@ Tools: `list_visual_dna_folders`, `create_visual_dna_folder` (`name`, optional h
 - **Creating many characters for one production?** Create the folder FIRST, then `move_visual_dna_to_folder` each DNA right after `create_visual_dna` — don't leave a big cast unsorted at root.
 - To list a folder's contents: `list_visual_dnas` and filter by each profile's `folder_id` (there is no server-side folder filter).
 
-## Character sheet — offer it for character DNAs
+## Transfer — send DNAs to another account
 
-`generate_character_sheet` builds a multi-angle turnaround from reference image URLs — the strongest consistency booster for a character DNA. It CHARGES CREDITS, so:
-- When the user is about to create a **character** DNA, proactively OFFER it: "want me to generate a character sheet first? It makes the character far more consistent and costs a few credits." Run it only on a yes.
-- Flow: `generate_character_sheet {image_urls}` → show the sheet → `create_visual_dna {name, images, character_sheet_url: <url>}`.
-- For non-character DNAs (style/product/environment), skip it.
+When exposed by the connected MCP, use `transfer_visual_dna` for 1 to 50 owned ready DNAs, `list_visual_dna_transfers` to inspect incoming/outgoing requests, and `respond_visual_dna_transfer` to accept/decline incoming requests or cancel outgoing ones. If absent from the connected tool surface, use the authenticated Kolbo UI instead.
+
+- Recipient must already have a Kolbo account; nothing changes until they accept (7-day expiry).
+- On accept the recipient gets their OWN copy — **new ids**, returned in `copies`. Use those ids and names for the recipient's generations, never the sender's ids. A name clash becomes "Name (1)".
+- `keep_sender_copy: false` is a move: the sender's originals go to trash on accept. Default keeps them.
+- Only the sender's personal, ready DNAs — not global, organization, or still-generating ones. Custom cloned/designed voices stay owned by the sender.
+- GATE: confirm recipient email, the DNA list and keep/move with the user before sending; confirm before accepting.
+- Whole project instead (cast comes along as copies)? Use `transfer_project`.
+
+## Character sheet — default for production assets (not a catalog preset)
+
+Custom instructions live on the **image preset**. Resolve it silently, then generate:
+
+1. `list_presets({ type: "image", search: "headless" | "bible" | "character sheet" | "location" | "product" })`
+2. Pass the exact `id` as `preset_id` on `generate_image` (2K, never 1K; 4K only when the user asks)
+3. Show the sheet → GATE → `create_visual_dna { name, images, character_sheet_url }` (or `update_visual_dna` with `character_sheet_url` when the DNA already exists)
+
+| Search | When |
+|---|---|
+| `bible` | Lead or anyone with a lot of detail (wardrobe, hair, accessories, instrument) |
+| `headless` | Face already locked, or clothing / instrument / body must stay independent of the face |
+| `character sheet` | Simple supporting person |
+| `location` / `product` | Matching DNA type |
+
+Do **not** omit `search` (that dumps the catalog). Do not show the preset picker. `generate_character_sheet` is fallback only if no preset matches.
+
+### ⚠️ Aspect ratio — character sheets and bibles are LANDSCAPE
+
+Default every character sheet, turnaround, and character/production **bible** sheet to **`3:2` or `16:9`** unless the user asks for something else.
+
+These are multi-panel grids laid out side by side — front, back, left, right, plus detail callouts. A square or portrait frame forces the panels to stack, which shrinks each one and costs the engine the very facial and body detail the sheet exists to capture. Landscape gives each panel usable width.
+
+- Character sheet / turnaround / bible sheet → `3:2` or `16:9`
+- Close-up portrait reference → `1:1` (a single panel, so the grid logic doesn't apply)
+- Only deviate when the user explicitly names a different ratio.

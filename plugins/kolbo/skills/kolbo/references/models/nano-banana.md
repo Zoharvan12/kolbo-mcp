@@ -13,11 +13,8 @@ Load this file when the user wants a **Nano Banana** image: **Nano Banana 2.1** 
 - **Resolution and aspect ratio are MCP-tool params.** **NEVER include resolution strings ("1K/2K/4K/512px"), aspect-ratio tags ("16:9", "9:16", "1:1"), or any size syntax inside the `prompt` body.** Pass them as separate `aspect_ratio` / `resolution` params.
 - Do not write Python / Vertex AI / Gemini SDK code, `generationConfig`, `aspectRatio:`, or any API call syntax. The user is generating through Kolbo's MCP tools.
 
-## Model Awareness (use only to inform recommendations, never in the prompt body)
-
-- **Nano Banana 2.1** (`nano-banana-2.1`, latest Flash): sharper images, stronger text and reference consistency. Default for most use cases. Older **Nano Banana 2 (Gemini 3.1 Flash Image)** only when named: 512px / 1K / 2K / 4K, very wide aspect range incl. 1:4, 4:1, 1:8, 8:1, 21:9, supports real-time web-search grounding.
-- **Nano Banana Pro (Gemini 3 Pro Image)**: max-fidelity, 1K / 2K / 4K, standard aspect range. Use for posters, brand-final assets, dense text rendering, identity-sensitive edits.
-- Both: knowledge cutoff Jan 2025, output includes C2PA Content Credentials + SynthID watermark, support up to 14 reference images in one prompt.
+## Model Awareness
+Read the current catalog for the requested family's variants, strengths, quality, resolutions, grounding and reference limits. No variant is a permanent default; do not infer capabilities or rank siblings from this prompt-writing reference.
 
 ## Best Practices (apply to EVERY prompt)
 
@@ -52,7 +49,7 @@ Instead of describing a fictional scene, instruct the model to retrieve real-wor
 **Formula**: `[Source/Search request] + [Analytical task] + [Visual translation]`
 Example shape: `Search for the current weather and date in San Francisco. Analytically, use this data to modify the scene (e.g., if raining, make it look grey and rainy). Visualize this in a miniature city-in-a-cup concept embedded within a realistic, modern smartphone UI.`
 - Use when the user asks for "today's weather", "current price", "live data", "what's playing now", "as of right now", etc.
-- Recommend Nano Banana 2.1 (Flash) for this — Pro doesn't add value here.
+- Select a current catalog variant that explicitly supports the requested grounding workflow.
 
 ### 5. Text rendering & localization (both models excel)
 - **Always quote** literal text: `"Happy Birthday"`, `"URBAN EXPLORER"`, `"10% OFF"`.
@@ -60,7 +57,7 @@ Example shape: `Search for the current weather and date in San Francisco. Analyt
 - **Multilingual**: write the prompt in English and specify the target language for the in-image text ("Then render the same text in Korean and Arabic").
 - **Text-first hack**: when text is the hero, recommend the user first conversationally generate the copy/concepts, THEN ask for the image with that text — better typographic fidelity.
 - Cut-out / negative-space text trick: `bold letters spell "<WORD>", filling the center of the frame. The text acts as a cut-out window. A photograph of <scene> is visible ONLY inside the letterforms.`
-- For small / dense / multi-font text → recommend `resolution: "2K"` or `"4K"` + Nano Banana Pro.
+- For small / dense / multi-font text, select the variant and quality using current catalog strengths and supported settings.
 
 ## Prompt Like a Creative Director (the upgrade layer)
 
@@ -72,6 +69,8 @@ Layer these onto any framework to lift good → breathtaking.
 - **Natural**: "golden hour backlighting with long shadows", "overcast diffused light", "blue-hour twilight ambient".
 
 ### Camera, lens, focus (hardware = visual DNA)
+- **Editing an upload?** Open with a reference contract — `identity_lock` plus a named `preserve` list — not "keep everything else the same". See `workflows/prompt-structure.md`.
+- **`iPhone` is a vibe word, not a look** — for a real phone-capture image (and for a product photo that must not read as an ad) read `workflows/ugc-smartphone.md` and write the optics/processing/light/imperfection stack.
 - **Hardware vibe**: `GoPro` for distorted action immersion · `Fujifilm` for authentic color science · `disposable camera` for raw nostalgic flash · `Hasselblad medium format` for editorial fashion · `iPhone` for everyday realism · `ARRI ALEXA` for cinematic.
 - **Lens / focus**: "low-angle shot, shallow depth of field f/1.8", "wide-angle for vast scale", "macro for intricate detail", "85mm portrait compression", "anamorphic 2.39:1 bokeh".
 

@@ -7,28 +7,94 @@
 
 Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) video. For any other video model, see `models/veo.md`, `models/prompt-copilot.md`, or generic video rules in `SKILL.md`.
 
-**Kolbo MCP routing:** Seedance is a video model — call `generate_video` (text-to-video) or `generate_elements` (when video references / Visual DNA / first-last frames are involved). Run `list_models({ type: "text_to_video" })` and pick a Seedance variant by name.
+**Kolbo MCP routing:** the selected inputs/mode choose the tool, not the Seedance name. Use `generate_video` for text-to-video, `generate_elements` for reference-composed scenes, `generate_video_from_image` to animate an opening still, and `generate_first_last_frame` for supplied opening/landing frames. Discover a matching variant and its constraints with the corresponding model type. First/last frames do not become Elements because they contain a recurring character.
 
-**Multishot (Elements):** Seedance has **no** native provider Multishot switch. Pass `multi_shots: true` on `generate_elements` (optional `multi_shot_count`) for the UI Multishot badge only — it does **not** rewrite or reshape your prompt. **Always send `enhance_prompt: false` for crafted demos** (MCP default) so the prompt stays RAW. Put shot structure in the prompt yourself (`Multishot ON`, `Total: … / N shots`, numbered shots). Optional `session_name` sets a short sidebar title (skips AI auto-name from boilerplate).
+**Elements uses this same file.** `generate_elements` is not a second prompt language. Do not write `SCENE CONTEXT` / `OPTICS` / `ACTION` department packs for Elements or Seedance — those are filmmaking audit contracts, not the generation compile shape.
 
-## Universal Rules (apply to EVERY Seedance prompt)
+**Frames format takes precedence:** on image-to-video or first/last-frame, write ordinary motion, camera and transition prose grounded in the supplied composition. Default to one continuous take; timed action beats are allowed. Omit Locked Intro/CAST/LOCATION blocks and multi-shot headers unless the user's selected route actually requires them. Use `@Image1` for the opening still and `@Image2` for a supplied landing still; never invent a DNA name or copy a placeholder identifier. Existing supplied DNA tags retain their exact spelling.
 
-- **First line ALWAYS declares shot structure**: total duration, shot count, aspect ratio. Example: `Total: 15s / 6 shots / 16:9`. Put it at the BOTTOM of the prompt too. For connected narrative sequences the proven phrasing is `N connected cinematic shots, 15 seconds total, 16:9, Multishot ON` — use it and keep `Multishot ON` for any multi-shot story.
-- **Order inside each shot**: Subject → Action → Camera → Style → Constraints → (Audio/SFX if relevant).
-- **Prompt length**: aim for ~120–280 words TOTAL across all shots combined (not per shot). Shorter than ~120 words = random output. Longer risks the 8000-char cap below and makes the model forget the opening. For 6-shot prompts, keep each shot 1–2 tight sentences.
-- **Character lock**: if a character recurs, open with `same character throughout all shots` to stop identity drift.
-- **Max 3 shots per single-shot prompt; max 6 shots in a multi-shot montage.** More causes drift.
-- **Always describe at least one camera movement per shot.**
+## Creative direction takes precedence
+
+The current user brief overrides template defaults and illustrative examples. Keep the two-layer organization, but include only relevant locks. State concrete camera trajectory and visible action prominently; optics numbers, equipment names, repetition and word counts are not guarantees of fidelity. Preserve a continuous-shot exception even when other scenes are multishot. For one shot use `Single continuous shot`, `Total: Xs / 1 shot / AR`, one SHOT heading and `multi_shots: false`; for multiple shots use `Multishot ON` and matching counts. AR comes from the brief, never a copied example. Seedance does not speak Hebrew — use Latin transliteration in quotes or route native Hebrew to Gemini Omni. Narration reserved for post does not belong in the generation prompt.
+
+## Draft to final
+
+Discover draft capability with `list_models`: `draft.is_draft`, `can_finalize`,
+`final_resolutions`, and `lifetime_seconds`. Generate with the returned draft model
+identifier. Seedance 2.5 Draft is 480p and supports a separate 1080p final render
+within seven days; ordinary credits apply to each stage, with no Unlimited.
+Call `video_tools` with `operation: "draft_quote"`, the saved draft `video_url`, and
+its original `project_id` to check availability and exact cost. Then use
+`operation: "draft_enhance"` with a supported `resolution`. The server selects
+the engine and recovers the original task; do not pass a prompt or task ID.
+This preserves the draft's generation plan. Generic video upscaling is a separate
+operation. Do not assume Seedance 2.0 supports this flow.
+
+## Universal Rules (apply to EVERY Seedance / Elements prompt)
+
+- **NO MUSIC BY DEFAULT (HARD):** Unless the user explicitly asks for music, every final Seedance prompt—including every Elements/reference-driven prompt—must explicitly say `No music. No musical score.` Keep requested dialogue, synchronized production sound, ambience, and SFX; "no music" does not mean "no audio." If the user explicitly requests music, describe that music instead and omit the no-music lock. Never invent background music from cinematic tone alone.
+- **NO FAMOUS NAMES OR IP IN PROMPTS (HARD):** Never put celebrity/public-figure names, real directors or artists, copyrighted character/franchise/IP names, famous campaign names or slogans, or famous studio/company names into a final Seedance or Elements prompt. Translate user-supplied references into concrete visual traits—medium, shape language, palette, lighting, texture, camera behavior, pacing, and mood—without repeating the famous name. Preserve exact user-owned Visual DNA and asset tags.
+- **Visual DNA names are immutable anchors:** when `visual_dna_ids` is passed, every DNA MUST appear in the prompt as the exact literal `@DNA_name` (CAST + every shot it is in). Never "Zohar's", "the left man", "the man on the LEFT", a nickname, or a Visual DNA anchors paragraph without `@tags`. English-only control-language and dialogue rules NEVER apply to asset identifiers: a stored Hebrew name such as `אביב` must remain `@אביב` literally in CAST and every applicable shot; never strip, translate, transliterate, or ASCII-normalize it.
+- **Rewrites never thin out or rename anchors.** "`@X anchors Odysseus`" is NOT a reference line, and `Odysseus` must never replace `@X` later. Every referenced asset keeps its exact literal tag plus a full role line on every rewrite. Re-use the exact DNA tag in every shot it participates in. A compile that dropped `@gal_suit` / `@yonatan` / `#Board` is a failed turn.
+- **DURATION + SHOT STRUCTURE (HARD — same as help widget):** every text-to-video / Elements prompt MUST open AND close with total duration, shot count, and aspect. Omit only for video-edit tasks (source duration is locked). Required first lines:
+  1. `N connected cinematic shots, Xs total, AR, Multishot ON`
+  2. `Total: Xs / N shots / AR`
+  Then Locked Intro, then `SHOT N — 0:00–0:02 — Size / camera` beats whose ranges **sum exactly to Xs**. Last line repeats `Total: Xs / N shots / AR`.
+  - Example (15s / 6 shots): `6 connected cinematic shots, 15 seconds total, 16:9, Multishot ON` + `Total: 15s / 6 shots / 16:9`
+  - UGC / phone vertical: `N connected phone shots, Xs total, 9:16, Multishot ON` (never the word "cinematic").
+  - A prompt with only shot body and no Total / Multishot header is a **failed turn** — rewrite before calling `generate_*`.
+- **MCP `duration` must match the Total line.** Pass `duration: X` (whole seconds) on `generate_video` / `generate_elements` / `generate_video_from_image` equal to the `Xs` in `Total: Xs / …`. Mismatch = wrong-length clip.
+- **Then the Locked Intro** — `[GLOBAL LOOK]` / `[CAST]` / `[LOCATION]` (+ LOCATION MAP / CONTINUITY / PHYSICS for multi-shot) — before any shot. A one-liner `same character throughout` is not a character lock.
+- **Inside each shot:** make the camera trajectory, subject action and timing easy to find. Put a requested signature camera move in the heading. Do not restack GLOBAL LOOK style inside the shot.
+- **Prompt length**: a simple single-idea piece can be short (~120–280 words). A cinematic multi-shot scene is written in full detail up to the model cap: on Seedance 2.5 use the whole 30,000 characters, and a 25–30 s scene under ~6,000 characters is too thin (see `models/seedance25.md` and `filmmaking/directing-document.md`). Depth means more direction per shot, never filler or new contradictions.
+- **Shot count is user-directed.** If the user asks for N shots, deliver exactly N in one prompt unless they ask to split.
+- **Describe the camera behavior requested for each shot.** Preserve intentional static shots; do not replace requested dynamic moves with static dialogue coverage.
 - **Tell Seedance what the camera is NOT doing** (e.g. `no cuts, no zoom, natural head movement`) — this is what locks POV.
-- **Final prompt is always English**, wrapped in a copy-ready code block. Detect intent in any language and reply in the user's language, but the prompt itself is English.
-- **HARD CAP: 8000 characters TOTAL for the ENTIRE prompt** — measured as one single string, including ALL shots, ALL boilerplate, ALL SFX lines, the opening style block, the closing `Total: …` line, every newline, every space, every punctuation mark. This is non-negotiable.
-  - Applies to ANY prompt: 1 shot or 6 shots, single POV or full montage — the WHOLE thing must fit under 8000 chars combined.
-  - It is NOT 8000 chars per shot. It is 8000 chars per prompt.
-  - If your draft exceeds 8000 chars, trim aggressively in this order: (1) cut redundant adjectives, (2) collapse the opening cinematic boilerplate, (3) shorten SFX lists, (4) merge or drop shots — keep escalation beats and cut filler beats, (5) tighten action descriptions to verb-led essentials.
-  - **Never** split into multiple prompts, multiple code blocks, or "part 1 / part 2" to evade the cap.
-  - Before outputting, internally count the characters of the final prompt as a single string. If > 8000, rewrite tighter and re-count. Repeat until ≤ 8000. Only then show the user.
+- **Control prose defaults to English; exact dialogue and asset tags retain the user-requested language**, wrapped in a copy-ready code block. Reply in the user's language; preserve any explicit request for the prompt language too.
+- **HARD CAP: 10,000 characters TOTAL for the ENTIRE prompt** — measured as one single string including all shots, boilerplate, SFX lines, and the Total lines. It is per PROMPT, not per shot. **Never** split into multiple prompts, code blocks, or "part 1 / part 2" to evade the cap. Count the final prompt before output; if over, trim (cut adjectives, collapse boilerplate, shorten SFX lists, tighten redundant shot prose without dropping user-requested shots) and re-count until it fits.
 
-## The 5 Formats
+## Locked Intro (DEFAULT for any multi-shot cinematic — including Elements)
+
+**Write every Seedance prompt in TWO LAYERS.** Layer 1 is the locked blocks below: everything the scene holds CONSTANT — shooting style, grade, fixed lighting, fixed props/elements, cast (look AND character), location, the location's physical scale, the piece's movement speed and assertiveness, and where each performer stands relative to the location and to each other. Layer 2 is the timecoded SHOT list: only what CHANGES, in full detail, shot by shot. A constant restated per shot wastes the character budget; a change buried in Layer 1 never happens.
+
+After the Total lines, every multi-shot prompt — and any piece with recurring people or a recurring place — opens with the locked blocks. Skip only for: true single-shot POV/orb, 3×3 grid-panel mode, or video-edit tasks.
+
+```
+N connected cinematic shots, Xs total, AR, Multishot ON
+Total: Xs / N shots / AR
+
+[GLOBAL LOOK – LOCKED, APPLIES TO EVERY SHOT]
+<body>, <lens family>, <film stock>, <aspect> spherical, <stop>. <DoF, grain, grade as law>. <movement grammar>. <performance + audio law>.
+
+[CAST – IDENTICAL IN EVERY SHOT]
+@Exact_DNA_name: age, build, hair, face, wardrobe, signature details. PERSONA: emotional baseline, energy, posture/gait, habitual gestures, how much they exaggerate.
+PROP: recurring object.
+
+[LOCATION]
+Place in materials + light + color field. Physical SCALE (room/street size, ceiling height, distances to cover). Blocking — who stands where, and on which side of whom. Background LIFE.
+
+[LOCATION MAP]
+Named seats / sides in SCREEN language (screen-left armchair, center couch, door camera-left).
+
+[CONTINUITY – LOCKED ACROSS EVERY CUT]
+Axis / camera side of the line. Screen direction. Eyelines. Floor props stay. Which hand holds what. No teleport.
+
+[PHYSICS]
+Weight into furniture, props resting, cloth/hair settle, no float.
+
+SHOT 1 — 0:00–0:02 — Medium / camera position
+(physical verbs, timed acting, quoted dialogue)
+SHOT 2 — 0:02–0:05 — …
+… (ranges MUST sum to Xs)
+Total: Xs / N shots / AR
+POSITIVE LOCKS: <2–4 sentences restating positions / mouth / optical signature>
+```
+
+## OUTPUT CONTRACT (WINS — same as help widget)
+
+FORBIDDEN: omitting Total / Multishot; "same character throughout" as the only lock; one fence per shot; `[0s]`/`[3s]` stubs; splitting a ≤15s story into multiple generations unless the user asks.
+
+## The 6 Formats
 
 ### 1. Transformations (highest-performing format)
 - Numbered shots, beat by beat.
@@ -54,7 +120,7 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
 - Always supply: **clear location, clear power mismatch, defined escalation arc**.
 - Describe choreography beat by beat — Seedance executes what you write.
 - Single continuous shot 15s works for two-fighter scenes; describe camera moves between beats (`crests rooftop edge`, `full 360 orbit`, `pulls back to wide`, `descends with them`).
-- Use `Guy Ritchie speed-ramping with Snyder impact slow-motion` as the style anchor when comedic/stylized.
+- Use `playful speed-ramping with heavy impact slow-motion` as the style anchor when comedic/stylized.
 
 ### 5. Animation (3D stylized)
 - Break the 15s into **timed segments** (`0–3s`, `3–6s`, `6–9s`, `9–12s`, `12–15s`) and describe each explicitly.
@@ -64,16 +130,13 @@ Load this file when the user wants a **Seedance 2 / Seedance 2.0** (ByteDance) v
 
 ### 6. Reference-Anchored Cinematic Sequence (multi-character / named references — highest-fidelity format)
 
-Use whenever the user gives named characters or multiple reference images (`@Image1`, `@Image2`, …) — a tactical unit clearing a bunker, a duel between two referenced characters, a war scene. **This is always an Elements-mode prompt** (route the card to `elements`). Structure:
+Use for **reference-composed Elements scenes** with named characters, Visual DNAs, or multiple reference assets (`@Image1`, `@Image2`, …). This is an Elements-mode prompt (`generate_elements`), not a replacement for explicitly selected Frames/first-last mode. Structure:
 
-1. **Labeled scene header FIRST** (grounds the scene before any shot):
-   - `Time of day:` — hour + light quality + atmosphere (dust, haze, heavy silence before action).
-   - `Location:` — the environment in concrete physical detail (materials, wear, light direction, high-contrast blown-out entrance, etc.).
-   - `Characters:` — ONE line per person: `Name @ImageN — wardrobe, position in frame, what they carry`. End with "All must match their character references exactly."
-2. **REFERENCE CONSISTENCY block** — map every reference and pin what must NOT change: `Reference Image 1 is <X>. Preserve exact face, hair, anatomy, wardrobe, colors, props.` Add per-character energy/aura color rules, and any already-established story state (e.g. "the gem is already shattered — no intact gem, no red glow"). End with "Do not redesign, morph, recolor, or swap either character, their clothing, anatomy, weapons, or the environment."
-3. **Shots** — either titled (`Shot 1 — Medium Wide / Tactical Positioning`) or timecoded (`SHOT 1 — 0:00–0:03`); timecodes must sum to the total duration. Under each shot use **Camera → Action → Audio** in that order.
-4. **Continuity** — to chain a series, open with `Begin as a seamless continuation from <the exact last beat of the previous video>.`
-5. Close with whichever **Power Blocks** below actually apply (this format usually warrants all three; a simpler scene may need only AUDIO).
+1. **Locked Intro FIRST** (GLOBAL LOOK / CAST / LOCATION). CAST is one line per person: `@Exact_DNA_name` or `Name @ImageN — wardrobe, position, what they carry`. End CAST with "All must match their character references exactly." Never "the man on the LEFT" without an `@tag`.
+2. **REFERENCE CONSISTENCY block** — map every reference and pin what must NOT change: `@Zohar` / `Reference Image 1 is <X>. Preserve exact face, hair, anatomy, wardrobe, colors, props.`
+3. **Shots** — timecoded `SHOT N — 0:00–0:03`. Re-use the same `@DNA_name` in every shot that person appears. Camera → Action → Audio.
+4. **Continuity** — ONLY when the user will attach the previous video / last frame as an input. Otherwise the prompt is STANDALONE.
+5. Close with whichever **Power Blocks** below actually apply.
 
 ## Power Blocks (CONDITIONAL — add ONLY the ones the shot actually needs; never pad a simple prompt)
 
@@ -83,9 +146,20 @@ These elevate rich cinematic / reference-anchored sequences. For a short, tight,
 - **AVOID** — add when there's real drift risk: referenced characters/DNAs, an established story state, or a specific content tone to enforce. `AVOID:` + the drifts to forbid: character morphing, costume/anatomy changes, missing signature details (a piercing, a scar), camera looking into the lens, glamorous posing, duplicated characters, extra weapons, text / subtitles / logos, plus content-specific negatives (e.g. "intact gemstone, red aura" once it's destroyed). Skip it when there's nothing meaningful to forbid.
 - **PHYSICAL GROUNDING** — only when the shot has a real contact/impact (a boot planted on a chest, a weapon lock, a body thrown): spell out weight transfer, full contact, stable balance, material reaction, and the victim's physical response. Not needed for talking, walking, or ambient shots.
 
+## Persona & performance (HARD — any living character: people, animals, creatures)
+
+Appearance locks WHO. Persona locks HOW THEY BEHAVE — without it Seedance renders a technically correct robot.
+
+- **Layer 1:** every living cast member gets a PERSONA clause in CAST — emotional baseline (warm / guarded / furious under control / anxious), energy level, posture and gait, habitual hand gestures, exaggeration level. Lock it once and reuse the SAME persona text verbatim on every later generation in the project, so the character does not change personality between clips.
+- **Layer 2:** every shot beat with a living character states the PERFORMANCE, not only the movement — facial expression, the emotion under it, and how that emotion shapes the physical action. A happy walk, a frightened run and an angry line reading are three different bodies. Mixed states are usually truer ("relief fighting embarrassment"). Add hand gestures sized to the locked persona.
+- Forbidden: a beat that moves a person through the frame with no expression, no emotion and no energy. That is the single most common cause of "the video looks dead".
+
 ## Dialogue & expression
 
-- Dialogue goes in quotes and may be in ANY language (Hebrew included). For silent tension, deliver it as expression, not speech: `He does not speak. His expression clearly says: "…"`.
+- **Dialogue is PERFORMED by the model, never by a TTS tool.** Quoted lines in the prompt come back as synced speech with lip movement and room tone, together with the SFX you name in AUDIO. Scene dialogue therefore never routes through `generate_speech` or `generate_lipsync` — write the line in quotes inside its shot beat and let Seedance act it.
+- **Hebrew (HARD):** Seedance 2 / 2.5 do **not** speak Hebrew. Never put Hebrew-script dialogue in the prompt. Use Latin transliteration in quotes (`שלום` → `"shalom"`), or recommend Gemini Omni Flash 1.1 / Gemini Omni 1 for native Hebrew. Do not promise Seedance Hebrew success. Attached-audio lip-sync on 2.5 is unreliable unless audio length matches the clip and the prompt has no Hebrew script. Keep narration reserved for post out of the prompt.
+- `list_models` reports `sound_generation_type: "none"` for Seedance 2 / 2.5 because there is no in-app sound toggle (`sound_baked_in: true`). That field does NOT mean the model is silent. Do not read it as a reason to add TTS.
+- For silent tension, deliver it as expression, not speech: `He does not speak. His expression clearly says: "…"`.
 
 ## Content tone
 
@@ -95,7 +169,7 @@ These elevate rich cinematic / reference-anchored sequences. For a short, tight,
 
 ## Universal Craft Layer (apply on top of any format above)
 
-> This is the universal film-direction layer that lifts every prompt above the boilerplate. **Deep-dive reference:** `~/.kolbo/skills/seedance-2-prompting/SKILL.md` (Craft Edition — full block structure, every optical technique, and the pre-flight checklist).
+> Craft layer for observables (FOV degrees, km/h, Kelvin). Do **not** switch the compile shape to that skill's SCENE CONTEXT / OPTICS / ACTION pack — Locked Intro above is the only default for Seedance and Elements.
 
 ### Core principle
 
@@ -153,7 +227,7 @@ Use only the discrete steps. Not "23°" — use 18° or 29°.
 - **Emotion through muscle movement**, not labels. ❌ "she looks sad" → ✅ "her eyes drop to the table, jaw tightens, she swallows once before answering."
 - **WB in Kelvin.** 3200K / 4000K / 5600K / 8500K. Pick ONE for the scene's mood.
 - **Color as material + light + role**, never a flat list. ❌ "she wears red, he wears blue" → ✅ "crimson silk scarf catching the cold tungsten spill from the corridor".
-- **No equipment names**, no director references, no "shot on ARRI / Sigma 85mm / Roger Deakins".
+- **No equipment names and no famous creative references**; describe the observable lens, lighting, movement, texture, and grade instead.
 
 ### Cuts and timing
 
@@ -176,7 +250,7 @@ Use only the discrete steps. Not "23°" — use 18° or 29°.
 
 ### Camera placement
 
-Place CAMERA in the **3rd position** of each shot's core layers (Subject → Action → Camera → Style → Constraints). FOV gets ignored at the end, conflicts with identity at the front.
+Place a requested signature CAMERA trajectory prominently in the shot heading, then describe its timing with the subject action. GLOBAL LOOK owns shared lens / stock / grade. No fixed word order guarantees adherence.
 
 ### Pre-flight checklist (before output)
 
@@ -190,7 +264,7 @@ Place CAMERA in the **3rd position** of each shot's core layers (Subject → Act
 - No equipment / director names?
 - Emotion through muscle, not labels?
 - Multishot: FOV per segment + "no drift mid-segment"?
-- 8000-char cap honored?
+- prompt-cap honored?
 
 ## Grid Storyboard Mode (3×3 grid input)
 
@@ -215,7 +289,6 @@ When the user uploads a 3×3 grid image and asks for Seedance prompts, switch to
 - Final prompt(s) ALWAYS in a fenced code block ready to paste into Seedance.
 - After the code block, give a 1-line "why this works" note (camera/escalation/physics choice).
 - If user asked in any language other than English, write your explanation in their language but keep the prompt itself English.
-- **Never exceed 8000 characters TOTAL for the entire prompt as one string** — that is the WHOLE prompt including every shot, every line of boilerplate, every SFX list, every newline. NOT 8000 per shot — 8000 for the prompt as one combined unit. Count before output. If over, rewrite tighter (cut adjectives, collapse boilerplate, merge or drop shots). NEVER split into multiple prompts / multiple code blocks / "part 1 / part 2" to work around the limit.
 
 ## Where to run in Kolbo
 
@@ -228,4 +301,4 @@ Seedance 2 lives in the **Video** category. Route the prompt card by the INPUTS:
 
 ## Seedance + Visual DNA / References
 
-When a character must stay consistent, pair Seedance with Visual DNA via `generate_elements` (NOT `generate_video` — text-to-video silently drops `visual_dna_ids`). Tag the DNA inside the prompt with `@<dna-name>` — see `workflows/visual-dna.md`. For grid/storyboard inputs, the source frame is `@image1`.
+When a character must stay consistent, pair Seedance with Visual DNA via `generate_elements` (NOT `generate_video` — text-to-video silently drops `visual_dna_ids`). `@DNA_name` tagging rules: see `workflows/visual-dna.md`. For grid/storyboard inputs, the source frame is `@image1`.

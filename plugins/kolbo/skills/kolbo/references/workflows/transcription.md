@@ -4,17 +4,29 @@ Load this file when the user wants to transcribe audio/video, get SRT subtitles,
 
 ## Decision Tree
 
-You have three routes. The right one depends on the file profile — pick before calling any tool.
+Pick the route from the question and coverage needed. For long recordings or iterative evidence review, first read `video-investigation.md`.
 
 ```
 Image (jpg/png/webp)?                         → Read directly (native vision, up to 10 per pass)
-File >100MB OR >15 min OR dialogue-dense?     → HYBRID (transcribe + ffmpeg frames + Read + your synthesis)
+Long recording / cuts / verified content or audiovisual investigation? → prepare_video_inspection → inspect_video → targeted evidence analysis/ASR
+One-off short video or YouTube question?      → analyze_video
 User wants the transcript/SRT as deliverable? → transcribe_audio, return the URLs
-Precise answer about one specific frame?      → ffmpeg that frame → Read
-Otherwise (short/medium video, mixed content) → upload_media → chat_send_message (Gemini native)
+Precise answer about one specific frame?      → inspect_video kind=frame at a source timestamp
+File is only reachable locally and >100MB?    → split with ffmpeg, or HYBRID below
 ```
 
-## Why `upload_media` → chat is **not** always the default
+## `analyze_video` — one-off video understanding
+
+Agentic Gemini can navigate selected frames/audio/transcript. It remains bounded by provider limits, timeout and model behavior; do not assume it reviewed an entire recording. For long-form investigation use the prepared-source evidence workflow so the agent controls coverage and can verify or revise findings.
+
+- `video_url` (public https, e.g. the URL returned by `upload_media` / `list_media`) **or** `youtube_url`.
+- `prompt`: the question. Ask directly — "At what timestamp does the logo appear?", "How many people speak, and who says X?", "List every product shown with its time". Omit for a full description + verbatim transcript.
+- `quality`: `standard` (default) or `hq` (short clips where precision matters; ~2.5x the token price).
+- Sync — returns `analysis`, `model`, `usage`, `credits_used`. Billed by real token usage; long videos are still cheap under agentic navigation.
+- Local file → `create_upload_ticket` / `upload_media` / `media_upload_widget` first, then pass the URL.
+- It does not return SRT files. For subtitles or word timings use `transcribe_audio`.
+
+## Why `upload_media` → chat is **not** the default for video questions (use `analyze_video`)
 
 Gemini-via-chat processes frames + motion + audio in one pass and is the simplest route when it works. But it has three known failure surfaces — recognize them and pivot to the hybrid path:
 
@@ -52,7 +64,7 @@ For media >30 min (past the transcription cap), split with ffmpeg into ~25-min c
 - Returns:
   - `text` — full transcript, plain.
   - `srt_url` — grouped SRT (~12 words per line, up to 2 lines per subtitle). Use this for normal subtitle delivery.
-  - `word_by_word_srt_url` — one word per cue with millisecond-precise start/end (ElevenLabs Scribe v2). Use **only** when downstream is animation (Remotion captions, after-effects karaoke, precise speech-aligned cuts). Noise for normal subtitle workflows.
+  - `word_by_word_srt_url` — one word per cue with millisecond-precise start/end (ElevenLabs Scribe v3). Use **only** when downstream is animation (Remotion captions, after-effects karaoke, precise speech-aligned cuts). Noise for normal subtitle workflows.
   - `txt_url` — plain text file.
   - `duration` — seconds.
 - Cost: per-minute (`model.credit × duration_minutes`). Run `check_credits` before transcribing very long files.
@@ -149,7 +161,7 @@ visual_dna_ids: ["vdna_8f2c"]   // maya
 
 The point is **not** to dump an essay into the prompt — it's to make sure every concrete detail the next model needs to preserve (or change) is named, so the chain doesn't lose continuity across steps.
 
-**Production-log tie-in:** when you analyze a generated still/clip, write a one-line description into `.kolbo/production.md` next to the URL — that way the next chained step can read the log instead of re-analyzing.
+**Production-log tie-in:** only if the still/clip is already user-approved and present in `.kolbo/production.md`, add a one-line analysis beside its URL. Never create an entry for an unapproved asset merely because it was analyzed.
 
 ## Image Analysis Detail (when the user uploads images)
 

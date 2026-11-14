@@ -26,6 +26,14 @@ If Kolbo tools timeout or aren't listed, the MCP server may not be wired. Tell t
 ```
 This re-wires the MCP configuration automatically. Then restart the session.
 
+## Generation status, waiting, black cards
+
+Status semantics, `wait=true` batching, black-card-is-normal and the credit guard live in SKILL.md "⚠️ Generation lifecycle — source of truth, waiting, failures".
+
+## `MODEL_NOT_FOUND` (400)
+
+An explicit `model` the API cannot match is rejected with `400 MODEL_NOT_FOUND` plus "did you mean" suggestions — it no longer falls back to Smart Select. Nothing ran and nothing was billed. Pick the right identifier from the suggestions or `list_models` (with the tool's `type`) and retry. Only an omitted `model` or an auto alias (`auto`, `smart-select`) auto-selects.
+
 ## "Rate limited" (429 errors)
 
 Wait 60s for the window to reset, retry only the failed calls. For batch image work prefer `generate_creative_director` over multiple `generate_image` calls. Full rate-limit details + retry sequence: see SKILL.md "Rate Limiting & Batch Generation".
@@ -42,10 +50,6 @@ Call `list_color_palettes` and look for `is_active: true`. Then either
 `skip_color_palette: true` on the single generation. Don't try to counteract the
 grade by writing colours into the prompt — the palette is applied after, and the
 prompt loses.
-
-## Checking generation status without spinning
-
-`get_generation_status` supports `wait=true` (blocks server-side until the generation reaches a final state, up to ~3 min) and `generation_ids` (many ids in one call → returns `all_done`, `still_processing`, and per-generation results). **Never call it repeatedly in a loop** — one `wait=true` call replaces the loop. If some generations are still running after the wait window, call it ONCE more with `wait=true` and only the `still_processing` ids.
 
 ## Failure envelope from `get_generation_status`
 
@@ -68,14 +72,14 @@ When a generation fails, `get_generation_status` returns a structured `failure` 
 
 Branch on `failure.category` / `failure.retryable`:
 
-- `category === "content_policy"` (or `code === "CONTENT_FLAGGED_SENSITIVE"`) → **do not retry the same prompt**. Tell the user the model refused, suggest a less explicit phrasing or a Visual DNA fallback. Log to `.kolbo/production.md` Failures section with the exact reason.
+- `category === "content_policy"` (or `code === "CONTENT_FLAGGED_SENSITIVE"`) → **do not retry the same prompt**. Tell the user the model refused and suggest a less explicit phrasing or a Visual DNA fallback. Keep the failure out of `.kolbo/production.md`.
 - `category === "auth"` or `code === "[KOLBO_AUTH_EXPIRED]"` → surface the reconnect flow, don't auto-retry.
 - `retryable === true` (transient: network, rate limit, provider 5xx) → retry once with the same payload after a short pause. If it fails again, surface to user.
 - `retryable === false` and unknown category → surface the raw `message` to the user, don't retry.
 
-## Kolbo Code Documentation
+## Kobi Code Documentation
 
-Full public documentation for Kolbo Code (the CLI you are running inside) lives at **[docs.kolbo.ai/docs/kolbo-code](https://docs.kolbo.ai/docs/kolbo-code)**. If the user asks about installation, authentication, voice input, supported languages, commands, or how to uninstall, point them to the matching page below rather than guessing:
+Full public documentation for Kobi Code (the CLI you are running inside) lives at **[docs.kolbo.ai/docs/kolbo-code](https://docs.kolbo.ai/docs/kolbo-code)**. If the user asks about installation, authentication, voice input, supported languages, commands, or how to uninstall, point them to the matching page below rather than guessing:
 
 | Topic | Path |
 |-------|------|

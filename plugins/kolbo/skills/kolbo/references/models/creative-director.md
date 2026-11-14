@@ -18,7 +18,7 @@ A multi-scene batch generator. Submit 1–8 scenes in one go and the tool fans t
 - **Cinema Manual** — per-scene **first frame + last frame** + per-scene prompt. Full cinematic control over composition transitions. Best for: hero shots, controlled camera moves, deliberate edits.
 
 ### Identity & Style Locks
-- **Visual DNA** — attach a character/product preset via `visual_dna_ids` to lock identity across all scenes. Up to **8 Visual DNAs** can be active at once (e.g. main character + product + side character). See `workflows/visual-dna.md` for the `@name` syntax — every DNA must be tagged inside the prompt.
+- **Visual DNA** — attach a character/product preset via `visual_dna_ids` to lock identity across all scenes (e.g. main character + product + side character). The cap is per model — read `max_visual_dna` from `list_models`. See `workflows/visual-dna.md` for the `@name` syntax — every DNA must be tagged inside the prompt.
 - **Moodboard** — attach `moodboard_id` (or `moodboard_ids`) for a curated mood/style reference that anchors the aesthetic of the whole batch.
 - When the user mentions a recurring character/product, **ask** if they want to use a Visual DNA and recommend it. Same for a consistent aesthetic → recommend a Moodboard.
 
@@ -95,12 +95,20 @@ A great batch isn't 8 random shots — it's a sequence with intent. Pick one str
 
 **Share results as individual URLs, one per scene. Do NOT create an HTML grid artifact or any combined layout.** Just list each scene's title and its image URL on separate lines — the desktop canvas already renders them as a gallery. See SKILL.md "Generated URLs in chat".
 
-## Character-Driven Video — Frames First
+## Character-Driven Video
 
-For any ad / story / scene-based video **created from scratch** featuring a Visual DNA character, do NOT jump straight from DNA to per-shot video. The right flow is:
+Not a Creative Director job. Story video = the cast, location and product Visual DNAs plus a written prompt per scene on `generate_elements` (SKILL.md "Character-Driven Video"). Use Creative Director image mode only when the user asks for images.
 
-1. **Generate the shot frames first** as still images via `generate_creative_director` with `scene_count` + `visual_dna_ids` + `workflow_type: "image"`. DNA is strongest in image generation; the user can approve cheaply before any expensive video runs.
-2. **Confirm the frames with the user** if there are more than ~3 shots, or if the user hasn't said "go straight to video."
-3. **Animate each frame** with `generate_video_from_image`, passing each approved frame as `image_url`.
+## UGC sets and thumbnail sets
 
-Skip frames-first only when the user says "go straight to video / skip the storyboard", on single-shot quick experiments, or when the user supplies their own approved frames.
+Two batch shapes come up constantly and both have their own craft file:
+
+- **UGC set** — same creator or product, several angles, all pretending to be one camera
+  roll. Put the phone-look line in EVERY scene worded identically (a look written once at
+  the top drifts by scene 4), vary the angle and the moment rather than the look, and never
+  mix a graded scene into the set. See `workflows/ugc-smartphone.md`.
+- **Thumbnail set** — vary the CONCEPT (bold → minimal → saturated → dark moody →
+  typography-forward), never the words; keep the text to 2–4 quoted words and forbid every
+  other word on the image. See `workflows/thumbnails.md`. Kolbo also ships a dedicated
+  **Thumbnail Generator** tool that runs on Creative Director and fans out 4–8 art-directed
+  variations of one topic — name it when the user just wants options.

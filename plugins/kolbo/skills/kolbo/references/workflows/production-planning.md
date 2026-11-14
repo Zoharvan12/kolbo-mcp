@@ -1,0 +1,168 @@
+<!-- PARITY: the asset-first rule and the model defaults here are mirrored in
+     kolbo-api/src/config/systemPrompt.js and the help widget's skillRouter.
+     Change all three together. -->
+
+# Production Planning — map the assets before you shoot
+
+Any request for a film, ad, scene, episode, campaign or "video with characters"
+starts here, **before** a single video credit is spent. Most users do not know
+this flow exists; they ask for a film and expect a film. Walk them through it
+rather than jumping to a prompt.
+
+**Skip asset mapping** only for generic b-roll, ambient motion or stock-like scenes with no
+recurring cast. Everything else is Visual DNA (cast, location, product) plus a written prompt per
+scene on `generate_elements`. Never generate keyframes or scene stills as a step toward video.
+
+## The order is not negotiable (when cast/product identity must lock)
+
+1. **Map** every element the script needs — including the **session plan** (names).
+2. **Create** each one as an asset (Visual DNA), grouped into the planned sessions.
+3. **Confirm** that bucket with the user. Do not start the next bucket until they lock this one.
+4. **Only then** compile shots and generate video (one session per scene).
+
+Generating video before step 3 is how a production ends up with a different face
+in every shot and a re-shoot bill. A shot generated against an unapproved cast is
+not a draft, it is waste.
+
+## 1. Map
+
+Read the script and produce an explicit inventory. Name every element, even the
+ones that feel obvious — the ones that get skipped are the ones that drift:
+
+| Kind | DNA type | What it owns |
+|---|---|---|
+| Every speaking or recurring person | `character` | identity, wardrobe, physical state, performance |
+| Every location, including reverse angles | `environment` | geography, landmarks, materials, light logic |
+| Every hero prop, product, vehicle | `product` | identity, scale, material, damage/version state |
+| The film's overall look, when it must hold across shots | `style` | visual register only |
+
+State the inventory back to the user as a list with counts and cost before
+creating anything. A 4-character, 2-location, 1-prop film is 7 assets, not "some
+characters".
+
+Also publish the **session plan** in that same MAP reply — exact sidebar titles
+you will `rename_session` to. Default buckets:
+
+| Session name | Kind | Contents |
+|---|---|---|
+| `Cast` | image | all character sheets / character DNAs |
+| `Locations` | image | all environments |
+| `Props` | image | hero products / vehicles (omit if none) |
+| `Scene 01 — <slug>` | video | every shot and retake of that scene |
+| `Scene 02 — <slug>` | video | next scene |
+
+Slugs come from the plan (`Scene 01 — coffee shop`, `Scene 03 — rooftop chase`),
+not generic "API Generations" or "Untitled". One video session **per scene**;
+shots live inside it. A new session is a new scene or a new concept — never a
+new take.
+
+Omitting `session_id` on generate creates a new session. First call of a bucket
+omits it, then `rename_session` immediately; every later call in that bucket
+passes the same id. Image and video kinds cannot share an id.
+
+Keep planned names in the working plan during MAP. Do not create or update
+`.kolbo/production.md` for pending buckets. After the user approves a bucket,
+write its plan name and real `session_id` under `### Sessions`. See
+`production-log.md`.
+
+Separate **states** from **identities**: clean vs bloodied, day vs night, intact
+vs broken are their own assets. Do not expect one DNA to carry both.
+
+## 2. Create
+
+Generate the reference imagery, then register it as a Visual DNA.
+
+**Model defaults for the asset pass** (this is an image job — never a video model):
+
+| Asset | Model | Why |
+|---|---|---|
+| Cinematic environments; invented / original characters | **`mirage-film-2`** (MIRAGE FILM 2, 3cr) | cinematic look at a third the cost — the default for anything being invented from scratch |
+| Assets needing reference fidelity, legible text, or editing | **`nano-banana-2.1`** (15cr) or **`gpt-image-2.6-flare`** / **`-sunburst`** (7cr at 1K medium) | stronger reference adherence and text; GPT Image 2.6 when the asset carries readable words or needs no background |
+
+`generate_character_sheet` still runs only GPT Image 2.5 / 2 and Nano Banana 2 (it maps newer ids to those). For a sheet on GPT Image 2.6 or Nano Banana 2.1, call `generate_image` / `generate_image_edit` with the sheet preset (`list_presets({ type: "image", search: "character sheet" })`).
+
+Read the matching prompt reference before writing an asset prompt:
+`references/models/nano-banana.md` for Nano Banana, `references/models/gpt-image.md`
+for GPT Image. There is no Mirage reference file — prompt it as a plain cinematic
+still.
+
+Resolve the sheet **preset** (custom instructions live there):
+`list_presets({ type: "image", search: "bible" | "headless" | "character sheet" })`
+then `generate_image` with that `preset_id`. Do not dump the catalog — always
+pass `search`.
+
+- `bible` — lead or anyone with a lot of detail (default when in doubt)
+- `headless` — body / wardrobe / instrument; face already locked
+- `character sheet` — simple supporting role
+- `location` / `product` — matching DNA type
+
+Sheets are **2K** (never 1K). 4K only when the user asks for it.
+
+Do not skip the sheet and `create_visual_dna` from a portrait. The sheet is the
+asset; the DNA stores it.
+
+**Purity (HARD).** Every still on a DNA is packed into later generations (all
+slots the model has, or a white grid if only one slot is left). Keep each
+profile surgically clean: one identity, one vibe. Environment / location
+stills must not contain a main character or recognizable hero face (anonymous
+crowd is OK). Character stills must not contain a second lead. Separate
+states (day/night, clean/bloody) are separate DNAs. Full pack + purity
+rules: `references/workflows/visual-dna.md`.
+
+Then `create_visual_dna` with the sheet as the reference and the matching
+`dna_type`. Name each DNA in the exact form it will be tagged with later.
+Immediately `link_project_asset` it onto the working project and
+`update_project_asset` with the identity `description` plus a purpose `note`.
+Do not leave a cast DNA undescribed on the project roster.
+
+## 3. Confirm — a labeled GATE, then wait
+
+Show the user what this bucket produced and **stop**. Do not start Locations
+while Cast is still iterating. Do not shoot while assets are unapproved.
+Do not rewrite `## 🎯 Now` to the next phase until the gate is answered.
+
+If they do not volunteer a yes, end the turn with a GATE the next message can
+parse — not a vague "looks good?":
+
+```
+GATE — Cast
+Presented: @maya, @doron (provisional; not yet in the production log)
+Lock + next: "lock cast" / "yes" / "next" / "now locations"
+Stay: "redo @maya" / "another take of the leather jacket"
+```
+
+Treat as confirmation: `yes`, `ok`, `lock`, `approved`, `that's the one`,
+`use take 2`, `next`, `go`, `continue`, or they name the **next** bucket
+("now do environments", "shoot scene 1") while treating the current set as done.
+
+Not confirmation: silence, "maybe", a question about something else, another
+take request. Ask the GATE again once; do not invent a yes.
+
+On lock: write the approved result into `.kolbo/production.md`, then start the
+next planned bucket in **its** session. Rejected and pending takes never enter
+the log.
+
+## 4. Shoot
+
+Only now compile shots. Defaults:
+
+- **`generate_elements` with Seedance 2.5** (`seedance-2-5`) for the film itself —
+  up to 30s and 30 shots in ONE generation, dialogue and SFX baked in. DNA cap:
+  read `max_visual_dna` from `list_models`. `generate_video` also accepts
+  `visual_dna_ids` now; Elements remains the primary reference-driven route.
+- **Seedance 2.0** (`seedance-2`, cheaper, 4–15s, smaller DNA cap per
+  `list_models`) when the piece is short and the cast is small.
+  `seedance-2-fast` / `seedance-2-mini` for cheap blocking.
+- Every DNA in `visual_dna_ids` must also appear as `@ExactName` in the prompt.
+- Dialogue in quotes inside its shot beat — English only, never TTS or lipsync.
+  See `models/seedance25.md`.
+- **Cheapest supported resolution** unless the user chose one. Resolution is a credit
+  multiplier (480p ×0.44 vs 720p, 1080p ×2.25). Re-render at a higher tier only when the
+  user asks.
+
+## What this replaces
+
+Do not plan a film as "N separate image-to-video clips plus TTS plus lipsync".
+That shape is a legacy of models that could not hold a cast or speak. It costs
+more, drifts between shots, and produces dead-eyed dubbed performance. One
+multi-shot Seedance generation against approved DNAs is the current answer.
