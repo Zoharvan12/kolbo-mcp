@@ -233,6 +233,12 @@ async function reviewCardPostsTimedNotes() {
   assert.equal(posted.args.body, 'Grill SFX too quiet');
   assert.equal(typeof posted.args.time_start, 'number');
   assert.match(w.html('list'), /Grill SFX too quiet/);
+  // A failed notes load must not retry by itself: each retry is a host tool call (a new card).
+  const w2 = mountWidget(blocks(widgetHtml(UI.review)).slice(1).join(String.fromCharCode(10)));
+  w2.status(() => Promise.reject(new Error('boom')));
+  w2.deliver({ widget: 'review', asset: { ...asset, id: 'a2' } });
+  for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r));
+  assert.equal(w2.calls.filter((c) => c.name === 'list_review_comments').length, 1, 'failed notes load retried in a loop');
   // Scrubber drags: pointermove after pointerdown keeps seeking, stops after pointerup.
   const scrub = w.node('scrub'), vid = w.node('vid');
   w.node('vid').fire('loadedmetadata', {});

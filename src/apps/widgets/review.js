@@ -194,7 +194,10 @@ function loadComments(id, force) {
   S.loading[id] = true;
   call('list_review_comments', { asset_id: id }).then(function (sc) {
     S.comments[id] = sc.comments || [];
-  }).catch(function (e) { if (id === A().id) msg('Could not load notes: ' + e.message, true); })
+  }).catch(function (e) {
+    S.comments[id] = []; // ponytail: no auto-retry; renderNotes re-calls loadComments, so a failure left unset looped forever
+    if (id === A().id) msg('Could not load notes: ' + e.message, true);
+  })
     .then(function () { S.loading[id] = false; if (A() && A().id === id) renderNotes(); renderStrip(); });
 }
 
