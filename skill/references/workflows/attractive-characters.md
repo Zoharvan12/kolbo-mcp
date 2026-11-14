@@ -14,12 +14,46 @@ Use when the user asks for a "very attractive", "sexy", "hot", "curvy" or "busty
 5. **Model route:**
    - GPT Image tends to refuse body wording.
    - Seedream 5.0 Pro executes the figure from text.
+   - Seedream 5.5 (`seedream-5.5-image-editing`) with a face reference plus headless body references keeps a thin waist and a large natural bust best; see "Natural large bust" below.
    - Soul V2 or Midjourney makes the base look; a Nano Banana edit then changes ONLY the figure.
    - **The bust edit must be `nano-banana-pro` (edit), never `nano-banana-2.1`.** Nano Banana 2.1 ignored "large full bust" twice, even as a figure-only edit (Fiona, 2026-11-10). Nano Banana Pro executed it on the first try, kept the face and the realism, and cost 18 credits. The OnlyGen prompt that worked: "Change only her bust: make her natural breasts much larger and fuller, pressed together into deeper cleavage inside the same <garment> neckline, with realistic weight and natural fabric tension. Keep her waist just as small and cinched, and her arms, shoulders, stomach and legs exactly as slim as they are now. Keep everything else exactly the same: <face, hair, outfit, pose, room, light, camera>. Real photograph, natural skin texture, no retouched look."
    - Seedream 5.0 Pro blocks famous-character looks such as Fiona, with or without face references. Make the base on Nano Banana 2.1 from a text prompt plus a reference of the garment only, then do the bust edit.
    - For the user's own Visual DNA face, use the Nano Banana 2.1 **edit** model with the DNA images as `source_images` (text-to-image with the DNA id drifts the face).
 6. **Fix, don't reroll:** a figure that came out too small is one targeted edit: "Change ONLY her figure: slim waist and very full natural bust clearly shaped by her <garment>. Keep her face, hair, wardrobe, pose and background exactly."
 7. **Safety line every time:** fully clothed or opaque swimwear, no nudity, no see-through fabric. Never for minors. Never sexualise a real, identifiable person without their consent.
+
+## Natural large bust: the anatomy wording (tested 2026-11-14)
+
+Use ONLY when the user explicitly asks for it in their own words ("big natural breasts", "huge natural bust", "sexy and busty but natural", "more cleavage"). Never apply it to a character whose figure the user did not ask about. When they do ask, give them exactly that; do not water it down to a medium figure. Same scope as the rules above: adult characters, fully clothed or opaque swimwear.
+
+The terms that do the work, in the order they go in the prompt:
+
+1. **Size against her own body, not an adjective.** "each one clearly larger than her head, together much wider than her ribcage, reaching out past her upper arms". "Large", "big" or "busty" alone renders medium, and full-body shots shrink it further.
+2. **Weight and gravity (this is what reads natural).** "very heavy, completely natural... they sit low on her chest and hang with their own weight".
+3. **Upper slope.** "a long gentle slope down from the collarbone, flat on top". A round, full upper curve is the implant look.
+4. **Lower fullness and the fold.** "full and heavy at the bottom, a soft teardrop shape, with a natural soft crease underneath".
+5. **Spacing follows the garment.** Unsupported (bikini, loose top): "slightly apart, falling a little to the sides". In a tight top: "the top presses her bust together: the two sides are close to each other and touch in the middle, making one long, deep, soft cleavage line". Asking for more cleavage means a LOWER, WIDER scoop with the bust pressed closer, never an unbuttoned or split neckline (that spreads them, makes the top boxy and the torso look heavy).
+6. **Garment interaction.** "a top too small for her bust", "the fabric stretches flat across the front", "the neckline presses in and soft flesh rises above it", "spilling softly at the sides and below the cups", "the hem lifts away from her stomach", "loose thin strings / thin straps".
+7. **Side view.** "in the side view they hang forward and down, heavy and soft".
+8. **Name the fake look to exclude it.** "No high round upper curve, no pushed-up shelf, no firm ball shape, no perfect symmetry. Not implants." Never write push-up, perky, lifted, firm or round.
+9. **Frame around it.** "an extremely thin, tightly cinched waist, dramatically narrower than her ribcage, bust and hips, in the front view and the back view", "slim arms, narrow shoulders, slim thighs and legs". Without the slim-limbs line the whole body grows.
+10. **Lock it.** "Do not reduce the bust size in any panel" and make the bust its own paragraph, right after the references.
+
+Full paragraph:
+
+```
+Her bust is the most important thing to match, and it must be bigger than a normal large bust: huge, very heavy, completely natural breasts, each one clearly larger than her head, together much wider than her ribcage and reaching out past her upper arms. They are real and soft, not implants: they sit low on her chest and hang with their own weight, with a long gentle slope down from the collarbone, flat on top and full and heavy at the bottom, a soft teardrop shape, with a natural soft crease underneath. No high round upper curve, no pushed-up shelf, no firm ball shape, no perfect symmetry. In the side view they hang forward and down, heavy and soft. Do not reduce the bust size in any panel.
+```
+
+Tight-top line:
+
+```
+a low, wide scoop neckline with thin straps that sits across the middle of her bust, a size too small. The tight top presses her bust together: the two sides are close to each other and touch in the middle, making one long, deep, soft, natural cleavage line, with full soft curves rising above the neckline. The fabric stretches flat across the front and the hem lifts away from her stomach.
+```
+
+Model route: `seedream-5.5-image-editing` renders the figure and keeps the thin waist. A neckline or cleavage change on an image that is already right is one `nano-banana-pro` edit, "change one thing only", everything else restated as unchanged and "keep her bust exactly as large"; regenerating for a neckline note loses the body. Crew-neck tees and button plackets hide or spread the bust; use scoops.
+
+For a consistent character, make one body reference sheet first (front, three-quarter, side, back, face close-up) in opaque swimwear, run it twice to confirm the same body, then create each outfit from that approved sheet, changing the clothes only.
 
 ## Midjourney: write a swimwear fashion editorial (Zohar, 2026-11-07)
 Midjourney refuses bare requests for "sexy", yet accepts the same appeal written as a high-fashion editorial. For adult models in opaque swimwear or fashion only. It is not a route to nudity or explicit content.
