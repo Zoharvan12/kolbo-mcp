@@ -47,4 +47,21 @@ const provenance = fs.readFileSync(generated, 'utf8');
 assert(/kolbo-code@[0-9a-f]{7,40}/.test(provenance), 'GENERATED.md must name the canonical kolbo-code commit');
 assert(provenance.includes('single source of truth'), 'GENERATED.md must identify kolbo-code as the single source of truth');
 
+// skills/: the Kobi Code app skill set, mirrored from kolbo-code/packages/opencode/skills/<name> (all but kolbo).
+const apps = path.join(root, 'skills');
+let appSkills = 0;
+if (fs.existsSync(apps)) {
+  assert(fs.existsSync(path.join(apps, 'GENERATED.md')), 'skills/GENERATED.md provenance marker is missing');
+  assert(!fs.existsSync(path.join(apps, 'kolbo')), 'skills/kolbo must not exist: the kolbo skill ships only in skill/');
+  for (const name of fs.readdirSync(apps)) {
+    if (name === 'GENERATED.md') continue;
+    const file = path.join(apps, name, 'SKILL.md');
+    assert(fs.existsSync(file), `skills/${name}/SKILL.md is missing`);
+    const head = fs.readFileSync(file, 'utf8').match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    assert(head && /^description:/m.test(head[1]), `skills/${name}/SKILL.md needs frontmatter with a description`);
+    appSkills++;
+  }
+}
+
+console.log(`App skills: ${appSkills}.`);
 console.log(`Skill bundle check OK — canonical kolbo skill v${version} is complete and provenance-marked.`);
