@@ -8,6 +8,7 @@ phone captured it: "UGC", "shot on my phone", "iPhone photo", "selfie", "candid"
 For the *campaign* layer around this — ad modes, hooks, avatars, brand kits — see
 `workflows/marketing-studio.md`. This file is the LOOK: the physics that make a
 generation read as a phone capture instead of a commercial.
+A fill-in UGC selfie template with tested slot wording is T4 in `cast-templates.md`.
 
 ---
 

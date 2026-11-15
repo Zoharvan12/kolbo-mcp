@@ -1,5 +1,5 @@
 ---
-version: 0.9.35
+version: 0.9.36
 name: kolbo
 description: |
   Generate, edit, analyze, and direct creative media through Kolbo AI: images, video (Seedance, Veo, Kling, Hailuo), music, speech, sound, 3D, transcription, Visual DNA, Creative Director batches, marketing assets, HTML artifacts, and AI Docs, Flow node workflows and session/system prompts, and approved Blender scene control. Use for sophisticated AI filmmaking as well as individual media: scripts, production bibles, recurring characters and locations, acting, dialogue, music performance, blocking, physics, multi-shot continuity, connected scenes, prompt audits, feature-length production planning, end-to-end vertical micro-drama series (Micro-Drama Studio), and direct Blender scene building through the connected Kolbo Blender plugin. NOT for: unrelated standalone video editing / FFmpeg (use video-production), motion graphics (use remotion-best-practices), code editing, or general chat.
@@ -79,6 +79,7 @@ For multi-scene / batch work this pairs with `generate_creative_director` (see b
 | Build a **UGC ad / TV spot / branded video / unboxing / product review / virtual try-on** | `references/workflows/marketing-studio.md` |
 | Write a **complex multi-element still**, an **edit that must not drift** (identity / product / scene lock), or a **reusable prompt template** | `references/workflows/prompt-structure.md` |
 | Make anything look **shot on a phone** — UGC, selfie, candid, "authentic", a product photo that must not look like an ad (image OR video) | `references/workflows/ugc-smartphone.md` |
+| Write a **fill-in prompt for a realistic person, place or prop**: character sheet (triptych), street or casual character, cinematic still, UGC or influencer selfie, lifestyle stock, fashion shot, location plate, prop still, or one character kept the same across lifestyle shots | `references/workflows/cast-templates.md` |
 | Make a **YouTube / Shorts / Reels thumbnail** or video cover | `references/workflows/thumbnails.md` |
 | Compose a **DTC ad image** (brand kit + ad format + avatar + product + reference media) | `references/workflows/dtc-ads.md` |
 | Generate **brand product imagery** (studio shot, lifestyle, Pinterest pin, hero banner, carousel, ad pack, virtual try-on, conceptual, restyle) | `references/workflows/product-photoshoot.md` |

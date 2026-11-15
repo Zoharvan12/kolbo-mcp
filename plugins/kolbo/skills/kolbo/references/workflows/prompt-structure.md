@@ -114,6 +114,7 @@ as named slots carrying a working default:
 - A variation set is one template plus a single stated variation axis (angle, mood,
   palette). Vary that axis only — a set whose look drifts between frames is not a set.
 - Deliver the filled version and say which slots to swap next time.
+- Ready-made slot templates for people, places and props (character sheet, street, cinematic, UGC, stock, fashion, location, prop, body-lock) are in `cast-templates.md`.
 
 ---
 
