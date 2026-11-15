@@ -242,6 +242,7 @@ function loadMedia() {
     img.src = v.url || '';
   } else {
     img.removeAttribute('src');
+    vid.poster = v.thumbnail_url || ''; // heavy masters take a while to start; show the frame, not black
     vid.src = src;
   }
   renderTime();
