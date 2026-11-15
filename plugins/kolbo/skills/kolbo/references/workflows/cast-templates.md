@@ -72,13 +72,21 @@ A triptych on a 16:9 canvas of a {AGE}-year-old adult {ORIGIN} {GENDER} with {HA
 ```
 
 **Vocabulary:**
-- **BUILD:** usually left out; with no figure words there is no drift. Otherwise "tall" or "a slim athletic figure".
+- **BUILD:** optional. With no build word the model picks a realistic everyday body (often fuller on women). Add one only when a specific build is wanted: "tall", "a slim athletic figure", "a heavyset build".
 - **OUTFIT** (always brand-free): "a monochrome cream oversized blazer over a fitted turtleneck and wide-leg cream trousers", "a dark forest green technical jacket, straight dark jeans and grey suede runners", "a cropped black puffer over a ribbed knit dress".
 - **ACCESSORY:** "a structured cream leather top-handle bag", "gold hoop earrings". Leave out sunglasses, which hide the eyes.
 - **CITY_STREET_TIME:** "a SoHo street at golden hour with cast-iron facades behind", "a Kensington Market street in autumn golden light", "a Seoul alley in soft overcast light".
 - **Men:** "with short wavy dark hair and a full beard".
 
 **Settings:** `soul/v2/standard`, 16:9, enhance off.
+
+**Sheet rules (T1 and T2, tested on 10 sheets):**
+- **FRONT_NOTE names the place** ("the Lagos street behind him"). Without it the front panel can come out on a white studio backdrop.
+- **Name the layer under any open coat or jacket** ("the ivory coat open over a fitted black knit"). With nothing named, the chest came out bare.
+- **Say how a garment sits, not its "off" state.** Write "the hood lying flat on his back", never "the hood down" (gave the hood up).
+- **Keep ageing traits out under 40.** Deep lines, grey stubble, a shaved head or "wiry" added 13-22 years, mostly on men. Silver, grey or white hair ages anyone; use "platinum-blonde" for a young light-haired character.
+- **Restate a key garment colour in FRONT_NOTE** ("the waxed dark green jacket"). One sheet swapped a green waxed jacket for black leather.
+- **Check the panels before use.** About 1 in 10 sheets reorders or drops a panel (back, face, back with no front). Regenerate that one; do not crop around it.
 
 **Worked example:**
 ```
