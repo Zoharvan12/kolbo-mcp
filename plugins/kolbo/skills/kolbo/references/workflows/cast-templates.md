@@ -46,12 +46,12 @@ A triptych on a 16:9 canvas of a {AGE}-year-old adult {ORIGIN} woman with {HAIR}
   - "a lean figure with a full natural bust and a flat stomach"
 - **OUTFIT:** string bikini with triangle tops and thin ties; halter bikini with gold ring hardware; white crochet bikini; satin slip dress with a thigh slit; one-piece swimsuit; ribbed knit mini dress. Flowing fabric (a satin dress) gave the most natural proportions.
 - **PLACE_TIME:** "on a rooftop pool at sunset with the city glowing behind her", "on a beach at sunrise with mountains in early morning mist", "at the edge of an infinity pool above the sea at golden hour", "in a quiet cove at midday".
-- **FRONT_NOTE / BACK_NOTE:** framing only, for example "confident posture, arms relaxed" or "hair falling down her back, sea behind". Mood words such as "maximum impact" pushed the poses into exaggeration.
+- **FRONT_NOTE / BACK_NOTE:** never leave them bare. Each one restates the outfit and the frame word, for example "the yellow bikini against the athletic tan figure" or "the string bikini and athletic legs, mountains behind". Tested: the same character with bare panel lines ("Left panel: full-body front view.") came out with an exaggerated, augmented-looking body; the descriptive notes kept her natural. Mood words such as "maximum impact" also pushed the poses into exaggeration.
 - **FACE_NOTE:** "eyes catching the early light, natural skin texture, soft natural brows".
 
 **Settings:**
 - Model `soul/v2/standard`, 16:9, 1080p, enhance off.
-- Then crop the face from the FRONT panel. The close-up panel drifts.
+- Then crop the face from the FRONT panel. The close-up panel drifts, even with matching wording (tested).
 - Or run a face pass with `generate_image_edit` (`nano-banana-2.1`), using the front-panel crop as the source and the prompt "close up on the subject's face, 85mm lens, show face in 50% of the image".
 - For a DNA, offer `generate_character_sheet` first.
 - Alternative model: `seedream-5.5-text-to-image`.
@@ -97,6 +97,7 @@ a {AGE}-year-old adult {SUBJECT}, in {WARDROBE}, {ENVIRONMENT with light}, {FRAM
 
 **Vocabulary:**
 - **SUBJECT:** "man with sharp features", "woman with auburn ringlets", "man with deep lines and grey stubble", "heavyset man", "wiry woman".
+- **Hair colour reads as age.** "Silver", "grey" or "white" hair outweighs the stated age (tested: a "34-year-old" with a silver-blonde cut came out about 60). For a younger adult write "platinum blonde" or "icy blonde".
 - **ENVIRONMENT:** "in a sun-drenched Moroccan courtyard", "on a rain-slick crossing under magenta and cyan glow", "in a sparse industrial loft with high ceilings", "under one overhead light". Describe neon as coloured light, never as a tube or a sign.
 - **FRAMING:** close portrait, tight portrait filling frame, three-quarter portrait, medium shot, medium wide, wide shot small in frame, over-the-shoulder looking away, mid-turn full-length.
 
@@ -107,7 +108,7 @@ a {AGE}-year-old adult {SUBJECT}, in {WARDROBE}, {ENVIRONMENT with light}, {FRAM
 
 **Worked example:**
 ```
-a 34-year-old adult woman with a cropped silver-blonde cut, in a rust wool trench coat, on a rain-slick tram platform under amber station light, over-the-shoulder looking away
+a 34-year-old adult woman with a cropped platinum-blonde cut, in a rust wool trench coat, on a rain-slick tram platform under amber station light, over-the-shoulder looking away
 ```
 
 ---
