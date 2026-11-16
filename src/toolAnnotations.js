@@ -37,7 +37,7 @@ const READ_ONLY = [
   'list_agents', 'list_skills', 'list_docs', 'get_doc',
   'get_review_storage_usage', 'list_review_assets', 'get_review_asset',
   'list_review_collections', 'list_review_comments', 'list_review_share_links',
-  'get_review_grading', 'get_review_comment_mask',
+  'get_review_grading', 'get_review_comment_mask', 'get_review_shot_votes',
   // Free (no credits, no DB write) — returns a scratch composition plan for the caller to edit.
   'create_music_composition_plan',
   // Social Planner reads of our own queue, automations and posts.
@@ -91,6 +91,7 @@ const PRIVATE_WRITE = [
   'set_review_status', 'create_review_collection', 'update_review_collection',
   'create_review_comment', 'reply_review_comment',
   'resolve_review_comment', 'unresolve_review_comment',
+  'set_review_mark', 'set_review_shot_vote',
 ];
 
 const DESTRUCTIVE_WRITE = [
