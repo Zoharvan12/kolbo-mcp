@@ -19,14 +19,16 @@ Not for: publishing a page (`publish_html_artifact`), sharing a whole media fold
 
 | Tool | What it does |
 |---|---|
-| `create_review_asset` | New review asset with v1 media attached (`name`, `media_id`, optional `collection_id`, `version_note`). |
+| `create_review_asset` | New review asset with v1 media attached (`name`, `media_url` or `media_id`, optional `collection_id`, `version_note`). |
 | `list_review_assets` / `get_review_asset` | Browse a project's review assets (filter by `collection_id` / `status`); fetch one with all versions + URLs. |
 | `update_review_asset` | Rename, move to a collection (`collection_id: null` = uncollected), or switch `current_version_index`. |
-| `add_review_version` | Append a new version to an existing asset from a `media_id`. |
+| `add_review_version` | Append a new version to an existing asset from a `media_url` or `media_id`. |
 | `set_review_status` | Workflow status: `in_progress` / `needs_review` / `approved` / `changes_requested`. |
 | `delete_review_asset` | Soft-delete an asset AND its underlying review media. |
-| `create_review_collection` / `list_review_collections` / `update_review_collection` / `delete_review_collection` | Folder layer. Deleting a collection is soft — its assets become uncollected, not deleted. |
-| `create_review_comment` / `list_review_comments` / `reply_review_comment` / `edit_review_comment` / `delete_review_comment` | Text comments, optional video timecodes (`time_start` / `time_end`, seconds). One level of reply threading. |
+| `create_review_collection` / `list_review_collections` / `update_review_collection` / `delete_review_collection` | Folder layer. `grading_enabled: true` makes it an album (Grade view). Deleting a collection is soft — its assets become uncollected, not deleted. |
+| `create_review_comment` / `list_review_comments` / `reply_review_comment` / `edit_review_comment` / `delete_review_comment` | Comments, optional video timecodes (`time_start` / `time_end`, seconds), optional `pin: {x, y}` on a spot of the frame or `annotations` (pins and strokes), all 0..1 over the media. One level of reply threading. |
+| `get_review_grading` / `set_review_mark` / `get_review_comment_mask` | Album grading: read every file's Good/Bad + 1-5 stars and drawn notes; set a mark only when the user asks you to grade; a drawing as a mask PNG for inpainting. |
+| `get_review_shot_votes` / `set_review_shot_vote` | Likes / dislikes per shot of a video (shot = its start second). |
 | `resolve_review_comment` / `unresolve_review_comment` | Close / reopen a comment thread. |
 | `create_review_share_link` / `list_review_share_links` / `revoke_review_share_link` | Guest links (no Kolbo account) for one asset or a whole collection. |
 | `get_review_storage_usage` | `usedBytes` vs the 5GB review cap for the API-key owner. |
@@ -34,7 +36,8 @@ Not for: publishing a page (`publish_html_artifact`), sharing a whole media fold
 ## The core flow
 
 ```
-upload_media (or reuse a generation's media_id from list_media)
+media_url of media you already have (generation result, list_media, any public link)
+  (upload_media only for a local file)
   → create_review_collection (only if grouping multiple assets)
   → create_review_asset            ← media becomes v1
   → set_review_status "needs_review"
@@ -45,9 +48,12 @@ upload_media (or reuse a generation's media_id from list_media)
   → set_review_status "approved" (usually the client does this via the link)
 ```
 
-Media must already exist in the library — every attach point takes a `media_id` from
-`upload_media` / `create_upload_ticket` / `media_upload_widget` / `list_media`, never a raw
-URL or local path.
+**Never re-upload media you already have a URL for.** Pass `media_url`: your own Kolbo media
+is reused as is, and any other public image/video/audio link is attached in place with no
+copy (its size counts toward Review storage). Only a local file goes through `upload_media` /
+`create_upload_ticket` / `media_upload_widget` first, then `media_id`. A batch for the user to
+grade = `create_review_collection({ grading_enabled: true })`, then one `create_review_asset`
+per file with that `collection_id`.
 
 ## Version semantics
 
