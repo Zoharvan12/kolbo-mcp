@@ -90,10 +90,11 @@ function registerReviewTools(server, client) {
   // ─── create_review_asset ─────────────────────────────────────
   server.tool(
     'create_review_asset',
-    'Create a Kolbo Review asset with v1 media attached — use it proactively when you finish a cut, edit, or render the user should judge: they leave timestamped notes on the video and you read them back with list_review_comments. Result carries asset.open_url (owner link in the Kolbo app) — always hand it to the user as a clickable link. Upload first via `upload_media`, `create_upload_ticket`, or `media_upload_widget`, then pass the returned `media_id`. Requires `project_id` when the user named a project.',
+    'Create a Kolbo Review asset with v1 media attached — use it proactively when you finish a cut, edit, or render the user should judge: they leave timestamped notes on the video and you read them back with list_review_comments. Result carries asset.open_url (owner link in the Kolbo app) — always hand it to the user as a clickable link. Media you already have a URL for (a generation result, list_media, any public link): pass `media_url` and never re-upload. Only a local file needs `upload_media`, `create_upload_ticket` or `media_upload_widget` first (then pass `media_id`). For a batch the user grades (an album), first create_review_collection with grading_enabled, then one create_review_asset per file with that collection_id. Requires `project_id` when the user named a project.',
     {
       name: z.string().describe('Display name for the review asset.'),
-      media_id: z.string().describe('MediaLibraryItem id from upload_media / list_media.'),
+      media_id: z.string().optional().describe('MediaLibraryItem id from upload_media / list_media.'),
+      media_url: z.string().optional().describe("Public URL of media you already have: any Kolbo media URL (a generation output, list_media item) or another public image/video/audio link. ALWAYS prefer this over re-uploading: your own Kolbo media is reused, any other public link is attached in place with no copy. Pass media_id OR media_url."),
       project_id: projectIdField,
       collection_id: z.string().optional().describe('Optional review collection folder id.'),
       version_note: z.string().optional().describe('Optional note on the first version (max 1000 chars).'),
@@ -126,15 +127,17 @@ function registerReviewTools(server, client) {
   // ─── add_review_version ──────────────────────────────────────
   server.tool(
     'add_review_version',
-    'Append a new version to an existing review asset from an uploaded `media_id`.',
+    'Append a new version to an existing review asset. Pass `media_url` for media you already have a URL for (no re-upload), or `media_id` for an uploaded file.',
     {
       asset_id: z.string(),
-      media_id: z.string(),
+      media_id: z.string().optional(),
+      media_url: z.string().optional().describe("Public URL of media you already have: any Kolbo media URL (a generation output, list_media item) or another public image/video/audio link. ALWAYS prefer this over re-uploading: your own Kolbo media is reused, any other public link is attached in place with no copy. Pass media_id OR media_url."),
       version_note: z.string().optional(),
     },
-    async ({ asset_id, media_id, version_note }) => {
+    async ({ asset_id, media_id, media_url, version_note }) => {
       const result = await client.post(`/v1/review/assets/${encodeURIComponent(asset_id)}/versions`, {
         media_id,
+        media_url,
         version_note,
       });
       return card('add_review_version', withLinks(result), { comments: [] });
@@ -182,12 +185,19 @@ function registerReviewTools(server, client) {
 
   server.tool(
     'create_review_collection',
-    'Create a review collection folder inside a project.',
+    'Create a review collection folder inside a project. With grading_enabled it is an album: the user grades each file Good/Bad (plus optional 1-5 stars) and draws or pins notes; read the result with get_review_grading.',
     {
       name: z.string(),
       project_id: projectIdField,
+      grading_enabled: z.boolean().optional().describe('Open this collection in the Grade view (an album).'),
+      grading_stars: z.boolean().optional().describe('Offer optional 1-5 stars in the Grade view (default true).'),
     },
-    async (args) => {
+    async ({ grading_enabled, grading_stars, ...args }) => {
+      if (grading_enabled !== undefined || grading_stars !== undefined) {
+        args.grading = {};
+        if (grading_enabled !== undefined) args.grading.enabled = grading_enabled;
+        if (grading_stars !== undefined) args.grading.stars = grading_stars;
+      }
       const result = await client.post('/v1/review/collections', args);
       return linked(result);
     }
@@ -240,6 +250,46 @@ function registerReviewTools(server, client) {
   );
 
   server.tool(
+    'set_review_mark',
+    "Grade one review asset for the reader: Good or Bad (verdict) and/or 1-5 stars. Pass null to clear. Only when the user asks you to grade for them.",
+    {
+      asset_id: z.string(),
+      verdict: z.enum(['good', 'bad']).nullable().optional(),
+      stars: z.number().int().min(1).max(5).nullable().optional(),
+    },
+    async ({ asset_id, ...body }) => {
+      const result = await client.put(`/v1/review/assets/${encodeURIComponent(asset_id)}/mark`, body);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'get_review_shot_votes',
+    'Read likes / dislikes per shot of a review video (current version, or version_media_id): each shot by its start second with up, down and the reader\'s own vote.',
+    { asset_id: z.string(), version_media_id: z.string().optional() },
+    async ({ asset_id, version_media_id }) => {
+      const qs = version_media_id ? `?version_media_id=${encodeURIComponent(version_media_id)}` : '';
+      const result = await client.get(`/v1/review/assets/${encodeURIComponent(asset_id)}/shot-votes${qs}`);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'set_review_shot_vote',
+    "Like or dislike one shot of a review video for the reader (shot = its start second from get_review_asset versions[].shots). vote null clears it. Only when the user asks.",
+    {
+      asset_id: z.string(),
+      start: z.number().describe('Shot start in seconds.'),
+      vote: z.enum(['up', 'down']).nullable(),
+      version_media_id: z.string().optional(),
+    },
+    async ({ asset_id, ...body }) => {
+      const result = await client.put(`/v1/review/assets/${encodeURIComponent(asset_id)}/shot-votes`, body);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  server.tool(
     'delete_review_collection',
     'Soft-delete a review collection (assets become uncollected).',
     { collection_id: z.string() },
@@ -266,13 +316,20 @@ function registerReviewTools(server, client) {
 
   server.tool(
     'create_review_comment',
-    'Add a text comment on a review asset. Optional video timecodes: time_start / time_end (seconds).',
+    'Add a comment on a review asset. Optional video timecodes: time_start / time_end (seconds). Optional `pin` puts the comment on a spot of the image or video frame; optional `annotations` adds pins or drawn strokes. Coordinates are 0..1 over the media (x from the left, y from the top).',
     {
       asset_id: z.string(),
       body: z.string(),
       time_start: z.number().optional(),
       time_end: z.number().optional(),
       version_media_id: z.string().optional(),
+      pin: z.object({ x: z.number(), y: z.number() }).optional().describe('Pin this comment to one spot, 0..1 over the media.'),
+      annotations: z.array(z.object({
+        type: z.enum(['pin', 'stroke']),
+        points: z.array(z.object({ x: z.number(), y: z.number() })).describe('0..1 over the media. A pin uses one point; a stroke is a freehand line through its points.'),
+        color: z.string().optional().describe('Hex colour, e.g. #ef4444.'),
+        width: z.number().optional().describe('Line width in 1/1000 of the frame (default 3).'),
+      })).optional().describe('Pins and drawn strokes (max 50, 500 points each).'),
     },
     async ({ asset_id, ...body }) => {
       const result = await client.post(`/v1/review/assets/${encodeURIComponent(asset_id)}/comments`, body);
