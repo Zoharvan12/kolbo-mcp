@@ -195,14 +195,47 @@ function registerReviewTools(server, client) {
 
   server.tool(
     'update_review_collection',
-    'Rename a review collection.',
+    'Rename a review collection, or turn its Grade view on/off (grading_enabled) and its optional 1-5 stars (grading_stars). Send at least one of name / grading_enabled / grading_stars.',
     {
       collection_id: z.string(),
-      name: z.string(),
+      name: z.string().optional(),
+      grading_enabled: z.boolean().optional().describe('Show the Grade view (Good/Bad, stars, notes per image) for this collection. Turn on after uploading an image batch for the user to grade.'),
+      grading_stars: z.boolean().optional().describe('Offer optional 1-5 stars in the Grade view (default true).'),
     },
-    async ({ collection_id, name }) => {
-      const result = await client.patch(`/v1/review/collections/${encodeURIComponent(collection_id)}`, { name });
+    async ({ collection_id, name, grading_enabled, grading_stars }) => {
+      const body = {};
+      if (name !== undefined) body.name = name;
+      if (grading_enabled !== undefined || grading_stars !== undefined) {
+        body.grading = {};
+        if (grading_enabled !== undefined) body.grading.enabled = grading_enabled;
+        if (grading_stars !== undefined) body.grading.stars = grading_stars;
+      }
+      const result = await client.patch(`/v1/review/collections/${encodeURIComponent(collection_id)}`, body);
       return linked(result);
+    }
+  );
+
+  // ─── Grading (Good/Bad, stars, notes with drawings, per image) ─
+  server.tool(
+    'get_review_grading',
+    "Read how the user graded an image batch in a review collection: every image in upload order with its file name, the reader's own Good/Bad + 1-5 stars (my_mark), every reviewer's marks, and the notes with drawings (each drawing has a bbox in 0..1 and a mask_url; fetch the exact mask with get_review_comment_mask). After reading, propose fixes per image (what to change, which tool/model, credit cost) and WAIT for the user's yes before generating anything. Never regenerate automatically.",
+    { collection_id: z.string() },
+    async ({ collection_id }) => {
+      const result = await client.get(`/v1/review/collections/${encodeURIComponent(collection_id)}/grading`);
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+    }
+  );
+
+  server.tool(
+    'get_review_comment_mask',
+    "Get the drawing on a review comment as a mask PNG at the image's own size (white = painted area, black = rest) plus its pixel and 0..1 bounding box. Use it as an inpaint/edit mask or to crop the problem area. Image comments only.",
+    { comment_id: z.string().describe('Comment id from get_review_grading notes[].id or list_review_comments.') },
+    async ({ comment_id }) => {
+      const result = await client.get(`/v1/review/comments/${encodeURIComponent(comment_id)}/mask`);
+      const { mask_png_base64: png, ...meta } = result || {};
+      const content = [{ type: 'text', text: JSON.stringify(meta, null, 2) }];
+      if (png) content.push({ type: 'image', data: png, mimeType: 'image/png' });
+      return { content };
     }
   );
 

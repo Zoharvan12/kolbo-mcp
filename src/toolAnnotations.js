@@ -37,6 +37,7 @@ const READ_ONLY = [
   'list_agents', 'list_skills', 'list_docs', 'get_doc',
   'get_review_storage_usage', 'list_review_assets', 'get_review_asset',
   'list_review_collections', 'list_review_comments', 'list_review_share_links',
+  'get_review_grading', 'get_review_comment_mask',
   // Free (no credits, no DB write) — returns a scratch composition plan for the caller to edit.
   'create_music_composition_plan',
   // Social Planner reads of our own queue, automations and posts.
