@@ -1297,18 +1297,59 @@ function renderAudio(sc, urls) {
   });
 }
 
+// Interactive 3D: Google's <model-viewer> (GLB/glTF only), loaded on demand so
+// no other card pays for it. The GLB is fetched through the api.kolbo.ai
+// download proxy: the media buckets send no CORS headers, so a direct fetch
+// from the sandboxed iframe is blocked. Any failure (script blocked by a host
+// CSP, no WebGL, fetch refused) keeps the thumbnail poster, so the card is
+// never worse than the old still image.
+var MODEL_VIEWER_SRC = 'https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js';
+var modelViewerLoad = null;
+function loadModelViewer() {
+  if (window.customElements && customElements.get('model-viewer')) return Promise.resolve(true);
+  if (!modelViewerLoad) {
+    modelViewerLoad = new Promise(function (resolve) {
+      var s = document.createElement('script');
+      s.type = 'module';
+      s.src = MODEL_VIEWER_SRC;
+      s.onload = function () { resolve(!!(window.customElements && customElements.get('model-viewer'))); };
+      s.onerror = function () { modelViewerLoad = null; resolve(false); };
+      document.head.appendChild(s);
+    });
+  }
+  return modelViewerLoad;
+}
+function extOf(u) {
+  var m = String(u || '').split('?')[0].match(/\\.(\\w+)$/);
+  return m ? m[1].toLowerCase() : '';
+}
 function render3d(sc, urls) {
-  el('stage').innerHTML = (sc.thumbnail_url
-    ? '<div class="k-viewer"><img src="' + esc(sc.thumbnail_url) + '" alt="" loading="lazy"></div>' : '') +
-    urls.map(function (u) {
-      var extMatch = u.split('?')[0].match(/\\.(\\w+)$/);
-      var ext = extMatch ? extMatch[1].toUpperCase() : 'FILE';
-      return '<div class="k-audio-row"><div class="k-audio-art" style="display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">' + esc(ext) + '</div>' +
-        '<div class="k-audio-meta"><div class="k-audio-title">3D Model (' + esc(ext) + ')</div></div>' +
-        '<button class="k-btn" data-url="' + esc(u) + '">Download</button></div>';
-    }).join('');
+  var seen = {};
+  var files = urls.filter(function (u) { if (!u || seen[u]) return false; seen[u] = 1; return true; });
+  var glb = files.filter(function (u) { return /^(glb|gltf)$/.test(extOf(u)); })[0];
+  var poster = sc.thumbnail_url || '';
+  var view = glb
+    ? '<div class="k-viewer k-3d"><model-viewer camera-controls auto-rotate touch-action="pan-y" shadow-intensity="0.8" exposure="1" interaction-prompt="none" ' +
+        'alt="3D model"' + (poster ? ' poster="' + esc(poster) + '"' : '') + '></model-viewer>' +
+        (poster ? '<img class="k-3d-poster" src="' + esc(poster) + '" alt="" loading="lazy">' : '<div class="k-3d-poster k-3d-glyph">' + ICONS.cube + '</div>') +
+        '<span class="k-3d-hint">Drag to rotate</span></div>'
+    : (poster ? '<div class="k-viewer"><img src="' + esc(poster) + '" alt="" loading="lazy"></div>' : '');
+  var formats = files.map(function (u) {
+    var ext = extOf(u) || 'file';
+    return '<button class="k-btn k-3d-fmt" data-url="' + esc(u) + '">' + ICONS.download + ' ' + esc(ext.toUpperCase()) + '</button>';
+  }).join('');
+  el('stage').innerHTML = view + (formats ? '<div class="k-3d-formats">' + formats + '</div>' : '');
   Array.prototype.forEach.call(el('stage').querySelectorAll('.k-btn[data-url]'), function (b) {
     b.onclick = function () { window.kolbo.openLink(downloadUrl(b.getAttribute('data-url'))); };
+  });
+  if (!glb) return;
+  var box = el('stage').querySelector('.k-3d');
+  var mv = box.querySelector('model-viewer');
+  loadModelViewer().then(function (ok) {
+    if (!ok || !mv.isConnected) return;
+    mv.addEventListener('load', function () { box.classList.add('k-3d-ready'); window.kolbo.notifySize(); });
+    mv.addEventListener('error', function () { box.classList.remove('k-3d-ready'); });
+    mv.setAttribute('src', downloadUrl(glb));
   });
 }
 
