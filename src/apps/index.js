@@ -121,6 +121,12 @@ const WIDGET_CSP = {
     // meshes would need www.gstatic.com in connectDomains, which the
     // submission contract forbids, so those keep the poster image.
     'https://ajax.googleapis.com',
+    // 3D thumbnails stay on fal's file hosts (ThreeDGeneration.thumbnailUrl is
+    // not rehosted; seen on a live Tripo job 2026-11-16). Without these the
+    // poster behind the viewer is blocked and the card shows only a glyph.
+    'https://v3.fal.media',
+    'https://v3b.fal.media',
+    'https://fal.media',
 
     // Exact preview hosts returned by the production stock integrations.
     'https://images.pexels.com',
