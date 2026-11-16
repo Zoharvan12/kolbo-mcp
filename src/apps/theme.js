@@ -348,6 +348,20 @@ video::-webkit-media-controls-fullscreen-button { display: none !important; }
 .k-gen #stage > .k-viewer img, .k-gen #stage > .k-viewer video { max-height: 100%; height: 100%; width: auto; max-width: 100%;
   object-fit: contain; border-radius: 0; background: transparent; }
 .k-gen #stage > .k-viewer video { width: 100%; }
+/* 3D: the poster holds the canvas until <model-viewer> has loaded the mesh,
+   then the live viewer takes over (drag to orbit, auto-rotate). */
+.k-gen #stage > .k-3d { aspect-ratio: 1.6; overflow: hidden; }
+.k-3d model-viewer { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0;
+  transition: opacity .3s ease; background: transparent; --poster-color: transparent; --progress-bar-color: transparent; }
+.k-3d .k-3d-poster { position: absolute; inset: 0; margin: auto; transition: opacity .3s ease; pointer-events: none; }
+.k-3d .k-3d-glyph { display: flex; align-items: center; justify-content: center; font-size: 56px; color: var(--muted); }
+.k-3d.k-3d-ready model-viewer { opacity: 1; }
+.k-3d.k-3d-ready .k-3d-poster { opacity: 0; }
+.k-3d-hint { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: var(--muted); opacity: 0;
+  transition: opacity .3s ease; pointer-events: none; }
+.k-3d.k-3d-ready .k-3d-hint { opacity: .85; }
+.k-3d-formats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.k-3d-fmt { display: inline-flex; align-items: center; gap: 6px; }
 /* Video player bar: thick track, white playhead, big readable time. */
 .k-player { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 6px 10px; border-radius: 18px; background: var(--panel); }
 .k-pbtn { width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; color: var(--text);

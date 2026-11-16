@@ -116,6 +116,12 @@ const WIDGET_CSP = {
     'https://fonts.googleapis.com',
     'https://fonts.gstatic.com',
 
+    // 3D cards: Google's <model-viewer> script, loaded only on a 3D result.
+    // Its GLB fetch goes to api.kolbo.ai (connectDomains). Draco-compressed
+    // meshes would need www.gstatic.com in connectDomains, which the
+    // submission contract forbids, so those keep the poster image.
+    'https://ajax.googleapis.com',
+
     // Exact preview hosts returned by the production stock integrations.
     'https://images.pexels.com',
     'https://videos.pexels.com',
