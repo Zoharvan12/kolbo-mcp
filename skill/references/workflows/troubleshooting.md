@@ -77,6 +77,16 @@ Branch on `failure.category` / `failure.retryable`:
 - `retryable === true` (transient: network, rate limit, provider 5xx) → retry once with the same payload after a short pause. If it fails again, surface to user.
 - `retryable === false` and unknown category → surface the raw `message` to the user, don't retry.
 
+## Kolbo API (USD) keys
+
+A Kolbo API developer-platform key pays from a USD balance. From @kolbo/mcp 1.142.0 the MCP detects it and routes these tools to the developer console: `check_credits` (USD balance), `list_models` (models with USD rates), `generate_image`, `generate_image_edit`, `generate_video`, `generate_video_from_image`, `generate_elements` and `get_generation_status`.
+
+- Spend is two steps. The first generate call returns `state: "quoted"` with `price_usd` and charges nothing. Show the price to the user; on their yes, repeat the SAME call with identical arguments within the quote lifetime (about 10 minutes) to run the job.
+- Always pass an explicit `model` from `list_models`. For image models that list qualities, the MCP sends the first one (for example `low` on `gpt-image-2`).
+- Image models accept one reference image only. One image per call.
+- Any other tool returns "<tool> is not available on USD API plans yet". Do not retry it; tell the user which tools work on their plan.
+- Results are text with a result URL (kept 30 days), no widget card.
+
 ## Kobi Code Documentation
 
 Full public documentation for Kobi Code (the CLI you are running inside) lives at **[docs.kolbo.ai/docs/kolbo-code](https://docs.kolbo.ai/docs/kolbo-code)**. If the user asks about installation, authentication, voice input, supported languages, commands, or how to uninstall, point them to the matching page below rather than guessing:
