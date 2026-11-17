@@ -346,6 +346,10 @@ Requires DaVinci Resolve Studio with the Kolbo plugin open (Workspace → Workfl
 | `check_credits` | Check credit balance; widget hosts show total and plan, credit-pack, and redemption breakdown, while text hosts retain the plain-text response |
 | `get_generation_status` | Check one or many generations (`generation_ids`); `wait=true` blocks server-side until done — replaces client polling loops |
 
+## USD API keys
+
+A Kolbo API (developer platform) key that pays in USD works too. Image, image edit, video, image-to-video, reference video, status, models and balance route to the developer console. Each generation first returns a USD quote and charges nothing; call the same tool again with the same arguments to run it. Other tools say they are not available on USD API plans yet.
+
 ## Environment Variables
 
 Both are optional — the local install logs in via the browser on first use.

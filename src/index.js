@@ -150,6 +150,7 @@ function createServer(opts = {}) {
   });
   const progress = require('./progress');
   const { insufficientCreditsResult } = require('./tools/_shared');
+  const usd = require('./usd');
   const tool = server.tool.bind(server);
   server.tool = (...args) => {
     const index = args.length - 1;
@@ -161,9 +162,16 @@ function createServer(opts = {}) {
       // token and dropped the whole stdio connection mid-session, killing
       // every live widget's polling (3/3 logged drops, 2026-10-21..22).
       if (extra) extra.__kolboGenerationNotice = server.server?.getClientVersion?.()?.name === 'kolbo';
+      // A USD developer-platform key is refused on /api/v1; route it to the
+      // developer console (or a clear "not on USD plans yet"). See src/usd.js.
+      // Detection costs nothing for credit keys: only a USD refusal triggers it.
+      if (!toolOptions.remote && usd.routed(client)) return usd.call(args[0], params, client);
       try {
-        return await handler(params, extra);
+        const result = await handler(params, extra);
+        if (!toolOptions.remote && usd.refusal(result) && await usd.isUsd(client)) return usd.call(args[0], params, client);
+        return result;
       } catch (err) {
+        if (!toolOptions.remote && usd.refusal(err) && await usd.isUsd(client)) return usd.call(args[0], params, client);
         // Running out of credits is the one refusal with an obvious next step,
         // so it gets a card instead of raw error prose. Wrapped HERE rather
         // than at each of the ~17 generation submit sites: any tool the server
