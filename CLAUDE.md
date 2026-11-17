@@ -604,6 +604,22 @@ c.get('/v1/account/credits').then(r => console.log(r));
 KOLBO_API_KEY="kolbo_live_..." node src/index.js
 ```
 
+## USD API keys (Kolbo API developer platform)
+
+A USD key pays from a USD wallet and kolbo-api refuses it on `/api/v1` (key boundary, by design). `src/usd.js` routes it instead: the first `/api/v1` refusal triggers one `GET /developer-console/account`; once confirmed, every call for that key goes straight to `/api/developer-console`. Credit keys never pay a detection request.
+
+| MCP tool | Developer-console route |
+| --- | --- |
+| `check_credits` | `GET /account` (USD balance) |
+| `list_models` | `GET /catalog`, quote-supported models only, USD starting rates |
+| `generate_image`, `generate_image_edit` | `POST /quotes` `text_to_image`, one reference via `POST /inputs/image` |
+| `generate_video` | text-to-video quote |
+| `generate_video_from_image` | `image_to_video`, `pruna_frames` or `draft_references`, picked from the model's `quoteCapabilities` |
+| `generate_elements` | `pruna_references`, `kling_media` or `draft_references` with uploaded image/video/audio references |
+| `get_generation_status` | `GET /jobs/:id` |
+
+Two-step spend: the first call returns a USD quote and charges nothing; the same tool with identical arguments within the quote lifetime submits `POST /jobs` (idempotency key held per quote) and polls. Every other tool returns "<tool> is not available on USD API plans yet". Results are text only (no widget structuredContent). Remote connector (`opts.remote`) is never routed. Check: `test/usd-routing.test.js` (in `prepublishOnly`).
+
 ## Environment Variables
 
 | Variable | Required | Default |
