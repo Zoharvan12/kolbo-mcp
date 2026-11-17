@@ -898,11 +898,17 @@ function registerGenerateTools(server, client, options = {}) {
       // ── ElevenLabs Music v2.5 structured mode (mutually exclusive with `prompt`) ──
       composition_plan: z.array(MUSIC_CHUNK_SCHEMA).optional().describe('ElevenLabs Music v2.5 ONLY, model must resolve to the ElevenLabs music model: an ordered list of chunks instead of a prompt. A GENERATION chunk has text/duration_ms/positive_styles (optionally conditioning_ref+condition_strength to steer it off a stored song). An AUDIO-REFERENCE chunk has song_id/range and splices that stored slice in unchanged (used to keep part of an existing track — see edit_music_section for the common case of regenerating one section). Get a starter plan from create_music_composition_plan, or build one from a prior generate_music result\'s `song_id`. Cannot be combined with `prompt`.'),
       seed: z.number().optional().describe('ElevenLabs Music v2.5: random seed for reproducibility. Only valid together with composition_plan, never with prompt.'),
+      // ── Music FOR a video (Vision Music / Sonilo): pass video_url ──
+      video_url: z.string().optional().describe('PUBLIC video URL to score: Kolbo writes music that fits the clip and returns the video with the music mixed in. prompt becomes optional (guidance only). Works with style / instrumental / lyrics / duration_seconds; the Suno fine controls do not apply here.'),
+      keep_speech_vocal: z.boolean().optional().describe('With video_url: keep the speech already in the video under the new music.'),
+      num_samples: z.number().int().min(1).max(4).optional().describe('With video_url: number of variations (each billed).'),
+      start_offset: z.number().min(0).optional().describe('With video_url: seconds into the video where the music starts.'),
+      source_media: z.string().optional().describe('Media-library id of the image/video that inspired this song, stored with the result for reference.'),
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt = false, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, variety, persona_voice_id, reference_images, reference_videos, reference_audios, composition_plan, seed, project_id, session_id }) => {
-      if (!prompt && !composition_plan) throw new Error('prompt is required (or pass composition_plan for ElevenLabs Music v2.5)');
+    async ({ prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags, duration_seconds, enhance_prompt = false, preset_id, style_weight, weirdness, audio_weight, persona_id, use_composition_plan, singing_dna_id, singing_voice_id, variety, persona_voice_id, reference_images, reference_videos, reference_audios, composition_plan, seed, video_url, keep_speech_vocal, num_samples, start_offset, source_media, project_id, session_id }) => {
+      if (!prompt && !composition_plan && !video_url) throw new Error('prompt is required (or pass composition_plan for ElevenLabs Music v2.5, or video_url to score a video)');
       model = await canonicalModelId(client, model, 'music_gen'); // lenient id resolution ("z-image" → "z-image/turbo")
       const gen = await client.post('/v1/generate/music', {
         prompt, model, style, title, instrumental, lyrics, vocal_gender, negative_tags,
@@ -910,6 +916,7 @@ function registerGenerateTools(server, client, options = {}) {
         style_weight, weirdness, audio_weight, persona_id, use_composition_plan,
         singing_dna_id, singing_voice_id,
         variety, persona_voice_id, reference_images, reference_videos, reference_audios,
+        video_url, keep_speech_vocal, num_samples, start_offset, source_media,
         ...(composition_plan ? { composition_plan: { chunks: composition_plan }, seed } : {}),
         project_id, session_id
       });
@@ -1053,7 +1060,18 @@ function registerGenerateTools(server, client, options = {}) {
     title: z.string().optional().describe('Title for the result. Generated if omitted.'),
     instrumental: z.boolean().optional().describe('Produce instrumental only, no vocals. Default: false'),
     lyrics: z.string().optional().describe('Custom lyrics. Omit to have them generated, or set instrumental.'),
-    model: z.string().optional().describe('Model identifier. Omit for the Suno default.'),
+    model: z.string().optional().describe('Model identifier. Omit for the Suno default (suno-v6). Options: list_models type="music_gen" (e.g. suno-v6, suno-v6-wild, suno-v5.5, suno-v5, suno-v4.5plus).'),
+    duration_seconds: z.number().min(10).max(360).optional().describe('Target length of the RESULT in seconds (10-360). Extend: the whole song, source included; Kolbo adds song sections so it runs that long (omit = about 3 minutes). Cover: honoured on suno-v6 / suno-v6-wild; omit to keep the source length.'),
+    negative_tags: z.string().max(1000).optional().describe('Styles / sounds to EXCLUDE, comma-separated.'),
+    vocal_gender: z.string().optional().describe('"male" or "female".'),
+    style_weight: z.number().min(0).max(1).optional().describe('How strongly the style is applied, 0-1.'),
+    weirdness: z.number().min(0).max(1).optional().describe('Creativity / weirdness, 0-1. Higher = more experimental.'),
+    audio_weight: z.number().min(0).max(1).optional().describe('Influence of the source audio, 0-1.'),
+    variety: z.number().int().min(0).max(4).optional().describe('Suno V6 models only: variety, whole number 0-4 (higher = more varied takes).'),
+    persona_id: z.string().optional().describe('A Suno persona id you own (from an earlier result). Pass at most one of persona_id / persona_voice_id / singing_dna_id / singing_voice_id.'),
+    persona_voice_id: z.string().optional().describe('Suno V6 models only: id of one of YOUR music personas (list_music_personas) to sing in that voice and style.'),
+    singing_dna_id: z.string().optional().describe('Visual DNA character id whose cloned singing voice should sing (must be yours and ready).'),
+    singing_voice_id: z.string().optional().describe('Your cloned singing-voice id (must be ready).'),
     project_id: projectIdField,
     session_id: sessionIdField
   };
@@ -1121,14 +1139,14 @@ function registerGenerateTools(server, client, options = {}) {
 
   server.tool(
     'extend_music',
-    'Continue an existing track — Kolbo generates new music that carries on from a point in the source audio. Pass audio_url (with rights_confirmed) or an upload_id from import_music_audio. There is NO target-length control here: the length follows the source and continue_at, which is why duration_seconds is not accepted. Returns the final audio URL when complete.',
+    'Continue an existing track — Kolbo generates new music that carries on from a point in the source audio. Pass audio_url (with rights_confirmed) or an upload_id from import_music_audio. duration_seconds sets the length of the finished song (default about 3 minutes); all Suno fine controls (negative_tags, vocal_gender, weights, variety, persona / singing voice) apply. Returns the final audio URL when complete.',
     { ...musicSourceFields, continue_at: z.number().optional().describe('Seconds into the source audio to continue FROM. Omit to continue from the end.') },
     async (args) => runMusicSourceOp('/v1/generate/music/extend', 'extend_music', args)
   );
 
   server.tool(
     'cover_music',
-    'Re-record an existing track in a new style, keeping its musical identity — a lo-fi cover of a rock song, an acoustic take on an electronic track. Pass audio_url (with rights_confirmed) or an upload_id from import_music_audio. There is NO target-length control here: a cover follows the length of its source, which is why duration_seconds is not accepted. Returns the final audio URL when complete.',
+    'Re-record an existing track in a new style, keeping its musical identity — a lo-fi cover of a rock song, an acoustic take on an electronic track. Pass audio_url (with rights_confirmed) or an upload_id from import_music_audio. The source is capped at 2 minutes (trimmed). duration_seconds sets the result length on suno-v6 / suno-v6-wild; omit to keep the source length. All Suno fine controls (negative_tags, vocal_gender, weights, variety, persona / singing voice) apply. Returns the final audio URL when complete.',
     { ...musicSourceFields },
     async (args) => runMusicSourceOp('/v1/generate/music/cover', 'cover_music', args)
   );
