@@ -64,7 +64,7 @@ const FILE_INPUT_TOOLS = [
   'create_visual_dna', 'update_visual_dna', 'generate_character_sheet', 'clone_voice',
   'chat_send_message', 'create_moodboard', 'update_moodboard',
   'separate_audio_stems', 'clean_dialogue_leftovers', 'separate_ambience',
-  'analyze_video'
+  'analyze_video', 'analyze_audio'
 ];
 
 const REMOTE_FILE_HINT =

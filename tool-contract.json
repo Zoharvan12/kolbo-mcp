@@ -21,6 +21,7 @@
     "adobe_list_sessions",
     "adobe_place_on_timeline",
     "adobe_run_script",
+    "analyze_audio",
     "analyze_color_palette",
     "analyze_extracted_clip",
     "analyze_script_for_music",
