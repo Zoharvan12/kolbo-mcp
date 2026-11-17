@@ -258,7 +258,7 @@ const promptsField = (what) => z.array(z.string()).max(MAX_BATCH_PROMPTS).option
 const MORPHIOUS_MODELS = new Set(['kolbo-morphious-motion', 'kolbo-morphious-swap', 'kolbo-morphious-reframe', 'kolbo-morphious-lite-motion', 'kolbo-morphious-lite-swap']);
 const PROMPTLESS_NATIVE = new Set([...MORPHIOUS_MODELS, 'higgsfield-genjutsu-motion-transfer', 'higgsfield-genjutsu-object-swap']);
 const MORPHIOUS_GUIDE = ' MORPHIOUS / GENJUTSU (exactly ONE source video, omit duration - it comes from the source): higgsfield-genjutsu-motion-transfer and higgsfield-genjutsu-object-swap accept an omitted prompt, and so do the kolbo-morphious-* models (Morphious only needs the source video and references; it analyzes them itself). '
-  + 'kolbo-morphious-motion 1-30 images, 4-30s; kolbo-morphious-swap 0-30 images, 4-30s; both 480p/720p/1080p, output keeps the source shape. '
+  + 'kolbo-morphious-motion 1-30 images, 4-30s; kolbo-morphious-swap 0-30 images, 4-30s; both 480p/720p/1080p, output keeps the source shape. On motion and swap, plain resolution="480p" IS a Draft (list_models draft_resolutions; same 480p price, kept 7 days): finalize it to 1080p with edit_video operation="draft_quote" then "draft_enhance" (paid, quote first). Lite and reframe have no Draft. '
   + 'Lite (kolbo-morphious-lite-motion 1-10 images / kolbo-morphious-lite-swap 0-10 images) caps at 15s. '
   + 'kolbo-morphious-reframe: NO images/DNA, 1-300s, aspect_ratio REQUIRED (16:9, 9:16, 1:1, 4:3, 3:4, 21:9), 540p or 720p. '
   + 'higgsfield-genjutsu-motion-transfer / -object-swap: 1-8 images or Visual DNA, 4-30s, 480p/720p/1080p. '
