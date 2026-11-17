@@ -80,13 +80,9 @@ function registerAnalyzeTools(server, client) {
         ...(refresh !== undefined ? { refresh } : {}),
         ...(project_id ? { project_id } : {}),
       }, LONG_RUN);
-      return json({
-        analysis: result.analysis,
-        model: result.model,
-        usage: result.usage,
-        credits_used: result.credits_used,
-        reused: result.reused,
-      });
+      // The endpoint returns the analysis sections at the top level; pass them all through.
+      const { success, ...analysis } = result || {};
+      return json(analysis);
     }
   );
 }
