@@ -1,6 +1,6 @@
-/* Shared helpers for MCP tools. No server.tool() registrations here.
+﻿/* Shared helpers for MCP tools. No server.tool() registrations here.
  *
- * This file centralizes the URL-or-local-path → Buffer resolver used by
+ * This file centralizes the URL-or-local-path â†’ Buffer resolver used by
  * every tool that accepts file-ish arguments (visual_dna, elements,
  * first_last_frame, lipsync, video_from_video, transcription, media upload,
  * future additions). It also owns the SSRF guard applied to any URL we
@@ -13,7 +13,7 @@
  *   3. Block common internal hostnames (localhost, *.local, *.internal,
  *      metadata.google.internal, metadata.goog).
  *   4. Manual redirect following so every hop is re-validated (a crafted
- *      public URL could 302 to 169.254.169.254 — global fetch would follow
+ *      public URL could 302 to 169.254.169.254 â€” global fetch would follow
  *      silently).
  *
  * If you add a new tool that fetches URLs, import resolveToBuffer from here
@@ -30,7 +30,7 @@ const { assertLocalPathAllowed } = require('../localPathPolicy');
 // compatibility transport can return empty peer certificates intermittently).
 const { Agent, fetch: undiciFetch } = require('undici/index.js');
 
-const MAX_FILE_BYTES = 500 * 1024 * 1024; // 500 MB — larger than visual_dna because
+const MAX_FILE_BYTES = 500 * 1024 * 1024; // 500 MB â€” larger than visual_dna because
                                            // lipsync/v2v/transcription accept full
                                            // videos and long audio tracks.
 const VISUAL_DNA_MAX_BYTES = 25 * 1024 * 1024; // kept for visual_dna backward-compat
@@ -38,20 +38,20 @@ const REMOTE_FETCH_MAX_BYTES = 100 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 
 // THE single statement of how a local file gets into Kolbo. It is repeated to
-// the model on several surfaces — the server `instructions` block (src/index.js),
-// the media tool descriptions, and both local-path errors below — so it lives
+// the model on several surfaces â€” the server `instructions` block (src/index.js),
+// the media tool descriptions, and both local-path errors below â€” so it lives
 // here and is imported, not retyped. It was previously pasted in five places and
 // a change to it updated only two, leaving `instructions` teaching the opposite.
 const LOCAL_FILE_ROUTING =
   'If you are using Kolbo over a remote connector (e.g. claude.ai), local files are not reachable. ' +
-  'DO NOT upload the file yourself with cloud credentials or a shell command — Kolbo has a tool for this. ' +
+  'DO NOT upload the file yourself with cloud credentials or a shell command â€” Kolbo has a tool for this. ' +
   'If you can run shell commands, call `create_upload_ticket` and POST the file to the returned upload_url. ' +
   'Otherwise call `media_upload_widget` to have the user pick the file, or `upload_media` ' +
   'when the file IS reachable from where the MCP server runs, then pass the returned https:// URL here. ' +
   'A URL from `list_media` also works if the asset is already in the library.';
 
 // Every tool that takes user media as INPUT. Their descriptions promise "URL or
-// absolute local path" — true on a stdio install, a lie over a remote connector,
+// absolute local path" â€” true on a stdio install, a lie over a remote connector,
 // where the model would read it, see no filesystem, and tell the user Kolbo
 // cannot take their file at all. attachFileInputHints() below appends the route
 // that actually works for the current transport, so the refusal never happens.
@@ -68,15 +68,15 @@ const FILE_INPUT_TOOLS = [
 ];
 
 const REMOTE_FILE_HINT =
-  ' LOCAL FILE (on the user\'s machine, or attached to this chat)? NEVER reply that you cannot upload files — Kolbo uploads it for you. ' +
+  ' LOCAL FILE (on the user\'s machine, or attached to this chat)? NEVER reply that you cannot upload files â€” Kolbo uploads it for you. ' +
   'Call `media_upload_widget` so the user picks the file (claude.ai web/mobile), or `create_upload_ticket` and POST the file yourself if you can run shell/HTTP commands; ' +
-  'either way you get an https:// URL to pass here. Ignore any "absolute local path" wording in the args below — this server cannot read the caller\'s disk, so a path will fail.';
+  'either way you get an https:// URL to pass here. Ignore any "absolute local path" wording in the args below â€” this server cannot read the caller\'s disk, so a path will fail.';
 
 const LOCAL_FILE_HINT =
   ' LOCAL FILE? Absolute local paths work here (server and client share a filesystem). ' +
-  'Never reply that you cannot upload files — for a file you will reference more than once, call `upload_media` first and reuse the returned https:// URL. ' +
-  'IMAGE/VIDEO PASTED OR ATTACHED IN THIS CHAT with no path? You can see it but Kolbo cannot — NEVER substitute a text description of it for the file. ' +
-  'Call `media_upload_widget` so the user hands Kolbo the file (or ask for its path), then pass the returned URL — for "make this image X" use generate_image_edit with it in `source_images`.';
+  'Never reply that you cannot upload files â€” for a file you will reference more than once, call `upload_media` first and reuse the returned https:// URL. ' +
+  'IMAGE/VIDEO PASTED OR ATTACHED IN THIS CHAT with no path? You can see it but Kolbo cannot â€” NEVER substitute a text description of it for the file. ' +
+  'Call `media_upload_widget` so the user hands Kolbo the file (or ask for its path), then pass the returned URL â€” for "make this image X" use generate_image_edit with it in `source_images`.';
 const REMOTE_TEXT_FILE_HINT =
   ' REMOTE FILE INPUT: This client cannot send local filesystem paths or render Kolbo\'s upload widget. ' +
   'Use an existing public https:// URL. If the attachment has no public URL, ask the user to upload it in the Kolbo Media Library and paste the resulting URL; never invent a URL or claim a local path is usable here.';
@@ -138,7 +138,7 @@ function isPrivateIPv6(ip) {
   const mappedDot = lower.match(/^::(?:ffff:)?(\d+\.\d+\.\d+\.\d+)$/);
   if (mappedDot) return isPrivateIPv4(mappedDot[1]);
   // IPv4-mapped in pure hex form: ::ffff:7f00:1 (Node normalizes
-  // ::ffff:127.0.0.1 → ::ffff:7f00:1). Extract last 2 hextets → 4 bytes.
+  // ::ffff:127.0.0.1 â†’ ::ffff:7f00:1). Extract last 2 hextets â†’ 4 bytes.
   const mappedHex = lower.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
   if (mappedHex) {
     const hi = parseInt(mappedHex[1], 16);
@@ -174,7 +174,7 @@ function assertSafeUrl(rawUrl) {
   try { u = new URL(rawUrl); }
   catch (_) { throw new Error(`Invalid URL: ${rawUrl}`); }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') {
-    throw new Error(`Unsupported URL protocol "${u.protocol}" — only http/https allowed`);
+    throw new Error(`Unsupported URL protocol "${u.protocol}" â€” only http/https allowed`);
   }
   if (isBlockedHostname(u.hostname)) {
     throw new Error(`Refusing to fetch from private / loopback / metadata host: ${u.hostname}`);
@@ -415,17 +415,17 @@ async function resolveToBuffer(source, kind, opts = {}) {
   };
 }
 
-// ─── Universal graceful-timeout convention ───────────────────────────────────
+// â”€â”€â”€ Universal graceful-timeout convention â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // pollUntilDone throws PollingTimeoutError (err.timedOut === true) when the
-// CLIENT-SIDE poll window elapses — the generation is almost always still
+// CLIENT-SIDE poll window elapses â€” the generation is almost always still
 // running server-side (or already done). Originally only
 // generate_creative_director caught this and returned a non-throwing
 // "_timed_out" result; every other tool let it propagate, so the MCP SDK
 // wrapped it as isError:true and recovery depended entirely on the calling
 // LLM reading hint text. pollOrTimedOut() is the one place that decision now
-// lives — every generation/chat tool routes its pollUntilDone call through
+// lives â€” every generation/chat tool routes its pollUntilDone call through
 // it instead of duplicating the try/catch. Genuine failures (state
-// failed/cancelled → GenerationFailedError) are NOT caught here; they still
+// failed/cancelled â†’ GenerationFailedError) are NOT caught here; they still
 // throw and surface as a real tool error.
 //
 // CRITICAL: when the poll window times out, we UNTRACK the generation so that
@@ -454,7 +454,7 @@ async function pollOrTimedOut(client, generationId, pollOpts) {
             state: 'processing',
             generation_id: generationId,
             _timed_out: true,
-            _hint: `Still running on the server after the poll window — this is NOT a failure, no credits were lost. Call get_generation_status with generation_id="${generationId}" (wait=true) to keep checking until state="completed". Do NOT re-run this tool.`
+            _hint: `Still running on the server after the poll window â€” this is NOT a failure, no credits were lost. Call get_generation_status with generation_id="${generationId}" (wait=true) to keep checking until state="completed". Do NOT re-run this tool.`
           }, null, 2)
         }]
       }
@@ -496,20 +496,20 @@ function creditFields(polledResult) {
 // accepts. Keep this in one place so the description never drifts across the
 // 17 tools that use it. When omitted, the generation lands in the user's
 // auto-created "API Generations" project. Call `list_projects` first to
-// resolve a name → ObjectId.
+// resolve a name â†’ ObjectId.
 const { z } = require('zod');
 const projectIdField = z.string().optional().describe(
-  'Project ObjectId to drop this generation into. Call `list_projects` to discover IDs (the API has no concept of project names — only ObjectIds). IMPORTANT: this is per-call, NOT sticky — once the user has named a working project, pass its id on EVERY generation call in the conversation; any call that omits it silently lands in the default "API Generations" project instead. Requires owner / edit / full permission on the project; view-only is rejected.'
+  'Project ObjectId to drop this generation into. Call `list_projects` to discover IDs (the API has no concept of project names â€” only ObjectIds). IMPORTANT: this is per-call, NOT sticky â€” once the user has named a working project, pass its id on EVERY generation call in the conversation; any call that omits it silently lands in the default "API Generations" project instead. Requires owner / edit / full permission on the project; view-only is rejected.'
 );
 
 // Shared zod schema for the optional `session_id` arg on generation tools.
 // WHY IT EXISTS: without it, each generation call gets its own session, so a
 // set of related clips lands in the app's left rail as a stack of near-identical
 // single-item sessions. (The server has a per-day fallback bucket, but it is not
-// something a caller can rely on — see kolbo-api sdkSessionManager.) Threading
+// something a caller can rely on â€” see kolbo-api sdkSessionManager.) Threading
 // the id returned by the FIRST call is the deterministic way to group a batch.
 const sessionIdField = z.string().optional().describe(
-  'Existing session to add this generation to, so a related set lands in ONE session instead of a stack of single-item sessions in the Kolbo sidebar. HOW TO USE: omit it on the FIRST call of a PLAN BUCKET (Cast, Locations, Props, or one Scene NN), read `session_id` off that result, `rename_session` to the plan name, then pass that SAME value on every follow-up in that bucket (another character, shot 2, a retake, "make it darker"). Only omit it again when the plan starts a NEW scene or NEW concept — never per take or per tool call. Image tools and video tools cannot share an id. `list_sessions` also returns ids. When set, `project_id` is ignored — the session\'s own project wins.'
+  'Existing session to add this generation to, so a related set lands in ONE session instead of a stack of single-item sessions in the Kolbo sidebar. HOW TO USE: omit it on the FIRST call of a PLAN BUCKET (Cast, Locations, Props, or one Scene NN), read `session_id` off that result, `rename_session` to the plan name, then pass that SAME value on every follow-up in that bucket (another character, shot 2, a retake, "make it darker"). Only omit it again when the plan starts a NEW scene or NEW concept â€” never per take or per tool call. Image tools and video tools cannot share an id. `list_sessions` also returns ids. When set, `project_id` is ignored â€” the session\'s own project wins.'
 );
 
 // Read-scope variant for list/get tools that can surface a SHARED project's
@@ -517,23 +517,23 @@ const sessionIdField = z.string().optional().describe(
 // edit+ on to also see that project owner's shared assets; omit to see only your
 // own + global/org. View-only members and non-members get nothing extra.
 const projectScopeReadField = z.string().optional().describe(
-  "Project ObjectId (from `list_projects`) to ALSO surface that shared project's assets (a teammate's, when the project is shared with you). Requires edit / full / owner on the project — view-only members and non-members get only their own. Omit to see just your own + global/org."
+  "Project ObjectId (from `list_projects`) to ALSO surface that shared project's assets (a teammate's, when the project is shared with you). Requires edit / full / owner on the project â€” view-only members and non-members get only their own. Omit to see just your own + global/org."
 );
 
-// ─── Optional inline-image content blocks ────────────────────────────────────
+// â”€â”€â”€ Optional inline-image content blocks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // When a host opts in (the remote HTTP connector sets inlineImages:true), turn
 // generated IMAGE urls into MCP `image` content blocks so clients render them
 // inline instead of a "Show Image" link. Strictly gated + bounded:
 //   - only runs when opts.enabled is true (stdio/Kolbo Code never enables it,
 //     so their behavior is byte-identical: text URL only);
 //   - caps the number of images and the bytes per image;
-//   - ONLY embeds responses whose content-type is image/* — a video/audio URL
+//   - ONLY embeds responses whose content-type is image/* â€” a video/audio URL
 //     can never be base64-embedded even if mistakenly passed in;
 //   - any fetch/decoding failure silently falls back to URL-only.
 const INLINE_IMG_MAX_COUNT = 4;
 // Cap kept conservative on purpose: a base64 image rides inside the JSON-RPC
 // tool result, and chat clients (claude.ai etc.) drop the WHOLE result if it's
-// too large — which looks like "no image at all". Anything over the cap is left
+// too large â€” which looks like "no image at all". Anything over the cap is left
 // to the URL in the text payload (clients render a "Show Image" affordance from
 // it), so a big image degrades to a click instead of vanishing.
 const INLINE_IMG_MAX_BYTES = 1.5 * 1024 * 1024; // 1.5 MB per image
@@ -542,7 +542,7 @@ const INLINE_IMG_FETCH_TIMEOUT_MS = 8000; // never hang the tool response on a s
 async function inlineImageBlocks(urls, opts = {}) {
   if (!opts || !opts.enabled) return [];
   if (!Array.isArray(urls) || urls.length === 0) return [];
-  // Fetch the (≤4) images in parallel — they're independent, the cap already
+  // Fetch the (â‰¤4) images in parallel â€” they're independent, the cap already
   // bounds concurrency, and this sits on the connector response path right
   // after generation. Order is preserved by map-then-filter; any failure (size,
   // type, timeout, network) returns null and falls back to URL-only.
@@ -582,26 +582,26 @@ async function inlineImageBlocks(urls, opts = {}) {
   return blocks.filter(Boolean);
 }
 
-// ─── "Open in Kolbo" deep links ───────────────────────────────────────────────
+// â”€â”€â”€ "Open in Kolbo" deep links â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // kolbo-api submit responses include `session_id` + `project_id`. Map each MCP
 // tool to the frontend page + tool slug whose session view can RESUME that
-// session (mirrors kolbo-map src/constants/sessionTypes.js resumeUrl map — the
+// session (mirrors kolbo-map src/constants/sessionTypes.js resumeUrl map â€” the
 // route must match the SESSION MODEL the SDK created, per sdkSessionManager):
-//   ImageSession (image AND image_edit) → /image-tools?tool=create-image
-//   imgEditSession (image_tools / global_image_edit — the Canvas) → /image-tools?tool=canvas
+//   ImageSession (image AND image_edit) â†’ /image-tools?tool=create-image
+//   imgEditSession (image_tools / global_image_edit â€” the Canvas) â†’ /image-tools?tool=canvas
 //   imgToVideoSession (video, video_from_image, elements, first_last_frame)
-//     → /video-tools?tool=create-video
-//   videoToVideoSession → /video-tools?tool=video-to-video
-//   lipsyncSession → /video-tools?tool=lipsync
+//     â†’ /video-tools?tool=create-video
+//   videoToVideoSession â†’ /video-tools?tool=video-to-video
+//   lipsyncSession â†’ /video-tools?tool=lipsync
 //   MusicGeneratorSession / TextToSpeechSession / textToSoundSession /
-//   speechToTextSession → /audio-tools with the matching slug
-//   CreativeDirectorSession → /creative-director?session=... (no tool param)
-// RETIRED — do NOT reintroduce as separate destinations. "Image Editing" folded
+//   speechToTextSession â†’ /audio-tools with the matching slug
+//   CreativeDirectorSession â†’ /creative-director?session=... (no tool param)
+// RETIRED â€” do NOT reintroduce as separate destinations. "Image Editing" folded
 // into Create Image and "Text to Video" folded into Create Video (a mode inside
-// it); sdkSessionManager already routes image_edit → ImageSession and video →
+// it); sdkSessionManager already routes image_edit â†’ ImageSession and video â†’
 // imgToVideoSession. The old ?tool=image-editing / ?tool=text-to-video slugs
 // still redirect, but nothing new should emit them.
-// Intentionally ABSENT (no deep-linkable session page — widget falls back to
+// Intentionally ABSENT (no deep-linkable session page â€” widget falls back to
 // plain https://app.kolbo.ai): video_tools (GlobalVideoEditSession has no
 // session deep-link), generate_3d (project-scoped, no session), shorts render.
 const APP_BASE_URL = 'https://app.kolbo.ai';
@@ -621,7 +621,7 @@ const OPEN_URL_ROUTES = {
   transcribe_audio:           { path: '/audio-tools', tool: 'speech-to-text' },
   generate_creative_director: { path: '/creative-director' },
 };
-// SDK tracking `type` on get_generation_status — same session model as the
+// SDK tracking `type` on get_generation_status â€” same session model as the
 // generate_* tool that created the job, so "Open in Kolbo" still deep-links
 // after a status poll overwrites the live card.
 const TYPE_TO_TOOL = {
@@ -687,7 +687,7 @@ function linkFields(tool, gen) {
  * (all-assets view) pre-filtered to this project, where the user sees every
  * generation/media item in it and can switch projects via the in-page selector.
  * The media page reads `?project=<id>` on load and selects it. Returns undefined
- * for a missing id or the default "API Generations" bucket (no useful landing —
+ * for a missing id or the default "API Generations" bucket (no useful landing â€”
  * it is the catch-all, not a real workspace the user navigates to).
  */
 function buildProjectUrl(projectId, opts = {}) {
@@ -695,19 +695,19 @@ function buildProjectUrl(projectId, opts = {}) {
   return `${APP_BASE_URL}/media?project=${encodeURIComponent(projectId)}`;
 }
 
-// ─── MCP Apps generation widget helpers ──────────────────────────────────────
+// â”€â”€â”€ MCP Apps generation widget helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // When the host renders MCP Apps (claude.ai via the remote connector, Claude
 // Desktop over stdio), generation tools return IMMEDIATELY after submit and the
 // ui://kolbo/generation.html widget takes over: live progress, inline result,
-// action buttons. Text-only hosts never enter this path — their blocking
+// action buttons. Text-only hosts never enter this path â€” their blocking
 // behavior and response bytes are UNCHANGED.
 const { UI, uiResult, appsEnabled, modelInfo, OPERATION_ENGINES } = require('../apps');
 
 /**
  * Chip identity for a model: the CLEAN display name + its icon, resolved from
  * the same /v1/models catalog `list_models` renders. Callers pass whatever the
- * user/LLM supplied (an identifier like `google_tts`, `fal-ai/…/omnihuman/v1.5`,
- * or a display name) — the card must never show the raw id.
+ * user/LLM supplied (an identifier like `google_tts`, `fal-ai/â€¦/omnihuman/v1.5`,
+ * or a display name) â€” the card must never show the raw id.
  */
 // `operation`: an edit whose engine the server picks when no model is passed
 // (draft_enhance) still names that engine on the chip, not "Smart Select".
@@ -728,7 +728,7 @@ async function modelChipFields(client, model, operation) {
  * characters are locked in, not just how many. An id tells the user nothing;
  * the face does.
  *
- * One list fetch per process, cached — the DNA catalog barely moves within a
+ * One list fetch per process, cached â€” the DNA catalog barely moves within a
  * session, and a generation card must never add a round-trip per chip. A miss
  * (id not in the caller's own DNAs) degrades to the bare id, which is exactly
  * what the card showed before.
@@ -774,7 +774,7 @@ async function resolveVisualDnas(client, ids) {
       for (const row of rows) rememberDna(row);
       _dnaChipLoaded = Date.now();
     } catch {
-      // Offline / rate-limited — fall through to per-id fetch.
+      // Offline / rate-limited â€” fall through to per-id fetch.
     }
   }
 
@@ -787,7 +787,7 @@ async function resolveVisualDnas(client, ids) {
         const res = await client.get(`/v1/visual-dna/${encodeURIComponent(id)}`);
         rememberDna(res && res.visual_dna ? res.visual_dna : res, id);
       } catch {
-        // Leave the bare id — the chip still names it.
+        // Leave the bare id â€” the chip still names it.
       }
     }));
   }
@@ -818,7 +818,7 @@ async function resolvePreset(client, presetId) {
       }
       _presetLoaded = Date.now();
     } catch {
-      // Offline — the chip keeps the word "preset".
+      // Offline â€” the chip keeps the word "preset".
     }
   }
   return _presetCache.get(key) || null;
@@ -899,7 +899,7 @@ function moodboardIds(settings) {
 }
 
 /**
- * Build the "submitted — widget is live" tool result for a UI host.
+ * Build the "submitted â€” widget is live" tool result for a UI host.
  * @param {object} p
  *   tool           MCP tool name (e.g. 'generate_image')
  *   kind           'image' | 'video' | 'audio' | '3d' | 'scenes'
@@ -922,7 +922,7 @@ async function outputCount(p) {
 }
 
 async function uiGenerating(p) {
-  // No ETAs anywhere — just a spinner until the poll flips to completed.
+  // No ETAs anywhere â€” just a spinner until the poll flips to completed.
   const chip = await modelChipFields(p.client, p.model, p.settings && p.settings.mode);
   const settings = await decorateSettings(p.client, p.settings || {});
   const structured = {
@@ -964,10 +964,45 @@ async function uiGenerating(p) {
     ...(p.failed_submissions && p.failed_submissions.length
       ? { failed_submissions: p.failed_submissions } : {}),
     ...(p.warning ? { _warning: p.warning } : {}),
-    _widget_note: 'A live Kolbo widget is rendering this generation for the user (progress + final result + action buttons). Tell the user it is generating and the card above will update. CREDIT GUARD: END YOUR TURN now — do not keep Thinking, writing skills/files, or planning while the card spins (that burns coding credits). Do NOT poll in a loop. If you need the output URLs for a follow-up step, call get_generation_status ONCE with wait=true as the only next tool — it blocks until done. Tracking several generations? Pass ALL their ids in generation_ids in that one call.',
-    _paid_note: 'This generation is RUNNING and the user is paying for it. If you now realize the tool, model, or parameters were wrong, call cancel_generation with this generation_id FIRST, then start the replacement — never leave a wrong generation running alongside its retry (the user gets two cards and two charges).',
+    _widget_note: 'A live Kolbo widget is rendering this generation for the user (progress + final result + action buttons). Tell the user it is generating and the card above will update. CREDIT GUARD: END YOUR TURN now â€” do not keep Thinking, writing skills/files, or planning while the card spins (that burns coding credits). Do NOT poll in a loop. If you need the output URLs for a follow-up step, call get_generation_status ONCE with wait=true as the only next tool â€” it blocks until done. Tracking several generations? Pass ALL their ids in generation_ids in that one call.',
+    _paid_note: 'This generation is RUNNING and the user is paying for it. If you now realize the tool, model, or parameters were wrong, call cancel_generation with this generation_id FIRST, then start the replacement â€” never leave a wrong generation running alongside its retry (the user gets two cards and two charges).',
   }, null, 2);
+  const inline = await completeInline(p, structured);
+  if (inline) return inline;
   return uiResult(UI.generation, text, structured);
+}
+
+// Fast single images finish inside one tool call, so hand back the FINISHED card.
+// Some hosts (Claude Code desktop, 2026-11-18) never service the card's own
+// get_generation_status polls, and a card that only learns its result by polling
+// sits on "Generating" forever. Under the 60s host request timeout; longer jobs
+// (video, music) keep the poll path.
+const INLINE_WAIT_MS = 40000;
+async function completeInline(p, structured) {
+  if (p.kind !== 'image' || structured.generation_ids || !p.gen.generation_id) return null;
+  if (structured.poll_tool !== 'get_generation_status') return null;
+  if (process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE) return null; // Codex polls fine
+  try {
+    const done = await pollUntilDone(p.client, p.gen.generation_id, { interval: 3000, timeout: INLINE_WAIT_MS });
+    const r = done.result || {};
+    const urls = preferOwnedUrls(Array.isArray(r.urls) ? r.urls : []);
+    if (!urls.length) return null;
+    const cf = creditFields(done);
+    const card = {
+      ...structured, ...r, ...cf,
+      phase: 'completed', widget: 'generation', kind: structured.kind, tool: p.tool, urls,
+      model: structured.model, model_name: structured.model_name, model_icon: structured.model_icon,
+      settings: structured.settings, visual_dnas: structured.visual_dnas, moodboards: structured.moodboards,
+    };
+    delete card.status_args; delete card.poll_tool;
+    const text = JSON.stringify({ state: 'completed', generation_id: p.gen.generation_id, session_id: p.gen.session_id,
+      result: r, ...cf, _hint: 'FINAL â€” the image is done and shown on the card. Do not poll.' }, null, 2);
+    return uiResult(UI.generation, text, card);
+  } catch (err) {
+    // timeout / failure / transient: fall back to the live polling card
+    progress.untrackGeneration(p.gen.generation_id);
+    return null;
+  }
 }
 
 /**
@@ -1009,8 +1044,8 @@ function asyncGenerating(p) {
 /**
  * Wrap an already-completed generation result with the widget.
  *
- * Used by tools that stay blocking even on UI hosts (creative director), AND —
- * since structuredContent costs a text host nothing — by every generation tool
+ * Used by tools that stay blocking even on UI hosts (creative director), AND â€”
+ * since structuredContent costs a text host nothing â€” by every generation tool
  * on its normal blocking return. That second case is why model names, model
  * avatars and Visual DNA chips were missing in Kolbo Code: it does not advertise
  * MCP Apps, so `ui()` is false, `uiGenerating` never runs, and the host had to
@@ -1065,13 +1100,13 @@ async function uiCompleted(p, textPayload, extraContent) {
     ...(Array.isArray(p.tracks) && p.tracks.length ? { tracks: p.tracks } : {}),
     scenes: p.scenes,
     // Independent per-item results (get_generation_status checking several ids
-    // at once) — each one carries its OWN state/media, unlike `scenes`/`urls`
+    // at once) â€” each one carries its OWN state/media, unlike `scenes`/`urls`
     // above which assume everything finished together. Only set when the
     // caller actually has this shape; every existing caller is unaffected.
     ...(Array.isArray(p.items) ? { items: p.items } : {}),
     // Transcription payload. get_generation_status is the ONLY way the live
     // transcript widget learns its result, and it reads text/srt_url/txt_url off
-    // this object — but uiCompleted is shaped for the generation card and
+    // this object â€” but uiCompleted is shaped for the generation card and
     // dropped every one, so a finished transcription rendered "(empty
     // transcript)" with no SRT/TXT buttons while the text sat in the status
     // response. structuredContent SHADOWS the text block on widget hosts, so
@@ -1083,7 +1118,7 @@ async function uiCompleted(p, textPayload, extraContent) {
     ...(p.audio_url ? { audio_url: p.audio_url } : {}),
     // The voice, by name and portrait. uiGenerating has carried this since the
     // chips were introduced; uiCompleted never did, so it silently dropped a
-    // resolved voice its caller had already looked up — every FINISHED speech
+    // resolved voice its caller had already looked up â€” every FINISHED speech
     // card fell back to `settings.voice`, printing a raw ElevenLabs id where the
     // name belongs and rendering the generic note placeholder instead of the
     // voice's face. Exactly the "never show a raw id on a card" rule, broken on
@@ -1094,8 +1129,8 @@ async function uiCompleted(p, textPayload, extraContent) {
     // the card prefers them over the submitted `settings`.
     ...(p.speech ? { speech: p.speech } : {}),
     // The RAW generation state, when the caller has one. `phase` above is
-    // hardcoded 'completed' — it means "this tool call finished", not "the
-    // generation finished" — so a status check on a still-running job looked
+    // hardcoded 'completed' â€” it means "this tool call finished", not "the
+    // generation finished" â€” so a status check on a still-running job looked
     // done to every reader. A live generation card polls get_generation_status
     // from its own iframe and reads `state` FIRST; without it, a processing job
     // resolved as completed-with-no-media and painted a red failure card.
@@ -1110,12 +1145,12 @@ async function uiCompleted(p, textPayload, extraContent) {
   return out;
 }
 
-// ─── Text-payload budget ─────────────────────────────────────────────────────
+// â”€â”€â”€ Text-payload budget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
 // Whatever a tool returns as TEXT is what the model actually reads, and hosts
 // reject or spill-to-disk anything much past this. A list tool that dumps every
 // field of every row blows it instantly: list_presets measured 632,919 chars,
-// get_stock_categories 257,817, list_voices 190,286 — all pretty-printed with
+// get_stock_categories 257,817, list_voices 190,286 â€” all pretty-printed with
 // `JSON.stringify(x, null, 2)` and no cap. The widget path already slims rows to
 // id/title/thumbnail; the text path has to do the same or the tool is unusable
 // on exactly the text hosts (Claude Code, Cursor, Codex) that depend on it.
@@ -1139,7 +1174,7 @@ function compactList(items, { fields, cap = 50, total, extra, note, maxChars = M
     if (!row || typeof row !== 'object') return row;
     const out = {};
     for (const f of fields || Object.keys(row)) {
-      // Drop empties — a row of nulls costs tokens and tells the model nothing.
+      // Drop empties â€” a row of nulls costs tokens and tells the model nothing.
       if (row[f] !== undefined && row[f] !== null && row[f] !== '') out[f] = row[f];
     }
     return out;
@@ -1176,7 +1211,7 @@ function compactList(items, { fields, cap = 50, total, extra, note, maxChars = M
 
 // Every link out of the out-of-credits card carries the same tags so MCP
 // purchases are attributable. kolbo-map's /pricing reads only `category`
-// (month | annual | one_time) — no per-pack preselect exists, so the pack link
+// (month | annual | one_time) â€” no per-pack preselect exists, so the pack link
 // lands on the credit-pack tab.
 function upgradeCardUrl(path, content, query = {}) {
   const url = new URL(path, APP_BASE_URL);
@@ -1221,7 +1256,7 @@ function packForShortfall(packs, shortfall) {
 async function insufficientCreditsResult(client, err, options = {}) {
   if (!err || err.code !== 'INSUFFICIENT_CREDITS') return null;
   if (options.commerce === false) {
-    // ChatGPT profile: no plans, no prices, no pricing link — OpenAI's
+    // ChatGPT profile: no plans, no prices, no pricing link â€” OpenAI's
     // directory treats those as disallowed digital-goods commerce. The card
     // states the refusal; where to add credits is the user's own business.
     const balance = err.data?.balance;
@@ -1247,7 +1282,7 @@ async function insufficientCreditsResult(client, err, options = {}) {
   try {
     data = await client.get('/v1/account/plans');
   } catch {
-    // Offline / rate-limited — fall through to the minimal card.
+    // Offline / rate-limited â€” fall through to the minimal card.
   }
 
   const balance = err.data?.balance ?? data?.credits?.total;
@@ -1283,7 +1318,7 @@ async function insufficientCreditsResult(client, err, options = {}) {
   };
 
   // structuredContent shadows the text on widget hosts, so the refusal reason
-  // has to be inside the object too — an agent that only reads structured
+  // has to be inside the object too â€” an agent that only reads structured
   // content must still understand that nothing was generated.
   structured.error = err.message;
   structured._hint = 'The generation did NOT run and nothing was charged. An upgrade card is shown to the user. Tell them they are out of credits and point at the card; '
