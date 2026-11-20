@@ -90,7 +90,7 @@ function registerReviewTools(server, client) {
   // ─── create_review_asset ─────────────────────────────────────
   server.tool(
     'create_review_asset',
-    'Create a Kolbo Review asset with v1 media attached — use it proactively when you finish a cut, edit, or render the user should judge: they leave timestamped notes on the video and you read them back with list_review_comments. Result carries asset.open_url (owner link in the Kolbo app) — always hand it to the user as a clickable link. Media you already have a URL for (a generation result, list_media, any public link): pass `media_url` and never re-upload. Only a local file needs `upload_media`, `create_upload_ticket` or `media_upload_widget` first (then pass `media_id`). For a batch the user grades (an album), first create_review_collection with grading_enabled, then one create_review_asset per file with that collection_id. Requires `project_id` when the user named a project.',
+    "WHICH REVIEW: one cut, edit, render or design the user (or their client) judges = create_review_asset (timestamped notes, versions, approve). MANY files to sort, pick or approve (a batch of images, takes, thumbnails, ad variants, a client delivery) = create_review_album, one call. Create a Kolbo Review asset with v1 media attached — use it proactively when you finish a cut, edit, or render the user should judge: they leave timestamped notes on the video and you read them back with list_review_comments. Result carries asset.open_url (owner link in the Kolbo app) — always hand it to the user as a clickable link. Media you already have a URL for (a generation result, list_media, any public link): pass `media_url` and never re-upload. Only a local file needs `upload_media`, `create_upload_ticket` or `media_upload_widget` first (then pass `media_id`). For a batch the user grades (an album), first create_review_collection with grading_enabled, then one create_review_asset per file with that collection_id. Requires `project_id` when the user named a project.",
     {
       name: z.string().describe('Display name for the review asset.'),
       media_id: z.string().optional().describe('MediaLibraryItem id from upload_media / list_media.'),
@@ -105,6 +105,68 @@ function registerReviewTools(server, client) {
         ...withLinks(result),
         _hint: 'Asset created. ALWAYS give the user asset.open_url as a clickable link (or open it) so they can leave timestamped notes. On widget hosts the user can also leave notes right in the review card. For clients without a Kolbo account, create_review_share_link returns a guest share_url.',
       }, { comments: [] });
+    }
+  );
+
+  // ─── create_review_album ─────────────────────────────────────
+  server.tool(
+    'create_review_album',
+    "Share MANY files for review in one call: creates an album (a review collection with the Grade view on), adds every file as its own review asset, and optionally makes a guest share link. Use it proactively whenever you deliver a batch the user or their client should sort, pick or approve: generated images, video takes, thumbnails, ad variants, a client delivery. Each file gets Good/Bad, optional 1-5 stars, notes, pins and drawings, in the app and on the guest link. Read the verdicts back with get_review_grading. For ONE cut use create_review_asset instead. Pass `media_url` for media you already have a URL for (never re-upload); only a local file needs upload_media first (then `media_id`). Give the user album.open_url (owner Grade view) and, for clients, share_link.share_url.",
+    {
+      name: z.string().describe('Album name, e.g. "Hero shots - round 1".'),
+      project_id: projectIdField,
+      items: z.array(z.object({
+        name: z.string().optional().describe('Display name; defaults to "File N".'),
+        media_url: z.string().optional().describe('Public URL of media you already have (Kolbo output, list_media item or any public image/video/audio link). Preferred.'),
+        media_id: z.string().optional().describe('MediaLibraryItem id from upload_media / list_media.'),
+      })).min(1).max(200).describe('Files in display order. Each needs media_url or media_id.'),
+      stars: z.boolean().optional().describe('Offer optional 1-5 stars next to Good/Bad (default true).'),
+      share: z.boolean().optional().describe('Also create a guest share link for clients without a Kolbo account (default false).'),
+      share_permissions: z.object({
+        canComment: z.boolean().optional(),
+        canDownload: z.boolean().optional(),
+        canViewOtherComments: z.boolean().optional(),
+      }).optional().describe('Guest link permissions when share is true. Commenting is also what lets a guest grade.'),
+      role_label: z.string().optional().describe('Guest role label on the share link (e.g. Client).'),
+    },
+    async ({ name, project_id, items, stars, share, share_permissions, role_label }) => {
+      const created = await client.post('/v1/review/collections', {
+        name,
+        project_id,
+        grading: { enabled: true, ...(stars !== undefined ? { stars } : {}) },
+      });
+      const collection = created && created.collection;
+      if (!collection || !collection.id) throw new Error('The album could not be created.');
+      // In order, so the Grade view (upload order) matches `items`.
+      const assets = [];
+      const failed = [];
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        try {
+          const r = await client.post('/v1/review/assets', {
+            name: it.name || `File ${i + 1}`,
+            media_url: it.media_url,
+            media_id: it.media_id,
+            project_id: project_id || collection.project_id,
+            collection_id: collection.id,
+          });
+          if (r && r.asset) assets.push(assetUrl(r.asset));
+        } catch (err) {
+          failed.push({ index: i, name: it.name || `File ${i + 1}`, error: err.message });
+        }
+      }
+      let share_link;
+      if (share) {
+        const r = await client.post(`/v1/review/collections/${encodeURIComponent(collection.id)}/share-links`, {
+          ...(role_label ? { role_label } : {}),
+          ...(share_permissions ? { permissions: share_permissions } : {}),
+        });
+        share_link = r && r.share_link;
+      }
+      const album = { ...collection, open_url: `${APP}/review/grade/${collection.id}` };
+      const out = { success: failed.length === 0, album, assets, ...(failed.length ? { failed } : {}), ...(share_link ? { share_link } : {}) };
+      out._hint = 'Give the user album.open_url (their Grade view)' + (share_link ? ' and share_link.share_url for the client' : '') + '. Later, read the Good/Bad + stars and notes with get_review_grading({ collection_id: album.id }).';
+      return { content: [{ type: 'text', text: JSON.stringify(out, null, 2) }] };
     }
   );
 
@@ -398,7 +460,7 @@ function registerReviewTools(server, client) {
   // ─── Share links ─────────────────────────────────────────────
   server.tool(
     'create_review_share_link',
-    'Create a guest review link for an asset or collection. Returns share_url for clients (no Kolbo account needed).',
+    'Create a guest review link for an asset or collection. Returns share_url for clients (no Kolbo account needed). On an album (a collection with grading on) the guest lands on the Grade view: Good/Bad, stars, notes, pins and drawings per file; read their marks with get_review_grading.',
     {
       target_type: z.enum(['asset', 'collection']),
       target_id: z.string(),
