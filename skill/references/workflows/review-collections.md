@@ -12,6 +12,20 @@ not know it exists. After any upload, reply with one clickable link per asset us
 `collection.open_url`). That link opens the asset in the Kolbo app, where the owner leaves
 timestamped notes. The guest link (the share_url field) from `create_review_share_link` is separate.
 
+## Which review: one asset or an album
+
+Pick by what the person has to decide, then offer it unasked:
+
+| Situation | Use | Why |
+|---|---|---|
+| One cut, edit, render, design or document to judge and iterate (v1, v2, approve) | **Review asset**: `create_review_asset` | Timestamped notes, pins and drawings on the frame, versions on the same thread, approve / request changes. |
+| Many files to sort, pick or approve at once: a batch of generated images, video takes, thumbnails, ad or banner variants, a lookbook, a client delivery | **Review album**: `create_review_album` | One grid; each file gets Good / Bad, optional 1-5 stars and notes. The verdicts come back in one call (`get_review_grading`). |
+| A client or teammate with no Kolbo account must see it | Either, plus a guest link (`share: true` on the album, or `create_review_share_link`) | The guest link works for both. On an album the guest grades every file too. |
+| You (the agent) made the work and need a human verdict before you continue | Album for a batch, asset for a single cut | Read the verdict back and act on it: regenerate the Bad files, keep the Good ones, apply the notes. |
+
+Say what it does in one line when you offer it (users rarely know Review exists), e.g.
+"I put the 24 shots in a Review album: mark each Good or Bad and leave notes, then I'll redo the bad ones."
+
 Not for: publishing a page (`publish_html_artifact`), sharing a whole media folder
 (`share_media_folder`), or internal doc collaboration (`share_doc`).
 
@@ -19,6 +33,7 @@ Not for: publishing a page (`publish_html_artifact`), sharing a whole media fold
 
 | Tool | What it does |
 |---|---|
+| `create_review_album` | One call for a batch: album (collection with the Grade view on) + one asset per file in order (`items[]` of `media_url` or `media_id`) + optional guest link (`share: true`). Returns `album.open_url` (owner Grade view), `assets[]`, `share_link.share_url`. |
 | `create_review_asset` | New review asset with v1 media attached (`name`, `media_url` or `media_id`, optional `collection_id`, `version_note`). |
 | `list_review_assets` / `get_review_asset` | Browse a project's review assets (filter by `collection_id` / `status`); fetch one with all versions + URLs. |
 | `update_review_asset` | Rename, move to a collection (`collection_id: null` = uncollected), or switch `current_version_index`. |
@@ -30,7 +45,7 @@ Not for: publishing a page (`publish_html_artifact`), sharing a whole media fold
 | `get_review_grading` / `set_review_mark` / `get_review_comment_mask` | Album grading: read every file's Good/Bad + 1-5 stars and drawn notes; set a mark only when the user asks you to grade; a drawing as a mask PNG for inpainting. |
 | `get_review_shot_votes` / `set_review_shot_vote` | Likes / dislikes per shot of a video (shot = its start second). |
 | `resolve_review_comment` / `unresolve_review_comment` | Close / reopen a comment thread. |
-| `create_review_share_link` / `list_review_share_links` / `revoke_review_share_link` | Guest links (no Kolbo account) for one asset or a whole collection. |
+| `create_review_share_link` / `list_review_share_links` / `revoke_review_share_link` | Guest links (no Kolbo account) for one asset or a whole collection. On an album the guest lands on the Grade view and grades every file (needs `canComment`). |
 | `get_review_storage_usage` | `usedBytes` vs the 5GB review cap for the API-key owner. |
 
 ## The core flow
@@ -51,9 +66,21 @@ media_url of media you already have (generation result, list_media, any public l
 **Never re-upload media you already have a URL for.** Pass `media_url`: your own Kolbo media
 is reused as is, and any other public image/video/audio link is attached in place with no
 copy (its size counts toward Review storage). Only a local file goes through `upload_media` /
-`create_upload_ticket` / `media_upload_widget` first, then `media_id`. A batch for the user to
-grade = `create_review_collection({ grading_enabled: true })`, then one `create_review_asset`
-per file with that `collection_id`.
+`create_upload_ticket` / `media_upload_widget` first, then `media_id`.
+
+## The album flow (many files)
+
+```
+create_review_album({ name, project_id, items: [{ name, media_url }, ...], share: true })
+  → give the user album.open_url, and the client share_link.share_url
+  → get_review_grading({ collection_id: album.id })   ← every file: Good/Bad, stars, notes, drawings
+  → act: regenerate or fix the Bad ones, keep the Good ones
+  → a fixed file = add_review_version on that asset (its grade resets for the new version)
+```
+
+`marks[]` in `get_review_grading` holds every reviewer, guests included; `my_mark` is the
+API-key owner's. Set a mark yourself (`set_review_mark`) only when the user asks you to
+grade. A drawn note can become an inpainting mask with `get_review_comment_mask`.
 
 ## Version semantics
 
