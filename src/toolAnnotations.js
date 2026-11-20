@@ -91,7 +91,7 @@ const PRIVATE_WRITE = [
   'set_review_status', 'create_review_collection', 'update_review_collection',
   'create_review_comment', 'reply_review_comment',
   'resolve_review_comment', 'unresolve_review_comment',
-  'set_review_mark', 'set_review_shot_vote',
+  'set_review_mark', 'set_review_shot_vote', 'create_review_album',
 ];
 
 const DESTRUCTIVE_WRITE = [
