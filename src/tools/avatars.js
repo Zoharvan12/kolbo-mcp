@@ -23,6 +23,15 @@ const CONSENT_ARG = z.boolean().optional().describe('Not needed: sent automatica
 // A voice from clone_voice / list_voices may come as a bare id; the avatar API takes custom_<id>.
 const voiceId = (v) => (typeof v === 'string' && /^[a-f0-9]{24}$/i.test(v) ? `custom_${v}` : v);
 const STOCK_VOICE = z.string().max(80).optional().describe('Instead of cloning: a library voice (list_avatar_stock_voices) or one of the user\'s own voices from clone_voice / list_voices (custom_<id>, or the bare id clone_voice returned).');
+// HeyGen Avatar 6 (Photo mode only): the picture comes from the avatar's photo, a character clip, or a stock presenter.
+const HEYGEN = {
+  look_source: z.enum(['photo', 'character', 'stock']).optional().describe('HeyGen Avatar 6 only (mode photo, lipsync_model from list_avatar_lipsync_models with mode heygen): photo = the avatar\'s own photo, character = an animated or illustrated character clip (character_video_url; real people are refused), stock = a stock presenter (stock_avatar). Character and stock bring their own picture: the avatar only lends its voice, or pass voice_id or audio_url.'),
+  character_video_url: z.string().url().optional().describe('look_source character: https link to a clip of an animated or illustrated character (at least 2 s).'),
+  character_image_url: z.string().url().optional().describe('look_source character: optional https still of the same character.'),
+  stock_avatar: z.string().max(150).optional().describe('look_source stock: the exact name from list_avatar_stock_presenters.'),
+  voice_id: z.string().max(200).optional().describe('look_source character or stock: a library voice (list_avatar_stock_voices) to speak the script instead of the avatar\'s voice.'),
+};
+const RESOLUTION = z.enum(['480p', '720p', '1080p', '2k', '4k']).optional().describe('2k is for HeyGen Avatar 6 only.');
 const LOOK = z.string().max(40).optional().describe('An outfit from add_avatar_look (look_id). Omit for the clothes in the photos. Omni and Photo only.');
 
 function registerAvatarTools(server, client) {
@@ -204,8 +213,20 @@ function registerAvatarTools(server, client) {
   server.tool(
     'list_avatar_lipsync_models',
     'Models that can move the lips in a Photo avatar video (from the photo) or a Twin avatar video (from the footage), with credits per second and the longest clip each takes. Pass an id as lipsync_model on quote_avatar_video and create_avatar_video with the same mode. The default suits most videos.',
-    { mode: z.enum(['photo', 'twin']).optional().describe('photo (default) lists image lipsync models, twin lists video lipsync models.') },
+    { mode: z.enum(['photo', 'twin', 'heygen']).optional().describe('photo (default) lists image lipsync models, twin lists video lipsync models, heygen lists HeyGen Avatar 6 Turbo and Pro per look_source (heygen_mode).') },
     async ({ mode }) => text(await client.get(`/v1/avatars/lipsync-models${mode ? `?mode=${mode}` : ''}`))
+  );
+
+  server.tool(
+    'list_avatar_stock_presenters',
+    'Stock presenters for HeyGen Avatar 6 (create_avatar_video with mode photo, look_source stock, stock_avatar = one of these names). Names read as person, place and angle (e.g. Abigail Sofa Front). Filter with search; returns at most 200 names.',
+    { search: z.string().max(80).optional().describe('Case-insensitive words that must all appear in the name, e.g. "abigail front".') },
+    async ({ search }) => {
+      const all = (await client.get('/v1/avatars/presenters'))?.data || [];
+      const words = String(search || '').toLowerCase().split(/\s+/).filter(Boolean);
+      const hits = all.filter(name => words.every(w => name.toLowerCase().includes(w)));
+      return text({ presenters: hits.slice(0, 200), count: hits.length, total: all.length });
+    }
   );
 
   server.tool(
@@ -216,11 +237,12 @@ function registerAvatarTools(server, client) {
       mode: MODE,
       script: z.string().min(1).max(6000).optional(),
       audio_url: z.string().url().optional(),
-      resolution: z.enum(['480p', '720p', '1080p', '4k']).optional(),
+      resolution: RESOLUTION,
       speech_url: z.string().optional().describe('The speech_url from preview_avatar_speech for this exact script: the video then speaks what was heard, at its exact length and price. Send it together with the script.'),
       lipsync_model: z.string().optional().describe('Photo and Twin modes: a model id from list_avatar_lipsync_models for that mode. Omit for the default. The price follows that model.'),
       remove_background: z.boolean().optional().describe('Also remove the background: the video comes back transparent (video_url = webm with alpha, download_url = editing master). Costs extra per second (see remove_background_credits); up to 1080p and 60 s.'),
       look_id: LOOK,
+      ...HEYGEN,
     },
     async ({ avatar_id, ...body }) => text(await client.post(`/v1/avatars/${encodeURIComponent(avatar_id)}/videos/quote`, body))
   );
@@ -240,13 +262,14 @@ function registerAvatarTools(server, client) {
       shot: SHOT.optional().describe('Omni only: close = talking head (default), podcast = side angle looking at an unseen host, full_body = whole person seated/standing, walk = walking toward a gimbal camera (best in outdoor scenes), webcam = video call, propped = phone on the table, selfie = close handheld video message.'),
       look_id: LOOK,
       aspect_ratio: z.enum(['9:16', '16:9', '1:1']).optional(),
-      resolution: z.enum(['480p', '720p', '1080p', '4k']).optional(),
+      resolution: RESOLUTION,
       language: z.string().max(10).optional().describe('auto (default) or a code like he, en, es.'),
       speech_url: z.string().optional().describe('The speech_url from preview_avatar_speech for this exact script: the video then speaks what was heard, at its exact length and price. Send it together with the script.'),
       lipsync_model: z.string().optional().describe('Photo and Twin modes: a model id from list_avatar_lipsync_models for that mode. Omit for the default. The price follows that model.'),
       remove_background: z.boolean().optional().describe('Also remove the background: the video comes back transparent (video_url = webm with alpha, download_url = editing master). Costs extra per second (see remove_background_credits); up to 1080p and 60 s.'),
       session_id: z.string().max(64).optional(),
       project_id: z.string().max(64).optional(),
+      ...HEYGEN,
     },
     async ({ avatar_id, ...body }) => text((await client.post(`/v1/avatars/${encodeURIComponent(avatar_id)}/videos`, body))?.video)
   );

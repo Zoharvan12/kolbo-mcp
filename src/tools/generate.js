@@ -2177,8 +2177,12 @@ function registerGenerateTools(server, client, options = {}) {
     'generate_lipsync',
     'Lipsync an audio track to a source image or video. SCOPE: it syncs an EXISTING audio waveform to a face in footage you already have (dubbing, translation, fixing a delivered take). It is NOT how you get characters to speak in a film you are generating — Seedance 2/2.5 perform quoted dialogue natively with synced lip movement, so a scene generated there needs no lipsync pass. Both `source` (image or video) and `audio` can be provided as URLs or as absolute local file paths. Pass a text_prompt only if the model supports it (some lipsync models do character performance from a prompt). **Validate before submitting: for `lipsync-video` sources, the input video duration must fall within `min_video_duration`-`max_video_duration` from list_models; audio duration must fall within `min_audio_duration`-`max_audio_duration` (and if `audio_max_follows_video_duration: true`, audio is also capped at the video duration); audio format must be in `supported_audio_formats` when specified.** Returns a lipsynced video URL.',
     {
-      source: z.string().describe('URL or absolute local path to the source image or video (the face to animate). For lipsync-video: duration must fall within `min_video_duration`-`max_video_duration` from list_models.'),
+      source: z.string().optional().describe('URL or absolute local path to the source image or video. Required except for Avatar 6 stock presenters.'),
       audio: z.string().describe('URL or absolute local path to the audio track (the voice to sync to). Duration must fall within `min_audio_duration`-`max_audio_duration` from list_models; format must be in `supported_audio_formats` (when set).'),
+      reference_image_url: z.string().url().optional().describe('Avatar 6 reference-video mode only: optional still of the same animated or illustrated character.'),
+      stock_avatar: z.string().max(150).optional().describe('Avatar 6 identity-to-video only: the exact name of a stock presenter from list_avatar_stock_presenters, for example Abigail Sofa Front.'),
+      resolution: z.enum(['1080p', '2k']).optional().describe('Avatar 6 output resolution. Defaults to 1080p.'),
+      aspect_ratio: z.enum(['16:9', '9:16', '1:1', '4:5', '5:4']).optional().describe('Avatar 6 stock presenters only: output framing.'),
       text_prompt: z.string().optional().describe('Optional text prompt (for performance-capable models). For Sync-3 this is the free-text emotion/acting prompt, e.g. "speaking with excitement, calm and serious". For OmniHuman 2.0 (model "bytedance/omnihuman-2.0", lipsync-image: one photo + 4-300s of audio, native 720p) it directs the scene, gestures and camera, e.g. "she sings on a small stage, slow push-in, hands on the mic".'),
       model: z.string().optional().describe('Model identifier. Use list_models type="lipsync-image" or type="lipsync-video" to see options. Pick a SPECIFIC model — do NOT omit (omitting = Smart Select auto-pick, which we avoid); call list_models for this type and choose the model that best fits the user\'s intent.'),
       bounding_box_target: z.array(z.number()).optional().describe('Optional bounding box [x, y, w, h] for multi-face inputs (Hedra Character3 style). Leave empty for single-face.'),
@@ -2200,9 +2204,11 @@ function registerGenerateTools(server, client, options = {}) {
       project_id: projectIdField,
       session_id: sessionIdField
     },
-    async ({ source, audio, text_prompt, model, bounding_box_target, sync_mode, model_mode, emotion, temperature, occlusion_detection_enabled, active_speaker_detection, project_id, session_id }) => {
-      model = await canonicalModelId(client, model, ['lipsync-image', 'lipsync-video']); // lenient id resolution ("z-image" → "z-image/turbo")
-      if (!source) throw new Error('source is required (URL or absolute local path to image/video)');
+    async ({ source, audio, text_prompt, model, reference_image_url, stock_avatar, resolution, aspect_ratio, bounding_box_target, sync_mode, model_mode, emotion, temperature, occlusion_detection_enabled, active_speaker_detection, project_id, session_id }) => {
+      const stockMode = /^heygen\/avatar-6\/(?:turbo\/)?identity-to-video$/.test(model || '');
+      if (!stockMode) model = await canonicalModelId(client, model, ['lipsync-image', 'lipsync-video']);
+      const avatar6Video = /^heygen\/avatar-6\/(?:turbo\/)?ref-video-to-video$/.test(model || '');
+      if (stockMode ? (source || !stock_avatar) : !source) throw new Error(stockMode ? 'Choose a stock avatar instead of providing reference media.' : 'source is required (URL or absolute local path to image/video)');
       if (!audio) throw new Error('audio is required (URL or absolute local path to audio file)');
 
       // Upload local files first so the card can show the face source and the
@@ -2212,8 +2218,8 @@ function registerGenerateTools(server, client, options = {}) {
       const isVideoUrl = (u) => /\.(mp4|mov|webm|mkv|avi|m4v)(\?|$)/i.test(u);
       const httpRef = (u) => (typeof u === 'string' && /^https?:\/\//i.test(u) ? [u] : []);
       const lipsyncRefs = {
-        reference_images: httpRef(source).filter((u) => !isVideoUrl(u)),
-        reference_videos: httpRef(source).filter(isVideoUrl),
+        reference_images: [...httpRef(source).filter((u) => !avatar6Video && !isVideoUrl(u)), ...httpRef(reference_image_url)],
+        reference_videos: httpRef(source).filter(u => avatar6Video || isVideoUrl(u)),
         reference_audio: httpRef(audio),
       };
 
@@ -2221,13 +2227,14 @@ function registerGenerateTools(server, client, options = {}) {
       const audioIsUrl = typeof audio === 'string' && /^https?:\/\//i.test(audio);
 
       let startResponse;
-      if (sourceIsUrl && audioIsUrl) {
+      if ((sourceIsUrl || stockMode) && audioIsUrl) {
         // URL mode
         startResponse = await client.post('/v1/generate/lipsync', {
           source_url: source,
           audio_url: audio,
           prompt: text_prompt,
           model,
+          reference_image_url, stock_avatar, resolution, aspect_ratio,
           bounding_box_target,
           // Sync-3 advanced options (additive; ignored by other models)
           sync_mode,
@@ -2241,12 +2248,12 @@ function registerGenerateTools(server, client, options = {}) {
       } else {
         // File mode (or mixed — resolve any local paths, pass URLs through as body fields)
         const form = new FormData();
-        if (!sourceIsUrl) {
+        if (source && !sourceIsUrl) {
           const resolved = await resolveInput(source, /\.(mp4|mov|webm|mkv)$/i.test(source) ? 'video' : 'image');
           // Decide field name by kind — lipsync controller uses .fields() with image/video/audio.
           const isVideo = /\.(mp4|mov|webm|mkv|avi|m4v)$/i.test(resolved.filename);
           form.append(isVideo ? 'video' : 'image', resolved.buffer, { filename: resolved.filename, contentType: resolved.contentType });
-        } else {
+        } else if (source) {
           form.append('source_url', source);
         }
         if (!audioIsUrl) {
@@ -2257,6 +2264,10 @@ function registerGenerateTools(server, client, options = {}) {
         }
         if (text_prompt) form.append('prompt', text_prompt);
         if (model) form.append('model', model);
+        if (reference_image_url) form.append('reference_image_url', reference_image_url);
+        if (stock_avatar) form.append('stock_avatar', stock_avatar);
+        if (resolution) form.append('resolution', resolution);
+        if (aspect_ratio) form.append('aspect_ratio', aspect_ratio);
         if (bounding_box_target) form.append('bounding_box_target', JSON.stringify(bounding_box_target));
         // Sync-3 advanced options (additive — ignored by other models)
         if (sync_mode) form.append('sync_mode', sync_mode);
