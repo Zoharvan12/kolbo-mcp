@@ -211,6 +211,7 @@
     "list_agents",
     "list_avatar_lipsync_models",
     "list_avatar_scene_presets",
+    "list_avatar_stock_presenters",
     "list_avatar_stock_voices",
     "list_avatars",
     "list_cinematic_presets",

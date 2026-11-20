@@ -13,7 +13,7 @@ const READ_ONLY = [
   'estimate_flow_run', 'get_flow_run', 'list_flow_runs',
   'list_morphious_styles',
   'list_avatars', 'get_avatar', 'list_avatar_scene_presets', 'get_avatar_video', 'list_avatar_stock_voices',
-  'list_avatar_lipsync_models',
+  'list_avatar_lipsync_models', 'list_avatar_stock_presenters',
   'list_trends', 'get_trend', 'estimate_trend_run', 'get_trend_run', 'list_trend_runs',
   'get_download_status',
   'get_video_editor_schema', 'list_video_editor_sessions', 'get_video_editor_session',
