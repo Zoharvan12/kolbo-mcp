@@ -9,22 +9,35 @@ Pick the route from the question and coverage needed. For long recordings or ite
 ```
 Image (jpg/png/webp)?                         → Read directly (native vision, up to 10 per pass)
 Long recording / cuts / verified content or audiovisual investigation? → prepare_video_inspection → inspect_video → targeted evidence analysis/ASR
-One-off short video or YouTube question?      → analyze_video
+Video question, up to 20 min, or YouTube?     → analyze_video (shots + soundtrack)
+Understand a sound file — music, SFX, ambience, BPM, speakers → analyze_audio
 User wants the transcript/SRT as deliverable? → transcribe_audio, return the URLs
 Precise answer about one specific frame?      → inspect_video kind=frame at a source timestamp
 File is only reachable locally and >100MB?    → split with ffmpeg, or HYBRID below
 ```
 
-## `analyze_video` — one-off video understanding
+## `analyze_video` — video understanding (up to 20 min)
 
-Agentic Gemini can navigate selected frames/audio/transcript. It remains bounded by provider limits, timeout and model behavior; do not assume it reviewed an entire recording. For long-form investigation use the prepared-source evidence workflow so the agent controls coverage and can verify or revise findings.
+The server picks the method by length: a short video gets one full pass; up to 20 minutes it detects cuts, builds contact sheets and analyzes segments, merged with source timecodes (`method`: `single` / `segmented`). Over 20 minutes it refuses with `MEDIA_TOO_LONG` — use the evidence workflow in `video-investigation.md`. Read `structured.coverage` before claiming the whole video was reviewed.
 
 - `video_url` (public https, e.g. the URL returned by `upload_media` / `list_media`) **or** `youtube_url`.
-- `prompt`: the question. Ask directly — "At what timestamp does the logo appear?", "How many people speak, and who says X?", "List every product shown with its time". Omit for a full description + verbatim transcript.
+- `prompt`: the question. Ask directly — "At what timestamp does the logo appear?", "How many people speak, and who says X?", "List every product shown with its time". Omit for a full breakdown.
 - `quality`: `standard` (default) or `hq` (short clips where precision matters; ~2.5x the token price).
-- Sync — returns `analysis`, `model`, `usage`, `credits_used`. Billed by real token usage; long videos are still cheap under agentic navigation.
+- `include_audio` (default true): also returns the soundtrack analysis in `audio` (the full `analyze_audio` result). `false` = picture only, no transcription cost.
+- `refresh`: the same file + settings within 30 days returns the saved result for 0 credits (`reused: true`); `refresh: true` forces a new paid run.
+- Sync (can take minutes) — returns `analysis` (text), `structured` (summary, answer, `shots[]` with start/end/shot_type/camera_movement/subjects/action/setting/lighting/on_screen_text/audio_note, on_screen_text, people, style, edit, recreate, coverage), `audio`, `method`, `model`, `usage`, `credits_used`, `reused`. Billed by real usage.
+- YouTube links go straight to the model (`method: youtube_direct`): no measurements, no speech-recognition transcript, `audio: null`.
 - Local file → `create_upload_ticket` / `upload_media` / `media_upload_widget` first, then pass the URL.
 - It does not return SRT files. For subtitles or word timings use `transcribe_audio`.
+
+## `analyze_audio` — understand a sound file (up to 60 min)
+
+- `audio_url` **or** `video_url` (public https file, not YouTube; a video's soundtrack is extracted). Optional `prompt` (≤2000 chars), `refresh`, `project_id`.
+- Measured by the server: duration, loudness (LUFS, peaks), silence map, BPM. The transcript always comes from speech recognition, with speakers and timings.
+- Estimated by a listening pass: music (genre, mood, instruments, tempo, key, sections), every SFX with start/end, ambience, room tone, technical quality, edit notes (cut points, beats), and prompt-ready `recreate` descriptions for music / SFX / voice. Every number is labelled `measured` or `estimated` — quote estimated values as estimates.
+- All times are source seconds. Over 60 minutes → `MEDIA_TOO_LONG`; extract intervals with the evidence workflow instead.
+- Sync — returns `analysis`, `model`, `usage`, `credits_used`, `reused`. Billed by real usage (tokens + per-minute transcription); 30-day free reuse unless `refresh: true`.
+- Use it to brief `generate_music` / `generate_sound` / `generate_speech` from a reference, to find beats and cut points, or to answer questions about a soundtrack. For an SRT deliverable use `transcribe_audio`.
 
 ## Why `upload_media` → chat is **not** the default for video questions (use `analyze_video`)
 

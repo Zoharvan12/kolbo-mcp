@@ -51,8 +51,11 @@ four per host, 12 frames per call, 120 seconds per decoded interval, 60 evidence
 requests and 100 MB derivatives per snapshot. A three-hour recording is supported
 within the source byte limit; many original high-bitrate recordings require a proxy
 created/uploaded through the approved media workflow. Never download via an unrestricted
-shell URL or run a full-length decode on the Act host. A one-off short source or
-YouTube page can still use `analyze_video`; do not claim that route proves full coverage.
+shell URL or run a full-length decode on the Act host. A source up to 20 minutes or a
+YouTube page can use `analyze_video` (structured shot list + soundtrack analysis; it
+refuses longer sources with `MEDIA_TOO_LONG`); a sound-only question up to 60 minutes
+can use `analyze_audio`. Check their `coverage` field; for YouTube it is the model's
+own pass with no measurements, so do not claim that route proves full coverage.
 Cancel unused snapshots with `cancel_video_inspection`. Preparation and extraction
 stop; a provider request already accepted can still finish and incur credits.
 
