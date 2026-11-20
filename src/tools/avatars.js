@@ -28,7 +28,7 @@ const HEYGEN = {
   look_source: z.enum(['photo', 'character', 'stock']).optional().describe('HeyGen Avatar 6 only (mode photo, lipsync_model from list_avatar_lipsync_models with mode heygen): photo = the avatar\'s own photo, character = an animated or illustrated character clip (character_video_url; real people are refused), stock = a stock presenter (stock_avatar). Character and stock bring their own picture: the avatar only lends its voice, or pass voice_id or audio_url.'),
   character_video_url: z.string().url().optional().describe('look_source character: https link to a clip of an animated or illustrated character (at least 2 s).'),
   character_image_url: z.string().url().optional().describe('look_source character: optional https still of the same character.'),
-  stock_avatar: z.string().max(150).optional().describe('look_source stock: the exact name from list_avatar_stock_presenters.'),
+  stock_avatar: z.string().max(150).optional().describe('look_source stock: the exact name from list_avatar_stock_presenters. Stock presenters always render 16:9 (aspect_ratio is ignored).'),
   voice_id: z.string().max(200).optional().describe('look_source character or stock: a library voice (list_avatar_stock_voices) to speak the script instead of the avatar\'s voice.'),
 };
 const RESOLUTION = z.enum(['480p', '720p', '1080p', '2k', '4k']).optional().describe('2k is for HeyGen Avatar 6 only.');
