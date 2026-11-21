@@ -28,7 +28,7 @@ const HEYGEN = {
   look_source: z.enum(['photo', 'character', 'stock']).optional().describe('HeyGen Avatar 6 only (mode photo, lipsync_model from list_avatar_lipsync_models with mode heygen): photo = the avatar\'s own photo, character = an animated or illustrated character clip (character_video_url; real people are refused), stock = a stock presenter (stock_avatar). Character and stock bring their own picture: the avatar only lends its voice, or pass voice_id or audio_url.'),
   character_video_url: z.string().url().optional().describe('look_source character: https link to a clip of an animated or illustrated character (at least 2 s).'),
   character_image_url: z.string().url().optional().describe('look_source character: optional https still of the same character.'),
-  stock_avatar: z.string().max(150).optional().describe('look_source stock: the exact name from list_avatar_stock_presenters. Stock presenters always render 16:9 (aspect_ratio is ignored).'),
+  stock_avatar: z.string().max(150).optional().describe('look_source stock: a look id (or exact name) from list_avatar_stock_presenters. The look sets the framing: vertical looks render 9:16, square 1:1, the rest 16:9 (aspect_ratio is ignored). With no voice_id or audio_url the presenter speaks in their own voice.'),
   voice_id: z.string().max(200).optional().describe('look_source character or stock: a library voice (list_avatar_stock_voices) to speak the script instead of the avatar\'s voice.'),
 };
 const RESOLUTION = z.enum(['480p', '720p', '1080p', '2k', '4k']).optional().describe('2k is for HeyGen Avatar 6 only.');
@@ -219,13 +219,23 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'list_avatar_stock_presenters',
-    'Stock presenters for HeyGen Avatar 6 (create_avatar_video with mode photo, look_source stock, stock_avatar = one of these names). Names read as person, place and angle (e.g. Abigail Sofa Front). Filter with search; returns at most 200 names.',
-    { search: z.string().max(80).optional().describe('Case-insensitive words that must all appear in the name, e.g. "abigail front".') },
-    async ({ search }) => {
-      const all = (await client.get('/v1/avatars/presenters'))?.data || [];
-      const words = String(search || '').toLowerCase().split(/\s+/).filter(Boolean);
-      const hits = all.filter(name => words.every(w => name.toLowerCase().includes(w)));
-      return text({ presenters: hits.slice(0, 200), count: hits.length, total: all.length });
+    'Ready-made presenters for HeyGen Avatar 6 (create_avatar_video with mode photo, look_source stock, stock_avatar = a look id). About 1,200 people with about 9,000 looks. Without arguments: the people (person, group, looks, vertical_looks, best_motion), best_motion first: filmed presenters move most naturally, photo-based ones less. Prefer best_motion people unless the user asks for someone else. With group: all looks of that person. With search: looks whose person or look name has all the words (up to 60). Each look has id, name, orientation (portrait = renders 9:16), gender, filmed (natural motion) and a preview clip; lipsync_tool true means generate_lipsync also accepts its name.',
+    {
+      search: z.string().max(80).optional().describe('Words that must all appear in the person or look name, e.g. "abigail office".'),
+      group: z.string().max(64).optional().describe('The group of a person from the list without arguments: returns all of their looks.'),
+      vertical: z.boolean().optional().describe('Only vertical (9:16) looks, or people who have one.'),
+    },
+    async ({ search, group, vertical }) => {
+      const qs = group ? `?group=${encodeURIComponent(group)}` : search ? `?q=${encodeURIComponent(search)}` : '';
+      const r = (await client.get(`/v1/avatars/presenters${qs}`)) || {};
+      if (qs) {
+        const looks = (r.presenters || []).filter(l => !vertical || l.orientation === 'portrait')
+          .map(({ id, name, person, group: g, orientation, gender, preview, type, fal }) => ({ id, name, person, group: g, orientation, gender, preview, filmed: type === 'studio_avatar' || type === 'digital_twin', lipsync_tool: !!fal }));
+        return text({ presenters: looks, count: looks.length });
+      }
+      const people = (r.people || []).filter(p => !vertical || p.portrait > 0)
+        .map(({ person, group: g, gender, looks, portrait, featured }) => ({ person, group: g, gender, looks, vertical_looks: portrait, best_motion: !!featured }));
+      return text({ people: people.slice(0, 300), count: people.length, note: people.length > 300 ? 'First 300 people; narrow with search or vertical.' : undefined });
     }
   );
 

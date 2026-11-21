@@ -2180,7 +2180,7 @@ function registerGenerateTools(server, client, options = {}) {
       source: z.string().optional().describe('URL or absolute local path to the source image or video. Required except for Avatar 6 stock presenters.'),
       audio: z.string().describe('URL or absolute local path to the audio track (the voice to sync to). Duration must fall within `min_audio_duration`-`max_audio_duration` from list_models; format must be in `supported_audio_formats` (when set).'),
       reference_image_url: z.string().url().optional().describe('Avatar 6 reference-video mode only: optional still of the same animated or illustrated character.'),
-      stock_avatar: z.string().max(150).optional().describe('Avatar 6 identity-to-video only: the exact name of a stock presenter from list_avatar_stock_presenters, for example Abigail Sofa Front.'),
+      stock_avatar: z.string().max(150).optional().describe('Avatar 6 identity-to-video only: the exact name of a stock presenter look marked lipsync_tool in list_avatar_stock_presenters, for example Abigail Sofa Front.'),
       resolution: z.enum(['1080p', '2k']).optional().describe('Avatar 6 output resolution. Defaults to 1080p.'),
       aspect_ratio: z.enum(['16:9', '9:16', '1:1', '4:5', '5:4']).optional().describe('Avatar 6 stock presenters only: output framing.'),
       text_prompt: z.string().optional().describe('Optional text prompt (for performance-capable models). For Sync-3 this is the free-text emotion/acting prompt, e.g. "speaking with excitement, calm and serious". For OmniHuman 2.0 (model "bytedance/omnihuman-2.0", lipsync-image: one photo + 4-300s of audio, native 720p) it directs the scene, gestures and camera, e.g. "she sings on a small stage, slow push-in, hands on the mic".'),
