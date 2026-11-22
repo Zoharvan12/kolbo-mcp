@@ -44,6 +44,8 @@ const EXTRA_ROUTE_SOURCES = [
   { file: path.join(KOLBO_API, 'src', 'modules', 'adobe', 'index.js'), mountPath: '/v1/adobe' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'resolve', 'index.js'), mountPath: '/v1/resolve' },
   { file: path.join(KOLBO_API, 'src', 'modules', 'socialPlanner', 'sdk.js'), mountPath: '/v1/social' },
+  // Project brain routes; the SDK router mounts them without a prefix of their own.
+  { file: path.join(KOLBO_API, 'src', 'modules', 'kobiMemory', 'brainRoutes.js'), mountPath: '/v1' },
 ];
 const MCP_TOOLS_DIR = path.join(MCP_REPO, 'src', 'tools');
 
