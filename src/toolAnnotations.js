@@ -28,7 +28,7 @@ const READ_ONLY = [
   'list_media', 'list_media_folders', 'get_media', 'get_media_stats',
   'list_presets', 'list_cinematic_presets',
   'list_projects', 'get_project', 'get_project_publication', 'list_sessions', 'list_project_context',
-  'get_project_profile',
+  'get_project_profile', 'get_project_brain', 'search_brain_memory',
   // Returns a draft without saving it.
   'get_project_story', 'draft_project_story', 'get_project_page_insights',
   'list_project_assets',
@@ -68,7 +68,7 @@ const PRIVATE_WRITE = [
   'create_video_editor_session',
   'media_upload_widget', 'create_upload_ticket',
   'favorite_media', 'unfavorite_media', 'dislike_media', 'undislike_media', 'rate_media',
-  'clear_media_rating',
+  'clear_media_rating', 'add_brain_rule',
   'create_media_folder', 'update_media_folder',
   'add_media_to_folder', 'remove_media_from_folder',
   'share_media_folder',
@@ -117,8 +117,8 @@ const DESTRUCTIVE_WRITE = [
   'bulk_delete_media', 'bulk_permanently_delete_media',
   'unshare_media_folder',
   'delete_session',
-  'delete_project_context', 'regenerate_project_profile',
-  'update_project_asset',
+  'delete_project_context', 'regenerate_project_profile', 'delete_brain_rule',
+  'update_project_asset', 'update_brain_rule',
   // Ownership hand-off: the sender loses the project (and maybe all access) on accept.
   'transfer_project', 'respond_project_transfer',
   // A move (keep_sender_copy:false) trashes the sender's originals on accept.
