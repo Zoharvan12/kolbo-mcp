@@ -175,7 +175,7 @@ const OPEN_WORLD_DESTRUCTIVE = [
   'get_timed_lyrics', 'generate_elements', 'generate_first_last_frame', 'generate_lipsync',
   'generate_video_from_video', 'transcribe_audio', 'generate_3d', 'image_tools', 'video_tools', 'clone_voice',
   'chat_send_message', 'generate_character_sheet', 'synci_acquire_track', 'synci_import_track',
-  'separate_audio_stems', 'clean_dialogue_leftovers', 'separate_ambience', 'analyze_video',
+  'separate_audio_stems', 'clean_dialogue_leftovers', 'separate_ambience', 'analyze_video', 'analyze_audio',
   'analyze_extracted_clip', 'transcribe_extracted_clip', 'run_trend', 'create_visual_dna',
   'update_visual_dna', 'update_moodboard', 'update_avatar',
   // The feed URL is public and the queue rewrite replaces the posting schedule.
