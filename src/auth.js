@@ -88,6 +88,7 @@ async function browserLogin({ apiBase }) {
   const port = server.address().port;
   const redirectUri = `http://localhost:${port}/callback`;
 
+  const resource = `${oauthBase}/mcp`;
   try {
     // 1. Dynamic client registration (public + PKCE).
     const regRes = await fetch(`${oauthBase}/oauth/register`, {
@@ -121,7 +122,10 @@ async function browserLogin({ apiBase }) {
     const authUrl =
       `${oauthBase}/oauth/authorize?response_type=code&client_id=${encodeURIComponent(client_id)}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge=${challenge}` +
-      `&code_challenge_method=S256&state=${state}&scope=kolbo`;
+      `&code_challenge_method=S256&state=${state}&scope=kolbo` +
+      // RFC 8707: the server binds every token to the MCP resource and refuses
+      // an authorize/token request without it ("invalid_target").
+      `&resource=${encodeURIComponent(resource)}`;
     openBrowser(authUrl);
     process.stderr.write(
       `\n[kolbo] Connect your Kolbo account in the browser. If it didn't open, visit:\n${authUrl}\n\n`
@@ -139,6 +143,7 @@ async function browserLogin({ apiBase }) {
         code_verifier: verifier,
         redirect_uri: redirectUri,
         client_id,
+        resource,
       }),
     });
     if (!tokRes.ok) throw new Error(`token exchange failed (${tokRes.status})`);

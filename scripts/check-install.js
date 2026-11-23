@@ -38,6 +38,13 @@ async function main() {
     // Pretend Claude Code + Cursor are installed; Claude Desktop is not.
     fs.mkdirSync(path.join(sandbox, '.claude'), { recursive: true });
     fs.mkdirSync(path.join(sandbox, '.cursor'), { recursive: true });
+    // Google Antigravity creates ~/.gemini/antigravity/ (token store); the
+    // config folder ~/.gemini/config/ may not exist yet.
+    fs.mkdirSync(path.join(sandbox, '.gemini', 'antigravity'), { recursive: true });
+    // Shared-skill workstation: ~/.claude/skills/kolbo is a junction into ~/.agents.
+    fs.mkdirSync(path.join(sandbox, '.agents', 'skills', 'kolbo'), { recursive: true });
+    fs.mkdirSync(path.join(sandbox, '.claude', 'skills'), { recursive: true });
+    fs.symlinkSync(path.join(sandbox, '.agents', 'skills', 'kolbo'), path.join(sandbox, '.claude', 'skills', 'kolbo'), 'junction');
     os.homedir = () => sandbox;
     process.env.APPDATA = path.join(sandbox, 'AppData');
 
@@ -64,6 +71,12 @@ async function main() {
       failures.push('install wrote ~/.claude/settings.json — Claude Code ignores mcpServers there, so the user would get no tools');
     }
     if (!hasKolbo(cursor)) failures.push('Cursor entry missing from ~/.cursor/mcp.json');
+    if (!hasKolbo(path.join(sandbox, '.gemini', 'config', 'mcp_config.json'))) {
+      failures.push('Google Antigravity entry missing from ~/.gemini/config/mcp_config.json');
+    }
+    if (!fs.lstatSync(path.join(sandbox, '.claude', 'skills', 'kolbo')).isSymbolicLink()) {
+      failures.push('skill install replaced a junctioned ~/.claude/skills/kolbo with a plain copy');
+    }
     if (fs.existsSync(desktop)) {
       failures.push('install created a Claude Desktop config for an app that is not installed');
     }

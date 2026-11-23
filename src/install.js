@@ -38,6 +38,15 @@ function targets() {
     // Verified with `claude mcp list`: only ~/.claude.json entries load.
     { name: 'Claude Code', file: path.join(home, '.claude.json'), restart: 'Restart Claude Code', probeDir: path.join(home, '.claude') },
     { name: 'Cursor', file: path.join(home, '.cursor', 'mcp.json'), restart: 'Restart Cursor' },
+    // Google Antigravity (App, IDE and CLI) share one global file. It lives in
+    // ~/.gemini/config/, which plain Gemini CLI users may not have; the app
+    // itself creates ~/.gemini/antigravity/ (token store, tool cache).
+    {
+      name: 'Google Antigravity',
+      file: path.join(home, '.gemini', 'config', 'mcp_config.json'),
+      restart: 'Restart the Kolbo server in Antigravity (MCP Servers > Manage) or reload the window',
+      probeDir: [path.join(home, '.gemini', 'config'), path.join(home, '.gemini', 'antigravity')],
+    },
   ];
 }
 
@@ -48,8 +57,8 @@ function configure(t) {
   // so we don't create configs for apps the user doesn't have. `probeDir` exists
   // for configs that live directly in $HOME (~/.claude.json) — dirname there is
   // the home dir, which always exists, so it would "detect" every app.
-  const probe = t.probeDir || dir;
-  if (!fileExists && !fs.existsSync(probe)) return { ...t, status: 'not found' };
+  const probes = [].concat(t.probeDir || dir);
+  if (!fileExists && !probes.some((p) => fs.existsSync(p))) return { ...t, status: 'not found' };
 
   let cfg = {};
   if (fileExists) {
@@ -81,7 +90,25 @@ function skillTargets() {
     { name: 'Claude Code skill', root: path.join(home, '.claude'), dir: path.join(home, '.claude', 'skills', 'kolbo') },
     { name: 'Agents skill (Cursor/Codex)', root: path.join(home, '.agents'), dir: path.join(home, '.agents', 'skills', 'kolbo') },
     { name: 'Kolbo Code skill', root: path.join(home, '.kolbo'), dir: path.join(home, '.kolbo', 'skills', 'kolbo') },
+    { name: 'Google Antigravity skill', root: path.join(home, '.gemini', 'config'), dir: path.join(home, '.gemini', 'config', 'skills', 'kolbo') },
   ];
+}
+
+// Workstations often junction/symlink one skill dir into another (e.g.
+// ~/.claude/skills/kolbo -> ~/.agents/skills/kolbo) so every agent shares one
+// copy. Write through the link to its real folder, once per real folder;
+// replacing the link itself with a plain copy silently split them apart.
+function realSkillTargets() {
+  const seen = new Set();
+  return skillTargets().filter((t) => {
+    try {
+      if (fs.lstatSync(t.dir).isSymbolicLink()) t.dir = fs.realpathSync(t.dir);
+    } catch (_) {}
+    const key = process.platform === 'win32' ? path.resolve(t.dir).toLowerCase() : path.resolve(t.dir);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function installSkill(t) {
@@ -113,7 +140,7 @@ function installSkill(t) {
 // Local MCP launches refresh only installs created by Kolbo. A manually
 // authored `kolbo` skill without the marker is never overwritten.
 function refreshManagedSkills() {
-  return skillTargets().map((t) => {
+  return realSkillTargets().map((t) => {
     const marker = path.join(t.dir, MANAGED_FILE);
     if (!fs.existsSync(marker)) return { ...t, status: 'unmanaged' };
     try {
@@ -144,7 +171,7 @@ function staleClaudeCodeEntry() {
 async function run() {
   const out = (s = '') => process.stdout.write(s + '\n');
   const results = targets().map(configure);
-  const skills = skillTargets().map(installSkill);
+  const skills = realSkillTargets().map(installSkill);
   const newlyConfigured = results.filter((r) => r.status === 'configured');
   const ready = results.filter((r) => r.status === 'configured' || r.status === 'already set up');
 
@@ -162,7 +189,7 @@ async function run() {
   out();
 
   if (ready.length === 0) {
-    out('  No supported agent found (Claude Desktop / Claude Code / Cursor).');
+    out('  No supported agent found (Claude Desktop / Claude Code / Cursor / Google Antigravity).');
     out('  Add this to your agent\'s MCP config manually, then restart it:');
     out('    {"mcpServers":{"kolbo":{"command":"npx","args":["-y","@kolbo/mcp@latest"]}}}');
     out();
@@ -191,7 +218,7 @@ async function run() {
 
 async function runSkillOnly() {
   const out = (s = '') => process.stdout.write(s + '\n');
-  const skills = skillTargets().map(installSkill);
+  const skills = realSkillTargets().map(installSkill);
   const ready = skills.filter((s) => s.status === 'installed');
 
   out();

@@ -46,7 +46,7 @@ No API key needed — on first use a Kolbo login opens in my browser and I click
   The plugin below is an optional slash-command upgrade.
 -->
 
-Run this once — it sets up the **full** Kolbo experience (the MCP tools **and** the routing skill) for every installed agent (Claude Desktop, Claude Code, Cursor), keyless:
+Run this once — it sets up the **full** Kolbo experience (the MCP tools **and** the routing skill) for every installed agent (Claude Desktop, Claude Code, Cursor, Google Antigravity), keyless:
 
 ```bash
 npx -y @kolbo/mcp install
@@ -70,6 +70,7 @@ Or add the config by hand — this block is identical for every MCP client and c
 | **Claude Code** | `~/.claude.json` (or `claude mcp add kolbo -- npx -y @kolbo/mcp@latest`) |
 | **Claude Desktop** | `claude_desktop_config.json` |
 | **Cursor** | `.cursor/mcp.json` |
+| **Google Antigravity** | `~/.gemini/config/mcp_config.json` (IDE: `…` → MCP Servers → Manage MCP Servers → View raw config). Remote alternative: `{"mcpServers":{"kolbo":{"serverUrl":"https://api.kolbo.ai/mcp"}}}`, then Authenticate |
 | **Kolbo Code** | configured automatically on `kolbo auth login` |
 
 Restart your app, then ask it to generate something. The first time, a Kolbo login opens in your browser — click **Allow** (no API key to create). _Prefer an API key? Create one at [app.kolbo.ai/developer](https://app.kolbo.ai/developer) and add `"env": { "KOLBO_API_KEY": "kolbo_live_..." }` to the block above._
