@@ -137,4 +137,10 @@ Never call a take "works" and recommend locking it on your own read. Show only t
 - **Mix the music low under voices:** about 18–22 dB under the dialogue, EQ'd out of the voice band (cut roughly 1–4 kHz, high-pass the lows).
 - **Post the same music cut on every platform.** A version stripped to take audio for some platforms loses the timing the reel was cut to. If one platform needs different music for rights reasons, re-cut to that track rather than posting silence under the original edit.
 - Deliver at the reel's aspect, without burned-in text unless the format uses captions, and give the user the review link for the final cut.
+- Cut each take to its beat, never to its generated length, and cut story films by the rules in `edit-quality.md` section 7 (cold open on the hero's face, the motive inside 10 s, the score as structure).
 - After the user posts, compare their posted edit with your finals (hook length, what they dropped, the last image) and fold the differences into the formula for the next episode.
+- When the user re-cuts in their own editor, read the timeline itself rather than guessing from the render. For Resolve: `davinci_list_sessions`, then `davinci_get_timeline` gives every clip's track, in, out and source offset.
+  - Measure the grade on frame pairs: final against the raw take at the same source time.
+  - Find where the music sits by cross-correlating the track with the final mix.
+  - Read the fades from a luma curve.
+  - Diff all of it against your assembly and file what changed.
