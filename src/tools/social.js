@@ -289,7 +289,9 @@ function registerSocialTools(server, client) {
   tool('get_social_broadcast', ANN.read,
     'Social Planner (beta): with broadcast_id, one broadcast with its status (preparing, sending, done, cancelled, failed), counts (eligible, sent, failed, skipped, pending, link clicks) and skip reasons. Without it, the newest 50 broadcasts, narrowed to account_id when given.',
     { broadcast_id: id.optional(), account_id: id.optional() },
-    async ({ broadcast_id, account_id }) => result(await client.get(broadcast_id ? `/v1/social/broadcasts/${broadcast_id}` : '/v1/social/broadcasts' + qs({ account_id }))));
+    async ({ broadcast_id, account_id }) => result(broadcast_id
+      ? await client.get(`/v1/social/broadcasts/${broadcast_id}`)
+      : await client.get('/v1/social/broadcasts' + qs({ account_id }))));
 
   tool('cancel_social_broadcast', ANN.destroy,
     'Social Planner (beta): stop a broadcast that is still sending. Messages already sent stay sent; nobody else receives it. Only when the user asks.',
