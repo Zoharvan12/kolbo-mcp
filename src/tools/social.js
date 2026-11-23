@@ -266,7 +266,7 @@ function registerSocialTools(server, client) {
     async ({ automation_id, days }) => result(await client.get(`/v1/social/automations/${automation_id}/logs` + qs({ days }))));
 
   tool('create_social_broadcast', ANN.write,
-    'Social Planner (beta): send one direct message to many contacts of an Instagram or Facebook Page account at once (Instagram and Facebook Pages only). It messages real people as the account. Only people who wrote to the account (or tapped a button) in the last 24 hours receive it (platform rule); everyone else is skipped. Up to 150 messages go out per hour, up to 5,000 people, one broadcast per account at a time. tags filters contacts (tag_match any or all; no tags = everyone who wrote to the account). Without confirm: true this only previews: it returns how many people can receive it now, how many are skipped and how long it takes, and sends nothing. Always preview first, show the numbers and the exact text to the user, and call again with confirm: true only after their explicit yes. Links are click-tracked and get UTM tags (link_tracking), and one of text + variations is picked at random per person.',
+    'Social Planner (beta): send one direct message to many contacts of an Instagram or Facebook Page account at once (Instagram and Facebook Pages only). It messages real people as the account. Only people who wrote to the account (or tapped a button) in the last 24 hours receive it (platform rule); everyone else is skipped. Up to 150 messages go out per hour, up to 5,000 people, one broadcast per account at a time. tags filters contacts (tag_match any or all; no tags = everyone who wrote to the account). Without confirm: true this only previews: it returns how many people can receive it now, how many are skipped and how long it takes, and sends nothing. Always preview first, show the numbers and the exact text to the user, and call again with confirm: true only after their explicit yes. Sending is not idempotent: if a confirm: true call errors or times out, call get_social_broadcast with account_id and check the newest broadcast before trying again; never resend one that exists (people would get the message twice). Links are click-tracked and get UTM tags (link_tracking), and one of text + variations is picked at random per person.',
     {
       account_id: id,
       name: z.string().max(120).optional(),
@@ -299,7 +299,7 @@ function registerSocialTools(server, client) {
     async ({ broadcast_id }) => result(await client.post(`/v1/social/broadcasts/${broadcast_id}/cancel`, {})));
 
   tool('list_social_contacts', ANN.read,
-    'Social Planner (beta): people who commented on or messaged the account (Instagram, Facebook Pages), most recent first, with tags, unread count, whether they follow (Instagram, once checked) and whether the 24-hour reply window is open. Filter by account_id, tag or q (username or name). Pass next as before for more.',
+    'Social Planner (beta): people who commented on or messaged the account (Instagram, Facebook Pages; Threads and LinkedIn Company Page commenters too), most recent first, with tags, unread count, whether they follow (Instagram, once checked) and whether the 24-hour reply window is open. Threads and LinkedIn contacts are comment-only: they cannot receive send_social_message or a broadcast. Filter by account_id, tag or q (username or name). Pass next as before for more.',
     {
       account_id: id.optional(),
       tag: z.string().max(40).optional(),
