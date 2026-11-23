@@ -111,7 +111,7 @@ function registerReviewTools(server, client) {
   // ─── create_review_album ─────────────────────────────────────
   server.tool(
     'create_review_album',
-    "Share MANY files for review in one call: creates an album (a review collection with the Grade view on), adds every file as its own review asset, and optionally makes a guest share link. Use it proactively whenever you deliver a batch the user or their client should sort, pick or approve: generated images, video takes, thumbnails, ad variants, a client delivery. Each file gets Good/Bad, optional 1-5 stars, notes, pins and drawings, in the app and on the guest link. Read the verdicts back with get_review_grading. For ONE cut use create_review_asset instead. Pass `media_url` for media you already have a URL for (never re-upload); only a local file needs upload_media first (then `media_id`). Give the user album.open_url (owner Grade view) and, for clients, share_link.share_url.",
+    "Share MANY files for review in one call: creates an album (a review collection with the Grade view on), adds every file as its own review asset, and optionally makes a guest share link. Use it proactively whenever you deliver a batch the user or their client should sort, pick or approve: generated images, video takes, thumbnails, ad variants, a client delivery. Each file gets Good/Bad, optional 1-5 stars, notes, pins and drawings, in the app and on the guest link. To group files (e.g. by character, location or round) give each item a `sub_album` name: the album opens on one card per sub-album, and one share link on the album shares them all. Read the verdicts back with get_review_grading. For ONE cut use create_review_asset instead. Pass `media_url` for media you already have a URL for (never re-upload); only a local file needs upload_media first (then `media_id`). Give the user album.open_url (owner Grade view) and, for clients, share_link.share_url.",
     {
       name: z.string().describe('Album name, e.g. "Hero shots - round 1".'),
       project_id: projectIdField,
@@ -119,6 +119,7 @@ function registerReviewTools(server, client) {
         name: z.string().optional().describe('Display name; defaults to "File N".'),
         media_url: z.string().optional().describe('Public URL of media you already have (Kolbo output, list_media item or any public image/video/audio link). Preferred.'),
         media_id: z.string().optional().describe('MediaLibraryItem id from upload_media / list_media.'),
+        sub_album: z.string().optional().describe('Sub-album name to group this file under (e.g. "Casting - Amalia"). Items with the same name share one sub-album; items without one sit in the album itself.'),
       })).min(1).max(200).describe('Files in display order. Each needs media_url or media_id.'),
       stars: z.boolean().optional().describe('Offer optional 1-5 stars next to Good/Bad (default true).'),
       share: z.boolean().optional().describe('Also create a guest share link for clients without a Kolbo account (default false).'),
@@ -130,13 +131,17 @@ function registerReviewTools(server, client) {
       role_label: z.string().optional().describe('Guest role label on the share link (e.g. Client).'),
     },
     async ({ name, project_id, items, stars, share, share_permissions, role_label }) => {
+      const subNames = [...new Set(items.map((it) => (it.sub_album || '').trim()).filter(Boolean))];
       const created = await client.post('/v1/review/collections', {
         name,
         project_id,
         grading: { enabled: true, ...(stars !== undefined ? { stars } : {}) },
+        ...(subNames.length ? { sections: subNames.map((n) => ({ name: n })) } : {}),
       });
       const collection = created && created.collection;
       if (!collection || !collection.id) throw new Error('The album could not be created.');
+      const subAlbums = (created.sub_albums || []);
+      const subIdByName = new Map(subAlbums.map((c) => [c.name, c.id]));
       // In order, so the Grade view (upload order) matches `items`.
       const assets = [];
       const failed = [];
@@ -148,7 +153,7 @@ function registerReviewTools(server, client) {
             media_url: it.media_url,
             media_id: it.media_id,
             project_id: project_id || collection.project_id,
-            collection_id: collection.id,
+            collection_id: subIdByName.get((it.sub_album || '').trim()) || collection.id,
           });
           if (r && r.asset) assets.push(assetUrl(r.asset));
         } catch (err) {
@@ -164,7 +169,7 @@ function registerReviewTools(server, client) {
         share_link = r && r.share_link;
       }
       const album = { ...collection, open_url: `${APP}/review/grade/${collection.id}` };
-      const out = { success: failed.length === 0, album, assets, ...(failed.length ? { failed } : {}), ...(share_link ? { share_link } : {}) };
+      const out = { success: failed.length === 0, album, ...(subAlbums.length ? { sub_albums: subAlbums } : {}), assets, ...(failed.length ? { failed } : {}), ...(share_link ? { share_link } : {}) };
       out._hint = 'Give the user album.open_url (their Grade view)' + (share_link ? ' and share_link.share_url for the client' : '') + '. Later, read the Good/Bad + stars and notes with get_review_grading({ collection_id: album.id }).';
       return { content: [{ type: 'text', text: JSON.stringify(out, null, 2) }] };
     }
@@ -253,6 +258,7 @@ function registerReviewTools(server, client) {
       project_id: projectIdField,
       grading_enabled: z.boolean().optional().describe('Open this collection in the Grade view (an album).'),
       grading_stars: z.boolean().optional().describe('Offer optional 1-5 stars in the Grade view (default true).'),
+      parent_id: z.string().optional().describe('Album id to create this inside as a sub-album (one level only; it inherits the album\'s grading and is shared with the album link).'),
     },
     async ({ grading_enabled, grading_stars, ...args }) => {
       if (grading_enabled !== undefined || grading_stars !== undefined) {
@@ -267,16 +273,18 @@ function registerReviewTools(server, client) {
 
   server.tool(
     'update_review_collection',
-    'Rename a review collection, or turn its Grade view on/off (grading_enabled) and its optional 1-5 stars (grading_stars). Send at least one of name / grading_enabled / grading_stars.',
+    'Rename a review collection, turn its Grade view on/off (grading_enabled) and its optional 1-5 stars (grading_stars), or move it into an album as a sub-album (parent_id; null moves it back to the top level). Send at least one of name / grading_enabled / grading_stars / parent_id.',
     {
       collection_id: z.string(),
       name: z.string().optional(),
       grading_enabled: z.boolean().optional().describe('Show the Grade view (Good/Bad, stars, notes per image) for this collection. Turn on after uploading an image batch for the user to grade.'),
       grading_stars: z.boolean().optional().describe('Offer optional 1-5 stars in the Grade view (default true).'),
+      parent_id: z.string().nullable().optional().describe('Album id to move this collection into as a sub-album, or null to move it back to the top level.'),
     },
-    async ({ collection_id, name, grading_enabled, grading_stars }) => {
+    async ({ collection_id, name, grading_enabled, grading_stars, parent_id }) => {
       const body = {};
       if (name !== undefined) body.name = name;
+      if (parent_id !== undefined) body.parent_id = parent_id;
       if (grading_enabled !== undefined || grading_stars !== undefined) {
         body.grading = {};
         if (grading_enabled !== undefined) body.grading.enabled = grading_enabled;
@@ -290,7 +298,7 @@ function registerReviewTools(server, client) {
   // ─── Grading (Good/Bad, stars, notes with drawings, per image) ─
   server.tool(
     'get_review_grading',
-    "Read how the user graded an image batch in a review collection: every image in upload order with its file name, the reader's own Good/Bad + 1-5 stars (my_mark), every reviewer's marks, and the notes with drawings (each drawing has a bbox in 0..1 and a mask_url; fetch the exact mask with get_review_comment_mask). After reading, propose fixes per image (what to change, which tool/model, credit cost) and WAIT for the user's yes before generating anything. Never regenerate automatically.",
+    "Read how the user graded an image batch in a review collection: every image in upload order with its file name, the reader's own Good/Bad + 1-5 stars (my_mark), every reviewer's marks, and the notes with drawings (each drawing has a bbox in 0..1 and a mask_url; fetch the exact mask with get_review_comment_mask). An album with sub-albums covers all of them: sub_albums lists each with its counts and every image carries sub_album_id. After reading, propose fixes per image (what to change, which tool/model, credit cost) and WAIT for the user's yes before generating anything. Never regenerate automatically.",
     { collection_id: z.string() },
     async ({ collection_id }) => {
       const result = await client.get(`/v1/review/collections/${encodeURIComponent(collection_id)}/grading`);
