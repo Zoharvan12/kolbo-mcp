@@ -42,27 +42,25 @@ studio (LemoLab lemo-opuscar, MIT).
   must differ, unless the user asked for a series.
 
 ## 7. Story films cut from generated takes
-Measured on a human editor's final cut of a 2-minute emotional short, against a take-by-take agent assembly. The middle act survived almost unchanged; every rule below is something the editor changed.
-- A take's generated length is not a shot length. Cut every take to its beat: in when the action starts (video models add 1-2 s of settling at the head), out when the reaction lands. The final ran 9 % shorter than the assembly.
-- Open on the hero's face in trouble within the first 1-1.5 s, even if the frame is borrowed from a later take.
+Measured on a human editor's final cut of a 2-minute emotional short against a take-by-take agent assembly, then confirmed by the editor. The middle act survived almost unchanged. The editor's main verdict on the assembly: the music and sound order was missing, which made the whole edit look bad.
+- Plan sound design and the music structure as part of the edit. Flat wallpaper music under a good picture cut still reads as a bad edit.
+- Get to the point. Viewers need enough beats early to stay for 2 minutes. Cut every take to its beat: in when the action starts, out when the reaction lands. Video models add about 1 s of settling. Trim or jump-cut walking, door and transit takes. The final ran 9 % shorter than the assembly.
+- Take the hook from the reference. If the reference opens on the character's face, open on a close-up face in trouble within 1-1.5 s, even if the frame is borrowed from a later take. A wide establishing shot is a weaker hook.
 - Plant the motive within 10 s with an insert (the photo of the person it is all for).
-- Show a weakness at the moment it fails: cut to the POV under the line that fails, let the line run over it (L-cut), then come back.
-- Transit takes (walking, crossing a room) get an internal jump cut instead of playing out.
-- Lead a hard cut with its sound by about 6 frames.
-- The score is structure, not wallpaper:
-  - The setup gets only world sound, such as diegetic music cut at the picture cuts, plus room tone.
-  - The score enters low at the moment the need appears and swells over about 10 s.
-  - It drops right out for the scary beat, which sound design carries.
-  - The theme restarts from its first bar at the payoff and plays almost alone.
-- Keep the dynamics: quiet scenes 10-15 dB under the loud peaks (LRA about 12 LU). Raise the integrated level for social with a gentle limiter, not by flattening the mix.
-- A time jump gets about 1 s fade out, about 1.2 s of full black, then about 1 s fade in.
-- The ending cuts to a live shot, holds it 3-4 s and fades over about 1.3 s. Never a freeze frame, never a long fade.
-- Grade:
-  - Warmer.
-  - Saturation +20-35 %.
-  - Blacks near 0.
-  - Highlights pulled down.
-  - The opening world graded on its own.
+- Show a weakness from the inside: a POV under the line that fails, then back. Reorder shots inside a scene when the story reads better.
+- Music: diegetic first, then score.
+  - The setup gets world sound only: diegetic music EQ'd to sound in the world, plus room tone.
+  - When the emotional story starts, switch to non-diegetic score.
+- Give the score an arc mapped to the story:
+  - It builds toward the sacrifice.
+  - It turns to a darker section at the death or horror beat.
+  - It builds under the grief beat.
+  - It restarts far more minimal at the payoff.
+  - Overdone music moves people less.
+- Keep the dynamics: quiet scenes sit 10-15 dB under the loud peaks (LRA about 12 LU). Normalize social masters to about -14 to -16 LUFS with a gentle limiter.
+- The ending: cut to a live shot, hold it about 3-4 s, fade over about 1.3 s. A long hold makes people swipe, and a freeze frame is out.
+- Grade the whole film as one: a film LUT (for example 1917) plus adjustments. The result here was warmer, saturation +20-35 %, blacks near 0 and highlights pulled down.
+- QC the generated takes for obvious defects (a wrong photo, a broken prop) and regenerate them before cutting.
 
 ## 8. Before you deliver
 - Watch the render at full speed with sound, then check a contact sheet: no black frames, no text off the frame,
