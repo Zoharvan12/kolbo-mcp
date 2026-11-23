@@ -309,6 +309,17 @@ Requires DaVinci Resolve Studio with the Kolbo plugin open (Workspace → Workfl
 | `davinci_capture_frame` | Export a timeline frame to the Kolbo library so the agent can check its work |
 | `davinci_get_command_status` | Read command status/result/error; `awaiting_approval` means stop and wait for the editor |
 
+**Social Planner automations and inbox (beta)**
+Instagram and Facebook Pages. Comment triggers run instantly with live delivery, otherwise every 5 minutes; DM and story triggers need live delivery.
+
+| Tool | Description |
+|------|-------------|
+| `list_social_automation_templates` | Ready-made automations (comment for a link, follow to unlock, story reply thanks, welcome DM, story mention thanks, DM keyword link) with the fields to fill in |
+| `list_social_automations` / `create_social_automation` / `update_social_automation` / `delete_social_automation` | One trigger (comment, DM, story reply, story mention keyword) plus ordered steps: send a DM with up to 3 link buttons, public reply, follow gate (Instagram), delay, tag, notify the owner. The older `dm_text` comment-to-DM form still works |
+| `get_social_automation_hits` | An automation's runs with each step's status, paged with `limit` / `before` |
+| `list_social_contacts` / `tag_social_contact` | People who commented on or messaged the account, with tags and the 24-hour reply window; add or remove tags |
+| `list_social_conversations` / `get_social_conversation` / `send_social_message` | Instagram Direct and Facebook Messenger inbox (all accounts merged when `account_id` is omitted); replies only within 24 h of the person's last message (`WINDOW_CLOSED`) |
+
 **Discovery & Account**
 | Tool | Description |
 |------|-------------|
