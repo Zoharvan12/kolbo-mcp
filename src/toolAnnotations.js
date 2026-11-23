@@ -44,6 +44,7 @@ const READ_ONLY = [
   'list_social_accounts', 'get_social_capabilities', 'get_social_queue', 'get_social_best_times',
   'list_social_automations', 'get_social_automation_hits', 'list_social_posts',
   'list_social_automation_templates', 'list_social_contacts',
+  'get_social_automation_logs', 'get_social_broadcast',
 ];
 
 const OPEN_WORLD_READ_ONLY = [
@@ -148,6 +149,8 @@ const OPEN_WORLD_WRITE = [
   'connect_social_account', 'publish_social_post', 'cross_post_social',
   'retry_social_post', 'reply_social_comment', 'send_social_message',
   'create_social_automation', 'update_social_automation', 'update_social_post',
+  // Previews by default; with confirm: true sends DMs to many contacts.
+  'create_social_broadcast',
   // Reading a post that is still processing moves it forward on the platform.
   'get_social_post',
   // Send media or prompts to third-party AI providers (avatars, voices, analysis) or fetch external media.
@@ -169,7 +172,7 @@ const OPEN_WORLD_DESTRUCTIVE = [
   'davinci_edit_timeline', 'davinci_run_script',
   // Social Planner: removes posts, comments, connections or automations.
   'revoke_social_calendar_feed', 'disconnect_social_account', 'delete_published_social_post',
-  'moderate_social_comment', 'delete_social_automation', 'cancel_social_post',
+  'moderate_social_comment', 'delete_social_automation', 'cancel_social_post', 'cancel_social_broadcast',
   // Spend credits on third-party AI model providers (OpenAI, Google, Kling, Suno, ElevenLabs...).
   'generate_image', 'generate_image_edit', 'generate_creative_director', 'generate_video',
   'generate_video_from_image', 'generate_music', 'generate_speech', 'generate_sound',

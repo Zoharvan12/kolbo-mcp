@@ -23,13 +23,15 @@ const ANN = {
   destroy: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
 };
 
-// Automations: one trigger plus ordered steps (Instagram and Facebook Pages). Shapes mirror the SDK body.
+// Automations: one trigger plus ordered steps (Instagram, Facebook Pages, Threads, LinkedIn Company Pages). Shapes mirror the SDK body.
 const keywords = z.array(z.string().max(100)).max(20);
 const postIds = z.array(z.string().max(300)).max(50);
 const trigger = z.object({
   type: z.enum(['comment_keyword', 'dm_keyword', 'story_reply', 'story_mention']),
   keywords: keywords.optional().describe('Case-insensitive; omit or [] = everyone. Not allowed on story_mention'),
-  match: z.enum(['contains', 'exact']).optional().describe('Default contains'),
+  match: z.enum(['contains', 'exact', 'word']).optional().describe('word = whole words (default for new keyword rules); contains = anywhere in the text; exact = the whole comment'),
+  exclude_keywords: keywords.optional().describe('Any of these blocks the trigger, also when keywords is empty. Not allowed on story_mention'),
+  typo_tolerance: z.boolean().optional().describe('Accept one wrong, missing, extra or swapped letter in words of 5+ letters. Not allowed on story_mention'),
   post_ids: postIds.optional().describe('comment_keyword only: platform post ids (platform_post_id); omit = any post'),
   include_replies: z.boolean().optional().describe('comment_keyword only: also answer replies to comments'),
   first_message_only: z.boolean().optional().describe("dm_keyword only: answer only a person's first message to the account"),
@@ -39,15 +41,23 @@ const button = z.object({
   url: z.string().max(2000).regex(/^https:\/\/\S+$/, 'must be an https:// link'),
 });
 const stepId = z.string().regex(/^[\w-]{1,24}$/).optional().describe('Keep the id when editing an existing step; omit for new steps');
+const variations = z.array(z.string().min(1).max(1000)).max(4).describe('Up to 4 more texts; one of text + variations is picked at random (640 characters each when buttons are set)');
 const step = z.discriminatedUnion('type', [
-  z.object({ id: stepId, type: z.literal('send_dm'), text: z.string().min(1).max(1000).describe('Up to 640 characters when buttons are set'), buttons: z.array(button).max(3).optional() }),
-  z.object({ id: stepId, type: z.literal('public_reply'), replies: z.array(z.string().min(1).max(2200)).min(1).max(5).describe('comment_keyword only: public replies under the comment, rotated') }),
+  z.object({ id: stepId, type: z.literal('send_dm'), text: z.string().min(1).max(1000).describe('Up to 640 characters when buttons are set'), buttons: z.array(button).max(3).optional(), variations: variations.optional() }),
+  z.object({ id: stepId, type: z.literal('public_reply'), replies: z.array(z.string().min(1).max(2200)).min(1).max(5).describe('comment_keyword only: public replies under the comment, one picked at random') }),
   z.object({ id: stepId, type: z.literal('follow_gate'), text: z.string().min(1).max(640).optional(), button_title: z.string().min(1).max(20).optional(), max_checks: z.number().int().min(1).max(3).optional() }),
   z.object({ id: stepId, type: z.literal('delay'), minutes: z.number().int().min(1).max(1380) }),
   z.object({ id: stepId, type: z.literal('add_tag'), tag: z.string().min(1).max(40) }),
   z.object({ id: stepId, type: z.literal('notify_owner'), title: z.string().max(120).optional() }),
+  z.object({ id: stepId, type: z.literal('like_comment') }).describe('Facebook Pages, comment_keyword only, at most one: likes the comment as the Page'),
 ]);
-const AUTOMATION_RULES = 'Works on Instagram and Facebook Pages. Triggers: comment_keyword (a comment on the account\'s posts: instant when live delivery is on, otherwise checked every 5 minutes; only comments written after the automation is created count, up to 7 days old), dm_keyword (a direct message; on Facebook that is Messenger), story_reply and story_mention (Instagram). DM and story triggers need live delivery (engage.live in list_social_accounts). Each person triggers it once per post (comment triggers) or once per 24 h (DM and story triggers). Steps run in order: send_dm (up to 3 link buttons), public_reply (comment triggers only), follow_gate (Instagram only: asks the person to follow, then re-checks), delay (1-1380 minutes), add_tag, notify_owner. A comment allows ONE private message until the person replies; after that a message can only go out within 24 h of their last message or button tap. Texts may use {first_name}, {username} and {account}.';
+const tag = z.string().min(1).max(40).regex(/^[\p{L}\p{N} _-]+$/u, 'letters, numbers, spaces, _ and - only');
+const linkTracking = z.object({
+  enabled: z.boolean().optional().describe('Default true: links in DMs go through a Kolbo redirect that counts clicks'),
+  click_tag: tag.nullable().optional().describe('Tag added to a person on their first click'),
+  utm_campaign: z.string().regex(/^[\w.-]{1,60}$/).nullable().optional().describe('utm_campaign value; omit = derived from the name'),
+});
+const AUTOMATION_RULES = 'Works on Instagram and Facebook Pages, plus Threads and LinkedIn Company Pages for comments only (comment_keyword, checked every 5 minutes; steps public_reply, add_tag, notify_owner, delay; no DMs on those two; personal LinkedIn profiles are not supported). Triggers: comment_keyword (a comment on the account\'s posts: instant when live delivery is on, otherwise checked every 5 minutes; only comments written after the automation is created count, up to 7 days old), dm_keyword (a direct message; on Facebook that is Messenger), story_reply and story_mention (Instagram). DM and story triggers need live delivery (engage.live in list_social_accounts). repeat_policy: once_per_person (default: each person triggers it once ever, across all posts), once_per_post (comment triggers only: once per person per post), every_time (every comment or message, never twice for the same one). Keyword matching: match word (default for new keyword rules), contains or exact; exclude_keywords block it; typo_tolerance accepts one letter off in words of 5+ letters. Steps run in order: send_dm (up to 3 link buttons, up to 4 variations: one text is picked at random), public_reply (comment triggers only, one reply picked at random), like_comment (Facebook Pages only, comment triggers), follow_gate (Instagram only: asks the person to follow, then re-checks), delay (1-1380 minutes), add_tag, notify_owner. Links in DMs are click-tracked through a Kolbo redirect (link_tracking, on by default; click_tag tags people who click) and get UTM tags unless the link already has utm_ parameters. A comment allows ONE private message until the person replies; after that a message can only go out within 24 h of their last message or button tap. Texts may use {first_name}, {username} and {account}.';
 
 function registerSocialTools(server, client) {
   const tool = (name, annotations, ...rest) => {
@@ -56,7 +66,7 @@ function registerSocialTools(server, client) {
   };
 
   tool('list_social_accounts', ANN.read,
-    'Social Planner (beta): list the social accounts connected to this Kolbo account (Instagram, Facebook Pages, Threads, TikTok, YouTube, LinkedIn) with status and latest follower stats. status "needs_reconnect" means the user must reconnect it with connect_social_account before posting. suggested_platforms lists platforms not connected yet, each with its connect_page_url.',
+    'Social Planner (beta): list the social accounts connected to this Kolbo account (Instagram, Facebook Pages, Threads, TikTok, YouTube, LinkedIn) with status and latest follower stats. engage shows what each account can do (state available, reconnect, awaiting_approval or not_supported, with an optional reason): comments, inbox, automations, triggers, steps (send_dm, public_reply, follow_gate, like_comment, delay, add_tag, notify_owner), broadcast (Instagram, Facebook Pages), reviews (Facebook Pages) and live delivery. Threads and LinkedIn Company Pages support comment automations; personal LinkedIn profiles do not. status "needs_reconnect" means the user must reconnect it with connect_social_account before posting. suggested_platforms lists platforms not connected yet, each with its connect_page_url.',
     {}, async () => result(await client.get('/v1/social/accounts')));
 
   tool('check_social_account', ANN.readRemote,
@@ -211,6 +221,8 @@ function registerSocialTools(server, client) {
     dm_text: z.string().min(1).max(1000).optional().describe('Older form: one private reply to a comment. Prefer trigger + steps'),
     keywords: keywords.optional().describe('Older form: comment keywords. Prefer trigger.keywords'),
     post_ids: postIds.optional().describe('Older form: platform post ids. Prefer trigger.post_ids'),
+    repeat_policy: z.enum(['once_per_person', 'once_per_post', 'every_time']).optional().describe('Default once_per_person on create; once_per_post only with comment_keyword'),
+    link_tracking: linkTracking.optional(),
   };
 
   tool('create_social_automation', ANN.write,
@@ -248,8 +260,46 @@ function registerSocialTools(server, client) {
     { automation_id: id, limit: z.number().int().min(1).max(200).optional(), before: z.string().max(40).optional().describe('ISO time: runs created before it (next)') },
     async ({ automation_id, limit, before }) => result(await client.get(`/v1/social/automations/${automation_id}/hits` + qs({ limit, before }))));
 
+  tool('get_social_automation_logs', ANN.read,
+    "Social Planner (beta): what an automation saw over the last days (default 7, up to 30): totals per outcome (matched, keyword_miss, excluded, own_account, repeat_blocked, window_closed, rate_limited, not_supported, error), counts per day and up to 100 recent samples (author, text, outcome, reason). Use it to answer \"why didn't it reply to this comment?\".",
+    { automation_id: id, days: z.number().int().min(1).max(30).optional() },
+    async ({ automation_id, days }) => result(await client.get(`/v1/social/automations/${automation_id}/logs` + qs({ days }))));
+
+  tool('create_social_broadcast', ANN.write,
+    'Social Planner (beta): send one direct message to many contacts of an Instagram or Facebook Page account at once (Instagram and Facebook Pages only). It messages real people as the account. Only people who wrote to the account (or tapped a button) in the last 24 hours receive it (platform rule); everyone else is skipped. Up to 150 messages go out per hour, up to 5,000 people, one broadcast per account at a time. tags filters contacts (tag_match any or all; no tags = everyone who wrote to the account). Without confirm: true this only previews: it returns how many people can receive it now, how many are skipped and how long it takes, and sends nothing. Always preview first, show the numbers and the exact text to the user, and call again with confirm: true only after their explicit yes. Sending is not idempotent: if a confirm: true call errors or times out, call get_social_broadcast with account_id and check the newest broadcast before trying again; never resend one that exists (people would get the message twice). Links are click-tracked and get UTM tags (link_tracking), and one of text + variations is picked at random per person.',
+    {
+      account_id: id,
+      name: z.string().max(120).optional(),
+      text: z.string().min(1).max(1000).describe('Up to 640 characters when buttons are set; may use {first_name}, {username}, {account}'),
+      variations: variations.optional(),
+      buttons: z.array(button).max(3).optional(),
+      tags: z.array(tag).max(10).optional(),
+      tag_match: z.enum(['any', 'all']).optional(),
+      link_tracking: linkTracking.optional(),
+      confirm: z.boolean().optional().describe('true sends it; omit to preview only'),
+    },
+    async ({ confirm, ...body }) => {
+      if (confirm !== true) {
+        const preview = await client.post('/v1/social/broadcasts/preview', { account_id: body.account_id, tags: body.tags, tag_match: body.tag_match });
+        return result({ ...preview, note: 'Nothing was sent. Show these numbers to the user and call again with confirm: true after they agree.' });
+      }
+      return result(await client.post('/v1/social/broadcasts', body));
+    });
+
+  tool('get_social_broadcast', ANN.read,
+    'Social Planner (beta): with broadcast_id, one broadcast with its status (preparing, sending, done, cancelled, failed), counts (eligible, sent, failed, skipped, pending, link clicks) and skip reasons. Without it, the newest 50 broadcasts, narrowed to account_id when given.',
+    { broadcast_id: id.optional(), account_id: id.optional() },
+    async ({ broadcast_id, account_id }) => result(broadcast_id
+      ? await client.get(`/v1/social/broadcasts/${broadcast_id}`)
+      : await client.get('/v1/social/broadcasts' + qs({ account_id }))));
+
+  tool('cancel_social_broadcast', ANN.destroy,
+    'Social Planner (beta): stop a broadcast that is still sending. Messages already sent stay sent; nobody else receives it. Only when the user asks.',
+    { broadcast_id: id },
+    async ({ broadcast_id }) => result(await client.post(`/v1/social/broadcasts/${broadcast_id}/cancel`, {})));
+
   tool('list_social_contacts', ANN.read,
-    'Social Planner (beta): people who commented on or messaged the account (Instagram, Facebook Pages), most recent first, with tags, unread count, whether they follow (Instagram, once checked) and whether the 24-hour reply window is open. Filter by account_id, tag or q (username or name). Pass next as before for more.',
+    'Social Planner (beta): people who commented on or messaged the account (Instagram, Facebook Pages; Threads and LinkedIn Company Page commenters too), most recent first, with tags, unread count, whether they follow (Instagram, once checked) and whether the 24-hour reply window is open. Threads and LinkedIn contacts are comment-only: they cannot receive send_social_message or a broadcast. Filter by account_id, tag or q (username or name). Pass next as before for more.',
     {
       account_id: id.optional(),
       tag: z.string().max(40).optional(),
@@ -259,7 +309,6 @@ function registerSocialTools(server, client) {
     },
     async (args) => result(await client.get('/v1/social/contacts' + qs(args))));
 
-  const tag = z.string().min(1).max(40).regex(/^[\p{L}\p{N} _-]+$/u, 'letters, numbers, spaces, _ and - only');
   tool('tag_social_contact', ANN.writePrivate,
     'Social Planner (beta): add or remove tags on a contact from list_social_contacts (stored lowercase, up to 20 per contact). Tags stay in Kolbo; nothing is sent to the person or the platform.',
     { contact_id: id, add_tags: z.array(tag).max(20).optional(), remove_tags: z.array(tag).max(20).optional() },

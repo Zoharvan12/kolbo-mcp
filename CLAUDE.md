@@ -504,6 +504,10 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `list_social_automation_templates` | `GET /v1/social/automations/templates` |
 | `create_social_automation` / `update_social_automation` | `POST /v1/social/automations`, `PATCH /v1/social/automations/:id` — `trigger` + `steps`, or the legacy `dm_text` / `keywords` / `post_ids` / `reply_text`; create refuses locally when neither `steps` nor `dm_text` is given |
 | `get_social_automation_hits` | `GET /v1/social/automations/:id/hits?limit&before` |
+| `get_social_automation_logs` | `GET /v1/social/automations/:id/logs?days` (1-30) |
+| `create_social_broadcast` | `POST /v1/social/broadcasts/preview` unless `confirm: true`, then `POST /v1/social/broadcasts` (`confirm` is never sent) |
+| `get_social_broadcast` | `GET /v1/social/broadcasts/:id`, or `GET /v1/social/broadcasts?account_id` without an id |
+| `cancel_social_broadcast` | `POST /v1/social/broadcasts/:id/cancel` |
 | `list_social_contacts` | `GET /v1/social/contacts?account_id&tag&q&limit&before` |
 | `tag_social_contact` | `PATCH /v1/social/contacts/:id` (`add_tags` / `remove_tags`; private write) |
 | `list_social_conversations` | `GET /v1/social/accounts/:id/conversations?after`, or `GET /v1/social/inbox` when `account_id` is omitted (`after` only with `account_id`) |

@@ -310,13 +310,15 @@ Requires DaVinci Resolve Studio with the Kolbo plugin open (Workspace → Workfl
 | `davinci_get_command_status` | Read command status/result/error; `awaiting_approval` means stop and wait for the editor |
 
 **Social Planner automations and inbox (beta)**
-Instagram and Facebook Pages. Comment triggers run instantly with live delivery, otherwise every 5 minutes; DM and story triggers need live delivery.
+Instagram and Facebook Pages, plus comment-only automations on Threads and LinkedIn Company Pages (checked every 5 minutes, no DMs). Comment triggers run instantly with live delivery, otherwise every 5 minutes; DM and story triggers need live delivery.
 
 | Tool | Description |
 |------|-------------|
 | `list_social_automation_templates` | Ready-made automations (comment for a link, follow to unlock, story reply thanks, welcome DM, story mention thanks, DM keyword link) with the fields to fill in |
-| `list_social_automations` / `create_social_automation` / `update_social_automation` / `delete_social_automation` | One trigger (comment, DM, story reply, story mention keyword) plus ordered steps: send a DM with up to 3 link buttons, public reply, follow gate (Instagram), delay, tag, notify the owner. The older `dm_text` comment-to-DM form still works |
+| `list_social_automations` / `create_social_automation` / `update_social_automation` / `delete_social_automation` | One trigger (comment, DM, story reply, story mention keyword) plus ordered steps: send a DM with up to 3 link buttons, public reply, like the comment (Facebook), follow gate (Instagram), delay, tag, notify the owner. Whole-word / contains / exact matching, exclude keywords, typo tolerance, random DM and reply variations, `repeat_policy` (once per person, once per post, every time), click-tracked DM links with UTMs. The older `dm_text` comment-to-DM form still works |
 | `get_social_automation_hits` | An automation's runs with each step's status, paged with `limit` / `before` |
+| `get_social_automation_logs` | Daily totals of what an automation saw (matched, keyword miss, excluded, already answered, window closed, ...) with recent samples, 1-30 days |
+| `create_social_broadcast` / `get_social_broadcast` / `cancel_social_broadcast` | One DM to many contacts (Instagram, Facebook Pages), only people who wrote in the last 24 h, up to 150 an hour; previews unless `confirm: true` |
 | `list_social_contacts` / `tag_social_contact` | People who commented on or messaged the account, with tags and the 24-hour reply window; add or remove tags |
 | `list_social_conversations` / `get_social_conversation` / `send_social_message` | Instagram Direct and Facebook Messenger inbox (all accounts merged when `account_id` is omitted); replies only within 24 h of the person's last message (`WINDOW_CLOSED`) |
 
