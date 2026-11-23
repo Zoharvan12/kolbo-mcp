@@ -968,6 +968,30 @@
         "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
       }
     },
+    "list_social_automation_templates": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "list_social_automation_templates retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
+    "list_social_contacts": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "list_social_contacts retrieves or analyzes Kolbo data without changing stored state.",
+        "open_world_justification": "It does not publish content or modify a public or third-party system.",
+        "destructive_justification": "It does not delete, overwrite, revoke access, spend credits, or start a paid job."
+      }
+    },
     "prepare_video_inspection": {
       "annotations": {
         "readOnlyHint": true,
@@ -2130,6 +2154,18 @@
         "read_only_justification": "unresolve_review_comment creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
         "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
         "destructive_justification": "unresolve_review_comment does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
+      }
+    },
+    "tag_social_contact": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "tag_social_contact creates or updates state in the user's Kolbo account or starts a bounded private workflow.",
+        "open_world_justification": "Its effects stay inside the user’s private Kolbo account or workspace and do not publish to the public internet.",
+        "destructive_justification": "tag_social_contact does not permanently delete data, overwrite content without recovery, revoke access, or irreversibly spend credits."
       }
     },
     "update_flow_session": {

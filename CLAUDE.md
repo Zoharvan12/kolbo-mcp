@@ -497,6 +497,17 @@ Every generation tool below also accepts an optional `project_id` arg that route
 | `blender_get_scene` / `blender_search_docs` / `blender_capture_viewport` / `blender_apply_operations` / `blender_import_media` / `blender_render` / `blender_undo` / `blender_file_operation` / `blender_execute_python` | `POST /v1/blender/commands` with a strict `command_type` + bounded payload |
 | `blender_get_command_status` | `GET /v1/blender/commands/:commandId` — never poll through `awaiting_approval` |
 
+**Social Planner automations, contacts and inbox** (`src/tools/social.js`; shared zod `trigger` / `step` schemas mirror the SDK body)
+| Tool | Route |
+|------|-------|
+| `list_social_automations` | `GET /v1/social/automations?account_id=` |
+| `list_social_automation_templates` | `GET /v1/social/automations/templates` |
+| `create_social_automation` / `update_social_automation` | `POST /v1/social/automations`, `PATCH /v1/social/automations/:id` — `trigger` + `steps`, or the legacy `dm_text` / `keywords` / `post_ids` / `reply_text`; create refuses locally when neither `steps` nor `dm_text` is given |
+| `get_social_automation_hits` | `GET /v1/social/automations/:id/hits?limit&before` |
+| `list_social_contacts` | `GET /v1/social/contacts?account_id&tag&q&limit&before` |
+| `tag_social_contact` | `PATCH /v1/social/contacts/:id` (`add_tags` / `remove_tags`; private write) |
+| `list_social_conversations` | `GET /v1/social/accounts/:id/conversations?after`, or `GET /v1/social/inbox` when `account_id` is omitted (`after` only with `account_id`) |
+
 **Discovery & Account** (`src/tools/models.js`, `src/tools/projects.js`)
 | Tool | Route |
 |------|-------|

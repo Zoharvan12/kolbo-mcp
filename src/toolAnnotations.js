@@ -43,6 +43,7 @@ const READ_ONLY = [
   // Social Planner reads of our own queue, automations and posts.
   'list_social_accounts', 'get_social_capabilities', 'get_social_queue', 'get_social_best_times',
   'list_social_automations', 'get_social_automation_hits', 'list_social_posts',
+  'list_social_automation_templates', 'list_social_contacts',
 ];
 
 const OPEN_WORLD_READ_ONLY = [
@@ -92,6 +93,8 @@ const PRIVATE_WRITE = [
   'create_review_comment', 'reply_review_comment',
   'resolve_review_comment', 'unresolve_review_comment',
   'set_review_mark', 'set_review_shot_vote', 'create_review_album',
+  // Social Planner contact tags stay in Kolbo; nothing reaches the platform.
+  'tag_social_contact',
 ];
 
 const DESTRUCTIVE_WRITE = [
@@ -184,7 +187,7 @@ const OPEN_WORLD_DESTRUCTIVE = [
   'add_avatar_look',
 ];
 
-const SOCIAL_TOOLS = [READ_ONLY, OPEN_WORLD_READ_ONLY, OPEN_WORLD_WRITE, OPEN_WORLD_DESTRUCTIVE]
+const SOCIAL_TOOLS = [READ_ONLY, OPEN_WORLD_READ_ONLY, PRIVATE_WRITE, OPEN_WORLD_WRITE, OPEN_WORLD_DESTRUCTIVE]
   .flat().filter((name) => /social|tiktok_creator/.test(name));
 
 const CONTRACT_GROUPS = [

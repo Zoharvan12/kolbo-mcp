@@ -19,8 +19,35 @@ const ANN = {
   read: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   readRemote: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
   write: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  writePrivate: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   destroy: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
 };
+
+// Automations: one trigger plus ordered steps (Instagram and Facebook Pages). Shapes mirror the SDK body.
+const keywords = z.array(z.string().max(100)).max(20);
+const postIds = z.array(z.string().max(300)).max(50);
+const trigger = z.object({
+  type: z.enum(['comment_keyword', 'dm_keyword', 'story_reply', 'story_mention']),
+  keywords: keywords.optional().describe('Case-insensitive; omit or [] = everyone. Not allowed on story_mention'),
+  match: z.enum(['contains', 'exact']).optional().describe('Default contains'),
+  post_ids: postIds.optional().describe('comment_keyword only: platform post ids (platform_post_id); omit = any post'),
+  include_replies: z.boolean().optional().describe('comment_keyword only: also answer replies to comments'),
+  first_message_only: z.boolean().optional().describe("dm_keyword only: answer only a person's first message to the account"),
+});
+const button = z.object({
+  title: z.string().min(1).max(20),
+  url: z.string().max(2000).regex(/^https:\/\/\S+$/, 'must be an https:// link'),
+});
+const stepId = z.string().regex(/^[\w-]{1,24}$/).optional().describe('Keep the id when editing an existing step; omit for new steps');
+const step = z.discriminatedUnion('type', [
+  z.object({ id: stepId, type: z.literal('send_dm'), text: z.string().min(1).max(1000).describe('Up to 640 characters when buttons are set'), buttons: z.array(button).max(3).optional() }),
+  z.object({ id: stepId, type: z.literal('public_reply'), replies: z.array(z.string().min(1).max(2200)).min(1).max(5).describe('comment_keyword only: public replies under the comment, rotated') }),
+  z.object({ id: stepId, type: z.literal('follow_gate'), text: z.string().min(1).max(640).optional(), button_title: z.string().min(1).max(20).optional(), max_checks: z.number().int().min(1).max(3).optional() }),
+  z.object({ id: stepId, type: z.literal('delay'), minutes: z.number().int().min(1).max(1380) }),
+  z.object({ id: stepId, type: z.literal('add_tag'), tag: z.string().min(1).max(40) }),
+  z.object({ id: stepId, type: z.literal('notify_owner'), title: z.string().max(120).optional() }),
+]);
+const AUTOMATION_RULES = 'Works on Instagram and Facebook Pages. Triggers: comment_keyword (a comment on the account\'s posts: instant when live delivery is on, otherwise checked every 5 minutes; only comments written after the automation is created count, up to 7 days old), dm_keyword (a direct message; on Facebook that is Messenger), story_reply and story_mention (Instagram). DM and story triggers need live delivery (engage.live in list_social_accounts). Each person triggers it once per post (comment triggers) or once per 24 h (DM and story triggers). Steps run in order: send_dm (up to 3 link buttons), public_reply (comment triggers only), follow_gate (Instagram only: asks the person to follow, then re-checks), delay (1-1380 minutes), add_tag, notify_owner. A comment allows ONE private message until the person replies; after that a message can only go out within 24 h of their last message or button tap. Texts may use {first_name}, {username} and {account}.';
 
 function registerSocialTools(server, client) {
   const tool = (name, annotations, ...rest) => {
@@ -147,58 +174,101 @@ function registerSocialTools(server, client) {
     async ({ account_id }) => result(await client.get(`/v1/social/accounts/${account_id}/best-times`)));
 
   tool('list_social_conversations', ANN.readRemote,
-    "Social Planner (beta): the Instagram account's DM inbox (conversations with participant usernames, newest first). Pass next as after for more.",
-    { account_id: id, after: z.string().max(500).optional() },
-    async ({ account_id, after }) => result(await client.get(`/v1/social/accounts/${account_id}/conversations` + qs({ after }))));
+    "Social Planner (beta): the DM inbox (Instagram Direct and Facebook Messenger), newest first, with participant, snippet, unread count, tags and whether the 24-hour reply window is open (window_open, window_closes_at). With account_id: that account's conversations; pass next as after for more. Without account_id: every account's inbox merged, with each account's state (accounts) and its own next cursor; after works only together with account_id.",
+    { account_id: id.optional(), after: z.string().max(500).optional() },
+    async ({ account_id, after }) => {
+      if (!account_id) {
+        if (after) return { content: [{ type: 'text', text: 'after needs account_id: pass that account id with its cursor from the merged inbox next.' }], isError: true };
+        return result(await client.get('/v1/social/inbox'));
+      }
+      return result(await client.get(`/v1/social/accounts/${account_id}/conversations` + qs({ after })));
+    });
 
   tool('get_social_conversation', ANN.readRemote,
-    'Social Planner (beta): the latest 50 messages of one DM conversation from list_social_conversations.',
+    'Social Planner (beta): the latest 50 messages of one DM conversation from list_social_conversations (Instagram Direct or Facebook Messenger), with the contact and whether the 24-hour reply window is open. Reading it marks the conversation read.',
     { account_id: id, conversation_id: z.string().min(1).max(300) },
     async ({ account_id, conversation_id }) => result(await client.get(`/v1/social/accounts/${account_id}/conversations/${encodeURIComponent(conversation_id)}/messages`)));
 
   tool('send_social_message', ANN.write,
-    "Social Planner (beta): send an Instagram DM. recipient_id = a participant id from list_social_conversations (Instagram allows this only within 24 h of their last message), OR comment_id = a private reply to that comment's author (within 7 days of the comment). Sends as the account: show the user the exact text and get approval first.",
+    "Social Planner (beta): send a direct message on Instagram or Facebook Messenger. recipient_id = a participant id from list_social_conversations, allowed only within 24 h of that person's last message (otherwise it fails with WINDOW_CLOSED: the platform does not allow it, so the person has to write again first), OR comment_id = a private reply to that comment's author (one per comment, within 7 days of the comment). Sends as the account: show the user the exact text and get approval first.",
     { account_id: id, text: z.string().min(1).max(1000), recipient_id: z.string().max(300).optional(), comment_id: z.string().max(300).optional() },
     async ({ account_id, ...body }) => result(await client.post(`/v1/social/accounts/${account_id}/messages`, body)));
 
   tool('list_social_automations', ANN.read,
-    'Social Planner (beta): comment-to-DM rules with their last run and last error.',
-    {}, async () => result(await client.get('/v1/social/automations')));
+    'Social Planner (beta): automations (trigger, steps, active, stats, last run and last error), newest first. account_id narrows to one account. Older rules also show keywords, post_ids, dm_text and reply_text.',
+    { account_id: id.optional() },
+    async ({ account_id }) => result(await client.get('/v1/social/automations' + qs({ account_id }))));
+
+  tool('list_social_automation_templates', ANN.read,
+    'Social Planner (beta): ready-made automations (comment a word to get a link, follow to unlock, thank story replies, welcome a new DM, thank story mentions, answer a DM keyword) with their platforms, trigger and steps. fill lists the fields the user must fill in (such as a button url) before create_social_automation.',
+    {}, async () => result(await client.get('/v1/social/automations/templates')));
+
+  const automationFields = {
+    name: z.string().max(120).optional(),
+    active: z.boolean().optional(),
+    trigger: trigger.optional(),
+    steps: z.array(step).min(1).max(10).optional().describe('Run in order; on update replaces all steps'),
+    dm_text: z.string().min(1).max(1000).optional().describe('Older form: one private reply to a comment. Prefer trigger + steps'),
+    keywords: keywords.optional().describe('Older form: comment keywords. Prefer trigger.keywords'),
+    post_ids: postIds.optional().describe('Older form: platform post ids. Prefer trigger.post_ids'),
+  };
 
   tool('create_social_automation', ANN.write,
-    'Social Planner (beta): comment-to-DM. When someone comments one of the keywords on the account\'s posts (post_ids, or every post from the last 7 days), Kolbo sends them dm_text as a private reply, once per person per post, and optionally reply_text publicly under the comment. Only comments written after the rule is created count. Checked every 5 minutes. Instagram only for now. Confirm keywords and texts with the user first.',
+    `Social Planner (beta): create an automation that answers people who engage with the account. ${AUTOMATION_RULES} Pass trigger + steps (start from list_social_automation_templates when one fits), or the older comment-to-DM form dm_text (+ keywords, post_ids, reply_text). It messages real people as the account: confirm the trigger, every text and every link with the user before creating.`,
     {
       account_id: id,
-      dm_text: z.string().min(1).max(1000),
-      keywords: z.array(z.string().max(100)).max(20).optional().describe('Case-insensitive; omit to answer every comment'),
-      post_ids: z.array(z.string().max(300)).max(50).optional().describe('Platform post ids (platform_post_id); omit = recent posts'),
-      reply_text: z.string().max(2200).optional(),
-      name: z.string().max(120).optional(),
+      ...automationFields,
+      template: z.string().max(60).optional().describe('Key of the template it was built from (list_social_automation_templates)'),
+      reply_text: z.string().max(2200).optional().describe('Older form: public reply under the comment. Prefer a public_reply step'),
     },
-    async (args) => result(await client.post('/v1/social/automations', args)));
+    async (args) => {
+      if (!args.steps && !args.dm_text) {
+        return { content: [{ type: 'text', text: 'Give steps (with a trigger), or dm_text for a simple comment-to-DM rule. list_social_automation_templates has ready-made ones.' }], isError: true };
+      }
+      return result(await client.post('/v1/social/automations', args));
+    });
 
   tool('update_social_automation', ANN.write,
-    'Social Planner (beta): change a comment-to-DM rule, or pause/resume it with active.',
+    `Social Planner (beta): change an automation, or pause/resume it with active. trigger and steps each replace the whole value: read it with list_social_automations first and send every step you keep, with its id. ${AUTOMATION_RULES} Confirm changed texts and links with the user first.`,
     {
       automation_id: id,
-      dm_text: z.string().min(1).max(1000).optional(),
-      keywords: z.array(z.string().max(100)).max(20).optional(),
-      post_ids: z.array(z.string().max(300)).max(50).optional(),
-      reply_text: z.string().max(2200).nullable().optional(),
-      name: z.string().max(120).optional(),
-      active: z.boolean().optional(),
+      ...automationFields,
+      template: z.string().max(60).nullable().optional(),
+      reply_text: z.string().max(2200).nullable().optional().describe('Older form; null removes the public reply'),
     },
     async ({ automation_id, ...body }) => result(await client.patch(`/v1/social/automations/${automation_id}`, body)));
 
   tool('delete_social_automation', ANN.destroy,
-    'Social Planner (beta): delete a comment-to-DM rule and its history. Only when the user asks.',
+    'Social Planner (beta): delete an automation and its run history. Only when the user asks.',
     { automation_id: id },
     async ({ automation_id }) => result(await client.delete(`/v1/social/automations/${automation_id}`)));
 
   tool('get_social_automation_hits', ANN.read,
-    'Social Planner (beta): who a comment-to-DM rule answered: comment, author, whether the DM and public reply went out, and any error. Latest 200.',
-    { automation_id: id },
-    async ({ automation_id }) => result(await client.get(`/v1/social/automations/${automation_id}/hits`)));
+    "Social Planner (beta): an automation's runs, newest first: who triggered it, the comment or message, each step's status (sent, waiting, skipped with a reason such as window_closed or not_following, failed), what it is waiting for, and any error. Pass next as before for older runs.",
+    { automation_id: id, limit: z.number().int().min(1).max(200).optional(), before: z.string().max(40).optional().describe('ISO time: runs created before it (next)') },
+    async ({ automation_id, limit, before }) => result(await client.get(`/v1/social/automations/${automation_id}/hits` + qs({ limit, before }))));
+
+  tool('list_social_contacts', ANN.read,
+    'Social Planner (beta): people who commented on or messaged the account (Instagram, Facebook Pages), most recent first, with tags, unread count, whether they follow (Instagram, once checked) and whether the 24-hour reply window is open. Filter by account_id, tag or q (username or name). Pass next as before for more.',
+    {
+      account_id: id.optional(),
+      tag: z.string().max(40).optional(),
+      q: z.string().max(100).optional(),
+      limit: z.number().int().min(1).max(100).optional(),
+      before: z.string().max(40).optional().describe('ISO time from next'),
+    },
+    async (args) => result(await client.get('/v1/social/contacts' + qs(args))));
+
+  const tag = z.string().min(1).max(40).regex(/^[\p{L}\p{N} _-]+$/u, 'letters, numbers, spaces, _ and - only');
+  tool('tag_social_contact', ANN.writePrivate,
+    'Social Planner (beta): add or remove tags on a contact from list_social_contacts (stored lowercase, up to 20 per contact). Tags stay in Kolbo; nothing is sent to the person or the platform.',
+    { contact_id: id, add_tags: z.array(tag).max(20).optional(), remove_tags: z.array(tag).max(20).optional() },
+    async ({ contact_id, add_tags, remove_tags }) => {
+      if (!add_tags?.length && !remove_tags?.length) {
+        return { content: [{ type: 'text', text: 'Give add_tags or remove_tags.' }], isError: true };
+      }
+      return result(await client.patch(`/v1/social/contacts/${contact_id}`, { add_tags, remove_tags }));
+    });
 
   tool('list_social_posts', ANN.read,
     'Social Planner (beta): the calendar. Posts (queued, processing, published, failed, ...) whose scheduled or created time falls in [from, to). Up to 500, newest first.',
