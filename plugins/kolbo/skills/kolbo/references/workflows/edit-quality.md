@@ -59,7 +59,7 @@ Measured on a human editor's final cut of a 2-minute emotional short against a t
   - Overdone music moves people less.
 - Keep the dynamics: quiet scenes sit 10-15 dB under the loud peaks (LRA about 12 LU). Normalize social masters to about -14 to -16 LUFS with a gentle limiter.
 - The ending: cut to a live shot, hold it about 3-4 s, fade over about 1.3 s. A long hold makes people swipe, and a freeze frame is out.
-- Grade the whole film as one: a film LUT (for example 1917) plus adjustments. The result here was warmer, saturation +20-35 %, blacks near 0 and highlights pulled down.
+- Grade the whole film as one, on a single adjustment layer over ungraded clips. The editor's Resolve chain, in order, was: primary balance (gamma), lens distortion, a small push-in transform to hide the edges, mist or sharpen, tilt-shift edge blur, vignette, Film Look Creator, then the 1917 film LUT at reduced mix. Read a human's grade with `davinci_run_script` (`GetNodeGraph`, then `GetNodeLabel` / `GetLUT` / `GetToolsInNode` per node); slider values are not exposed. The result here was warmer, saturation +20-35 %, blacks near 0 and highlights pulled down.
 - QC the generated takes for obvious defects (a wrong photo, a broken prop) and regenerate them before cutting.
 
 ## 8. Before you deliver
