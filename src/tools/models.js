@@ -135,9 +135,10 @@ function registerModelTools(server, client, options = {}) {
     {
       type: z.string().optional().describe('Filter by DB type name. Generation: "text_to_img", "image_editing", "text_to_video", "img_to_video", "draw_to_video", "video_to_video", "elements", "firstlastgenerations", "lipsync-image", "lipsync-video", "music_gen", "text_to_speech", "text_to_sound", "stt", "text". Image-edit engines: "image_upscale", "image_reframe", "image_zoom_out", "inpaint", "erase", "face_swap", "background_remove", "background_replace", "skin_enhancer", "graphics_enhance". Video-edit engines: "video_upscale", "video_reframe", "video_background_removal", "video_to_sound", "video_face_swap", "video_watermark_removal", "video_extend", "video_inpaint", "video_retake". For image_tools/video_tools, query the operation-specific type and pass a CONCRETE returned identifier; never submit a kolbo_gateway_* row, because those are web-navigation aliases rather than AI engines. Legacy aliases also accepted: "image", "image_edit", "video", "video_from_image", "video_from_video", "music", "speech", "sound", "chat", "lipsync", "three_d", "first_last_frame", "transcription". Omit for all models.'),
       format: z.enum(['text', 'json']).optional().describe('Output format. "text" (default) returns a human-readable summary with the most-used caps. "json" is the source of truth for identifiers and caps: with `type` it returns the raw model documents from the API (identifier, credit, supported_durations, supported_resolutions, supported_aspect_ratios, max_reference_images, max_visual_dna, max_video_duration, …) for EVERY model of that type; without `type` it returns a compact index of every model in the catalog and its exact identifier. Use it whenever you need an identifier you have not seen listed, or must verify a cap before passing a value that might exceed a model-specific limit.'),
+      model: z.string().optional().describe('One model\'s identifier (or exact name). Returns only that model, with its full summary and every spec: resolutions, durations, aspect ratios, reference and Visual DNA caps, quality tiers, prompt limits. Call it for the model you chose before you generate. Works with or without `type`, in either `format`.'),
       display_catalog: z.boolean().optional().describe('Set true when the USER explicitly asked to see/browse the available models — the visual catalog opens expanded. Leave unset for internal lookups (verifying a model name, checking caps before a generation): the catalog stays collapsed to a single row the user can tap to browse.')
     },
-    async ({ type, format, display_catalog }) => {
+    async ({ type, format, model, display_catalog }) => {
       // The tool DECLARATION always carries widget meta, so hosts that mount
       // from tools/list (Claude Code desktop) prepare an iframe on EVERY call.
       // Returning plain text for internal lookups left that iframe with no
@@ -175,7 +176,16 @@ function registerModelTools(server, client, options = {}) {
       // need to validate a request lives here (durations, reference caps,
       // audio/video min/max, resolution multipliers, supports_* flags,
       // prompt-length limits, etc.).
+      const wanted = typeof model === 'string' ? model.trim().toLowerCase() : '';
+      const matches = wanted
+        ? result.models.filter(m => String(m.identifier || '').toLowerCase() === wanted || String(m.name || '').toLowerCase() === wanted)
+        : null;
+
       if (format === 'json') {
+        if (matches) {
+          const payload = { count: matches.length, models: matches };
+          return respond(JSON.stringify(payload, null, 2), payload);
+        }
         // Raw documents once `type` narrows the set (~49 docs for a video type).
         // Unfiltered that is 400+ documents / hundreds of KB, so return the
         // complete IDENTIFIER INDEX instead: every model stays enumerable and
@@ -365,17 +375,18 @@ function registerModelTools(server, client, options = {}) {
         return parts.length ? `\n   ${parts.join(' | ')}` : '';
       };
 
-      // The FULL catalog with every spec line measured 140,590 chars — past what
-      // hosts accept, on the one discovery tool the skill tells the model to call
-      // when it is unsure. Unfiltered, emit the one-line form (enough to choose a
-      // model); once `type` narrows it, the set is small enough for full specs.
-      const detailed = !!type;
+      // Spec lines are long, and only the chosen model's matter. A typed list
+      // with every spec line measured 42,600 chars for text_to_img (97 models),
+      // and it is re-sent on every later request of the session. Lists show
+      // one line per model; `model` returns one model with its full specs.
       // Summaries run to a paragraph each; across the whole catalog that alone
       // is most of the payload. Unfiltered, one clause is enough to choose by.
+      // A typed list is chosen from by summary, so it keeps a longer clause.
+      const briefMax = type ? 220 : 130;
       const brief = (s) => {
         if (!s) return '';
         const flat = String(s).replace(/\s+/g, ' ').trim();
-        return flat.length > 130 ? flat.slice(0, 127).trimEnd() + '…' : flat;
+        return flat.length > briefMax ? flat.slice(0, briefMax - 3).trimEnd() + '…' : flat;
       };
       // Text models bill per token — the flat `credit` is not what the user pays,
       // so show the real per-1K rates when the API supplies them. Without this the
@@ -405,12 +416,23 @@ function registerModelTools(server, client, options = {}) {
         : isPerSecondVideo(m)
           ? `${m.credit} credits/output-second${m.video_input_credit != null ? `; ${m.video_input_credit} credits/combined-second with video input` : ''}`
           : `${m.credit} credits`);
-      const formatModel = m =>
-        `${m.identifier} (${m.name}) - ${cost(m)}${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}${m.summary ? ` — ${detailed ? m.summary : brief(m.summary)}` : ''}${detailed ? formatSpecs(m) : ''}`;
+      // thinking_level stays on the list line: it is short and chat_send_message needs it.
+      const thinking = m => (m.haveThinking && Array.isArray(m.thinkingLevels) && m.thinkingLevels.length
+        ? ` | thinking_level: ${m.thinkingLevels.map(level => level.id).join('/')} (default ${m.thinkingDefault})` : '');
+      const line = m => `${m.identifier} (${m.name}) - ${cost(m)}${m.recommended ? ' [RECOMMENDED]' : ''}${m.new_model ? ' [NEW]' : ''}`;
+      const formatModel = m => `${line(m)}${m.summary ? ` — ${brief(m.summary)}` : ''}${thinking(m)}`;
+      const formatFull = m => `${line(m)}${m.summary ? ` — ${m.summary}` : ''}${formatSpecs(m)}`;
 
       const sections = [];
 
-      if (!detailed) {
+      if (matches) {
+        const text = matches.length
+          ? `${matches.map(formatFull).join('\n\n')}\n\nUse the "identifier" value as the "model" parameter in generate tools.`
+          : `No ${type ? type + ' ' : ''}model matches "${model}". Call list_models with \`type\` to see the identifiers.`;
+        return respond(text);
+      }
+
+      if (!type) {
         // The catalog is ~428 models. Listing all of them is both far past the
         // text budget AND useless to choose from — so unfiltered, surface the
         // curated picks and make the model narrow by `type` for the rest. This
@@ -424,9 +446,8 @@ function registerModelTools(server, client, options = {}) {
           + 'This shortlist is BADGE-BASED (recommended/new) — it is not a recommendation to '
           + 'use the newest or biggest model. To pick properly, re-call with `type` and choose by '
           + 'each model\'s strengths summary, taking the cheapest one that covers the task. '
-          + 'To see everything in a '
-          + 'category (with per-model resolutions, durations, aspect ratios and reference-image '
-          + 'caps), re-call with `type`:\n'
+          + 'To see everything in a category, re-call with `type`; for one model\'s resolutions, '
+          + 'durations, aspect ratios and reference caps, pass `model`. Types:\n'
           + '  text_to_img · image_editing · text_to_video · img_to_video · video_to_video ·\n'
           + '  first_last_frame · elements · lipsync · music_gen · text_to_speech ·\n'
           + '  text_to_sound · stt · three_d · text\n\n'
@@ -440,10 +461,10 @@ function registerModelTools(server, client, options = {}) {
         sections.push(`Auto-selectable models (${withSummary.length}) — If the user already named a model/family (this turn or earlier), use that family — do not cheapest-swap. Otherwise CHOOSE BY THE SUMMARY after each "—": match it to what the user asked for, then take the CHEAPEST model that fits. Credit cost, [NEW] and [RECOMMENDED] are not reasons to pick a model:\n${withSummary.map(formatModel).join('\n')}`);
       }
       if (withoutSummary.length > 0) {
-        sections.push(`Named-only models (${withoutSummary.length}) — only use if the user explicitly requests by name:\n${withoutSummary.map(formatModel).join('\n')}`);
+        sections.push(`Named-only models (${withoutSummary.length}) — only use if the user explicitly requests by name:\n${withoutSummary.map(line).join('\n')}`);
       }
 
-      const text = `Available ${type} models (${result.count}):\n\n${sections.join('\n\n')}\n\nEvery ${type} model in the catalog is listed above — both sections together are the complete set. Use the "identifier" value as the "model" parameter in generate tools. For the raw documents (programmatic cap validation), re-call with format: "json".`;
+      const text = `Available ${type} models (${result.count}):\n\n${sections.join('\n\n')}\n\nEvery ${type} model in the catalog is listed above — both sections together are the complete set. Use the "identifier" value as the "model" parameter in generate tools. Before you generate, call list_models with \`model\` set to the chosen identifier: it returns that model's resolutions, durations, aspect ratios and reference caps.`;
       return respond(text);
     }
   );
