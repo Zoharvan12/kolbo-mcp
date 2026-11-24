@@ -47,6 +47,42 @@ function registerAnalyzeTools(server, client) {
       };
     }
   );
+
+  // ─── analyze_audio ──────────────────────────────────────────
+  // kolbo-api POST /v1/analyze/audio: same deep analyzer as analyze_video, audio only. Sync.
+  server.tool(
+    'analyze_audio',
+    'Understand an audio track (or the sound of a video file) with Kolbo\'s media analyzer: speech, music, sound effects, mood and timing. Pass a public https audio_url (or video_url) and an optional question in `prompt`. Billed by the analyzer\'s real usage. YouTube links are not supported here; use analyze_video for those. For a subtitle file or a plain transcript use transcribe_audio.',
+    {
+      audio_url: z.string().optional().describe('Public https URL of the audio file. Either this or video_url.'),
+      video_url: z.string().optional().describe('Public https URL of a video file whose sound to analyze. Either this or audio_url.'),
+      prompt: z.string().max(2000).optional().describe('The question about the audio, e.g. "When does the music change mood?". Omit for a full analysis.'),
+      project_id: projectIdField,
+    },
+    async ({ audio_url, video_url, prompt, project_id }) => {
+      if (!audio_url && !video_url) {
+        return { content: [{ type: 'text', text: 'Provide audio_url or video_url. Local file? Upload it first (create_upload_ticket / upload_media / media_upload_widget) and pass the returned URL.' }], isError: true };
+      }
+      const result = await client.post('/v1/analyze/audio', {
+        ...(audio_url ? { audio_url } : {}),
+        ...(video_url ? { video_url } : {}),
+        ...(prompt ? { prompt } : {}),
+        ...(project_id ? { project_id } : {}),
+      }, { timeoutMs: 10 * 60 * 1000 });
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            analysis: result.analysis,
+            audio: result.audio,
+            model: result.model,
+            usage: result.usage,
+            credits_used: result.credits_used,
+          }, null, 2),
+        }],
+      };
+    }
+  );
 }
 
 module.exports = { registerAnalyzeTools };

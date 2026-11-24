@@ -143,18 +143,21 @@ function registerAvatarTools(server, client) {
     async ({ avatar_id, ...body }) => text(await client.post(`/v1/avatars/${encodeURIComponent(avatar_id)}/scenes`, body))
   );
 
+  // Kept for old installs (tool names are a public contract). kolbo-api dropped the AI portrait step on
+  // 2026-11-08 (avatars now build from the real photos) and removed the /portraits routes, so these 404'd.
+  const noPortraits = { ok: true, changed: false, note: 'Avatars no longer use AI portrait options: every scene image and video builds from the real photos of the avatar. Nothing to regenerate or pick. To change the likeness, add or replace photos with update_avatar.' };
   server.tool(
     'regenerate_avatar_portraits',
-    "\"None of these look like me\": make a new set of portrait options for the avatar (a few rounds per avatar). The first set is made automatically when the avatar gets photos. Poll get_avatar until portraits.status is ready, then show the options and call pick_avatar_portrait.",
+    'Retired: avatars now build from their real photos, so there are no portrait options to regenerate. Returns a notice and changes nothing.',
     { avatar_id: z.string().min(1).max(64) },
-    async ({ avatar_id }) => text(await client.post(`/v1/avatars/${encodeURIComponent(avatar_id)}/portraits`, {}))
+    async () => text(noPortraits)
   );
 
   server.tool(
     'pick_avatar_portrait',
-    'Pick which portrait option looks like the person (url from get_avatar portraits.options). Every scene image and video then builds on it; scene images are remade on next use.',
+    'Retired: avatars now build from their real photos, so there is no portrait to pick. Returns a notice and changes nothing.',
     { avatar_id: z.string().min(1).max(64), url: z.string().url() },
-    async ({ avatar_id, url }) => text(await client.put(`/v1/avatars/${encodeURIComponent(avatar_id)}/portraits/pick`, { url }))
+    async () => text(noPortraits)
   );
 
   server.tool(
@@ -214,7 +217,7 @@ function registerAvatarTools(server, client) {
     'list_avatar_lipsync_models',
     'Models that can move the lips in a Photo avatar video (from the photo) or a Twin avatar video (from the footage), with credits per second and the longest clip each takes. Pass an id as lipsync_model on quote_avatar_video and create_avatar_video with the same mode. The default suits most videos.',
     { mode: z.enum(['photo', 'twin', 'heygen']).optional().describe('photo (default) lists image lipsync models, twin lists video lipsync models, heygen lists HeyGen Avatar 6 Turbo and Pro per look_source (heygen_mode).') },
-    async ({ mode }) => text(await client.get(`/v1/avatars/lipsync-models${mode ? `?mode=${mode}` : ''}`))
+    async ({ mode }) => text(await client.get('/v1/avatars/lipsync-models' + (mode ? `?mode=${encodeURIComponent(mode)}` : '')))
   );
 
   server.tool(

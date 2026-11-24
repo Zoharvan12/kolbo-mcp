@@ -77,7 +77,7 @@ var TOOL_TITLES = {
   edit_music_section: 'Music Edit', add_vocals: 'Add Vocals', add_instrumental: 'Add Instrumental',
   replace_music_section: 'Replace Section', export_music_wav: 'WAV Export', make_music_video: 'Music Video',
   generate_speech: 'Text to Speech',
-  generate_sound: 'Sound Effect', generate_3d: '3D Generation',
+  generate_sound: 'Sound Effect', change_voice: 'Voice Change', generate_3d: '3D Generation',
   generate_creative_director: 'Creative Director', image_tools: 'Image Tools', video_tools: 'Video Tools',
   get_generation_status: 'Generations'
 };

@@ -1533,6 +1533,46 @@ function registerGenerateTools(server, client, options = {}) {
     }
   );
 
+  // ─── change_voice ──────────────────────────────────────────
+  // Speech-to-speech: kolbo-api POST /v1/audio/voice-change (Audio Studio flow, async).
+  server.tool(
+    'change_voice',
+    'Re-voice a recorded performance into another voice, keeping its exact timing, pauses and acting (speech-to-speech). Pass the recording in `audio_url` and exactly one target: `visual_dna_id` (a character Visual DNA that has a voice) or `target_audio_url` (a clip of the voice to copy). For new lines from text use generate_speech instead. Returns the re-voiced audio URL when complete.',
+    {
+      audio_url: z.string().describe('Public https URL of the recording to re-voice (an upload_media result, a Kolbo generation, or any direct audio link).'),
+      visual_dna_id: z.string().optional().describe('Visual DNA whose voice to use (list_visual_dnas). Send this OR target_audio_url.'),
+      target_audio_url: z.string().optional().describe('Public https URL of a clip of the target voice. Send this OR visual_dna_id.'),
+      project_id: projectIdField,
+    },
+    async ({ audio_url, visual_dna_id, target_audio_url, project_id }) => {
+      if (!visual_dna_id === !target_audio_url) {
+        return { content: [{ type: 'text', text: 'Send exactly one of visual_dna_id or target_audio_url.' }], isError: true };
+      }
+      const gen = await client.post('/v1/audio/voice-change', { audio_url, visual_dna_id, target_audio_url, project_id });
+      const prompt = 'Voice change';
+      if (returnsImmediately()) return submittedResult({ tool: 'change_voice', kind: 'audio', gen, client, prompt, settings: {} });
+      const poll = await pollOrTimedOut(client, gen.generation_id, {
+        interval: (gen.poll_interval_hint || 5) * 1000,
+        timeout: 180000
+      });
+      if (poll.timedOut) return poll.timedOut;
+      const result = poll.result;
+      return uiCompleted({
+        tool: 'change_voice', kind: 'audio', gen, client, prompt, settings: {},
+        urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
+        duration: result.result.duration,
+        credits_used: creditFields(result).credits_used,
+      }, JSON.stringify({
+        ...creditFields(result),
+        session_id: gen.session_id,
+        urls: result.result.urls,
+        playback_urls: result.result.playback_urls,
+        duration: result.result.duration
+      }, null, 2));
+    }
+  );
+
   // The status endpoint reports RAW ids — `model: "google_tts"`, `voice:
   // "he-IL-Chirp3-HD-Kore"`. That is the model/voice that ACTUALLY ran (for
   // Smart Select it is the only place the choice surfaces), so the card must
