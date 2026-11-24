@@ -38,3 +38,11 @@ test('`model` returns that one model with its full summary and specs', async () 
   const missing = await list({ model: 'nope' });
   assert.match(missing.content[0].text, /No model matches "nope"/);
 });
+
+test('the description steers single-model lookups to `model`, not json', () => {
+  let desc, schema;
+  registerModelTools({ tool: (name, d, s) => { if (name === 'list_models') { desc = d; schema = s; } } }, { get: async () => ({}) });
+  assert.match(desc, /pass `model` for the full specs/);
+  assert.match(desc, /never to find an identifier or to check one model/);
+  assert.doesNotMatch(schema.format.description, /source of truth/);
+});
