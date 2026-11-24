@@ -32,7 +32,13 @@ const HEYGEN = {
   voice_id: z.string().max(200).optional().describe('look_source character or stock: a library voice (list_avatar_stock_voices) to speak the script instead of the avatar\'s voice.'),
 };
 const RESOLUTION = z.enum(['480p', '720p', '1080p', '2k', '4k']).optional().describe('2k is for HeyGen Avatar 6 only.');
-const LOOK = z.string().max(40).optional().describe('An outfit from add_avatar_look (look_id). Omit for the clothes in the photos. Omni and Photo only.');
+const LOOK = z.string().max(40).optional().describe('An outfit from add_avatar_look (look_id). Omit for the clothes in the photos. Omni and Photo wear it; Twin changes its starting image to that outfit.');
+const TWIN = {
+  start_image_url: z.string().url().optional().describe('Twin only: the starting image (gives the face and framing). Omit and the best frame of the talking video is picked and cropped waist-up automatically: calm, sharp, facing the camera. An uploaded image must show one clear face; needs consent.'),
+  motion_video_url: z.string().url().optional().describe('Twin only: a talking video of the same person to drive the motion, instead of the avatar\'s own video. Needs consent.'),
+  start_edit: z.string().max(300).optional().describe('Twin only: a change to the starting image in words, a new outfit or place ("navy blazer", "in a podcast studio"). The face stays.'),
+  consent: z.boolean().optional().describe('Twin only: true = the user confirms the uploaded start_image_url / motion_video_url show them, or a person who gave permission. Required when either is passed.'),
+};
 
 function registerAvatarTools(server, client) {
   server.tool(
@@ -249,7 +255,8 @@ function registerAvatarTools(server, client) {
       audio_url: z.string().url().optional(),
       resolution: RESOLUTION,
       speech_url: z.string().optional().describe('The speech_url from preview_avatar_speech for this exact script: the video then speaks what was heard, at its exact length and price. Send it together with the script.'),
-      lipsync_model: z.string().optional().describe('Photo and Twin modes: a model id from list_avatar_lipsync_models for that mode. Omit for the default. The price follows that model.'),
+      lipsync_model: z.string().optional().describe('Photo: a model id from list_avatar_lipsync_models (mode photo). Twin: Turbo (default) or Pro, the ids from list_avatar_lipsync_models with mode heygen whose heygen_mode is character. The price follows that model.'),
+      ...TWIN,
       remove_background: z.boolean().optional().describe('Also remove the background: the video comes back transparent (video_url = webm with alpha, download_url = editing master). Costs extra per second (see remove_background_credits); up to 1080p and 60 s.'),
       look_id: LOOK,
       ...HEYGEN,
@@ -259,14 +266,14 @@ function registerAvatarTools(server, client) {
 
   server.tool(
     'create_avatar_video',
-    'Make the avatar say a script (any language) or speak the user\'s own recording (audio_url: no voice needed on the avatar, the price follows its exact length). Photo mode starts from one image the user must see first: call preview_avatar_scene for that scene, show them the image and wait for their approval, otherwise this refuses with PREVIEW_REQUIRED. Pick mode: omni (acts naturally in the scene, up to 60 s), photo (fast, from a still in the scene, up to 3 min), twin (the person\'s own footage, up to 3 min; needs a video on the avatar). Omni/photo use scene_id (from the avatar) or preset_key (default home-studio). Returns video_id at once — poll get_avatar_video until status is completed; its estimated_wait_seconds says how long to expect. Pass session_id to keep several videos in one session; otherwise it goes to project_id (or the API Generations project). remove_background: true delivers it with a transparent background (talking heads to place on anything); quote first, it costs extra.',
+    'Make the avatar say a script (any language) or speak the user\'s own recording (audio_url: no voice needed on the avatar, the price follows its exact length). Photo mode starts from one image the user must see first: call preview_avatar_scene for that scene, show them the image and wait for their approval, otherwise this refuses with PREVIEW_REQUIRED. Pick mode: omni (acts naturally in the scene, up to 60 s), photo (fast, from a still in the scene, up to 3 min), twin (HeyGen Avatar 6: the person\'s own talking video drives the motion and one starting image gives the face, picked from that video automatically unless start_image_url is given; start_edit or look_id changes the outfit or place; needs a video on the avatar or motion_video_url). Omni/photo use scene_id (from the avatar) or preset_key (default home-studio). Returns video_id at once — poll get_avatar_video until status is completed; its estimated_wait_seconds says how long to expect. Pass session_id to keep several videos in one session; otherwise it goes to project_id (or the API Generations project). remove_background: true delivers it with a transparent background (talking heads to place on anything); quote first, it costs extra.',
     {
       avatar_id: z.string().min(1).max(64),
       mode: MODE,
       script: z.string().min(1).max(6000).optional(),
       audio_url: z.string().url().optional(),
       mic: z.boolean().optional().describe('Omni and Photo, shots that take one: the person holds a small microphone in one hand, like a UGC creator.'),
-      direction: z.string().max(400).optional().describe('Directing notes for the performance (Omni and Photo), e.g. "excited, laugh on the last line" or "serious, look down at the start". They take priority over the default acting. Photo also reads its still: what the hands hold, framing and the mood of the line.'),
+      direction: z.string().max(400).optional().describe('Directing notes for the performance (Omni, Photo and Twin), e.g. "excited, laugh on the last line" or "serious, look down at the start". They take priority over the default acting. Photo also reads its still: what the hands hold, framing and the mood of the line.'),
       scene_id: z.string().max(40).optional(),
       preset_key: z.string().max(40).optional(),
       shot: SHOT.optional().describe('Omni only: close = talking head (default), podcast = side angle looking at an unseen host, full_body = whole person seated/standing, walk = walking toward a gimbal camera (best in outdoor scenes), webcam = video call, propped = phone on the table, selfie = close handheld video message.'),
@@ -275,7 +282,8 @@ function registerAvatarTools(server, client) {
       resolution: RESOLUTION,
       language: z.string().max(10).optional().describe('auto (default) or a code like he, en, es.'),
       speech_url: z.string().optional().describe('The speech_url from preview_avatar_speech for this exact script: the video then speaks what was heard, at its exact length and price. Send it together with the script.'),
-      lipsync_model: z.string().optional().describe('Photo and Twin modes: a model id from list_avatar_lipsync_models for that mode. Omit for the default. The price follows that model.'),
+      lipsync_model: z.string().optional().describe('Photo: a model id from list_avatar_lipsync_models (mode photo). Twin: Turbo (default) or Pro, the ids from list_avatar_lipsync_models with mode heygen whose heygen_mode is character. The price follows that model.'),
+      ...TWIN,
       remove_background: z.boolean().optional().describe('Also remove the background: the video comes back transparent (video_url = webm with alpha, download_url = editing master). Costs extra per second (see remove_background_credits); up to 1080p and 60 s.'),
       session_id: z.string().max(64).optional(),
       project_id: z.string().max(64).optional(),
