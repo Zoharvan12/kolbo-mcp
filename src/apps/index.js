@@ -824,6 +824,7 @@ const TOOL_WIDGETS = {
   make_music_video: UI.generation,
   generate_speech: UI.generation,
   generate_sound: UI.generation,
+  change_voice: UI.generation,
   generate_3d: UI.generation,
   // Declared explicitly so Apps hosts prepare the card from tools/list rather
   // than inferring it from the `generate_*` name; result-level _meta alone is
