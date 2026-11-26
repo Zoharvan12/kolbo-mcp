@@ -87,6 +87,8 @@ const KNOWN_STALE = new Set([
   // brain.js: kolbo-api brainRoutes.js declares these as `${P}` / `${P}/rules/:ruleId` template routes the
   // parser cannot expand, and the MCP builds the rule path from ruleBase(project_id). All exist (2026-11-26).
   'GET /v1/brain/projects/:param',
+  'DELETE /v1/:param/playbooks/:param', 'GET /v1/:param/playbooks/:param/:param', 'GET /v1/:param/playbooks', 'GET /v1/:param/rules/retired',
+  'POST /v1/:param/learn', 'POST /v1/:param/playbooks', 'POST /v1/:param/rules/:param/promote', 'POST /v1/:param/rules/:param/restore',
   'PATCH /v1/:param/:param',
   'DELETE /v1/:param/:param',
 ]);

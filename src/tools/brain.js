@@ -79,6 +79,97 @@ function registerBrainTools(server, client) {
     },
     async ({ query, project_id }) => text(unwrap(await client.post('/v1/brain/memory/search', { query, ...(project_id ? { projectId: project_id } : {}) })))
   );
+
+  const brainBase = (projectId) => `/v1/brain/projects/${encodeURIComponent(projectId)}`;
+
+  server.tool(
+    'learn_from_feedback',
+    'Keep the project brain up to date on its own. Call it, without being asked, whenever the user corrects a result or states how they want things in this project ("no, the logo goes bottom right", "always warmer light", "stop adding music"). Pass the user\'s own words; Kolbo keeps only lessons that will still hold next time, skips duplicates, and retires rules the new one replaces. Returns the rules it saved (often none, which is fine). Do not call it for plain approvals or one-off requests.',
+    {
+      project_id: z.string().describe('Project ObjectId the feedback is about.'),
+      message: z.string().describe('The user\'s own words, verbatim (not your summary).'),
+      context: z.string().optional().describe('What the feedback reacts to: the prompt or result you just produced (up to 4000 characters).'),
+    },
+    async ({ project_id, message, context }) => text(unwrap(await client.post(`${brainBase(project_id)}/learn`, { message, ...(context ? { context } : {}) })))
+  );
+
+  server.tool(
+    'move_brain_rule',
+    'Reorganize: move a project rule to the user\'s "about you" rules so Kobi follows it in every project ("I want this everywhere"). To regroup a rule inside the project use update_brain_rule with a new layer; to merge two rules, update one and delete the other.',
+    {
+      project_id: z.string().describe('Project ObjectId the rule is in.'),
+      rule_id: z.string().describe('Project rule id from get_project_brain.'),
+    },
+    async ({ project_id, rule_id }) => text(unwrap(await client.post(`${brainBase(project_id)}/rules/${encodeURIComponent(rule_id)}/promote`, {})))
+  );
+
+  server.tool(
+    'list_retired_brain_rules',
+    'List project rules Kolbo merged away or replaced while tidying the brain. Use when the user asks where a rule went; bring one back with restore_brain_rule.',
+    { project_id: z.string().describe('Project ObjectId.') },
+    async ({ project_id }) => text(unwrap(await client.get(`${brainBase(project_id)}/rules/retired`)))
+  );
+
+  server.tool(
+    'restore_brain_rule',
+    'Bring back a retired project rule (ids from list_retired_brain_rules).',
+    {
+      project_id: z.string().describe('Project ObjectId.'),
+      rule_id: z.string().describe('Retired rule id.'),
+    },
+    async ({ project_id, rule_id }) => text(unwrap(await client.post(`${brainBase(project_id)}/rules/${encodeURIComponent(rule_id)}/restore`, {})))
+  );
+
+  const KINDS = ['skill', 'agent', 'source'];
+
+  server.tool(
+    'list_brain_playbooks',
+    'List the project\'s playbooks: skills (how to do a recurring job here, e.g. "how we cut a trailer"), agents (a named helper with its own brief) and sources (reference material Kobi reads). with_body returns the full text.',
+    {
+      project_id: z.string().describe('Project ObjectId.'),
+      kind: z.enum(KINDS).optional().describe('Only this kind.'),
+      with_body: z.boolean().optional().describe('Include the full text of each playbook.'),
+    },
+    async ({ project_id, kind, with_body }) => {
+      const q = new URLSearchParams({ ...(kind ? { kind } : {}), ...(with_body ? { withBody: 'true' } : {}) }).toString();
+      return text(unwrap(await client.get(`${brainBase(project_id)}/playbooks` + (q ? `?${q}` : ''))));
+    }
+  );
+
+  server.tool(
+    'get_brain_playbook',
+    'Read one playbook in full (kind + slug from list_brain_playbooks).',
+    {
+      project_id: z.string().describe('Project ObjectId.'),
+      kind: z.enum(KINDS).describe('skill, agent or source.'),
+      slug: z.string().describe('Playbook slug.'),
+    },
+    async ({ project_id, kind, slug }) => text(unwrap(await client.get(`${brainBase(project_id)}/playbooks/${kind}/${encodeURIComponent(slug)}`)))
+  );
+
+  server.tool(
+    'save_brain_playbook',
+    'Create a playbook, or replace one with the same name/slug (earlier versions are kept). Use it when the user wants Kobi to remember a whole process, a helper brief or reference text for this project.',
+    {
+      project_id: z.string().describe('Project ObjectId.'),
+      kind: z.enum(KINDS).describe('skill = how to do a job, agent = a named helper brief, source = reference material.'),
+      name: z.string().describe('Short name (up to 80 characters).'),
+      description: z.string().optional().describe('One line: when to use it.'),
+      body: z.string().describe('The full text, in markdown.'),
+      slug: z.string().optional().describe('Existing slug to replace that playbook (from list_brain_playbooks).'),
+    },
+    async ({ project_id, kind, name, description, body, slug }) => text(unwrap(await client.post(`${brainBase(project_id)}/playbooks`, { kind, name, body, ...(description ? { description } : {}), ...(slug ? { slug } : {}) })))
+  );
+
+  server.tool(
+    'delete_brain_playbook',
+    'Delete a playbook (id from list_brain_playbooks). Confirm with the user first.',
+    {
+      project_id: z.string().describe('Project ObjectId.'),
+      playbook_id: z.string().describe('Playbook id.'),
+    },
+    async ({ project_id, playbook_id }) => text(unwrap(await client.delete(`${brainBase(project_id)}/playbooks/${encodeURIComponent(playbook_id)}`)))
+  );
 }
 
 module.exports = { registerBrainTools };
