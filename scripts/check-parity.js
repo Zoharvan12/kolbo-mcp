@@ -84,6 +84,11 @@ const KNOWN_GAPS = new Set([
 const KNOWN_STALE = new Set([
   'GET /v1/agents:param', // agents.js: client.get(`/v1/agents${qs}`) — qs is a query string, not a path segment
   'GET /v1/skills:param', // same call under the current '/skills' vocabulary
+  // brain.js: kolbo-api brainRoutes.js declares these as `${P}` / `${P}/rules/:ruleId` template routes the
+  // parser cannot expand, and the MCP builds the rule path from ruleBase(project_id). All exist (2026-11-26).
+  'GET /v1/brain/projects/:param',
+  'PATCH /v1/:param/:param',
+  'DELETE /v1/:param/:param',
 ]);
 
 function readFileOrBail(p) {
